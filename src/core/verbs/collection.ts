@@ -20,6 +20,15 @@ export type AcquiredVolume = {
   isbn?: string | null;
 };
 
+// The two values Postgres *parses* rather than checks, and therefore the two the database
+// cannot refuse politely: a price and a day arrive as text and become `numeric` and `date`
+// on the way in, and `6,50` or `11/03/2024` raises a syntax error rather than an integrity
+// violation. `refusing` deliberately does not launder a syntax error into an answer — it is
+// usually our bug — so the shape is checked here instead, and the owner reads prose rather
+// than meeting a 500 with their whole entry gone.
+const AMOUNT = /^[0-9]+([.][0-9]{1,2})?$/;
+const DAY = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+
 /**
  * Record a Volume as the owner's: it joins the Collection from this moment.
  *
@@ -28,6 +37,13 @@ export type AcquiredVolume = {
  * an owned ebook is not representable, so a digital book is a Reading and never this.
  */
 export async function acquireVolume(volume: AcquiredVolume): Promise<{ id: string }> {
+  if (volume.pricePaid && !AMOUNT.test(volume.pricePaid)) {
+    throw new Refusal("invalid", "A price is written with a dot and no currency: 6.50.");
+  }
+  if (volume.purchaseDate && !DAY.test(volume.purchaseDate)) {
+    throw new Refusal("invalid", "A purchase date is a day, written 2024-03-11.");
+  }
+
   const rows = await refusing(
     () =>
       query<{ id: string }>(
@@ -49,7 +65,7 @@ export async function acquireVolume(volume: AcquiredVolume): Promise<{ id: strin
     (constraint) => {
       switch (constraint) {
         case "volume_binding_id_fkey":
-          return "That is not a Binding. Pick one of the six the model knows.";
+          return "That is not a Binding. The pickers offer the ones the model knows.";
         case "volume_title_is_not_blank":
           return "A Volume needs the title printed on it.";
         case "volume_publisher_is_not_blank":
@@ -60,7 +76,7 @@ export async function acquireVolume(volume: AcquiredVolume): Promise<{ id: strin
           return "A language is a code like it, en or ja.";
         case "volume_price_paid_is_not_negative":
           return "A price paid is not negative. Leave it empty if the receipt is gone.";
-        case "volume_isbn_is_not_blank":
+        case "volume_isbn_is_ten_or_thirteen_characters":
           return "An ISBN is 10 or 13 characters with no spaces or dashes.";
         default:
           return "That Volume could not be acquired.";
@@ -95,17 +111,24 @@ export async function releaseVolume(volumeId: string): Promise<void> {
 
   // One statement, so the read that diagnoses a no-op cannot disagree with the write:
   // `known` sees the Volume as it was, `gone` is the release when there was one to make.
-  const [outcome] = await query<{ known: boolean; released: boolean }>(
-    `with known as (
-       select id from volume where id = $1
-     ), gone as (
-       update volume set released_on = current_date
-        where id = (select id from volume where id = $1 and released_on is null)
-       returning id
-     )
-     select exists (select 1 from known)  as known,
-            exists (select 1 from gone)   as released`,
-    [volumeId]
+  const [outcome] = await refusing(
+    () =>
+      query<{ known: boolean; released: boolean }>(
+        `with known as (
+           select id from volume where id = $1
+         ), gone as (
+           update volume set released_on = current_date
+            where id = $1 and released_on is null
+           returning id
+         )
+         select exists (select 1 from known) as known,
+                exists (select 1 from gone)  as released`,
+        [volumeId]
+      ),
+    (constraint) =>
+      constraint === "volume_release_follows_purchase"
+        ? "That Volume's purchase date is in the future, so it cannot have left the house today."
+        : "That Volume could not be released."
   );
 
   if (!outcome.known) throw new Refusal("not-found", "No Volume has that id.");

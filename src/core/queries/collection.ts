@@ -25,7 +25,17 @@ export type CollectionVolume = {
   isbn: string | null;
 };
 
-/** What narrows the Collection. Everything absent is everything. */
+/**
+ * What narrows the Collection. Everything absent is everything.
+ *
+ * **Type is missing, and it is owed rather than forgotten.** The ticket asks for it, and
+ * it cannot be answered from here yet: Type is an attribute of a *Story* (ADR-0006), so
+ * reaching it from a Volume needs the Story ↔ Volume join, which is many-to-many and
+ * belongs to the slice that builds it. Giving a Volume a `type_id` of its own would
+ * answer the search by contradicting the model — a Volume holding three Stories of two
+ * Types has no one Type — so this filter stays three fields wide until the join exists,
+ * and then gains a fourth here.
+ */
 export type CollectionFilter = {
   /** Matched anywhere in the title, case-insensitively. */
   title?: string;
@@ -57,10 +67,27 @@ export async function searchCollection(filter: CollectionFilter): Promise<Collec
        from volume v
        join binding b on b.id = v.binding_id
       where v.released_on is null
-        and ($1::text is null or v.title ilike '%' || $1 || '%')
-        and ($2::text is null or v.publisher ilike '%' || $2 || '%')
+        -- strpos rather than ilike '%…%', so that what the owner typed is a word and not
+        -- a pattern: % and _ are ordinary characters in a title, and a search box that
+        -- treated them as wildcards would answer a question nobody asked.
+        and ($1::text is null or strpos(lower(v.title), lower($1)) > 0)
+        and ($2::text is null or strpos(lower(v.publisher), lower($2)) > 0)
         and ($3::text is null or v.binding_id = $3)
       order by lower(v.title), b.display_order, v.id`,
     [filter.title ?? null, filter.publisher ?? null, filter.binding ?? null]
   );
+}
+
+/**
+ * How many Volumes are in the house.
+ *
+ * Its own question, and its own statement, because the screen says *3 of 98* while a
+ * search is on: counting by fetching the whole Collection would read ninety-eight rows,
+ * ISBNs and prices and all, to print one number.
+ */
+export async function countCollection(): Promise<number> {
+  const [row] = await query<{ owned: string }>(
+    "select count(*) as owned from volume where released_on is null"
+  );
+  return Number(row.owned);
 }

@@ -68,7 +68,7 @@ create table volume (
     check (edition_line is null or (edition_line = btrim(edition_line) and edition_line <> '')),
   constraint volume_language_is_a_code check (language ~ '^[a-z]{2,3}(-[a-z0-9]+)*$'),
   constraint volume_price_paid_is_not_negative check (price_paid is null or price_paid >= 0),
-  constraint volume_isbn_is_not_blank check (isbn is null or isbn ~ '^[0-9]{9}[0-9Xx]$|^[0-9]{13}$'),
+  constraint volume_isbn_is_ten_or_thirteen_characters check (isbn is null or isbn ~ '^[0-9]{9}[0-9Xx]$|^[0-9]{13}$'),
   -- A Volume cannot leave the house before it arrived in it. Only checked where the
   -- owner recorded both days.
   constraint volume_release_follows_purchase
@@ -86,6 +86,7 @@ comment on column volume.language is 'A language code — it, en, ja.';
 comment on column volume.released_on is
   'The day it left the house. Null is the Collection; a day is a record kept.';
 
--- The Collection is the search this index exists for: a title, case-insensitively,
--- among what is still owned.
-create index volume_owned_by_title on volume (lower(title)) where released_on is null;
+-- There is deliberately no index for the Collection's search. It matches a word
+-- anywhere in a title, which no b-tree can serve, and the whole Collection is a hundred
+-- rows: a sequential scan over it is the right plan, and an index that looked like it
+-- helped would only be a claim nobody had measured.

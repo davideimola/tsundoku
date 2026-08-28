@@ -74,7 +74,7 @@ describe("what the model refuses about an object", () => {
   it("refuses a Binding it does not know, rather than inventing one", async () => {
     await expect(acquireVolume({ ...aTankobon(), binding: "hardback" })).rejects.toMatchObject({
       code: "not-found",
-      message: "That is not a Binding. Pick one of the six the model knows.",
+      message: "That is not a Binding. The pickers offer the ones the model knows.",
     });
   });
 
@@ -89,6 +89,28 @@ describe("what the model refuses about an object", () => {
     await expect(acquireVolume({ ...aTankobon(), title: "  " })).rejects.toMatchObject({
       code: "invalid",
       message: "A Volume needs the title printed on it.",
+    });
+  });
+});
+
+// The two values Postgres parses rather than checks. A wrong shape reaches the driver as
+// a syntax error, which is not an integrity violation and is deliberately never laundered
+// into an answer — so if these ever stop being refusals, the owner meets a 500 with their
+// whole entry gone, which is the failure this pair exists to prevent.
+describe("what the owner is most likely to mistype", () => {
+  it("refuses a price written with a comma, as an Italian keyboard offers first", async () => {
+    await expect(acquireVolume({ ...aTankobon(), pricePaid: "6,50" })).rejects.toMatchObject({
+      code: "invalid",
+      message: "A price is written with a dot and no currency: 6.50.",
+    });
+  });
+
+  it("refuses a purchase date written the way it is spoken", async () => {
+    await expect(
+      acquireVolume({ ...aTankobon(), purchaseDate: "11/03/2024" })
+    ).rejects.toMatchObject({
+      code: "invalid",
+      message: "A purchase date is a day, written 2024-03-11.",
     });
   });
 });

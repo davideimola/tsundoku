@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
-import { acquireVolume } from "../verbs/collection.ts";
-import { searchCollection } from "./collection.ts";
+import { acquireVolume, releaseVolume } from "../verbs/collection.ts";
+import { countCollection, searchCollection } from "./collection.ts";
 
 // Seam 1. The Collection is the question asked standing in a shop, so what is asserted
 // here is what the owner sees after typing a word into it.
@@ -9,7 +9,7 @@ beforeEach(async () => {
   await query("truncate volume");
 });
 
-async function shelf(): Promise<void> {
+async function threeVolumesInTheHouse(): Promise<void> {
   await acquireVolume({
     title: "Slam Dunk 1",
     publisher: "Planet Manga",
@@ -36,7 +36,7 @@ function titles(volumes: { title: string }[]): string[] {
 }
 
 describe("searching the Collection", () => {
-  beforeEach(shelf);
+  beforeEach(threeVolumesInTheHouse);
 
   it("lists everything owned, by title, when nothing is asked", async () => {
     expect(titles(await searchCollection({}))).toEqual([
@@ -96,5 +96,36 @@ describe("digital ownership", () => {
         .map((column) => column.column_name)
         .filter((name) => /medium|digital|ebook|format|file/.test(name))
     ).toEqual([]);
+  });
+});
+
+describe("counting the Collection", () => {
+  it("is the number of Volumes in the house, and a release takes one off it", async () => {
+    await threeVolumesInTheHouse();
+    expect(await countCollection()).toBe(3);
+
+    const [first] = await searchCollection({});
+    await releaseVolume(first.id);
+
+    expect(await countCollection()).toBe(2);
+  });
+
+  it("counts nothing where nothing is owned", async () => {
+    expect(await countCollection()).toBe(0);
+  });
+});
+
+// A search box takes a word, not a pattern.
+describe("a title with a wildcard character in it", () => {
+  it("is searched for literally", async () => {
+    await acquireVolume({
+      title: "100% Doraemon",
+      publisher: "Star Comics",
+      binding: "tankobon",
+      language: "it",
+    });
+
+    expect(titles(await searchCollection({ title: "100%" }))).toEqual(["100% Doraemon"]);
+    expect(await searchCollection({ title: "%%%" })).toEqual([]);
   });
 });

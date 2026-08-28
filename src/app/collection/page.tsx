@@ -4,8 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { listBindings } from "@/core/queries/binding";
-import { type CollectionVolume, searchCollection } from "@/core/queries/collection";
+import { type Binding, listBindings } from "@/core/queries/binding";
+import {
+  type CollectionVolume,
+  countCollection,
+  searchCollection,
+} from "@/core/queries/collection";
 
 // THE COLLECTION, and the screen this whole slice exists for: *do I already have this?*
 // asked standing in a shop, one-handed, on the shop's signal. So the phone is the target
@@ -47,7 +51,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
 
   const [volumes, owned, bindings] = await Promise.all([
     searchCollection(filter),
-    searchCollection({}),
+    countCollection(),
     listBindings(),
   ]);
 
@@ -67,7 +71,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         <h1 className="mt-6 font-heading text-2xl sm:text-3xl">Collection</h1>
         <p className="mt-2 text-pretty text-sm text-muted-foreground">
           The Volumes physically in the house. Not what has been read, and not what is wanted — what
-          is on the shelf.
+          is owned.
         </p>
       </header>
 
@@ -107,33 +111,22 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             <Label htmlFor="search-binding" className="text-xs text-muted-foreground">
               Binding
             </Label>
-            {/* A native select rather than a scripted one: on a phone it opens the
-                platform picker, and it submits with the form whether JavaScript ran or
-                not. The Bindings come out of the database — the six are rows, and a
-                seventh must appear here without this file being touched (ADR-0006). */}
-            <select
+            <BindingSelect
               id="search-binding"
-              name="binding"
-              defaultValue={filter.binding ?? ""}
-              className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
-            >
-              <option value="">Any</option>
-              {bindings.map((binding) => (
-                <option key={binding.id} value={binding.id}>
-                  {binding.name}
-                </option>
-              ))}
-            </select>
+              bindings={bindings}
+              chosen={filter.binding}
+              any="Any"
+            />
           </div>
 
           <div className="flex items-end gap-2 sm:col-span-3">
-            <Button type="submit" className="h-10 flex-1 sm:flex-none sm:px-6">
+            <Button type="submit" className="h-11 flex-1 sm:h-10 sm:flex-none sm:px-6">
               Search
             </Button>
             {narrowed ? (
               <Link
                 href="/collection"
-                className="inline-flex h-10 items-center px-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                className="inline-flex h-11 items-center px-2 sm:h-10 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
               >
                 Show everything
               </Link>
@@ -157,21 +150,21 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
       ) : null}
       {released ? (
         <p role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm">
-          {released || "That Volume"} left the house. Its record is kept.
+          {released} left the house. Its record is kept.
         </p>
       ) : null}
 
       <p className="mt-6 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
         {narrowed
-          ? `${volumes.length} of ${owned.length} ${owned.length === 1 ? "Volume" : "Volumes"}`
-          : `${owned.length} ${owned.length === 1 ? "Volume" : "Volumes"}`}
+          ? `${volumes.length} of ${owned} ${owned === 1 ? "Volume" : "Volumes"}`
+          : `${owned} ${owned === 1 ? "Volume" : "Volumes"}`}
       </p>
 
       {volumes.length === 0 ? (
         <p className="mt-4 text-pretty text-sm text-muted-foreground">
           {narrowed
             ? "Nothing owned matches that. Which is the answer worth having in a shop — widen the search to be sure, then buy it."
-            : "Nothing on the shelf yet. Record the Volume in your hand below."}
+            : "Nothing in the Collection yet. Record the Volume in your hand below."}
         </p>
       ) : (
         <ul className="mt-2">
@@ -207,27 +200,16 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             <Label htmlFor="acquire-binding" className="text-xs text-muted-foreground">
               Binding
             </Label>
-            <select
-              id="acquire-binding"
-              name="binding"
-              required
-              className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
-            >
-              {bindings.map((binding) => (
-                <option key={binding.id} value={binding.id}>
-                  {binding.name}
-                </option>
-              ))}
-            </select>
+            <BindingSelect id="acquire-binding" bindings={bindings} required />
           </div>
 
-          <Field name="language" label="Language" placeholder="it" required />
+          <Field name="language" label="Language" defaultValue="it" required />
           <Field name="pricePaid" label="Price paid" placeholder="6.50" inputMode="decimal" />
           <Field name="purchaseDate" label="Purchase date" type="date" />
           <Field name="isbn" label="ISBN" placeholder="9788828765431" inputMode="numeric" />
 
           <div className="sm:col-span-2">
-            <Button type="submit" className="h-10 w-full sm:w-auto sm:px-6">
+            <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto sm:px-6">
               Record it
             </Button>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -239,6 +221,46 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </form>
       </details>
     </main>
+  );
+}
+
+/**
+ * The Binding picker, on the search and on the form.
+ *
+ * A native select rather than a scripted one: on a phone it opens the platform picker,
+ * and it submits with the form whether JavaScript ran or not. The Bindings come out of
+ * the database — they are rows, so a seventh appears here without this file being touched
+ * (ADR-0006).
+ */
+function BindingSelect({
+  id,
+  bindings,
+  chosen,
+  any,
+  required,
+}: {
+  id: string;
+  bindings: Binding[];
+  chosen?: string;
+  /** The wording for "no Binding in particular", where not choosing is allowed. */
+  any?: string;
+  required?: boolean;
+}) {
+  return (
+    <select
+      id={id}
+      name="binding"
+      defaultValue={chosen ?? ""}
+      required={required}
+      className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30"
+    >
+      {any ? <option value="">{any}</option> : null}
+      {bindings.map((binding) => (
+        <option key={binding.id} value={binding.id}>
+          {binding.name}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -272,7 +294,7 @@ function VolumeRow({ volume }: { volume: CollectionVolume }) {
         <form action={release} className="pb-4">
           <input type="hidden" name="volumeId" value={volume.id} />
           <input type="hidden" name="title" value={volume.title} />
-          <Button type="submit" variant="destructive" size="sm" className="h-9">
+          <Button type="submit" variant="destructive" size="sm" className="h-11 sm:h-9">
             Release it
           </Button>
           <span className="ml-3 text-xs text-muted-foreground">
