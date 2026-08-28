@@ -11,9 +11,10 @@ import { Refusal, refusing } from "../refusal.ts";
 //   - **It never overwrites.** Rereading is a real intention the owner already records,
 //     so a second Reading of the same Story is an insert like the first, and the Rating
 //     the first carried survives beside the second (CONTEXT.md).
-//   - **It says nothing about a Volume.** The optional Volume a Reading went through
-//     arrives with the Collection; a Reading with no Volume at all is the ordinary case
-//     here, not a degenerate one (ADR-0001).
+//   - **It presumes no Volume.** A Reading with no Volume at all is the ordinary case here
+//     rather than a degenerate one — read digitally, borrowed, or known only from Goodreads
+//     history — and the object is optional precisely because being read and being owned are
+//     unrelated facts (ADR-0001).
 //   - **It writes no state onto the Story.** To read / reading / read / abandoned is
 //     derived from these rows by `queries/story.ts` and stored nowhere.
 
@@ -35,6 +36,12 @@ export type NewReading = {
   endedOn?: string | null;
   /** Absent for a Reading in progress, which is what makes the Story `reading`. */
   outcome?: Outcome | null;
+  /**
+   * The Volume this reading went through, where there was one. Absent is the ordinary
+   * case, and it is the only possibility on digital: an owned ebook is not a thing this
+   * model has, so a digital Reading went through no object (`CONTEXT.md`).
+   */
+  volumeId?: string | null;
 };
 
 function readingProse(constraint: string | undefined): string {
@@ -49,6 +56,9 @@ function readingProse(constraint: string | undefined): string {
     return "A Reading that has not ended has no end date.";
   if (constraint === "reading_outcome_is_finished_or_abandoned")
     return "A Reading ends finished or abandoned.";
+  if (constraint === "reading_volume_exists") return "That Volume is not in the library.";
+  if (constraint === "reading_digital_went_through_no_volume")
+    return "A Reading on digital went through no Volume: an owned ebook is not a thing here.";
   return "That Reading could not be recorded.";
 }
 
@@ -63,8 +73,9 @@ export async function recordReading(reading: NewReading): Promise<string> {
   const rows = await refusing(
     () =>
       query<{ id: string }>(
-        `insert into reading (story_id, medium, outcome, started_on, ended_on, provenance_id)
-         values ($1, $2, $3, $4, $5, $6)
+        `insert into reading
+           (story_id, medium, outcome, started_on, ended_on, provenance_id, volume_id)
+         values ($1, $2, $3, $4, $5, $6, $7)
          returning id`,
         [
           reading.storyId,
@@ -73,6 +84,7 @@ export async function recordReading(reading: NewReading): Promise<string> {
           reading.startedOn ?? null,
           reading.endedOn ?? null,
           reading.provenanceId,
+          reading.volumeId ?? null,
         ]
       ),
     readingProse
