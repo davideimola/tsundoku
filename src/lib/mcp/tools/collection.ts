@@ -1,5 +1,6 @@
 import { listBindings } from "@/core/queries/binding";
 import { countCollection, searchCollection } from "@/core/queries/collection";
+import { acquireVolume, releaseVolume } from "@/core/verbs/collection";
 import { type McpTool, stringArgument } from "../tool.ts";
 
 // The Collection area: the Volumes physically in the owner's house.
@@ -79,4 +80,92 @@ Binding they will meet — so read the list rather than assuming the six you kno
   },
 };
 
-export default [search, bindings];
+// The two write tools, and the line ADR-0005 draws runs right through this area.
+//
+// **Acquiring is a verb on an object that already exists**, so this door calls it directly:
+// it is one row, it says a thing the owner can check by looking at a shelf, and it is
+// undone by releasing. **Cataloguing is entity creation**, and it is deliberately absent —
+// there is no `collection_catalogue` here and there must not be one, because a fabricated
+// edition is a permanent duplicate. ADR-0007 is what makes the split clean: the two acts
+// were one verb until it separated them, and the boundary now falls exactly between them.
+
+const acquire: McpTool = {
+  name: "collection_acquire",
+  title: "Record that a Volume is in the house",
+  description: `Record that a catalogued **Volume** is in the owner's house, from a day and at a
+price: it joins the Collection.
+
+This is the tool for *"I bought Omnibus 1"* — but only for an object the library already knows. **It
+never catalogues one**: a Volume nobody has recorded is \`inbox_propose_volume\`, and the owner
+approving that proposal is what records the object. Then this says it came home.
+
+Being catalogued and being in the house are two facts, which is why this is a second act rather than
+a field on the first. Said again on a Volume already in the house it is refused — the Collection
+cannot claim one object twice. Said again after a release it is a **second acquisition**, which is
+the real event: sold, then bought again.
+
+It does **not** end a Wish. Nothing but \`wish_close\` does, deliberately, so do not assume the
+shopping list has changed.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      volume: {
+        type: "string",
+        description: `The Volume's id. \`collection_search\` answers with the objects already in the
+house, so an id from there is one this tool will refuse — you want an object the owner has just got.`,
+      },
+      acquired_on: {
+        type: "string",
+        description: `The day it came home, written 2024-03-11. Leave it out where the owner does not
+know: a Volume owned since before any of this was written down has no receipt, and the fact does not
+depend on the day.`,
+      },
+      price_paid: {
+        type: "string",
+        description: `What was paid for *this* acquisition, with a dot and no currency: 24.90. Leave
+it out for a gift or where the receipt is gone.`,
+      },
+    },
+    required: ["volume"],
+    additionalProperties: false,
+  },
+  readOnly: false,
+  async run(input) {
+    await acquireVolume({
+      volumeId: stringArgument(input, "volume") ?? "",
+      acquiredOn: stringArgument(input, "acquired_on"),
+      pricePaid: stringArgument(input, "price_paid"),
+    });
+    return { acquired: true };
+  },
+};
+
+const release: McpTool = {
+  name: "collection_release",
+  title: "Record that a Volume left the house",
+  description: `Record that a **Volume** left the owner's hands: the acquisition ends today and the
+Collection stops claiming it.
+
+The object stays in the catalogue and its history stays with it. A Reading made through it and the
+Edition note written about it are facts about the owner's past, so nothing is deleted — what changes
+is only whether the Collection answers with it. Acquiring it again later is a new acquisition.
+
+Refused on a Volume the Collection does not claim, and the two ways of not claiming it are told
+apart: one means they let it go already, the other means it is catalogued and was never in the
+house.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      volume: { type: "string", description: "The Volume's id, from `collection_search`." },
+    },
+    required: ["volume"],
+    additionalProperties: false,
+  },
+  readOnly: false,
+  async run(input) {
+    await releaseVolume(stringArgument(input, "volume") ?? "");
+    return { released: true };
+  },
+};
+
+export default [search, bindings, acquire, release];

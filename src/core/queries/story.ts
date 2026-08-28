@@ -186,7 +186,17 @@ const WHOLE_STORY = `
   from story s
   join type t on t.id = s.type_id`;
 
+// A Story's id is generated, so nobody types one: what arrives here came from a screen or
+// from an assistant reading the library over MCP. A malformed one is the same event as an
+// unknown one — there is no such Story — and this keeps it that way, because `where s.id =
+// $1` on a uuid column raises a *syntax* error for `"banana"`, which would reach the door
+// as a 500 rather than as an answer. The same guard every other `find` in this directory
+// has.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function findStory(storyId: string): Promise<Story | null> {
+  if (!UUID.test(storyId)) return null;
+
   const rows = await query<Story>(`${WHOLE_STORY} where s.id = $1`, [storyId]);
 
   return rows[0] ?? null;

@@ -13,6 +13,16 @@ import { Refusal, refusing } from "../refusal.ts";
 // literals, for the reason Type and Binding are data rows (ADR-0006): a colourist, a
 // letterer or a translator is a role the owner will meet, and nothing in TypeScript is
 // allowed to enumerate today's two.
+//
+// **This verb is deliberately not exposed over MCP, and the reason is a question ADR-0005
+// does not answer.** `creditStory` mints a **Person** on a name the library has not seen —
+// entity creation, on the far side of the boundary in every respect that matters — but the
+// ADR names a Story, a Volume and a Series and does not name a Person. A hallucinated name
+// would be a permanent duplicate too: the name is unique on `lower(name)`, there is no
+// rename verb and no merge verb, so the only repair is uncrediting. Until the owner either
+// extends the Inbox to cover a Person or says plainly that minting one is safe, there is no
+// tool over this verb — the undecided half is left undecided rather than settled in code
+// (#12).
 
 /** What crediting a Story needs, and the whole of it. */
 export type NewCredit = {
