@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { listTypes } from "@/core/queries/type";
 
@@ -47,6 +48,15 @@ export default async function Home() {
           </ul>
         </CardContent>
       </Card>
+
+      {/* The screens live behind their own routes. One line each, added by the slice that
+          builds one, until there are enough of them to be worth a shell of their own. */}
+      <p className="mt-8 text-sm">
+        <Link href="/collection" className="underline underline-offset-4">
+          Collection
+        </Link>{" "}
+        <span className="text-muted-foreground">— the Volumes in the house.</span>
+      </p>
 
       <p className="mt-6 text-pretty text-xs leading-relaxed text-muted-foreground">
         {types.length} rows, read from Postgres for this request. Nothing is hosted at this stage:
