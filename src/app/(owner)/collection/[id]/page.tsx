@@ -83,18 +83,21 @@ export default async function VolumePage({
           </Badge>
         </p>
 
-        {/* A released Volume keeps its page, because what it carried and what the owner
-            learned about it are still true. The Collection simply stops answering with it. */}
-        {volume.releasedOn ? (
+        {/* A Volume keeps its page whether or not the house holds it, because what it
+            carries and what the owner learned about it are still true. Three states rather
+            than two since the catalogue and the Collection came apart (ADR-0007), and the
+            page says which one plainly — the object is the same, the claim is not. */}
+        {volume.inTheHouse ? null : (
           <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-            Left the house on {volume.releasedOn}. Its record is kept: the Readings made through it
-            and the note below are still true.
+            {volume.releasedOn
+              ? `Left the house on ${volume.releasedOn}. Its record is kept: the Readings made through it and the note below are still true.`
+              : "Catalogued, and not in the house. The library knows this object; the Collection does not claim it."}
           </p>
-        ) : null}
+        )}
 
         <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-4 text-xs sm:grid-cols-4">
           <Fact term="Price paid" detail={volume.pricePaid ? `€ ${volume.pricePaid}` : "—"} />
-          <Fact term="Bought" detail={volume.purchaseDate ?? "—"} />
+          <Fact term="Came home" detail={volume.acquiredOn ?? "—"} />
           <Fact term="Language" detail={volume.language} />
           <Fact term="ISBN" detail={volume.isbn ?? "—"} mono />
         </dl>

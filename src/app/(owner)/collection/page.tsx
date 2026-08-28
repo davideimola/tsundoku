@@ -5,14 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type Binding, listBindings } from "@/core/queries/binding";
 import {
+  type CataloguedVolumeOutsideTheCollection,
   type CollectionVolume,
   countCollection,
+  listCataloguedOutsideTheCollection,
   searchCollection,
 } from "@/core/queries/collection";
 import { type CarriedStory, listStoriesInVolumes } from "@/core/queries/story-to-volume";
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
-import { acquire, release } from "./actions";
+import { acquire, catalogue, release } from "./actions";
 
 // THE COLLECTION, and the screen this whole slice exists for: *do I already have this?*
 // asked standing in a shop, one-handed, on the shop's signal. So the phone is the target
@@ -30,6 +32,13 @@ import { acquire, release } from "./actions";
 //   editions of one story apart — owning *Batman: Il lungo Halloween* in the Must Have is
 //   a different fact from owning it in the omnibus, and it is the fact the owner is in
 //   the shop to check.
+//
+// **The screen has two registers now, and the difference between them is the point**
+// (ADR-0007). The Collection is the solid list: objects in the house. Under it, in a
+// dashed frame, is the other half of the catalogue — objects the library knows and the
+// owner does not have. Nothing about the frame is decoration: a hairline that is not
+// continuous is how *not on the shelf* reads at a glance, and the answer the owner is in a
+// shop for is which of the two lists a title is in.
 //
 // A thin adapter over the core, like every page here (ADR-0002): it calls two queries,
 // lays out the answer, and holds no SQL and no rule about what a Volume may be.
@@ -58,9 +67,13 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   };
   const narrowed = Boolean(filter.title || filter.publisher || filter.binding || filter.type);
 
-  const [volumes, owned, bindings, types] = await Promise.all([
+  const [volumes, owned, elsewhere, bindings, types] = await Promise.all([
     searchCollection(filter),
     countCollection(),
+    // Unnarrowed, deliberately: it is a short list beside the Collection, and a search that
+    // emptied it would hide the one answer it exists to give — *you catalogued this and you
+    // do not have it*.
+    listCataloguedOutsideTheCollection(),
     listBindings(),
     listTypes(),
   ]);
@@ -70,6 +83,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   const held = await listStoriesInVolumes(volumes.map((volume) => volume.id));
 
   const refused = asked(params, "refused");
+  const catalogued = asked(params, "catalogued");
   const acquired = asked(params, "acquired");
   const released = asked(params, "released");
 
@@ -173,6 +187,11 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           {refused}
         </p>
       ) : null}
+      {catalogued ? (
+        <p role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm">
+          {catalogued} is in the catalogue. Say it is in the house when you have it.
+        </p>
+      ) : null}
       {acquired ? (
         <p role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm">
           {acquired} is in the Collection.
@@ -194,7 +213,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         <p className="mt-4 text-pretty text-sm text-muted-foreground">
           {narrowed
             ? "Nothing owned matches that. Which is the answer worth having in a shop — widen the search to be sure, then buy it."
-            : "Nothing in the Collection yet. Record the Volume in your hand below."}
+            : "Nothing in the Collection yet. Catalogue the Volume in your hand below, then say it is in the house."}
         </p>
       ) : (
         <ul className="mt-2">
@@ -204,18 +223,43 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </ul>
       )}
 
+      {elsewhere.length > 0 ? (
+        <section className="mt-12">
+          <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            Known, not in the house
+          </h2>
+          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
+            {elsewhere.length} {elsewhere.length === 1 ? "Volume" : "Volumes"} the library knows and
+            the Collection does not claim: catalogued to be wanted, or had once and let go. Say one
+            is in the house when it arrives.
+          </p>
+
+          {/* A dashed frame rather than the list's solid hairlines, because that is the
+              difference the screen is about: these rows look like an outline of the shelf
+              instead of the shelf. */}
+          <ul className="mt-4 rounded-xl border border-dashed border-border px-4">
+            {elsewhere.map((volume) => (
+              <CataloguedRow key={volume.id} volume={volume} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <details className="group mt-10 rounded-xl ring-1 ring-foreground/10">
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden">
-          Record a Volume
+          Catalogue a Volume
           <span className="ml-2 text-muted-foreground group-open:hidden">
-            — publisher, Binding, what it cost
+            — publisher, Binding, ISBN
           </span>
         </summary>
 
-        {/* No medium is asked for, and there is none to ask for: digital ownership is not
-            modelled, so an owned ebook is not a thing this form could record even if it
-            offered a box. A book read on a screen is a Reading. */}
-        <form action={acquire} className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
+        {/* Two things this form deliberately does not ask for.
+            No medium, and there is none to ask for: digital ownership is not modelled, so
+            an owned ebook is not a thing this form could record even if it offered a box.
+            And no price and no day, because those are facts about an object *coming home*
+            and this form only says what the object is (ADR-0007) — they are asked for by
+            the row above, at the moment they are true. */}
+        <form action={catalogue} className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
           <Field
             name="title"
             label="Title"
@@ -227,25 +271,24 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           <Field name="editionLine" label="Edition line" placeholder="DC Must Have" />
 
           <div className="grid gap-1.5">
-            <Label htmlFor="acquire-binding" className="text-xs text-muted-foreground">
+            <Label htmlFor="catalogue-binding" className="text-xs text-muted-foreground">
               Binding
             </Label>
-            <BindingSelect id="acquire-binding" bindings={bindings} required />
+            <BindingSelect id="catalogue-binding" bindings={bindings} required />
           </div>
 
           <Field name="language" label="Language" defaultValue="it" required />
-          <Field name="pricePaid" label="Price paid" placeholder="6.50" inputMode="decimal" />
-          <Field name="purchaseDate" label="Purchase date" type="date" />
           <Field name="isbn" label="ISBN" placeholder="9788828765431" inputMode="numeric" />
 
           <div className="sm:col-span-2">
             <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto sm:px-6">
-              Record it
+              Catalogue it
             </Button>
             <p className="mt-2 text-xs text-muted-foreground">
               A language is a code — <code className="font-mono">it</code>,{" "}
-              <code className="font-mono">en</code>, <code className="font-mono">ja</code>. Leave
-              the price and the date empty where the receipt is gone.
+              <code className="font-mono">en</code>, <code className="font-mono">ja</code>.
+              Cataloguing says what the object is; it does not say you have it. Holding it? Say so
+              from <em>Known, not in the house</em> above, with what you paid.
             </p>
           </div>
         </form>
@@ -346,7 +389,7 @@ function VolumeRow({ volume, stories }: { volume: CollectionVolume; stories: Car
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 pb-4 text-xs sm:grid-cols-4">
           <Fact term="Price paid" detail={volume.pricePaid ? `€ ${volume.pricePaid}` : "—"} />
-          <Fact term="Bought" detail={volume.purchaseDate ?? "—"} />
+          <Fact term="Came home" detail={volume.acquiredOn ?? "—"} />
           <Fact term="Language" detail={volume.language} />
           <Fact term="ISBN" detail={volume.isbn ?? "—"} mono />
         </dl>
@@ -400,6 +443,68 @@ function VolumeRow({ volume, stories }: { volume: CollectionVolume; stories: Car
   );
 }
 
+/**
+ * One Volume the library knows and the house does not hold.
+ *
+ * The same disclosure as a Collection row, and quieter: the title in muted ink, and inside
+ * it the one form that changes the answer. The price and the day are asked for **here**,
+ * because this is the moment they become true — the object came home, at a price, on a day
+ * (ADR-0007) — and the ordinary case is one tap on *It is in the house* with both empty.
+ */
+function CataloguedRow({ volume }: { volume: CataloguedVolumeOutsideTheCollection }) {
+  const under = [volume.publisher, volume.editionLine].filter(Boolean).join(" · ");
+
+  return (
+    <li className="border-t border-dashed border-border first:border-t-0">
+      <details className="group">
+        <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 py-3 marker:hidden">
+          <span className="min-w-0">
+            <span className="block truncate font-medium text-muted-foreground">{volume.title}</span>
+            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+              {under}
+              {volume.releasedOn ? ` · left the house on ${volume.releasedOn}` : null}
+            </span>
+          </span>
+          <Badge variant="outline" className="shrink-0 border-dashed">
+            {volume.binding.name}
+          </Badge>
+        </summary>
+
+        <form action={acquire} className="grid gap-4 pb-4 sm:grid-cols-2">
+          <input type="hidden" name="volumeId" value={volume.id} />
+          <input type="hidden" name="title" value={volume.title} />
+          {/* The prefix is the object's id, because these two fields are rendered once per
+              row and a label has to point at its own input. */}
+          <Field
+            idPrefix={volume.id}
+            name="pricePaid"
+            label="Price paid"
+            placeholder="6.50"
+            inputMode="decimal"
+          />
+          <Field idPrefix={volume.id} name="acquiredOn" label="Came home" type="date" />
+
+          <div className="sm:col-span-2">
+            <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto sm:px-6">
+              It is in the house
+            </Button>
+            <span className="mt-2 block text-xs text-muted-foreground sm:ml-3 sm:mt-0 sm:inline">
+              Leave both empty where the receipt is gone.{" "}
+              <Link
+                href={`/collection/${volume.id}`}
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                This object&apos;s page
+              </Link>{" "}
+              carries what it holds, and the Edition note.
+            </span>
+          </div>
+        </form>
+      </details>
+    </li>
+  );
+}
+
 function Fact({ term, detail, mono }: { term: string; detail: string; mono?: boolean }) {
   return (
     <div>
@@ -413,18 +518,23 @@ function Field({
   name,
   label,
   className,
+  idPrefix = "catalogue",
   ...props
 }: {
   name: string;
   label: string;
   className?: string;
+  /** What makes the id unique where one field name appears in two forms on the page. */
+  idPrefix?: string;
 } & React.ComponentProps<typeof Input>) {
+  const fieldId = `${idPrefix}-${name}`;
+
   return (
     <div className={`grid gap-1.5 ${className ?? ""}`}>
-      <Label htmlFor={`acquire-${name}`} className="text-xs text-muted-foreground">
+      <Label htmlFor={fieldId} className="text-xs text-muted-foreground">
         {label}
       </Label>
-      <Input id={`acquire-${name}`} name={name} className="h-10" {...props} />
+      <Input id={fieldId} name={name} className="h-10" {...props} />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
-import { acquireVolume, releaseVolume } from "@/core/verbs/collection";
+import { acquireVolume, catalogueVolume, releaseVolume } from "@/core/verbs/collection";
 import { requireOwner } from "@/lib/auth/owner";
 
 // The write side of the Collection screen, and a thin adapter like the page beside it
@@ -27,49 +27,65 @@ function text(form: FormData, field: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** Record a Volume as the owner's, and say so on the Collection. */
-export async function acquire(form: FormData): Promise<void> {
-  await requireOwner();
-
-  let said: URLSearchParams;
+/** Do the work, and say what it said. One shape for the screen's three verbs. */
+async function saying(said: URLSearchParams, work: () => Promise<unknown>): Promise<never> {
+  let answer = said;
 
   try {
-    await acquireVolume({
-      title: text(form, "title") ?? "",
-      publisher: text(form, "publisher") ?? "",
-      editionLine: text(form, "editionLine"),
-      binding: text(form, "binding") ?? "",
-      language: text(form, "language") ?? "",
-      pricePaid: text(form, "pricePaid"),
-      purchaseDate: text(form, "purchaseDate"),
-      isbn: text(form, "isbn"),
-    });
-    said = new URLSearchParams({ acquired: text(form, "title") ?? "" });
+    await work();
   } catch (error) {
     // Anything that is not a refusal is a bug rather than an answer, and stays
     // unhandled: it becomes a 500 and nobody dresses it up as advice.
     if (!isRefusal(error)) throw error;
-    said = new URLSearchParams({ refused: error.message });
+    answer = new URLSearchParams({ refused: error.message });
   }
 
   revalidatePath("/collection");
-  redirect(`/collection?${said}`);
+  redirect(`/collection?${answer}`);
 }
 
-/** Record that a Volume left the house. The Collection stops claiming it. */
+/**
+ * Record what an object is. It joins the catalogue and **not** the Collection (ADR-0007).
+ *
+ * One form, one verb: the price and the day it came home belong to an acquisition, so this
+ * form does not ask for them and this action does not write them. A caller wanting both
+ * acts says both, because they are two facts and one of them is often not true yet.
+ */
+export async function catalogue(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const title = text(form, "title") ?? "";
+
+  return saying(new URLSearchParams({ catalogued: title }), () =>
+    catalogueVolume({
+      title,
+      publisher: text(form, "publisher") ?? "",
+      editionLine: text(form, "editionLine"),
+      binding: text(form, "binding") ?? "",
+      language: text(form, "language") ?? "",
+      isbn: text(form, "isbn"),
+    })
+  );
+}
+
+/** Record that a catalogued Volume is in the house. The Collection starts claiming it. */
+export async function acquire(form: FormData): Promise<void> {
+  await requireOwner();
+
+  return saying(new URLSearchParams({ acquired: text(form, "title") ?? "" }), () =>
+    acquireVolume({
+      volumeId: text(form, "volumeId") ?? "",
+      pricePaid: text(form, "pricePaid"),
+      acquiredOn: text(form, "acquiredOn"),
+    })
+  );
+}
+
+/** Record that a Volume left the house. The Collection stops claiming it; the record stays. */
 export async function release(form: FormData): Promise<void> {
   await requireOwner();
 
-  let said: URLSearchParams;
-
-  try {
-    await releaseVolume(text(form, "volumeId") ?? "");
-    said = new URLSearchParams({ released: text(form, "title") ?? "" });
-  } catch (error) {
-    if (!isRefusal(error)) throw error;
-    said = new URLSearchParams({ refused: error.message });
-  }
-
-  revalidatePath("/collection");
-  redirect(`/collection?${said}`);
+  return saying(new URLSearchParams({ released: text(form, "title") ?? "" }), () =>
+    releaseVolume(text(form, "volumeId") ?? "")
+  );
 }
