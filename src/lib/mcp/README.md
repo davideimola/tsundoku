@@ -1,0 +1,153 @@
+# The MCP door
+
+The other door over the same core. The web view is a set of pages; this is one route
+handler at `/mcp`, and both are **thin adapters over `src/core`** with no domain logic of
+their own (ADR-0002). MCP read is a first-class product surface here rather than an
+integration bolted on at the end: the app is judged on how legible the collection is from
+outside.
+
+```
+src/app/mcp/route.ts     the door: the gate, then the framing, then a response
+src/lib/mcp/
+├── bearer.ts            the gate. Environment in, verdict out, and pure
+├── protocol.ts          JSON-RPC and the four methods. Knows nothing about the model
+├── tool.ts              what one tool is
+├── tools.ts             the directory *is* the tool list — see below
+└── tools/               one file per area
+    ├── story.ts         what the owner has read
+    └── collection.ts    what is on the shelf
+```
+
+## Exposing a query over MCP is one new file
+
+**Add `src/lib/mcp/tools/<area>.ts`. Do not edit the route, do not edit `tools.ts`, and
+there is no barrel to add a line to.** Every file in `tools/` is discovered and mounted,
+which is the same argument `src/core/README.md` makes for having no `index.ts`: several
+slices are each meant to expose their own query over this door, and a list somebody has to
+edit is a file every one of them conflicts in.
+
+The file default-exports its tools, and that is the whole contract:
+
+```ts
+import { missingVolumes } from "@/core/queries/series";
+import type { McpTool } from "../tool.ts";
+
+const missing: McpTool = {
+  name: "series_missing",
+  title: "What is missing from the Series being collected",
+  description: `The Volumes of every Series the owner has decided to collect that are not in the house yet. …`,
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  readOnly: true,
+  async run() {
+    return { series: await missingVolumes() };
+  },
+};
+
+export default [missing];
+```
+
+An argument is read with `stringArgument(input, "title")` from `../tool.ts`, and that is
+the whole of reading one — see `tools/collection.ts`. Declare it in `inputSchema` with
+prose of its own, because the schema is what the assistant fills in.
+
+Five rules, and they are all the review surface there is:
+
+1. **One file per area, named for the area** in the vocabulary of `CONTEXT.md` —
+   `series.ts`, `path.ts`, `reading-list.ts`, `wish.ts`, `inbox.ts` — never for a layer.
+   Several tools in one file is normal; the same area in two files is not. A file whose
+   name has a second dot is not mounted, so a test may sit beside an area.
+2. **The tool calls a query or a verb and returns what it got.** No SQL, no `if` about the
+   model, no reshaping. If the web view would need the same thing, it belongs in
+   `src/core` where both doors reach it — that is what makes one test seam cover both.
+3. **`name` is `area_question`, lower_snake_case**, matching the file: `stories_read`,
+   `collection_search`, `series_missing`. A client listing thirty tools then lists them
+   grouped.
+4. **`description` is product, not a label.** It is what an assistant reads when deciding
+   which tool answers the owner's question, so it says what the thing *is* in the owner's
+   vocabulary and what it deliberately is not — a Story is not a book, a Rating is never
+   of a Volume, a Volume on the shelf says nothing about having read it. A tool described
+   as "list series" gets called for the wrong question.
+5. **`readOnly` means it.** A read tool a client may call without interrupting the owner;
+   a verb that writes says `false`, and the write door is #12's with ADR-0005's boundary
+   on it — the MCP server runs verbs on entities that already exist and may only
+   *propose* a new Story, Volume or Series, as an Inbox entry.
+
+### A refusal is already handled
+
+Do not catch one. A verb that the database refuses throws a `Refusal` carrying a stable
+code and prose (`src/core/refusal.ts`), and `protocol.ts` turns it into a tool result with
+`isError`, the prose as its text, and the code under
+`_meta["tsundoku/refusal"]` — the prose because the assistant relays it to the owner, the
+code because an assistant that reads `already-exists` can try something else where it
+would only re-guess at prose. Anything that is not a `Refusal` becomes an internal error
+with no prose invented for it.
+
+### How the directory becomes the list
+
+`tools.ts` asks the application's bundler for a context module over `tools/`, resolved at
+build time. Verified against `next dev` and against a production `next build`.
+
+It is deliberately **not** a filesystem read: the source tree is not shipped, so a
+`readdir` would work in development and find nothing in the container. It therefore also
+does not work outside the bundler, which is why the door's own test asks for `initialize`
+and never for `tools/list`. That costs nothing — the adapters need no tests of their own
+(ADR-0002), and what a tool answers is Seam 1's business, tested beside the query it
+calls.
+
+## The gate
+
+`/mcp` is authenticated by a **static bearer token** and not by Google (ADR-0004). A
+redirect to a consent screen is not an answer an assistant can read, so `src/proxy.ts`
+excludes this path from the Google matcher by name — which means `bearer.ts` is the only
+thing standing in front of the library here.
+
+- It **fails closed**: with `MCP_BEARER_TOKEN` unset or blank, every request is refused.
+  There is no development opt-in beside it, unlike the owner gate: that one exists because
+  there is no Google OAuth client to create yet, whereas a bearer token is a string the
+  owner picks, so there is nothing for an opt-in to stand in for. Locally, put any string
+  in `.env.local`.
+- Tokens are compared **in constant time**, on SHA-256 digests of both sides. `===` on
+  strings returns at the first differing byte and the time it took answers *"how much of
+  the token did I guess?"*; digesting first is what lets the comparison be
+  length-blind as well, because `timingSafeEqual` refuses buffers of different lengths and
+  the refusal itself would leak the configured token's length.
+- Every refusal is the same 401 with the same body. Which mistake it was is logged for the
+  owner and never returned.
+- `WWW-Authenticate: Bearer realm="tsundoku"` names no `resource_metadata`: that is how a
+  client discovers an authorization server, and there is none. A static bearer is a
+  documented, first-class option for Claude's custom connectors, the Claude API's MCP
+  connector and Claude Code (`docs/research/mcp-remote-auth.md`), which is the whole
+  reason no OAuth 2.1 server is built here. ChatGPT's in-app connector is the one surface
+  where that shortcut is unconfirmed, and ADR-0004 defers it deliberately.
+- **Rate limiting goes in `route.ts`, immediately before the gate**, and is #15's. This is
+  the first publicly reachable service on the cluster, and an endpoint that answers a
+  token check to anyone who asks is an endpoint that can be asked forever.
+
+## The transport
+
+**Streamable HTTP, statelessly.** One POST carries one JSON-RPC message and gets one JSON
+response: no session id, no SSE stream, nothing to resume. The transport permits exactly
+that — a server MAY answer a POST with `application/json` rather than a stream — and for a
+read door over a database it is the whole of what is needed. Nothing is held between
+requests, so the container can restart under a connected assistant without it noticing.
+
+Four methods: `initialize`, `ping`, `tools/list`, `tools/call`. A notification (no `id`)
+gets an empty 202; `GET` gets 405, because there is nothing for this server to push. The
+revisions it will speak are listed in `protocol.ts`, newest first, and the newest MCP
+revision is deliberately absent from that list — it removes `initialize` altogether and no
+client documents it yet.
+
+## Trying it
+
+`MCP_BEARER_TOKEN` in `.env.local`, `pnpm dev`, and then:
+
+```sh
+curl -s http://localhost:3000/mcp \
+  -H "authorization: Bearer $MCP_BEARER_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq '.result.tools[].name'
+```
+
+Without the header it is a 401, which is the other half of Seam 2
+(`src/app/mcp/route.test.ts`). The root `README.md` has the Claude Code and custom
+connector instructions.
