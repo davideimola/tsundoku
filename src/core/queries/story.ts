@@ -41,6 +41,20 @@ const STATE = `
 /** A Type, as a Story carries it. */
 export type StoryType = { id: string; name: string };
 
+/**
+ * A Credit on a Story: a person's contribution in a named role.
+ *
+ * Part of the Story rather than a query of its own, because *who wrote it and who drew
+ * it* is part of the answer to *"what is this?"* — for the owner and for an assistant
+ * reading a Story over MCP. The other direction, *everything read by one person*, is a
+ * screen of its own in `queries/credit.ts`.
+ */
+export type StoryCredit = {
+  id: string;
+  person: { id: string; name: string };
+  role: { id: string; name: string };
+};
+
 /** A Provenance, as a Reading or a Rating carries it. */
 export type StoryProvenance = { id: string; name: string };
 
@@ -76,6 +90,8 @@ export type Story = {
   title: string;
   type: StoryType;
   state: StoryState;
+  /** Who wrote it and who drew it, in the order roles are credited in. */
+  credits: StoryCredit[];
   /** Newest first. Several is the ordinary case, because rereading is. */
   readings: StoryReading[];
   /** Judgements attached to no Reading — a score imported with no act to point at. */
@@ -107,6 +123,20 @@ export async function findStory(storyId: string): Promise<Story | null> {
        s.title,
        jsonb_build_object('id', t.id, 'name', t.name) as type,
        ${STATE} as state,
+       coalesce((
+         select jsonb_agg(
+           jsonb_build_object(
+             'id', c.id,
+             'person', jsonb_build_object('id', pe.id, 'name', pe.name),
+             'role', jsonb_build_object('id', cr.id, 'name', cr.name)
+           )
+           order by cr.display_order, lower(pe.name), c.id
+         )
+           from credit c
+           join person pe on pe.id = c.person_id
+           join credit_role cr on cr.id = c.role_id
+          where c.story_id = s.id
+       ), '[]'::jsonb) as credits,
        coalesce((
          select jsonb_agg(
            jsonb_build_object(
