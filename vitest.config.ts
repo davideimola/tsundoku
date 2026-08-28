@@ -1,9 +1,9 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
-// Seam 1, and there is no second one here.
+// Two seams, and there is no third one.
 //
-// The tests exercise the core module's verbs and queries against a **real
+// **Seam 1**, the primary one: the core module's verbs and queries against a **real
 // Postgres**. Both doors — the web view and the MCP route handler — are thin
 // adapters over that core (ADR-0002), so this one seam covers both and the adapters
 // need no tests of their own. There are deliberately no rendering tests, no
@@ -13,6 +13,11 @@ import { defineConfig } from "vitest/config";
 // leaves invariants to the database. Here the derivations *are* the product — the
 // self-composing Reading list, a Story's state from its Readings, a Series' missing
 // Volumes — and they are SQL. Testing them without a database means not testing them.
+//
+// **Seam 2**, deliberately thin: the two gates at the HTTP edge. It is protocol
+// behaviour rather than the model — the owner gate in both directions, and `/mcp`
+// against its bearer — so it reaches no database and shares nothing with Seam 1 but
+// this config.
 export default defineConfig({
   resolve: {
     alias: {
@@ -25,6 +30,12 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Auth.js is transformed rather than loaded as an external package. Its internals
+    // import `next/server`, which Next resolves through its own bundler and which
+    // node's ESM resolver, reaching for it from inside `next-auth`, does not find.
+    // Inlining is what lets Seam 2 exercise the proxy with a real session cookie
+    // instead of a mock of the thing under test.
+    server: { deps: { inline: ["next-auth", "@auth/core"] } },
     include: ["src/**/*.test.ts", "db/**/*.test.ts"],
     // Brings the container up and applies the schema to the test database, so
     // `pnpm test` is the whole command on a clean clone.

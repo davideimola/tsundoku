@@ -28,3 +28,10 @@ Both doors — the web view and the MCP route handler — are thin adapters over
 `src/core`, and neither holds domain logic (ADR-0002). Read `src/core/README.md`
 before adding a verb or a query: it says which file yours goes in, and why there is no
 barrel index to edit.
+
+### Where a page goes
+
+**`src/app/(owner)/`, and it calls `requireOwner()` before it reads anything.** The
+route group is the owner gate; a page outside it is a page served to anyone with the
+URL. `src/app/gated.test.ts` fails when either half stops being true. See the README's
+owner gate section.

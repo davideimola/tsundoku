@@ -41,7 +41,7 @@ Docker must be running.
 ```sh
 mise install                 # the toolchain: node 22, pnpm 10.32.1
 pnpm install
-cp .env.example .env.local   # one variable, DATABASE_URL
+cp .env.example .env.local   # DATABASE_URL, and the gate open for local work
 pnpm db:up                   # the container, then the schema
 pnpm dev                     # http://localhost:3000
 ```
@@ -49,7 +49,17 @@ pnpm dev                     # http://localhost:3000
 The page lists the five Types, read out of Postgres on the request. If you see them,
 the whole path — container, migration, core module, page — is connected.
 
-### DATABASE_URL is the only variable
+`.env.example` carries `AUTH_DEV_OPEN=true`, which opens the owner gate. There is no
+Google OAuth client yet, so without it the loop above would end at a sign-in button
+that cannot work. See [the owner gate](#the-owner-gate) for what it does and why it
+cannot be the reason the library ends up readable from the internet.
+
+### DATABASE_URL is the only variable the local loop needs
+
+The gate adds `AUTH_DEV_OPEN` while nothing is hosted, and four more once there is a
+Google client to point at — all of them documented in
+[`.env.example`](.env.example) and none of them a value this repo carries. Everything
+about the database is still one variable.
 
 It carries the host, the port, the credentials and the database name, and everything
 reads it: `next dev`, `pnpm db:*` and `pnpm test`. It is also what the container is
@@ -82,6 +92,97 @@ pnpm test         # vitest against a real Postgres, node environment
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # biome check (lint + format), lint:fix to fix
 ```
+
+## The owner gate
+
+The web view is gated by **Google, restricted to a single address**
+([ADR-0004](docs/adr/0004-two-public-surfaces-two-authentications.md)). `/mcp` is not:
+it is the other door and takes a static bearer token, so it is excluded from the gate
+by name.
+
+The gate is **two layers over one predicate**:
+
+- [`src/proxy.ts`](src/proxy.ts) redirects a request without a session to `/signin`.
+  It is **ergonomics**, not the wall: Next's own reference says a Server Function is a
+  POST to the route where it is used, so a matcher change can silently remove proxy
+  coverage, and CVE-2025-29927 is the proof that this layer has already been bypassed
+  in the field.
+- `requireOwner()` in [`src/lib/auth/owner.ts`](src/lib/auth/owner.ts) **refuses**. It
+  is what every page and every Server Function behind the gate calls first.
+
+Both ask [`src/lib/auth/gate.ts`](src/lib/auth/gate.ts) for the verdict and neither
+decides anything itself, so the two layers cannot disagree about who the owner is.
+That predicate is pure — environment in, verdict out — which is what makes both
+directions of the gate a table of cases rather than an argument.
+
+### Where a new page has to sit
+
+**Every page lives in a route group, and the group is the gate.**
+
+```
+src/app/
+├── (owner)/          behind the gate. Everything that reads the library.
+│   ├── layout.tsx    force-dynamic, and the sign-out affordance
+│   └── page.tsx
+├── (public)/         outside it. Today: /signin, and nothing else.
+└── api/auth/         Auth.js's own endpoints
+```
+
+So a screen over the Collection, the Stories, the Readings or the Reading list goes in
+`src/app/(owner)/`, and **calls `requireOwner()` before it reads anything**:
+
+```tsx
+export default async function CollectionPage() {
+  await requireOwner();
+  const volumes = await listCollection();
+  …
+}
+```
+
+The same for a Server Function or a route handler beside it: a layout does not run for
+either, so the assert goes in each one.
+
+Both halves of that rule are a test rather than a paragraph
+([`src/app/gated.test.ts`](src/app/gated.test.ts)), because both failures are silent —
+a page put outside the group compiles, renders and reads Postgres exactly as intended,
+and has simply been served to whoever has the URL. Putting a page **outside** the gate
+is therefore two deliberate acts: the file goes in `(public)` and the path is excluded
+in the proxy's matcher.
+
+### The session lasts 90 days, counted from the sign-in
+
+A session is a self-contained JWT, so Google is contacted exactly once — at sign-in —
+and there is no access token to expire and no refresh token to race.
+
+The 90 days are **absolute, not idle**. Auth.js re-signs the token every time the
+session is resolved, so `maxAge` on its own is not "how long the session lasts" but
+"how long the app can go unopened": open it once a month and the cookie never expires.
+So the moment the gate was opened is stamped into the token at sign-in and the life is
+measured from there. Using the app does not extend it; only a new sign-in, which is a
+deliberate act and a round trip to Google, opens a new one. The number, and the fact
+that nothing moves it, are asserted in
+[`src/lib/auth/gate.test.ts`](src/lib/auth/gate.test.ts).
+
+A single session cannot be revoked, because there is no session table. The kill switch
+is rotating `AUTH_SECRET`, which ends every session at once, and it is the reason the
+sign-out affordance exists at all.
+
+### Nothing is hosted yet, so the gate has a local opt-in
+
+There is no Google OAuth client, no client id and no secret, and there will not be one
+until the owner makes it. `AUTH_DEV_OPEN=true` opens the gate for local work; with it
+set, Auth.js is never reached at all.
+
+It is an **opt-in rather than a fallback** — a gate that opened by itself whenever
+`AUTH_GOOGLE_ID` was missing would open the whole library to anyone with the URL the
+day a variable was misspelled in the cluster — and it is **never honoured in a
+production build**, which the container is. Both conditions are tested.
+
+The four variables that boot the real gate — `AUTH_SECRET`, `AUTH_GOOGLE_ID`,
+`AUTH_GOOGLE_SECRET`, `AUTH_OWNER_EMAIL` — are documented in
+[`.env.example`](.env.example) and have no values there. Creating the OAuth client is a
+human step: that is the price of owner identity being configuration rather than
+hardcoded data, and it is what lets someone else fork this and run it as themselves.
 
 ## The schema
 
@@ -140,9 +241,17 @@ and nothing should.
 
 ## Tests
 
-**One seam: the verbs and the queries, against a real Postgres.** Both doors are thin
-adapters over the core, so this seam covers the web view and the MCP server together
-and the adapters need no tests of their own.
+**The primary seam is the verbs and the queries, against a real Postgres.** Both doors
+are thin adapters over the core, so this seam covers the web view and the MCP server
+together and the adapters need no tests of their own.
+
+**The second seam is the two gates at the HTTP edge**, and it is deliberately thin
+because it is protocol behaviour rather than the model: the owner gate in both
+directions ([`src/proxy.test.ts`](src/proxy.test.ts)), and — when the MCP door is built
+— `/mcp` refusing an absent or wrong bearer. It reaches no database, and it needs no
+Google OAuth client: a Google client is only how an address gets into a session token,
+so the test mints its own with the same `encode` Auth.js signs with. Nothing else is a
+seam here.
 
 ```sh
 pnpm test

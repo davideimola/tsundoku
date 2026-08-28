@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { listTypes } from "@/core/queries/type";
+import { requireOwner } from "@/lib/auth/owner";
 
 // The walking skeleton's one page, and a thin adapter over the core module like every
 // page after it: it calls one query and lays out the answer. No SQL, no pool, no
 // domain logic (ADR-0002).
+//
+// It sits in the `(owner)` route group and calls `requireOwner()` before it reads
+// anything, which is the shape every page in this app has: the proxy turns a refusal
+// into a sign-in screen, and this call is what refuses.
 //
 // Deliberately plain, and it stays that way until the thing works: what is on screen
 // is the value that came out of Postgres and the words needed to read it. Visual work
@@ -16,6 +21,7 @@ import { listTypes } from "@/core/queries/type";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  await requireOwner();
   const types = await listTypes();
 
   return (
