@@ -204,6 +204,27 @@ describe("a Wish ends only by a deliberate act", () => {
     });
   });
 
+  // "Nothing closes it implicitly" is a claim about the whole database and not only about
+  // the two verbs above, so it is asked of the database: no trigger of ours exists
+  // anywhere, on `volume` or on anything else, that could reach `wish.closed_on` behind
+  // the owner's back.
+  it("has nothing in the schema that could close one behind the owner's back", async () => {
+    // Only triggers that could touch a Wish: another slice is free to add one of its
+    // own, and this must fail for the reason it is named for rather than for that.
+    const triggers = await query<{ table: string; trigger: string }>(
+      `select c.relname as table, t.tgname as trigger
+         from pg_trigger t
+         join pg_class c on c.oid = t.tgrelid
+         join pg_namespace n on n.oid = c.relnamespace
+         join pg_proc p on p.oid = t.tgfoid
+        where n.nspname = 'public'
+          and not t.tgisinternal
+          and (c.relname = 'wish' or p.prosrc ~* 'wish|closed_on')`
+    );
+
+    expect(triggers).toEqual([]);
+  });
+
   it("can be wished again once it ended, because the copy sold before the owner got there", async () => {
     const volumeId = await aVolume();
     const { id } = await openWish({ volumeId, priority: 1, shop: "Star Shop" });
