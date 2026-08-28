@@ -63,8 +63,8 @@ export async function listCreditedPeople(): Promise<CreditedPerson[]> {
           from credit c
          where c.person_id = p.id) as "storyCount",
        -- "Read" goes through the Readings and never through the Stories that merely
-       -- exist. An abandoned Reading counts: giving up on it is still something that
-       -- happened with the book open.
+       -- exist. An abandoned Reading counts: giving up on it is still an act of reading,
+       -- and the Story's state says which it was.
        (select count(distinct c.story_id)::int
           from credit c
          where c.person_id = p.id
@@ -123,6 +123,20 @@ const CREDITED_STORY = `
                      limit 1)
   )`;
 
+// The two lists, which differ by one word. `whetherRead` is `exists` for what went
+// through a Reading and `not exists` for the rest — written once, because the two halves
+// answering one question in two copies of the same block is how they would come to
+// disagree about what "read" means.
+const CREDITED_STORIES = (whetherRead: "exists" | "not exists") => `
+  coalesce((
+    select jsonb_agg(${CREDITED_STORY} order by lower(s.title), s.id)
+      from story s
+      join type t on t.id = s.type_id
+     where exists (select 1 from credit c
+                    where c.person_id = p.id and c.story_id = s.id)
+       and ${whetherRead} (select 1 from reading r where r.story_id = s.id)
+  ), '[]'::jsonb)`;
+
 // A person's id is generated, so a malformed one is the same event as an unknown one —
 // see the verb for why the guard is here rather than in an adapter.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -149,22 +163,8 @@ export async function findCreditedPerson(personId: string): Promise<PersonCredit
     `select
        p.id,
        p.name,
-       coalesce((
-         select jsonb_agg(${CREDITED_STORY} order by lower(s.title), s.id)
-           from story s
-           join type t on t.id = s.type_id
-          where exists (select 1 from credit c
-                         where c.person_id = p.id and c.story_id = s.id)
-            and exists (select 1 from reading r where r.story_id = s.id)
-       ), '[]'::jsonb) as read,
-       coalesce((
-         select jsonb_agg(${CREDITED_STORY} order by lower(s.title), s.id)
-           from story s
-           join type t on t.id = s.type_id
-          where exists (select 1 from credit c
-                         where c.person_id = p.id and c.story_id = s.id)
-            and not exists (select 1 from reading r where r.story_id = s.id)
-       ), '[]'::jsonb) as "notRead"
+       ${CREDITED_STORIES("exists")} as read,
+       ${CREDITED_STORIES("not exists")} as "notRead"
      from person p
     where p.id = $1`,
     [personId]

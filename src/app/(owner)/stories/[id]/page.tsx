@@ -96,8 +96,11 @@ function Judgement({ rating }: { rating: StoryRating }) {
   );
 }
 
-/** One value out of the query string, or nothing. What a write left behind. */
-function said(params: Record<string, string | string[] | undefined>, name: string) {
+/** What the query string carries, in the shape Next hands it over. */
+type Asked = Record<string, string | string[] | undefined>;
+
+/** One value out of it, or nothing. What a write left behind on its way back here. */
+function said(params: Asked, name: string): string | undefined {
   const value = params[name];
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }
@@ -107,7 +110,7 @@ export default async function StoryPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<Asked>;
 }) {
   await requireOwner();
 

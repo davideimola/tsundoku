@@ -17,10 +17,32 @@ import { requireOwner } from "@/lib/auth/owner";
 // reason the Collection's writes do: a plain form and a redirect work with no JavaScript
 // running at all.
 
-/** What a form's field held, trimmed, or the empty string. */
-function text(form: FormData, field: string): string {
+/**
+ * What a form's field held, trimmed, or the empty string.
+ *
+ * Not the `text` of `collection/actions.ts`, and named differently on purpose: that one
+ * returns `null` for an empty optional field, and two functions with one name and two
+ * contracts is how a caller comes to expect the wrong one. Nothing here is optional —
+ * a Credit is a name and a role — so the empty string goes to the verb, which refuses it
+ * with prose.
+ */
+function entered(form: FormData, field: string): string {
   const value = form.get(field);
   return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * The Story every write here happens on.
+ *
+ * Carried in a hidden field by the page that rendered the form, so its absence is not
+ * something the owner can do: it is a tampered post or our own bug, and it stays an
+ * unhandled error rather than becoming a refusal nobody can read — a redirect to
+ * `/stories/` would have thrown the verb's prose away.
+ */
+function storyFrom(form: FormData): string {
+  const storyId = entered(form, "storyId");
+  if (storyId === "") throw new Error("a Credit was submitted with no Story to put it on");
+  return storyId;
 }
 
 /** Where the answer is read: the Story the Credit is on. */
@@ -34,16 +56,16 @@ function backToStory(storyId: string, said: URLSearchParams): never {
 export async function credit(form: FormData): Promise<void> {
   await requireOwner();
 
-  const storyId = text(form, "storyId");
+  const storyId = storyFrom(form);
   let said: URLSearchParams;
 
   try {
     await creditStory({
       storyId,
-      person: text(form, "person"),
-      roleId: text(form, "role"),
+      person: entered(form, "person"),
+      roleId: entered(form, "role"),
     });
-    said = new URLSearchParams({ credited: text(form, "person") });
+    said = new URLSearchParams({ credited: entered(form, "person") });
   } catch (error) {
     // Anything that is not a refusal is a bug rather than an answer, and stays
     // unhandled: it becomes a 500 and nobody dresses it up as advice.
@@ -58,12 +80,12 @@ export async function credit(form: FormData): Promise<void> {
 export async function uncredit(form: FormData): Promise<void> {
   await requireOwner();
 
-  const storyId = text(form, "storyId");
+  const storyId = storyFrom(form);
   let said: URLSearchParams;
 
   try {
-    await uncreditStory(text(form, "creditId"));
-    said = new URLSearchParams({ uncredited: text(form, "person") });
+    await uncreditStory(entered(form, "creditId"));
+    said = new URLSearchParams({ uncredited: entered(form, "person") });
   } catch (error) {
     if (!isRefusal(error)) throw error;
     said = new URLSearchParams({ refused: error.message });
