@@ -29,6 +29,12 @@ Both doors — the web view and the MCP route handler — are thin adapters over
 before adding a verb or a query: it says which file yours goes in, and why there is no
 barrel index to edit.
 
+### Where an MCP tool goes
+
+**One new file in `src/lib/mcp/tools/`, and nothing else.** The directory is the tool
+list, so the route handler is never edited and there is no barrel to conflict in.
+`src/lib/mcp/README.md` is the contract, including what a tool may not do.
+
 ### Where a page goes
 
 **`src/app/(owner)/`, and it calls `requireOwner()` before it reads anything.** The

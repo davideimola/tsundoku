@@ -57,9 +57,9 @@ cannot be the reason the library ends up readable from the internet.
 ### DATABASE_URL is the only variable the local loop needs
 
 The gate adds `AUTH_DEV_OPEN` while nothing is hosted, and four more once there is a
-Google client to point at — all of them documented in
-[`.env.example`](.env.example) and none of them a value this repo carries. Everything
-about the database is still one variable.
+Google client to point at; the MCP door adds `MCP_BEARER_TOKEN`, which is a string you
+pick — all of them documented in [`.env.example`](.env.example) and none of them a value
+this repo carries. Everything about the database is still one variable.
 
 It carries the host, the port, the credentials and the database name, and everything
 reads it: `next dev`, `pnpm db:*` and `pnpm test`. It is also what the container is
@@ -184,6 +184,48 @@ The four variables that boot the real gate — `AUTH_SECRET`, `AUTH_GOOGLE_ID`,
 human step: that is the price of owner identity being configuration rather than
 hardcoded data, and it is what lets someone else fork this and run it as themselves.
 
+## The MCP door
+
+`/mcp` is the other door: one route handler, a **static bearer token**, and the same
+queries the pages call ([ADR-0004](docs/adr/0004-two-public-surfaces-two-authentications.md),
+[ADR-0002](docs/adr/0002-the-app-holds-no-model-and-the-recommender-is-external.md)). MCP
+read is a first-class product surface here rather than an integration bolted on at the
+end — the app is judged on how legible the collection is from outside.
+
+**Exposing a query over MCP is one new file in `src/lib/mcp/tools/`.** The directory *is*
+the tool list: nothing imports it by name, so the route handler is never edited and there
+is no barrel for two slices to conflict in. [`src/lib/mcp/README.md`](src/lib/mcp/README.md)
+is the contract — read it before adding a tool, and read `src/core/README.md` before
+adding the query underneath it.
+
+The gate is `MCP_BEARER_TOKEN` and it **fails closed**: unset or blank, every request is
+refused. There is no development opt-in beside it, unlike the owner gate — that one stands
+in for a Google OAuth client that does not exist yet, whereas this is a string you pick.
+
+```sh
+MCP_BEARER_TOKEN=$(openssl rand -hex 32)   # into .env.local, then pnpm dev
+```
+
+Both directions are a test rather than a paragraph
+([`src/app/mcp/route.test.ts`](src/app/mcp/route.test.ts)), which is the other half of
+Seam 2.
+
+### Pointing an assistant at it
+
+Claude Code, against the local loop:
+
+```sh
+claude mcp add --transport http tsundoku http://localhost:3000/mcp \
+  --header "Authorization: Bearer $MCP_BEARER_TOKEN"
+```
+
+Then `/mcp` in Claude Code lists the tools, and *"what have I read?"* calls
+`stories_read`. A **Claude custom connector** on claude.ai takes the deployed
+`https://<domain>/mcp` and the same header in its *Request headers* section; the Claude
+API's MCP connector takes the token as `authorization_token`. ChatGPT's in-app connector
+is the one surface where a static bearer is unconfirmed, and ADR-0004 defers it
+deliberately.
+
 ## The schema
 
 **Invariants live in Postgres.** The database refuses what must never be true rather
@@ -247,8 +289,9 @@ together and the adapters need no tests of their own.
 
 **The second seam is the two gates at the HTTP edge**, and it is deliberately thin
 because it is protocol behaviour rather than the model: the owner gate in both
-directions ([`src/proxy.test.ts`](src/proxy.test.ts)), and — when the MCP door is built
-— `/mcp` refusing an absent or wrong bearer. It reaches no database, and it needs no
+directions ([`src/proxy.test.ts`](src/proxy.test.ts)), and `/mcp` refusing an absent or
+wrong bearer and accepting the right one
+([`src/app/mcp/route.test.ts`](src/app/mcp/route.test.ts)). It reaches no database, and it needs no
 Google OAuth client: a Google client is only how an address gets into a session token,
 so the test mints its own with the same `encode` Auth.js signs with. Nothing else is a
 seam here.
