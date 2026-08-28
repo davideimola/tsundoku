@@ -73,6 +73,12 @@ export type Path = {
   next: PathStop | null;
 };
 
+// A Path's id is generated and never typed, so an id that could not name a row is the
+// same event as one that names none: both answer with nothing. Checked here because
+// `where id = $1` on a uuid column raises a *syntax* error for `"banana"`, and a screen
+// asking for a route that does not exist deserves a 404 rather than a 500.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // One stop, as a subquery builds it. `s` is the Story and `i` is its place on the route.
 const STOP = `
   jsonb_build_object(
@@ -130,6 +136,8 @@ export async function listPaths(): Promise<PathSummary[]> {
  * answer to the same question, and reading them separately would be reading two moments.
  */
 export async function findPath(pathId: string): Promise<Path | null> {
+  if (!UUID.test(pathId)) return null;
+
   const rows = await query<Path>(
     `select
        p.id,
@@ -178,6 +186,8 @@ export async function findPath(pathId: string): Promise<Path | null> {
  * `nextUnreadOnActivePaths` does.
  */
 export async function nextUnreadOnPath(pathId: string): Promise<PathStop | null> {
+  if (!UUID.test(pathId)) return null;
+
   const rows = await query<{ next: PathStop | null }>(
     `select ${NEXT} as next from path p where p.id = $1`,
     [pathId]

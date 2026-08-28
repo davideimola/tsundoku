@@ -10,8 +10,10 @@ import {
   definePath,
   moveStoryEarlier,
   moveStoryLater,
+  moveStoryOnPath,
   placeStoryOnPath,
   removeStoryFromPath,
+  renamePath,
   restatePathIntent,
   withdrawConstraint,
 } from "@/core/verbs/path";
@@ -47,7 +49,12 @@ function back(form: FormData): string {
 }
 
 /**
- * Run one verb and land back on the screen, saying what happened.
+ * Run one verb and land back on the screen the owner was on.
+ *
+ * **Only a refusal is said in words.** Everything that worked is already visible on the
+ * page that comes back — the Story has moved, the route is shorter, the sentence is in the
+ * list — and a banner announcing what the owner can see would be the screen talking about
+ * itself. `said` is for the one case where the result is not on screen.
  *
  * Anything that is not a refusal is a bug rather than an answer and stays unhandled: it
  * becomes a 500, and nobody dresses a broken query up as advice to the owner.
@@ -55,7 +62,7 @@ function back(form: FormData): string {
 async function saying(
   form: FormData,
   work: () => Promise<unknown>,
-  said: URLSearchParams
+  said?: URLSearchParams
 ): Promise<never> {
   let answer = said;
 
@@ -68,7 +75,7 @@ async function saying(
 
   const screen = back(form);
   revalidatePath(screen);
-  redirect(`${screen}?${answer}`);
+  redirect(answer ? `${screen}?${answer}` : screen);
 }
 
 /** Define a Path: a name, and the owner's own words about what it is for. */
@@ -83,15 +90,18 @@ export async function define(form: FormData): Promise<void> {
   );
 }
 
+/** Call a Path something else. */
+export async function rename(form: FormData): Promise<void> {
+  await requireOwner();
+
+  await saying(form, () => renamePath(text(form, "pathId") ?? "", text(form, "name") ?? ""));
+}
+
 /** Say what a Path is for, replacing what it said before. */
 export async function restateIntent(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(
-    form,
-    () => restatePathIntent(text(form, "pathId") ?? "", text(form, "intent")),
-    new URLSearchParams({ restated: "1" })
-  );
+  await saying(form, () => restatePathIntent(text(form, "pathId") ?? "", text(form, "intent")));
 }
 
 /** Take a Path up again, or put it aside. The route survives either way. */
@@ -101,21 +111,15 @@ export async function setActive(form: FormData): Promise<void> {
   const pathId = text(form, "pathId") ?? "";
   const wanted = text(form, "active") === "true";
 
-  await saying(
-    form,
-    () => (wanted ? activatePath(pathId) : deactivatePath(pathId)),
-    new URLSearchParams({ [wanted ? "active" : "aside"]: "1" })
-  );
+  await saying(form, () => (wanted ? activatePath(pathId) : deactivatePath(pathId)));
 }
 
 /** Place a Story at the end of the route. */
 export async function placeStory(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(
-    form,
-    () => placeStoryOnPath(text(form, "pathId") ?? "", text(form, "storyId") ?? ""),
-    new URLSearchParams({ placed: text(form, "title") ?? "" })
+  await saying(form, () =>
+    placeStoryOnPath(text(form, "pathId") ?? "", text(form, "storyId") ?? "")
   );
 }
 
@@ -123,10 +127,8 @@ export async function placeStory(form: FormData): Promise<void> {
 export async function removeStory(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(
-    form,
-    () => removeStoryFromPath(text(form, "pathId") ?? "", text(form, "storyId") ?? ""),
-    new URLSearchParams({ removed: text(form, "title") ?? "" })
+  await saying(form, () =>
+    removeStoryFromPath(text(form, "pathId") ?? "", text(form, "storyId") ?? "")
   );
 }
 
@@ -134,10 +136,22 @@ export async function removeStory(form: FormData): Promise<void> {
 export async function moveEarlier(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(
-    form,
-    () => moveStoryEarlier(text(form, "pathId") ?? "", text(form, "storyId") ?? ""),
-    new URLSearchParams({ moved: text(form, "title") ?? "" })
+  await saying(form, () =>
+    moveStoryEarlier(text(form, "pathId") ?? "", text(form, "storyId") ?? "")
+  );
+}
+
+/**
+ * Move a Story to the front of the route: *this is what I read next*.
+ *
+ * The arrows are one place at a time, which is the wrong tool for a Story forty stops
+ * down. One tap rather than thirty-nine, and it costs the same one row.
+ */
+export async function makeFirst(form: FormData): Promise<void> {
+  await requireOwner();
+
+  await saying(form, () =>
+    moveStoryOnPath(text(form, "pathId") ?? "", text(form, "storyId") ?? "", null)
   );
 }
 
@@ -145,11 +159,7 @@ export async function moveEarlier(form: FormData): Promise<void> {
 export async function moveLater(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(
-    form,
-    () => moveStoryLater(text(form, "pathId") ?? "", text(form, "storyId") ?? ""),
-    new URLSearchParams({ moved: text(form, "title") ?? "" })
-  );
+  await saying(form, () => moveStoryLater(text(form, "pathId") ?? "", text(form, "storyId") ?? ""));
 }
 
 /**
@@ -161,10 +171,8 @@ export async function moveLater(form: FormData): Promise<void> {
 export async function declare(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(
-    form,
-    () => declareConstraint({ pathId: text(form, "pathId"), prose: text(form, "prose") ?? "" }),
-    new URLSearchParams({ declared: "1" })
+  await saying(form, () =>
+    declareConstraint({ pathId: text(form, "pathId"), prose: text(form, "prose") ?? "" })
   );
 }
 
@@ -172,9 +180,5 @@ export async function declare(form: FormData): Promise<void> {
 export async function withdraw(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(
-    form,
-    () => withdrawConstraint(text(form, "constraintId") ?? ""),
-    new URLSearchParams({ withdrawn: "1" })
-  );
+  await saying(form, () => withdrawConstraint(text(form, "constraintId") ?? ""));
 }

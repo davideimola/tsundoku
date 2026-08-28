@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
+import { findPath } from "../queries/path.ts";
 import { isRefusal } from "../refusal.ts";
 import {
   activatePath,
@@ -11,6 +12,7 @@ import {
   moveStoryOnPath,
   placeStoryOnPath,
   removeStoryFromPath,
+  renamePath,
   restatePathIntent,
   withdrawConstraint,
 } from "./path.ts";
@@ -24,20 +26,21 @@ beforeEach(async () => {
   await query("truncate path, story cascade");
 });
 
-/** The route, as the owner reads it: the titles in their places. */
+/**
+ * The route, as the owner reads it: the titles in their places.
+ *
+ * Read back through the query the screens use rather than off `path_item`, so that these
+ * tests assert what a verb *did* and not how the row it wrote is shaped.
+ */
 async function route(pathId: string): Promise<string[]> {
-  const rows = await query<{ title: string }>(
-    `select s.title
-       from path_item i
-       join story s on s.id = i.story_id
-      where i.path_id = $1
-      order by i.position`,
-    [pathId]
-  );
-  return rows.map((row) => row.title);
+  const path = await findPath(pathId);
+  return (path?.stops ?? []).map((stop) => stop.title);
 }
 
-/** Where each Story sits, which is the one thing only the schema can answer. */
+/**
+ * Where each Story sits — the one thing no query answers, and deliberately so: the place
+ * is the schema's business. Used by exactly one test, the structural one below.
+ */
 async function positions(pathId: string): Promise<Record<string, string>> {
   const rows = await query<{ title: string; position: string }>(
     `select s.title, i.position::text
@@ -107,6 +110,36 @@ describe("defining a Path", () => {
       code: "invalid",
       message: "A Path needs a name.",
     });
+  });
+});
+
+describe("renaming a Path", () => {
+  it("calls it something else, so a typo is not a name lost forever", async () => {
+    const pathId = await definePath({ name: "Angolo Gaippone" });
+
+    await renamePath(pathId, "Angolo Giappone");
+
+    const [path] = await query<{ name: string }>("select name from path where id = $1", [pathId]);
+    expect(path.name).toBe("Angolo Giappone");
+  });
+
+  it("refuses a name another route already holds", async () => {
+    await definePath({ name: "Angolo Giappone" });
+    const pathId = await definePath({ name: "Recupero Batman" });
+
+    await expect(renamePath(pathId, "Angolo Giappone")).rejects.toMatchObject({
+      code: "already-exists",
+      message: "There is already a Path called that.",
+    });
+  });
+
+  it("refuses a blank name, and a Path that is not there", async () => {
+    const pathId = await definePath({ name: "Recupero Batman" });
+
+    await expect(renamePath(pathId, " ")).rejects.toMatchObject({ code: "invalid" });
+    await expect(
+      renamePath("00000000-0000-0000-0000-000000000000", "Anything")
+    ).rejects.toMatchObject({ code: "not-found" });
   });
 });
 
@@ -462,6 +495,44 @@ describe("declaring a constraint", () => {
 
     const left = await query<{ prose: string }>("select prose from declared_constraint");
     expect(left.map((row) => row.prose)).toEqual(["don't accumulate too many unread books"]);
+  });
+});
+
+// A route is reached by a URL and a form, and both can carry anything at all. An id that
+// could not name a row is the same event as one that names none — nothing to act on — and
+// it must not arrive as a 500, which is what an unguarded uuid column would raise.
+describe("an id no row could have", () => {
+  it("is refused as a thing that is not there, and never as a broken query", async () => {
+    await expect(placeStoryOnPath("banana", "banana")).rejects.toMatchObject({
+      code: "not-found",
+      message: "That Path is not in the library.",
+    });
+    await expect(deactivatePath("banana")).rejects.toMatchObject({ code: "not-found" });
+    await expect(moveStoryEarlier("banana", "banana")).rejects.toMatchObject({ code: "not-found" });
+    await expect(withdrawConstraint("banana")).rejects.toMatchObject({ code: "not-found" });
+    await expect(declareConstraint({ pathId: "banana", prose: "slowly" })).rejects.toMatchObject({
+      code: "not-found",
+    });
+  });
+});
+
+// The structural half of "a Path crosses Types and publishers freely". A publisher is a
+// property of a Volume and a publication order is a property of a Series, and **neither
+// is reachable from a route**: there is no column here through which a Path could be
+// narrowed to one publisher, or an order derived from a publication sequence. The order
+// is the owner's judgement, and this is what makes that structural rather than a habit.
+describe("what a route can be ordered or narrowed by", () => {
+  it("is the owner's place, and nothing a publisher or a Series could supply", async () => {
+    const columns = await query<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_name = 'path_item'"
+    );
+
+    expect(columns.map((column) => column.column_name).sort()).toEqual([
+      "added_at",
+      "path_id",
+      "position",
+      "story_id",
+    ]);
   });
 });
 

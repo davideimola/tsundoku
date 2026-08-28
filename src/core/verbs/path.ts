@@ -21,8 +21,27 @@ import { Refusal, refusing } from "../refusal.ts";
 // (ADR-0002); reordering someone's judgement from outside is not a thing the model
 // offers, and there is nothing to add here for it.
 
-/** The gap left between two neighbours, and therefore the room a move has to work in. */
+/**
+ * The gap left between two neighbours, and therefore the room a move has to work in.
+ *
+ * It reaches every statement below as a **parameter**, like every other value in this
+ * module (`../README.md`): a number that arrives by interpolation is a number nobody is
+ * stopping from being a string one day.
+ */
 const GAP = 1024;
+
+// A Path's id and a Story's id are generated, so the owner never types one: what arrives
+// here came from the screen they were just looking at, or from an assistant reading over
+// MCP. A malformed one is therefore the same event as an unknown one — nothing to act on
+// — and this keeps it that way, because `where id = $1` on a uuid column raises a
+// *syntax* error for `"banana"`, which is not a refusal and would reach an adapter as a
+// 500.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Refuse an id that no row could have, before Postgres is asked to parse it. */
+function known(id: string, thing: "Path" | "Story" | "constraint"): void {
+  if (!UUID.test(id)) throw new Refusal("not-found", `That ${thing} is not in the library.`);
+}
 
 /** What defining a Path needs. Only the name is required to start one. */
 export type NewPath = {
@@ -66,6 +85,32 @@ export async function definePath(path: NewPath): Promise<string> {
 }
 
 /**
+ * Call a Path something else.
+ *
+ * The name is the owner's and one route holds it, so a route defined with a typo would
+ * otherwise keep the right name from ever being used again — putting it aside is for a
+ * route the owner has paused, not for a mistake in one.
+ */
+export async function renamePath(pathId: string, name: string): Promise<void> {
+  known(pathId, "Path");
+
+  const renamed = await refusing(
+    () =>
+      query<{ id: string }>("update path set name = btrim($2) where id = $1 returning id", [
+        pathId,
+        name,
+      ]),
+    (constraint) => {
+      if (constraint === "path_name_names_one_route") return "There is already a Path called that.";
+      if (constraint === "path_name_is_not_blank") return "A Path needs a name.";
+      return "That Path could not be renamed.";
+    }
+  );
+
+  if (renamed.length === 0) throw new Refusal("not-found", "That Path is not in the library.");
+}
+
+/**
  * Say what a Path is for, in the owner's words, replacing whatever it said before.
  *
  * The intent is prose the external recommender reads, so it is the owner's *current*
@@ -74,6 +119,8 @@ export async function definePath(path: NewPath): Promise<string> {
  * but whitespace — clears it.
  */
 export async function restatePathIntent(pathId: string, intent: string | null): Promise<void> {
+  known(pathId, "Path");
+
   const changed = await refusing(
     () =>
       query<{ id: string }>(
@@ -103,6 +150,8 @@ export async function deactivatePath(pathId: string): Promise<void> {
 }
 
 async function setActive(pathId: string, active: boolean): Promise<void> {
+  known(pathId, "Path");
+
   const changed = await query<{ id: string }>(
     "update path set active = $2 where id = $1 returning id",
     [pathId, active]
@@ -127,12 +176,15 @@ function stopProse(constraint: string | undefined): string {
  * stop twice is a mistake in the plan.
  */
 export async function placeStoryOnPath(pathId: string, storyId: string): Promise<void> {
+  known(pathId, "Path");
+  known(storyId, "Story");
+
   await refusing(
     () =>
       query(
         `insert into path_item (path_id, story_id, position)
-         values ($1, $2, coalesce((select max(position) from path_item where path_id = $1), 0) + ${GAP})`,
-        [pathId, storyId]
+         values ($1, $2, coalesce((select max(position) from path_item where path_id = $1), 0) + $3)`,
+        [pathId, storyId, GAP]
       ),
     stopProse
   );
@@ -140,6 +192,9 @@ export async function placeStoryOnPath(pathId: string, storyId: string): Promise
 
 /** Take a Story off a Path. The Story, its Readings and its Rating are untouched. */
 export async function removeStoryFromPath(pathId: string, storyId: string): Promise<void> {
+  known(pathId, "Path");
+  known(storyId, "Story");
+
   const removed = await query<{ story_id: string }>(
     "delete from path_item where path_id = $1 and story_id = $2 returning story_id",
     [pathId, storyId]
@@ -163,6 +218,9 @@ export async function moveStoryOnPath(
   if (afterStoryId === storyId) {
     throw new Refusal("invalid", "A Story cannot be placed after itself.");
   }
+  known(pathId, "Path");
+  known(storyId, "Story");
+  if (afterStoryId !== null) known(afterStoryId, "Story");
 
   if (afterStoryId === null) {
     // Half of whatever the first place is. Halving the smallest position rather than
@@ -203,7 +261,7 @@ export async function moveStoryOnPath(
        update path_item
           set position = case
                 when (select position from follower) is null
-                  then (select position from anchor) + ${GAP}
+                  then (select position from anchor) + $4
                 else ((select position from anchor) + (select position from follower)) * 0.5
               end
         where path_id = $1 and story_id = $2 and exists (select 1 from anchor)
@@ -212,7 +270,7 @@ export async function moveStoryOnPath(
      select (select count(*) from moved)::text  as moved,
             (select count(*) from anchor)::text as anchor,
             (select count(*) from path_item where path_id = $1 and story_id = $2)::text as stop`,
-    [pathId, storyId, afterStoryId]
+    [pathId, storyId, afterStoryId, GAP]
   );
 
   const [counts] = rows;
@@ -237,6 +295,8 @@ export async function moveStoryEarlier(pathId: string, storyId: string): Promise
     beyond: "max(position) filter (where position < (select position from neighbour))",
     // Nothing before the neighbour means the neighbour is the front of the route.
     edge: "(select position from neighbour) * 0.5",
+    // Halving the front place needs no room made for it, so this direction binds no gap.
+    gap: false,
   });
 }
 
@@ -245,7 +305,8 @@ export async function moveStoryLater(pathId: string, storyId: string): Promise<v
   await nudge(pathId, storyId, {
     neighbour: "min(position) filter (where position > (select position from here))",
     beyond: "min(position) filter (where position > (select position from neighbour))",
-    edge: `(select position from neighbour) + ${GAP}`,
+    edge: "(select position from neighbour) + $3",
+    gap: true,
   });
 }
 
@@ -259,8 +320,11 @@ export async function moveStoryLater(pathId: string, storyId: string): Promise<v
 async function nudge(
   pathId: string,
   storyId: string,
-  direction: { neighbour: string; beyond: string; edge: string }
+  direction: { neighbour: string; beyond: string; edge: string; gap: boolean }
 ): Promise<void> {
+  known(pathId, "Path");
+  known(storyId, "Story");
+
   const rows = await query<{ moved: string }>(
     `with here as (
        select position from path_item where path_id = $1 and story_id = $2
@@ -284,7 +348,7 @@ async function nudge(
        returning i.story_id
      )
      select count(*)::text as moved from moved`,
-    [pathId, storyId]
+    direction.gap ? [pathId, storyId, GAP] : [pathId, storyId]
   );
 
   if (rows[0]?.moved === "0") {
@@ -309,6 +373,8 @@ export type NewConstraint = {
  * over that route; given none it holds over the whole library.
  */
 export async function declareConstraint(constraint: NewConstraint): Promise<string> {
+  if (constraint.pathId) known(constraint.pathId, "Path");
+
   const rows = await refusing(
     () =>
       query<{ id: string }>(
@@ -330,6 +396,8 @@ export async function declareConstraint(constraint: NewConstraint): Promise<stri
 
 /** Withdraw a declared constraint. The advisor stops being told it. */
 export async function withdrawConstraint(constraintId: string): Promise<void> {
+  known(constraintId, "constraint");
+
   const withdrawn = await query<{ id: string }>(
     "delete from declared_constraint where id = $1 returning id",
     [constraintId]

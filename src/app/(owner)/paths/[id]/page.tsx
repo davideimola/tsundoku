@@ -8,10 +8,12 @@ import { listStories } from "@/core/queries/story";
 import { requireOwner } from "@/lib/auth/owner";
 import { StoryStateLabel } from "../../stories/story-state";
 import {
+  makeFirst,
   moveEarlier,
   moveLater,
   placeStory,
   removeStory,
+  rename,
   restateIntent,
   setActive,
 } from "../actions";
@@ -90,7 +92,11 @@ export default async function PathPage({
       ) : null}
 
       {/* The intent, in the owner's words, and editable in place: it is prose the
-          recommender reads, so it is worth as much as the route itself. */}
+          recommender reads, so it is worth as much as the route itself. The name is
+          editable beside it, because a route defined with a typo would otherwise keep
+          the right name from ever being used again. Two forms rather than one: each
+          submits to its own verb, and one form calling two would invent a transaction
+          that does not exist. */}
       <details className="group mt-6">
         <summary className="cursor-pointer list-none marker:hidden">
           {path.intent ? (
@@ -104,6 +110,24 @@ export default async function PathPage({
             edit
           </span>
         </summary>
+
+        <form action={rename} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+          <input type="hidden" name="pathId" value={path.id} />
+          <input type="hidden" name="back" value={back} />
+          <label className="grid flex-1 gap-1.5">
+            <span className="text-xs text-muted-foreground">Name</span>
+            <input
+              name="name"
+              defaultValue={path.name}
+              required
+              autoComplete="off"
+              className="h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30"
+            />
+          </label>
+          <Button type="submit" variant="outline" className="h-11 sm:h-10 sm:px-5">
+            Call it that
+          </Button>
+        </form>
 
         <form action={restateIntent} className="mt-3 grid gap-2">
           <input type="hidden" name="pathId" value={path.id} />
@@ -298,6 +322,21 @@ function Stop({
       </span>
 
       <span className="flex shrink-0 items-center gap-1">
+        {/* One tap for the move the arrows are the wrong tool for: a Story forty stops
+            down that the owner has decided to read next. */}
+        <form action={makeFirst}>
+          <Where pathId={pathId} storyId={stop.storyId} back={back} />
+          <Button
+            type="submit"
+            variant="ghost"
+            size="sm"
+            disabled={first}
+            aria-label={`Move ${stop.title} to the front of this route`}
+            className="h-11 px-2 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground sm:h-9"
+          >
+            first
+          </Button>
+        </form>
         <Nudge
           action={moveEarlier}
           pathId={pathId}
@@ -317,10 +356,7 @@ function Stop({
           glyph="↓"
         />
         <form action={removeStory}>
-          <input type="hidden" name="pathId" value={pathId} />
-          <input type="hidden" name="storyId" value={stop.storyId} />
-          <input type="hidden" name="title" value={stop.title} />
-          <input type="hidden" name="back" value={back} />
+          <Where pathId={pathId} storyId={stop.storyId} back={back} />
           <Button
             type="submit"
             variant="ghost"
@@ -334,6 +370,20 @@ function Stop({
         </form>
       </span>
     </li>
+  );
+}
+
+/**
+ * Which Story on which route, and where to come back to: what every control on a stop
+ * has to say, in one place rather than four inputs repeated per form.
+ */
+function Where({ pathId, storyId, back }: { pathId: string; storyId: string; back: string }) {
+  return (
+    <>
+      <input type="hidden" name="pathId" value={pathId} />
+      <input type="hidden" name="storyId" value={storyId} />
+      <input type="hidden" name="back" value={back} />
+    </>
   );
 }
 
@@ -357,10 +407,7 @@ function Nudge({
 }) {
   return (
     <form action={action}>
-      <input type="hidden" name="pathId" value={pathId} />
-      <input type="hidden" name="storyId" value={stop.storyId} />
-      <input type="hidden" name="title" value={stop.title} />
-      <input type="hidden" name="back" value={back} />
+      <Where pathId={pathId} storyId={stop.storyId} back={back} />
       {/* Touch-sized on a phone, tighter on a desk. Disabled at the ends of the route
           rather than hidden, so the arrows do not move under the thumb. */}
       <Button

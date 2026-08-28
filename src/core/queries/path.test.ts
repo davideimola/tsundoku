@@ -99,8 +99,11 @@ describe("a Path, whole", () => {
     ]);
   });
 
-  it("is nothing when there is no such Path", async () => {
+  it("is nothing when there is no such Path, and nothing for an id no row could have", async () => {
     expect(await findPath("00000000-0000-0000-0000-000000000000")).toBeNull();
+    // A URL can carry anything. Nothing is the answer; a 500 is not.
+    expect(await findPath("banana")).toBeNull();
+    expect(await nextUnreadOnPath("banana")).toBeNull();
   });
 });
 
