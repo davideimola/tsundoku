@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 import { connection, withDatabase } from "./env.ts";
@@ -15,6 +16,16 @@ import { connection, withDatabase } from "./env.ts";
 // of the ticket that adds the file and `<step>` counts the files within that ticket.
 // Both are fixed width, so the lexical order is the numeric one, and no two tickets
 // can pick the same number because GitHub already handed them out.
+//
+// Two things a migration may not do, because the runner wraps each file in one
+// transaction of its own so that a file either lands whole or not at all:
+//
+//   - **No transaction control.** A `begin`, `commit` or `rollback` inside a file ends
+//     the wrapping transaction early, and the ledger row would then be written outside
+//     it. Nothing here detects that, so it is a rule rather than a guard.
+//   - **No `create index concurrently`**, which Postgres refuses inside a transaction
+//     at all. There is no escape hatch yet; the slice that first needs one should add
+//     it deliberately rather than loosen the wrapping for everybody.
 
 const MIGRATIONS = fileURLToPath(new URL("./migrations/", import.meta.url));
 
@@ -37,7 +48,7 @@ export async function readMigrations(): Promise<Migration[]> {
 
   return Promise.all(
     entries.map(async (filename) => {
-      const sql = await readFile(new URL(filename, `file://${MIGRATIONS}`), "utf8");
+      const sql = await readFile(join(MIGRATIONS, filename), "utf8");
       return { filename, sql, checksum: createHash("sha256").update(sql).digest("hex") };
     })
   );
@@ -45,12 +56,12 @@ export async function readMigrations(): Promise<Migration[]> {
 
 /**
  * Which migrations still have to run, given the files on disk and what the ledger
- * says has already been applied — and the two things that mean somebody has broken
- * the forward-only rule.
+ * says has already been applied — and the three ways somebody can have broken the
+ * forward-only rule.
  *
- * Pure, and separate from applying them, because this is the whole decision: the
- * refusals below are the only thing standing between an edited migration and a
- * schema that differs from everyone else's without anybody being told.
+ * Pure, and separate from applying them, because this is the whole decision: these
+ * refusals are the only thing standing between a schema nobody meant and a schema
+ * nobody is told about.
  */
 export function pendingMigrations(
   migrations: readonly Migration[],
@@ -82,6 +93,27 @@ export function pendingMigrations(
       );
     }
   }
+
+  // Forward-only means forward. A pending file that sorts *below* one already applied
+  // is a migration arriving from the past, which is exactly what merging a sibling
+  // branch produces when its issue number is lower than one already run here.
+  // Applying it anyway would leave this database with an apply order no fresh clone
+  // will ever reproduce — the same divergence the checksum guard exists to prevent,
+  // arriving by the back door.
+  const latest = [...applied.keys()].sort().at(-1);
+  if (latest !== undefined) {
+    const behind = pending.filter((migration) => migration.filename < latest);
+    if (behind.length > 0) {
+      throw new Error(
+        `These migrations sort before ${latest}, which this database has already ` +
+          `applied: ${behind.map((migration) => migration.filename).join(", ")}.\n` +
+          "That is a branch merging in from behind, and running them now would give " +
+          "this database an order a fresh clone would not repeat. `pnpm db:reset` " +
+          "rebuilds the whole schema in file order."
+      );
+    }
+  }
+
   return pending;
 }
 

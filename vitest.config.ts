@@ -35,6 +35,8 @@ export default defineConfig({
     // A slice that wants speed back should reach for a schema per worker, not for
     // this flag.
     fileParallelism: false,
-    passWithNoTests: true,
+    // A green run has to mean tests ran: collecting nothing is a broken config, not a
+    // pass.
+    passWithNoTests: false,
   },
 });

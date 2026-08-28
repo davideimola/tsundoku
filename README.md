@@ -67,7 +67,7 @@ the port it wants is taken.
 
 `pnpm test` uses the same server and its own database, `tsundoku_test`, which it
 creates. Development data and test data never share a database, so a test that
-truncates a table cannot take the shelf you were looking at with it.
+truncates a table cannot take the Collection you were looking at with it.
 
 ### The commands
 
@@ -115,9 +115,20 @@ does not follow this, which is how the convention stays true.
 Add a **new file** rather than extending someone else's. Several slices are adding to
 this directory at once, and one file each is what keeps them out of each other's way.
 
-After merging a branch that adds a migration numbered below one you have already
-applied, run `pnpm db:reset`. Forward-only means the runner will not reach back and
-insert it, and locally there is nothing to preserve.
+**Your file must not depend on a higher-numbered one.** The number orders the
+files; it says nothing about which table has to exist first. If your migration needs
+another slice's table, you are blocked on that slice, not free to pick a bigger
+number.
+
+After merging a branch whose migration sorts below one you have already applied, run
+`pnpm db:reset`. The runner **refuses** to apply a file from behind rather than
+running it out of order, because doing so would leave your database with an order no
+fresh clone would ever repeat. Locally there is nothing to preserve, so rebuilding is
+free — which is the reason to do the spreadsheet import last and deliberately.
+
+A migration is wrapped in one transaction, so it lands whole or not at all. Two things
+follow: no `begin`/`commit`/`rollback` inside a file, and no `create index
+concurrently`, which Postgres will not run in a transaction at all.
 
 ### Type is a data row
 

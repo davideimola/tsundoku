@@ -116,6 +116,21 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/*
+ * The two faces the app names, as system stacks.
+ *
+ * No web font: a first clone needs no network for the page to look right, and visual
+ * work comes after the thing works. The monospace one is functional rather than
+ * decorative — it sets identifiers, and a Type's id is what an external assistant
+ * reads over MCP.
+ */
+:root {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

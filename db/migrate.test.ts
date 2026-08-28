@@ -49,4 +49,12 @@ describe("which migrations are pending", () => {
       /no longer on disk: 0004_01_deleted_by_somebody\.sql/
     );
   });
+
+  it("refuses a file that sorts before one already applied, as a merge from behind", () => {
+    const applied = new Map([[second.filename, second.checksum]]);
+
+    expect(() => pendingMigrations([first, second], applied)).toThrowError(
+      /sort before 0007_01_story\.sql[\s\S]*0002_01_type_is_a_data_row\.sql/
+    );
+  });
 });

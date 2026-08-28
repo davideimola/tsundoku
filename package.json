@@ -14,16 +14,13 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:up": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts up",
-    "db:reset": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts reset",
-    "db:down": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts down",
-    "db:psql": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts psql"
+    "db:up": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts up",
+    "db:reset": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts reset",
+    "db:down": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts down",
+    "db:psql": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts psql"
   },
   "dependencies": {
-    "@base-ui/react": "^1.6.0",
-    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.25.0",
     "next": "16.2.10",
     "pg": "^8.16.3",
     "react": "19.2.4",

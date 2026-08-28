@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    // ES2022 rather than bindex's ES2017: `new Error(msg, { cause })` is ES2022, and
+    // the database scripts use it to keep docker's own message attached to ours.
     "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,

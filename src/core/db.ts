@@ -57,6 +57,10 @@ export async function query<Row extends QueryResultRow>(
  */
 export async function closePool(): Promise<void> {
   const open = globals[KEY];
+  if (!open) return;
+  // Cleared *after* closing, not before: clearing first would let a query arriving in
+  // the meantime open a second pool that nothing ever closes, and the process would
+  // hang instead of failing.
+  await open.end();
   globals[KEY] = undefined;
-  await open?.end();
 }
