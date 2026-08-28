@@ -69,7 +69,9 @@ export default async function Home() {
           <Link href="/collection" className="underline underline-offset-4">
             Collection
           </Link>{" "}
-          <span className="text-muted-foreground">— the Volumes in the house.</span>
+          <span className="text-muted-foreground">
+            — the Volumes in the house, and the Stories each one holds.
+          </span>
         </li>
       </ul>
 

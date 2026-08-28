@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { StoryRating, StoryReading } from "@/core/queries/story";
 import { findStory } from "@/core/queries/story";
+import { listVolumesCarryingStory } from "@/core/queries/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
 import { StoryStateLabel } from "../story-state";
 
@@ -51,7 +53,7 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
   await requireOwner();
 
   const { id } = await params;
-  const story = await findStory(id);
+  const [story, carriedBy] = await Promise.all([findStory(id), listVolumesCarryingStory(id)]);
   if (!story) notFound();
 
   return (
@@ -133,6 +135,55 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
           </CardContent>
         </Card>
       ) : null}
+
+      {/* The other half of ADR-0001, read from the narrative end. Twenty objects would be
+          twenty rows and a scroll; as a wrapped set they are one shape the eye takes in at
+          once, which is the whole claim — *Slam Dunk* is one thing read and rated, and twenty
+          things bought. The Binding rides along on each, because it is what tells two
+          editions of one Story apart. */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Volumes carrying it</CardTitle>
+          <CardDescription className="text-pretty">
+            The objects this narrative arrived on. One Story spans as many as it spans, and the
+            judgement above is not multiplied by them: it was the story that was good or bad.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {carriedBy.length === 0 ? (
+            <p className="text-pretty text-sm text-muted-foreground">
+              No Volume carries this Story, and that is an ordinary answer rather than a gap: read
+              digitally, borrowed, or known only from Goodreads history. Being read and being owned
+              are unrelated facts.
+            </p>
+          ) : (
+            <>
+              <ul className="flex flex-wrap gap-2">
+                {carriedBy.map((volume) => (
+                  <li key={volume.id}>
+                    <Link
+                      href={`/collection/${volume.id}`}
+                      className="flex items-baseline gap-2 rounded-lg px-2.5 py-1.5 ring-1 ring-border outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className={volume.releasedOn ? "text-muted-foreground" : undefined}>
+                        {volume.title}
+                      </span>
+                      <Badge variant="outline" className="shrink-0 text-[0.65rem]">
+                        {volume.binding.name}
+                      </Badge>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-pretty text-xs leading-relaxed text-muted-foreground">
+                {carriedBy.length} {carriedBy.length === 1 ? "Volume" : "Volumes"}. A greyed title
+                is one that left the house — what it carried is still true. What the owner thinks of
+                any of them as an object is an Edition note, on its own page, and it is not a score.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <p className="mt-6 text-pretty text-xs leading-relaxed text-muted-foreground">
         The judgement is of the Story and never of an object: a Volume carries an Edition note

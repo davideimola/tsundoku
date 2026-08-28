@@ -9,6 +9,8 @@ import {
   countCollection,
   searchCollection,
 } from "@/core/queries/collection";
+import { type CarriedStory, listStoriesInVolumes } from "@/core/queries/story-to-volume";
+import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { acquire, release } from "./actions";
 
@@ -49,14 +51,23 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
     title: asked(params, "title"),
     publisher: asked(params, "publisher"),
     binding: asked(params, "binding"),
+    // Type is a Story's attribute, so this narrows by what the Volumes carry rather than by
+    // anything on the object itself — a Volume holding three Stories of two Types is found
+    // under either of them, and once (ADR-0006).
+    type: asked(params, "type"),
   };
-  const narrowed = Boolean(filter.title || filter.publisher || filter.binding);
+  const narrowed = Boolean(filter.title || filter.publisher || filter.binding || filter.type);
 
-  const [volumes, owned, bindings] = await Promise.all([
+  const [volumes, owned, bindings, types] = await Promise.all([
     searchCollection(filter),
     countCollection(),
     listBindings(),
+    listTypes(),
   ]);
+
+  // What each row holds, in one statement rather than one per row: a hundred Volumes on a
+  // shop's signal is not the place for a hundred round trips.
+  const held = await listStoriesInVolumes(volumes.map((volume) => volume.id));
 
   const refused = asked(params, "refused");
   const acquired = asked(params, "acquired");
@@ -81,7 +92,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
       {/* Sticky because the answer is read while scrolling and the question is what the
           owner keeps changing. `top-0` on a phone puts it under the thumb. */}
       <search className="sticky top-0 z-10 -mx-5 mt-6 border-b border-border bg-background/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
-        <form action="/collection" className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+        <form action="/collection" className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
             <Label htmlFor="search-title" className="text-xs text-muted-foreground">
               Title
@@ -110,7 +121,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             />
           </div>
 
-          <div className="grid gap-1.5 sm:col-span-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="search-binding" className="text-xs text-muted-foreground">
               Binding
             </Label>
@@ -122,7 +133,23 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             />
           </div>
 
-          <div className="flex items-end gap-2 sm:col-span-3">
+          {/* Type sits beside Binding because the two are asked the same way and answer
+              different halves of the same doubt in a shop: *which edition is this* and
+              *what kind of thing is inside it*. */}
+          <div className="grid gap-1.5">
+            <Label htmlFor="search-type" className="text-xs text-muted-foreground">
+              Type
+            </Label>
+            <Picker id="search-type" name="type" chosen={filter.type} any="Any">
+              {types.map((type: Type) => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
+            </Picker>
+          </div>
+
+          <div className="flex items-end gap-2 sm:col-span-2">
             <Button type="submit" className="h-11 flex-1 sm:h-10 sm:flex-none sm:px-6">
               Search
             </Button>
@@ -172,7 +199,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
       ) : (
         <ul className="mt-2">
           {volumes.map((volume) => (
-            <VolumeRow key={volume.id} volume={volume} />
+            <VolumeRow key={volume.id} volume={volume} stories={held[volume.id]} />
           ))}
         </ul>
       )}
@@ -228,13 +255,44 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
 }
 
 /**
- * The Binding picker, on the search and on the form.
+ * A picker over a vocabulary that lives in the database — Binding, Type.
  *
- * A native select rather than a scripted one: on a phone it opens the platform picker,
- * and it submits with the form whether JavaScript ran or not. The Bindings come out of
- * the database — they are rows, so a seventh appears here without this file being touched
- * (ADR-0006).
+ * A native select rather than a scripted one: on a phone it opens the platform picker, and
+ * it submits with the form whether JavaScript ran or not. Both vocabularies are rows, so a
+ * seventh Binding and a sixth Type appear here without this file being touched (ADR-0006),
+ * which is exactly why the options are passed in rather than written down.
  */
+function Picker({
+  id,
+  name,
+  chosen,
+  any,
+  required,
+  children,
+}: {
+  id: string;
+  name: string;
+  chosen?: string;
+  /** The wording for "none in particular", where not choosing is allowed. */
+  any?: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <select
+      id={id}
+      name={name}
+      defaultValue={chosen ?? ""}
+      required={required}
+      className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30"
+    >
+      {any ? <option value="">{any}</option> : null}
+      {children}
+    </select>
+  );
+}
+
+/** The Binding picker, on the search and on the form. */
 function BindingSelect({
   id,
   bindings,
@@ -245,30 +303,29 @@ function BindingSelect({
   id: string;
   bindings: Binding[];
   chosen?: string;
-  /** The wording for "no Binding in particular", where not choosing is allowed. */
   any?: string;
   required?: boolean;
 }) {
   return (
-    <select
-      id={id}
-      name="binding"
-      defaultValue={chosen ?? ""}
-      required={required}
-      className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30"
-    >
-      {any ? <option value="">{any}</option> : null}
+    <Picker id={id} name="binding" chosen={chosen} any={any} required={required}>
       {bindings.map((binding) => (
         <option key={binding.id} value={binding.id}>
           {binding.name}
         </option>
       ))}
-    </select>
+    </Picker>
   );
 }
 
-/** One Volume: the title to recognise it by, and the object's facts under it. */
-function VolumeRow({ volume }: { volume: CollectionVolume }) {
+/**
+ * One Volume: the title to recognise it by, the object's facts under it, and what it holds.
+ *
+ * The Stories are inside the disclosure rather than on the collapsed row on purpose. At
+ * arm's length in a shop the question is *do I have this object* and the answer is the
+ * title and the Binding; what is inside it is the second question, and it is asked by
+ * opening the row.
+ */
+function VolumeRow({ volume, stories }: { volume: CollectionVolume; stories: CarriedStory[] }) {
   const under = [volume.publisher, volume.editionLine].filter(Boolean).join(" · ");
 
   return (
@@ -293,6 +350,40 @@ function VolumeRow({ volume }: { volume: CollectionVolume }) {
           <Fact term="Language" detail={volume.language} />
           <Fact term="ISBN" detail={volume.isbn ?? "—"} mono />
         </dl>
+
+        <p className="pb-3 text-xs leading-relaxed">
+          <span className="text-muted-foreground">Holds </span>
+          {stories.length === 0 ? (
+            <span className="text-muted-foreground">
+              nothing yet —{" "}
+              <Link href={`/collection/${volume.id}`} className="underline underline-offset-4">
+                say what is inside it
+              </Link>
+              .
+            </span>
+          ) : (
+            <>
+              {stories.map((story, index) => (
+                <span key={story.id}>
+                  {index > 0 ? <span className="text-muted-foreground"> · </span> : null}
+                  <Link
+                    href={`/stories/${story.id}`}
+                    className="underline decoration-border underline-offset-4 hover:decoration-foreground"
+                  >
+                    {story.title}
+                  </Link>
+                </span>
+              ))}
+              <span className="text-muted-foreground">
+                {" — "}
+                <Link href={`/collection/${volume.id}`} className="underline underline-offset-4">
+                  this object&apos;s page
+                </Link>{" "}
+                carries the rest, and the Edition note.
+              </span>
+            </>
+          )}
+        </p>
 
         <form action={release} className="pb-4">
           <input type="hidden" name="volumeId" value={volume.id} />
