@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { searchCollection } from "@/core/queries/collection";
 import { type CreditRole, listCreditRoles } from "@/core/queries/credit";
 import type { StoryCredit, StoryRating, StoryReading } from "@/core/queries/story";
 import { findStory } from "@/core/queries/story";
+import { listVolumesCarryingStory } from "@/core/queries/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
 import { credit, uncredit } from "../../credits/actions";
 import { StoryStateLabel } from "../story-state";
+import { carryFromStory } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -115,8 +119,19 @@ export default async function StoryPage({
   await requireOwner();
 
   const { id } = await params;
-  const [story, roles, asked] = await Promise.all([findStory(id), listCreditRoles(), searchParams]);
+  const [story, roles, carriedBy, owned, asked] = await Promise.all([
+    findStory(id),
+    listCreditRoles(),
+    listVolumesCarryingStory(id),
+    // The Collection, because a Volume carrying this Story is an object the owner has: they
+    // are choosing from their own shelf, and an id is never typed.
+    searchCollection({}),
+    searchParams,
+  ]);
   if (!story) notFound();
+
+  const carrying = new Set(carriedBy.map((volume) => volume.id));
+  const offerable = owned.filter((volume) => !carrying.has(volume.id));
 
   const refused = said(asked, "refused");
   const credited = said(asked, "credited");
@@ -295,6 +310,109 @@ export default async function StoryPage({
           </CardContent>
         </Card>
       ) : null}
+
+      {/* The other half of ADR-0001, read from the narrative end. Twenty objects would be
+          twenty rows and a scroll; as a wrapped set they are one shape the eye takes in at
+          once, which is the whole claim — *Slam Dunk* is one thing read and rated, and twenty
+          things bought. The Binding rides along on each, because it is what tells two
+          editions of one Story apart. */}
+      {refused ? (
+        <p
+          role="alert"
+          className="mt-6 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {refused}
+        </p>
+      ) : null}
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Volumes carrying it</CardTitle>
+          <CardDescription className="text-pretty">
+            The objects this narrative arrived on. One Story spans as many as it spans, and the
+            judgement above is not multiplied by them: it was the story that was good or bad.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {carriedBy.length === 0 ? (
+            <p className="text-pretty text-sm text-muted-foreground">
+              No Volume carries this Story, and that is an ordinary answer rather than a gap: read
+              digitally, borrowed, or known only from Goodreads history. Being read and being owned
+              are unrelated facts.
+            </p>
+          ) : (
+            <>
+              <ul className="flex flex-wrap gap-2">
+                {carriedBy.map((volume) => (
+                  <li key={volume.id}>
+                    <Link
+                      href={`/collection/${volume.id}`}
+                      className="flex items-baseline gap-2 rounded-lg px-2.5 py-1.5 ring-1 ring-border outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className={volume.releasedOn ? "text-muted-foreground" : undefined}>
+                        {volume.title}
+                      </span>
+                      <Badge variant="outline" className="shrink-0 text-[0.65rem]">
+                        {volume.binding.name}
+                      </Badge>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-pretty text-xs leading-relaxed text-muted-foreground">
+                {carriedBy.length} {carriedBy.length === 1 ? "Volume" : "Volumes"}. A greyed title
+                is one that left the house — what it carried is still true. What the owner thinks of
+                any of them as an object is an Edition note, on its own page, and it is not a score.
+              </p>
+            </>
+          )}
+
+          {/* The same fact the object's own page writes, recorded from this end because a
+              Story spanning twenty objects would otherwise be twenty visits. Take it back on
+              the object's page: a Volume carries Stories, so the correction belongs there. */}
+          <form
+            action={carryFromStory}
+            className="mt-6 grid gap-3 border-t border-border pt-5 sm:grid-cols-[1fr_auto] sm:items-end"
+          >
+            <input type="hidden" name="storyId" value={story.id} />
+            <div className="grid gap-1.5">
+              <Label htmlFor="carry-volume" className="text-xs text-muted-foreground">
+                Another Volume carrying it
+              </Label>
+              <select
+                id="carry-volume"
+                name="volumeId"
+                required
+                disabled={offerable.length === 0}
+                defaultValue=""
+                className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:h-10 md:text-sm dark:bg-input/30"
+              >
+                <option value="" disabled>
+                  {offerable.length === 0
+                    ? "Every Volume in the house already carries it"
+                    : "Choose a Volume"}
+                </option>
+                {offerable.map((volume) => (
+                  <option key={volume.id} value={volume.id}>
+                    {volume.title} — {volume.binding.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              type="submit"
+              disabled={offerable.length === 0}
+              className="h-11 w-full sm:h-10 sm:w-auto sm:px-6"
+            >
+              Record it
+            </Button>
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              Only Volumes in the house are offered. Record the object in the Collection first if it
+              is not there — buying and reading are separate facts.
+            </p>
+          </form>
+        </CardContent>
+      </Card>
 
       <p className="mt-6 text-pretty text-xs leading-relaxed text-muted-foreground">
         The judgement is of the Story and never of an object: a Volume carries an Edition note
