@@ -25,6 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # arm64 is built by emulation on an amd64 runner, so the binfmt handlers have to be
+      # registered before buildx starts. Native arm64 runners are a paid-plan feature on a
+      # private repository; QEMU is the option that works on any plan.
+      - uses: docker/setup-qemu-action@v3
+
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -48,11 +53,17 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          # The cluster is amd64; building for arm64 as well costs minutes nobody is waiting
-          # for. Note this is the one place the build differs from a developer's laptop,
-          # which is arm64 — and nothing in the image is architecture-specific beyond the
-          # base image and `pg`'s pure-JS driver.
-          platforms: linux/amd64
+          # The cluster's node is arm64, and so is a developer's laptop; amd64 is published
+          # alongside it so the image stays runnable anywhere rather than only where it
+          # happens to be deployed today. Nothing in the image is architecture-specific
+          # beyond the base image and the native binaries pnpm resolves per platform — the
+          # lockfile carries the arm64-musl variants of swc, oxide and lightningcss, which
+          # is what makes the arm64 leg build at all.
+          #
+          # The arm64 leg runs under emulation and is the slow half of this job by a wide
+          # margin. That is the price of one runner; the gha cache keeps it off the path of
+          # every push that does not touch the lockfile or the sources.
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
