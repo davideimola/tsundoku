@@ -7,9 +7,10 @@ integration bolted on at the end: the app is judged on how legible the collectio
 outside.
 
 ```
-src/app/mcp/route.ts     the door: the gate, then the framing, then a response
+src/app/mcp/route.ts     the door: the limit, the gate, the framing, then a response
 src/lib/mcp/
 ├── bearer.ts            the gate. Environment in, verdict out, and pure
+├── rate-limit.ts        what stands in front of the gate, and the only thing that remembers
 ├── protocol.ts          JSON-RPC and the four methods. Knows nothing about the model
 ├── tool.ts              what one tool is
 ├── tools.ts             the directory *is* the tool list — see below
@@ -144,9 +145,17 @@ thing standing in front of the library here.
   connector and Claude Code (`docs/research/mcp-remote-auth.md`), which is the whole
   reason no OAuth 2.1 server is built here. ChatGPT's in-app connector is the one surface
   where that shortcut is unconfirmed, and ADR-0004 defers it deliberately.
-- **Rate limiting goes in `route.ts`, immediately before the gate**, and is #15's. This is
-  the first publicly reachable service on the cluster, and an endpoint that answers a
-  token check to anyone who asks is an endpoint that can be asked forever.
+- **The rate limit is in front of the gate**, in `route.ts` and immediately before it,
+  because this is the only publicly reachable service on the cluster and an endpoint that
+  answers a token check to anyone who asks is an endpoint that can be asked forever. The
+  order is the whole point: the limiter runs before anything a caller could make expensive,
+  the SHA-256 above and the log line beside it included. `rate-limit.ts` is what it counts —
+  **two fixed windows of a minute, thirty requests per client and three hundred over the
+  whole door** — and a refusal is a 429 carrying `Retry-After` in seconds. Two things about
+  it are assumptions rather than details, and both are written at the top of that file: the
+  client comes from the leftmost `X-Forwarded-For`, which is sound only because Traefik is
+  the only path in, and the counters live in **this process**, which assumes the **single
+  replica** the cluster deploys.
 
 ## The transport
 

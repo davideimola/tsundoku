@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { PER_CLIENT } from "@/lib/mcp/rate-limit";
+
 import { GET, POST } from "./route";
 
 // Seam 2, the other half of it. `src/proxy.test.ts` covers the Google gate over the web
@@ -30,9 +32,29 @@ afterEach(() => {
   process.env = saved;
 });
 
+/**
+ * A distinct caller for every request in this file.
+ *
+ * The rate limiter in front of the gate counts per client and remembers between requests
+ * (`@/lib/mcp/rate-limit`), so a file that let every case share one address would be a
+ * file whose last cases fail once somebody adds a few more. Each request here arrives
+ * from its own address instead, which is also the honest shape: these are cases about the
+ * token, and none of them is about a flood.
+ */
+let callers = 0;
+
+function fromSomewhereNew(): string {
+  callers += 1;
+  return `198.51.100.${callers}`;
+}
+
 /** A `tools/list` call — the cheapest well-formed request there is — with `authorization`. */
-function post(authorization?: string, body: unknown = { jsonrpc: "2.0", id: 1, method: "ping" }) {
-  const headers = new Headers({ "content-type": "application/json" });
+function post(
+  authorization?: string,
+  body: unknown = { jsonrpc: "2.0", id: 1, method: "ping" },
+  client: string = fromSomewhereNew()
+) {
+  const headers = new Headers({ "content-type": "application/json", "x-forwarded-for": client });
   if (authorization !== undefined) headers.set("authorization", authorization);
   return new Request("https://tsundoku.example.com/mcp", {
     method: "POST",
@@ -140,5 +162,57 @@ describe("the tool list", () => {
       id: 1,
       error: { code: -32603 },
     });
+  });
+});
+
+// The other thing standing in front of the library on this door, and the only thing about
+// it that is testable from out here: **it stands in front of the gate and not behind it.**
+//
+// What the limiter counts is arithmetic and is a table of cases beside it
+// (`src/lib/mcp/rate-limit.test.ts`). What matters at this seam is the order: a caller
+// with no token at all must run out of requests, because that is the caller the limit
+// exists for. A limiter placed after the gate would refuse them 401 for ever, cheerfully,
+// as fast as they could ask.
+describe("the rate limit in front of the gate", () => {
+  /** One address, asking far more than its allowance, and never with a token. */
+  async function flood(client: string, requests: number): Promise<number[]> {
+    const statuses: number[] = [];
+    for (let n = 0; n < requests; n += 1) {
+      statuses.push((await POST(post(undefined, undefined, client))).status);
+    }
+    return statuses;
+  }
+
+  it("runs out of requests for a caller who never presents a token", async () => {
+    const statuses = await flood("203.0.113.11", PER_CLIENT + 5);
+
+    expect(statuses.slice(0, PER_CLIENT)).toEqual(Array(PER_CLIENT).fill(401));
+    expect(statuses.slice(PER_CLIENT)).toEqual(Array(5).fill(429));
+  });
+
+  it("tells the caller how long to wait", async () => {
+    await flood("203.0.113.12", PER_CLIENT);
+    const response = await POST(post(undefined, undefined, "203.0.113.12"));
+
+    expect(response.status).toBe(429);
+    expect(Number(response.headers.get("retry-after"))).toBeGreaterThan(0);
+    // And nothing about the gate leaks out of a 429: it is refused before the token is
+    // ever looked at, so there is no `www-authenticate` to answer with.
+    expect(response.headers.get("www-authenticate")).toBeNull();
+  });
+
+  // The owner's own assistant is subject to the same limit. Stated as a case because the
+  // alternative — exempting a correct token — would put the SHA-256 back in front of the
+  // limiter and undo the whole point of the order.
+  it("counts the owner's own requests too", async () => {
+    await flood("203.0.113.13", PER_CLIENT);
+
+    expect((await POST(post(`Bearer ${TOKEN}`, undefined, "203.0.113.13"))).status).toBe(429);
+  });
+
+  it("does not charge one caller's flood to another", async () => {
+    await flood("203.0.113.14", PER_CLIENT + 20);
+
+    expect((await POST(post(`Bearer ${TOKEN}`, undefined, "203.0.113.15"))).status).toBe(200);
   });
 });

@@ -1,5 +1,6 @@
 import { bearerGate } from "@/lib/mcp/bearer";
 import { answer } from "@/lib/mcp/protocol";
+import { clientOf, rateLimit } from "@/lib/mcp/rate-limit";
 import { mountedTools } from "@/lib/mcp/tools";
 
 // The second door. One route handler, and as little of it as possible.
@@ -46,18 +47,25 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 /**
- * The bearer gate, in front of the whole endpoint rather than of one method. What it
- * decides and why is `@/lib/mcp/bearer`; this is only how the verdict becomes a response.
+ * The two things in front of the library on this door, in the order they have to be in:
+ * **the rate limit, then the bearer gate**.
  *
- * Every refusal is the same 401 with the same body. Which mistake it was is written to the
- * log for the owner and never to the response, because it is information the caller has
- * not earned.
+ * That order is the whole point of the first one. This is the only publicly reachable
+ * service on the cluster (ADR-0004), and an endpoint that answers a token check to anyone
+ * who asks is an endpoint that can be asked forever — so the limiter runs before anything
+ * a caller could make expensive, the SHA-256 in the gate and the log line beside it
+ * included. What it counts, and why the state being in this process is an assumption
+ * rather than an oversight, is `@/lib/mcp/rate-limit`.
  *
- * **Rate limiting belongs here**, immediately before this gate, and is #15's: this is the
- * first publicly reachable service on the cluster, and an endpoint that answers a token
- * check to anyone who asks is an endpoint that can be asked forever.
+ * Neither refusal says which one it was beyond its own status: a 429 names a wait because
+ * that is the only thing that helps a client behave, and a 401 names nothing because which
+ * mistake it was is information the caller has not earned. Both are written to the log for
+ * the owner.
  */
 function refuse(request: Request): Response | null {
+  const flooded = refuseAFlood(request);
+  if (flooded) return flooded;
+
   const verdict = bearerGate(process.env, request.headers.get("authorization"));
   if (verdict.ok) return null;
 
@@ -66,5 +74,24 @@ function refuse(request: Request): Response | null {
   return Response.json(
     { error: "unauthorized", message: "This endpoint needs the owner's bearer token." },
     { status: 401, headers: { "www-authenticate": 'Bearer realm="tsundoku"' } }
+  );
+}
+
+/**
+ * The rate limit as a response, or `null` if this request fits inside it.
+ *
+ * `Retry-After` is in seconds, which is the form every client understands, and a 429 that
+ * omits it leaves a well-behaved client guessing and a badly-behaved one retrying at once.
+ */
+function refuseAFlood(request: Request): Response | null {
+  const client = clientOf(request.headers);
+  const verdict = rateLimit(client, Date.now());
+  if (verdict.ok) return null;
+
+  console.warn("MCP request rate limited", { client, method: request.method });
+
+  return Response.json(
+    { error: "too_many_requests", message: "Too many requests. Wait, then ask again." },
+    { status: 429, headers: { "retry-after": String(verdict.retryAfterInSeconds) } }
   );
 }
