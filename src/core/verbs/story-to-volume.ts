@@ -24,7 +24,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NO_VOLUME = "That Volume is not in the library.";
 const NO_STORY = "That Story is not in the library yet.";
 
-function bothExist(volumeId: string, storyId: string): void {
+function bothAreIds(volumeId: string, storyId: string): void {
   if (!UUID.test(volumeId)) throw new Refusal("not-found", NO_VOLUME);
   if (!UUID.test(storyId)) throw new Refusal("not-found", NO_STORY);
 }
@@ -41,7 +41,7 @@ function bothExist(volumeId: string, storyId: string): void {
  * owned, and the Volume's Edition note is not a judgement of the Story it carries.
  */
 export async function recordVolumeCarriesStory(volumeId: string, storyId: string): Promise<void> {
-  bothExist(volumeId, storyId);
+  bothAreIds(volumeId, storyId);
 
   await refusing(
     () =>
@@ -74,7 +74,7 @@ export async function recordVolumeNoLongerCarriesStory(
   volumeId: string,
   storyId: string
 ): Promise<void> {
-  bothExist(volumeId, storyId);
+  bothAreIds(volumeId, storyId);
 
   const gone = await query<{ volume_id: string }>(
     "delete from volume_story where volume_id = $1 and story_id = $2 returning volume_id",

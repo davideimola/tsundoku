@@ -134,7 +134,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           </div>
 
           {/* Type sits beside Binding because the two are asked the same way and answer
-              different halves of the same doubt in a shop: *which edition is this* and
+              different halves of the same doubt in a shop: *how is this one bound* and
               *what kind of thing is inside it*. */}
           <div className="grid gap-1.5">
             <Label htmlFor="search-type" className="text-xs text-muted-foreground">

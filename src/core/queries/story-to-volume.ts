@@ -62,32 +62,6 @@ const CARRIED_STORY = `
   )`;
 
 /**
- * Which Stories this Volume holds, by title.
- *
- * The three-in-one case read from the object: *L'uomo che ride* answers with *Gotham Noir*,
- * *L'uomo che ride* and *Uomo di legno*, each carrying the score it earned on its own. An
- * object holding nothing yet answers with nothing, which is an ordinary answer.
- */
-export async function listStoriesInVolume(volumeId: string): Promise<CarriedStory[]> {
-  return query<CarriedStory>(
-    `select s.id,
-            s.title,
-            jsonb_build_object('id', t.id, 'name', t.name) as type,
-            (select g.score::float8
-               from rating g
-              where g.story_id = s.id
-              order by g.set_at desc
-              limit 1) as "latestScore"
-       from volume_story vs
-       join story s on s.id = vs.story_id
-       join type  t on t.id = s.type_id
-      where vs.volume_id = $1
-      order by lower(s.title), s.id`,
-    [volumeId]
-  );
-}
-
-/**
  * Which Volumes carry this Story, by title.
  *
  * The twenty-in-one case read from the narrative: *Slam Dunk* answers with twenty objects
@@ -114,6 +88,22 @@ export async function listVolumesCarryingStory(storyId: string): Promise<Carryin
       order by lower(v.title), v.id`,
     [storyId]
   );
+}
+
+/**
+ * Which Stories this Volume holds, by title.
+ *
+ * The three-in-one case read from the object: *L'uomo che ride* answers with *Gotham Noir*,
+ * *L'uomo che ride* and *Uomo di legno*, each carrying the score it earned on its own. An
+ * object holding nothing yet answers with nothing, which is an ordinary answer.
+ *
+ * The same question as the one below, asked about one object rather than a screenful. It
+ * delegates rather than writing the statement again: two copies of this SQL would be two
+ * places for the answer to drift, and one Volume is a list of one.
+ */
+export async function listStoriesInVolume(volumeId: string): Promise<CarriedStory[]> {
+  const held = await listStoriesInVolumes([volumeId]);
+  return held[volumeId];
 }
 
 /**

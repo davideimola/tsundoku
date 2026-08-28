@@ -87,6 +87,6 @@ export async function writeNote(form: FormData): Promise<void> {
   }
 
   return saying(volumeId, new URLSearchParams({ noted: "1" }), () =>
-    writeEditionNote(volumeId, note ?? "")
+    writeEditionNote(volumeId, note)
   );
 }

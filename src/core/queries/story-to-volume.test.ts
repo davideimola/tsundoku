@@ -21,7 +21,7 @@ beforeEach(async () => {
 });
 
 describe("one Volume holding three Stories: L'uomo che ride", () => {
-  // The book on the shelf is one object. Inside it are three narratives the owner read
+  // The object on the shelf is one Volume. Inside it are three narratives the owner read
   // and judged separately, which is the fact the `Voto` column destroyed.
   async function lUomoCheRide() {
     const volumeId = (

@@ -28,7 +28,7 @@ create table edition_note (
   constraint edition_note_is_not_blank check (note = btrim(note) and note <> ''),
 
   -- The note is about the object, so it goes when the object's row goes. Releasing a
-  -- Volume does not delete its row, so what the owner thought of a book they no longer
+  -- Volume does not delete its row, so what the owner thought of a Volume they no longer
   -- own survives — which is the point of keeping the row at all.
   constraint edition_note_volume_exists
     foreign key (volume_id) references volume (id) on delete cascade

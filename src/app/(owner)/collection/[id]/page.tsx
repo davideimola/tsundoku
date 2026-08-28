@@ -219,7 +219,7 @@ export default async function VolumePage({
             What you think of this as an object — print quality, translation, value for money,
             whether the Must Have was the right way to try the saga. It decides what to buy.{" "}
             <strong className="font-medium text-foreground">It is not a score</strong>, it stands
-            beside no Rating, and nothing recommending you a book will ever read it.
+            beside no Rating, and nothing recommending you a Story will ever read it.
           </CardDescription>
         </CardHeader>
         <CardContent>
