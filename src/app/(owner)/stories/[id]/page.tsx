@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { searchCollection } from "@/core/queries/collection";
 import type { StoryRating, StoryReading } from "@/core/queries/story";
 import { findStory } from "@/core/queries/story";
 import { listVolumesCarryingStory } from "@/core/queries/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
 import { StoryStateLabel } from "../story-state";
+import { carryFromStory } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -49,12 +53,29 @@ function Judgement({ rating }: { rating: StoryRating }) {
   );
 }
 
-export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function StoryPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireOwner();
 
   const { id } = await params;
-  const [story, carriedBy] = await Promise.all([findStory(id), listVolumesCarryingStory(id)]);
+  const [story, carriedBy, owned, said] = await Promise.all([
+    findStory(id),
+    listVolumesCarryingStory(id),
+    // The Collection, because a Volume carrying this Story is an object the owner has: they
+    // are choosing from their own shelf, and an id is never typed.
+    searchCollection({}),
+    searchParams,
+  ]);
   if (!story) notFound();
+
+  const carrying = new Set(carriedBy.map((volume) => volume.id));
+  const offerable = owned.filter((volume) => !carrying.has(volume.id));
+  const refused = typeof said.refused === "string" ? said.refused : undefined;
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-16">
@@ -141,6 +162,15 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
           once, which is the whole claim — *Slam Dunk* is one thing read and rated, and twenty
           things bought. The Binding rides along on each, because it is what tells two
           editions of one Story apart. */}
+      {refused ? (
+        <p
+          role="alert"
+          className="mt-6 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {refused}
+        </p>
+      ) : null}
+
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Volumes carrying it</CardTitle>
@@ -182,6 +212,51 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
               </p>
             </>
           )}
+
+          {/* The same fact the object's own page writes, recorded from this end because a
+              Story spanning twenty objects would otherwise be twenty visits. Take it back on
+              the object's page: a Volume carries Stories, so the correction belongs there. */}
+          <form
+            action={carryFromStory}
+            className="mt-6 grid gap-3 border-t border-border pt-5 sm:grid-cols-[1fr_auto] sm:items-end"
+          >
+            <input type="hidden" name="storyId" value={story.id} />
+            <div className="grid gap-1.5">
+              <Label htmlFor="carry-volume" className="text-xs text-muted-foreground">
+                Another Volume carrying it
+              </Label>
+              <select
+                id="carry-volume"
+                name="volumeId"
+                required
+                disabled={offerable.length === 0}
+                defaultValue=""
+                className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:h-10 md:text-sm dark:bg-input/30"
+              >
+                <option value="" disabled>
+                  {offerable.length === 0
+                    ? "Every Volume in the house already carries it"
+                    : "Choose a Volume"}
+                </option>
+                {offerable.map((volume) => (
+                  <option key={volume.id} value={volume.id}>
+                    {volume.title} — {volume.binding.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              type="submit"
+              disabled={offerable.length === 0}
+              className="h-11 w-full sm:h-10 sm:w-auto sm:px-6"
+            >
+              Record it
+            </Button>
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              Only Volumes in the house are offered. Record the object in the Collection first if it
+              is not there — buying and reading are separate facts.
+            </p>
+          </form>
         </CardContent>
       </Card>
 
