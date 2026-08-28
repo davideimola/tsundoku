@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { countWaitingInboxEntries } from "@/core/queries/inbox";
 import { listTypes } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 
@@ -22,7 +23,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   await requireOwner();
-  const types = await listTypes();
+  const [types, waiting] = await Promise.all([listTypes(), countWaitingInboxEntries()]);
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-16">
@@ -106,6 +107,19 @@ export default async function Home() {
           </Link>{" "}
           <span className="text-muted-foreground">
             — the routes I chose, and what comes next on each.
+          </span>
+        </li>
+        <li>
+          <Link href="/inbox" className="underline underline-offset-4">
+            Inbox
+          </Link>{" "}
+          <span className="text-muted-foreground">
+            {/* The count is here rather than only on the screen itself: an assistant cannot
+                create a Story, a Volume or a Series, so anything it met that I do not have
+                is waiting for me, and a boundary nobody looks at is one that fills up. */}
+            {waiting > 0
+              ? `— ${waiting} waiting for me to approve or reject.`
+              : "— what an assistant asked for, and what I decided."}
           </span>
         </li>
       </ul>

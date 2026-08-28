@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "../db.ts";
 import { Refusal, refusing } from "../refusal.ts";
+import type { Executor } from "../transaction.ts";
 
 // Writing the completeness ledger.
 //
@@ -69,16 +70,17 @@ function whySeriesRefused(constraint: string | undefined): string {
  * refused is the same Series twice.
  *
  * The owner's verb, not MCP's: an external assistant may only *propose* a Series, as an
- * Inbox entry the owner approves (ADR-0005).
+ * Inbox entry the owner approves (ADR-0005). `run` is how the Inbox's approval calls it
+ * inside its own transaction (see `../transaction.ts`).
  */
-export async function declareSeries(series: NewSeries): Promise<string> {
+export async function declareSeries(series: NewSeries, run: Executor = query): Promise<string> {
   if (!Number.isInteger(series.publishedCount)) {
     throw new Refusal("invalid", "A count of published Volumes is a whole number.");
   }
 
   const rows = await refusing(
     () =>
-      query<{ id: string }>(
+      run<{ id: string }>(
         `insert into series (name, publisher, edition_line, published_count, status)
          values (btrim($1), btrim($2), $3, $4, $5)
          returning id`,

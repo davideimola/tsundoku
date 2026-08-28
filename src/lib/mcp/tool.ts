@@ -64,3 +64,20 @@ export function stringArgument(input: Record<string, unknown>, key: string): str
   const trimmed = value.trim();
   return trimmed === "" ? undefined : trimmed;
 }
+
+/**
+ * The optional number at `key`, or `undefined`.
+ *
+ * A string is accepted, because an assistant filling in a schema that says `number` sends
+ * `"8"` often enough to matter and the alternative is a refusal the owner would never
+ * understand. What is **not** accepted is anything that is not a number — `NaN` would reach
+ * a verb as a value it refuses in prose about half points, which would be a lie about what
+ * went wrong.
+ */
+export function numberArgument(input: Record<string, unknown>, key: string): number | undefined {
+  const value = input[key];
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== "string" || value.trim() === "") return undefined;
+  const read = Number(value);
+  return Number.isFinite(read) ? read : undefined;
+}

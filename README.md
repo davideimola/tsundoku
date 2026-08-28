@@ -198,6 +198,20 @@ is no barrel for two slices to conflict in. [`src/lib/mcp/README.md`](src/lib/mc
 is the contract — read it before adding a tool, and read `src/core/README.md` before
 adding the query underneath it.
 
+### It writes, and where it may write is decided
+
+An assistant **runs verbs directly on entities that already exist** — record a Reading, set
+a Rating, acquire a Volume, open a Wish — because those are narrow, reversible and wrong in
+an obvious way, and because *"I finished volume 23, I'd give it an 8"*, said out loud,
+landing in the database is the flow the whole app was built for.
+
+**Creating a Story, a Volume or a Series from out there is impossible**
+([ADR-0005](docs/adr/0005-the-mcp-runs-verbs-directly-and-creates-entities-only-through-the-inbox.md)).
+The risk is not in the verbs, it is in entity creation, where a hallucinated title becomes a
+permanent duplicate. The attempt lands as an **Inbox** entry instead, and **approving it is
+the act that creates the entity** — `/inbox` is that screen. A rejected entry leaves nothing
+behind, because the entry was the only trace the proposal ever had.
+
 The gate is `MCP_BEARER_TOKEN` and it **fails closed**: unset or blank, every request is
 refused. Unlike the owner gate there is no development opt-in beside it, because this is a
 string you pick rather than a Google client somebody has to create.
@@ -220,7 +234,14 @@ claude mcp add --transport http tsundoku http://localhost:3000/mcp \
 ```
 
 Then `/mcp` in Claude Code lists the tools, and *"what have I read?"* calls
-`stories_read`. A **Claude custom connector** on claude.ai takes the deployed
+`stories_read`. The two sentences that exercise the write boundary are:
+
+> *"I finished volume 23 of Slam Dunk, I'd give it an 8"* — a Reading and a Rating,
+> recorded directly.
+>
+> *"I bought Ultimate Spider-Man Omnibus 1"* — an object the library has not
+> catalogued, so it lands in `/inbox` and waits. The assistant should say it is
+> waiting, not that it has added it. A **Claude custom connector** on claude.ai takes the deployed
 `https://<domain>/mcp` and the same header in its *Request headers* section; the Claude
 API's MCP connector takes the token as `authorization_token`. ChatGPT's in-app connector
 is the one surface where a static bearer is unconfirmed, and ADR-0004 defers it

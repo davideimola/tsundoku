@@ -68,9 +68,34 @@ Five rules, and they are all the review surface there is:
    of a Volume, a Volume on the shelf says nothing about having read it. A tool described
    as "list series" gets called for the wrong question.
 5. **`readOnly` means it.** A read tool a client may call without interrupting the owner;
-   a verb that writes says `false`, and the write door is #12's with ADR-0005's boundary
-   on it — the MCP server runs verbs on entities that already exist and may only
-   *propose* a new Story, Volume or Series, as an Inbox entry.
+   a verb that writes says `false`. See the write boundary below before adding one.
+
+## The write boundary
+
+This door writes, and **where it may write is not a matter of taste** (ADR-0005). Two rules,
+and they are the whole of it:
+
+- **A verb on an entity that already exists is called directly.** Record a Reading, set a
+  Rating, acquire a Volume, release a Volume, open a Wish, close a Wish. They are narrow,
+  reversible and wrong in an obvious way, and keeping them fluid is the point — *"I finished
+  volume 23, I'd give it an 8"*, said out loud, is the flow this whole app was built for.
+- **Creating a Story, a Volume or a Series is impossible from here.** There is no
+  `stories_create`, no `collection_catalogue` and no `series_declare`, and there must not be
+  one: a hallucinated title or a fabricated edition becomes a permanent duplicate in a
+  library kept for years. The three `inbox_propose_*` tools are the whole of what an
+  assistant can do about it, and the owner approving the entry is what creates the entity.
+
+Two consequences for anyone adding a tool:
+
+- **A verb that creates an entity does not get a tool.** If the thing you want to expose
+  writes a row nothing else could have written, it belongs behind the Inbox, and extending
+  the Inbox to a fourth kind of entity is a decision for an ADR rather than for a tool file.
+  `creditStory` is the live example: it mints a **Person** on a name nobody has typed, and
+  there is deliberately no tool for it here — the reason is written at the top of
+  `src/core/verbs/credit.ts`.
+- **The verb's own refusal is the boundary you are relying on.** `openWish` refuses a Volume
+  that does not exist rather than creating one, and that refusal is what makes `wish_open`
+  safe to expose. A tool over a verb that would create-on-write is not.
 
 ### A refusal is already handled
 

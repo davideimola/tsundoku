@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "../db.ts";
 import { refusing } from "../refusal.ts";
+import type { Executor } from "../transaction.ts";
 
 // Writing a Story. **No Volume is involved**, here or anywhere in this file: being read
 // and being owned are two unrelated facts, and a Story read digitally, borrowed or known
@@ -21,12 +22,14 @@ export type NewStory = {
  * nothing here records which. Returns its id.
  *
  * The owner's verb, not MCP's: an external assistant may only *propose* a Story, as an
- * Inbox entry the owner approves (ADR-0005).
+ * Inbox entry the owner approves (ADR-0005). `run` is how the Inbox's approval calls it
+ * inside its own transaction: approving is one act, so the Story and the entry that became
+ * it land together or not at all (see `../transaction.ts`).
  */
-export async function createStory(story: NewStory): Promise<string> {
+export async function createStory(story: NewStory, run: Executor = query): Promise<string> {
   const rows = await refusing(
     () =>
-      query<{ id: string }>(
+      run<{ id: string }>(
         "insert into story (title, type_id) values (btrim($1), $2) returning id",
         [story.title, story.typeId]
       ),

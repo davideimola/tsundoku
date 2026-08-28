@@ -140,6 +140,21 @@ nothing in this application enforces it, counts against it or warns about it, an
 it changes it changes by being repeated to whoever is asked what to read next.
 _Avoid_: rule, preference, setting — all three promise something the app obeys.
 
+**Inbox**:
+What an external assistant asked for and the owner has not decided yet. It exists because
+the two kinds of writing are not the same risk: a Reading, a Rating, an acquisition or a
+Wish is narrow, reversible and wrong in an obvious way, so an assistant records those
+directly, while a **Story, a Volume or a Series it creates is a permanent fact** — a
+hallucinated title or a fabricated edition the owner carries for years. So creating one from
+outside is impossible, and the attempt lands here as an entry the owner reads: what was
+said, in the words it was said in, which of the three it proposes, and everything else the
+assistant supplied, unchecked. **Approval is the act that creates the entity**, which is
+why a rejected entry leaves nothing anywhere — the entry was the only trace the proposal
+ever had. A **first-class entity, not a log**: the owner's own `Inbox` tab already sketched
+it, columns and all.
+_Avoid_: queue, pending, draft, staging — and **approval workflow**, which promises states
+this has none of: an entry waits, or it has been decided.
+
 **Type**:
 Manga, Comic, Graphic Novel, Novel, Non-fiction. An **attribute** of a story, not a kind
 of thing: the model is one model, and a novel and a tankōbon differ in their attributes,
