@@ -1,4 +1,4 @@
-import { listProvenances } from "@/core/queries/provenance";
+import { FIRST_HAND, listProvenances } from "@/core/queries/provenance";
 import {
   abandonReading,
   finishReading,
@@ -19,20 +19,18 @@ import { type McpTool, stringArgument } from "../tool.ts";
 // What it cannot do is invent the Story. `story` is an id from `stories_all`, and a Story
 // nobody has recorded is `inbox_propose_story`'s business.
 
-// The Provenance a conversation carries, and the one default this door supplies.
-//
-// The owner telling an assistant what they read is first-hand knowledge — the same evidence
-// as typing it themselves — so it is `remembered` rather than a Provenance of its own.
-// Anything weaker is worth naming explicitly, which is what `reading_provenances` is for.
-const SAID_IN_CONVERSATION = "remembered";
+// `FIRST_HAND` is the core's: the owner telling an assistant what they read is the same
+// evidence as typing it themselves, and which Provenance that is is the model's business
+// rather than this door's. Anything weaker is worth naming explicitly, which is what
+// `reading_provenances` is for.
 
 const PROVENANCE = {
   type: "string",
   description: `A Provenance id from \`reading_provenances\` — how this came to be known, and
 therefore how far it can be trusted later. Leave it out when the owner is telling you now: that is
-"${SAID_IN_CONVERSATION}", which is the strongest thing here. Name a weaker one when it is weaker:
+"${FIRST_HAND}", which is the strongest thing here. Name a weaker one when it is weaker:
 reading an old export to them is not the same as them remembering it.`,
-  default: SAID_IN_CONVERSATION,
+  default: FIRST_HAND,
 };
 
 const DAY = "A day, written 2024-03-11. Leave it out where the owner did not say one.";
@@ -105,7 +103,7 @@ object. Absent is ordinary, and required on digital.`,
         startedOn: stringArgument(input, "started_on"),
         endedOn: stringArgument(input, "ended_on"),
         volumeId: stringArgument(input, "volume"),
-        provenanceId: stringArgument(input, "provenance") ?? SAID_IN_CONVERSATION,
+        provenanceId: stringArgument(input, "provenance") ?? FIRST_HAND,
       }),
     };
   },

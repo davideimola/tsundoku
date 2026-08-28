@@ -21,6 +21,20 @@ export type Provenance = {
   description: string;
 };
 
+/**
+ * The Provenance of something the owner has just said, and the one slug this repo names.
+ *
+ * It is here rather than in the doors that need it, because *which Provenance a conversation
+ * carries* is a statement about the model: the owner telling an assistant what they read is
+ * the same first-hand evidence as typing it themselves, so it is `remembered` and not a
+ * Provenance of its own. A door that wrote the slug itself would be a second place that
+ * judgement lives — and there would be two of them, since both the Reading and the Rating
+ * side of *"I finished volume 23, I'd give it an 8"* need it.
+ *
+ * The rest of the vocabulary is deliberately not named in TypeScript. Read it.
+ */
+export const FIRST_HAND = "remembered";
+
 /** Every Provenance, in the order the model offers them. */
 export async function listProvenances(): Promise<Provenance[]> {
   return query<Provenance>("select id, name, description from provenance order by display_order");

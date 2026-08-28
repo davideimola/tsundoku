@@ -1,3 +1,4 @@
+import { FIRST_HAND } from "@/core/queries/provenance";
 import { type RatingScale, setRating } from "@/core/verbs/rating";
 import { type McpTool, numberArgument, stringArgument } from "../tool.ts";
 
@@ -9,9 +10,6 @@ import { type McpTool, numberArgument, stringArgument } from "../tool.ts";
 // print, the translation, the value for money — is an Edition note, a different judgement
 // that never feeds recommendation, and there is deliberately no tool here that writes one
 // against a Volume.
-
-// The same reasoning as `reading.ts`: the owner saying it to an assistant now is first-hand.
-const SAID_IN_CONVERSATION = "remembered";
 
 const set: McpTool = {
   name: "rating_set",
@@ -65,8 +63,8 @@ one instead of over it.`,
       provenance: {
         type: "string",
         description: `A Provenance id from \`reading_provenances\`. Leave it out when the owner is
-telling you now — that is "${SAID_IN_CONVERSATION}".`,
-        default: SAID_IN_CONVERSATION,
+telling you now — that is "${FIRST_HAND}".`,
+        default: FIRST_HAND,
       },
     },
     required: ["story", "score"],
@@ -84,7 +82,7 @@ telling you now — that is "${SAID_IN_CONVERSATION}".`,
         prose: stringArgument(input, "prose"),
         scale: stringArgument(input, "scale") as RatingScale | undefined,
         readingId: stringArgument(input, "reading"),
-        provenanceId: stringArgument(input, "provenance") ?? SAID_IN_CONVERSATION,
+        provenanceId: stringArgument(input, "provenance") ?? FIRST_HAND,
       }),
     };
   },
