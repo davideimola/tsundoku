@@ -124,62 +124,85 @@ const RATING = `
  * the same question, and reading them in three round trips would be reading three
  * different moments.
  */
+// The whole of a Story, written once. Two questions ask for it — *show me this one* and
+// *what have I read* — and they differ only in the `where`, so the shape and the
+// derivation live here rather than in each of them.
+const WHOLE_STORY = `
+  select
+    s.id,
+    s.title,
+    jsonb_build_object('id', t.id, 'name', t.name) as type,
+    ${STORY_STATE} as state,
+    coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'id', c.id,
+          'person', jsonb_build_object('id', pe.id, 'name', pe.name),
+          'role', jsonb_build_object('id', cr.id, 'name', cr.name)
+        )
+        order by cr.display_order, lower(pe.name), c.id
+      )
+        from credit c
+        join person pe on pe.id = c.person_id
+        join credit_role cr on cr.id = c.role_id
+       where c.story_id = s.id
+    ), '[]'::jsonb) as credits,
+    coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'id', r.id,
+          'medium', r.medium,
+          'outcome', r.outcome,
+          'startedOn', r.started_on::text,
+          'endedOn', r.ended_on::text,
+          'provenance', jsonb_build_object('id', rp.id, 'name', rp.name),
+          'rating', (
+            select ${RATING}
+              from rating g
+              join provenance gp on gp.id = g.provenance_id
+             where g.reading_id = r.id
+          )
+        )
+        order by r.started_on desc nulls last, r.created_at desc
+      )
+        from reading r
+        join provenance rp on rp.id = r.provenance_id
+       where r.story_id = s.id
+    ), '[]'::jsonb) as readings,
+    coalesce((
+      select jsonb_agg(${RATING} order by g.set_at desc)
+        from rating g
+        join provenance gp on gp.id = g.provenance_id
+       where g.story_id = s.id and g.reading_id is null
+    ), '[]'::jsonb) as "standaloneRatings"
+  from story s
+  join type t on t.id = s.type_id`;
+
 export async function findStory(storyId: string): Promise<Story | null> {
-  const rows = await query<Story>(
-    `select
-       s.id,
-       s.title,
-       jsonb_build_object('id', t.id, 'name', t.name) as type,
-       ${STORY_STATE} as state,
-       coalesce((
-         select jsonb_agg(
-           jsonb_build_object(
-             'id', c.id,
-             'person', jsonb_build_object('id', pe.id, 'name', pe.name),
-             'role', jsonb_build_object('id', cr.id, 'name', cr.name)
-           )
-           order by cr.display_order, lower(pe.name), c.id
-         )
-           from credit c
-           join person pe on pe.id = c.person_id
-           join credit_role cr on cr.id = c.role_id
-          where c.story_id = s.id
-       ), '[]'::jsonb) as credits,
-       coalesce((
-         select jsonb_agg(
-           jsonb_build_object(
-             'id', r.id,
-             'medium', r.medium,
-             'outcome', r.outcome,
-             'startedOn', r.started_on::text,
-             'endedOn', r.ended_on::text,
-             'provenance', jsonb_build_object('id', rp.id, 'name', rp.name),
-             'rating', (
-               select ${RATING}
-                 from rating g
-                 join provenance gp on gp.id = g.provenance_id
-                where g.reading_id = r.id
-             )
-           )
-           order by r.started_on desc nulls last, r.created_at desc
-         )
-           from reading r
-           join provenance rp on rp.id = r.provenance_id
-          where r.story_id = s.id
-       ), '[]'::jsonb) as readings,
-       coalesce((
-         select jsonb_agg(${RATING} order by g.set_at desc)
-           from rating g
-           join provenance gp on gp.id = g.provenance_id
-          where g.story_id = s.id and g.reading_id is null
-       ), '[]'::jsonb) as "standaloneRatings"
-     from story s
-     join type t on t.id = s.type_id
-    where s.id = $1`,
-    [storyId]
-  );
+  const rows = await query<Story>(`${WHOLE_STORY} where s.id = $1`, [storyId]);
 
   return rows[0] ?? null;
+}
+
+/**
+ * Every Story the owner has read, whole: the Readings that finished it and the Rating
+ * each one carried, prose and Provenance included.
+ *
+ * **This is the corpus an external reader recommends from** (ADR-0002, user story 32),
+ * and it is the reason nothing here is a summary. A score alone is a genre guess with a
+ * number on it; what makes a recommendation evidence is the prose the owner wrote and
+ * the Provenance that says whether they remember writing it — so both travel, and a
+ * score doubled from a 1-5 scale arrives marked as coarser.
+ *
+ * `read` is the derived state and not a column, so the three states that are *not* read
+ * are excluded by the same expression `findStory` reports: a Story in the owner's hands
+ * right now is not something they have read, and neither is one they abandoned.
+ *
+ * By title, like `listStories`, for the same reason: the order is not an opinion this
+ * query has been asked for, and an assistant that wants recency has the dates.
+ */
+export async function listReadStories(): Promise<Story[]> {
+  return query<Story>(`${WHOLE_STORY} where ${STORY_STATE} = 'read' order by s.title`);
 }
 
 /** A Story as a list shows it: enough to choose one, and nothing more. */

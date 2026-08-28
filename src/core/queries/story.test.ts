@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
+import { creditStory } from "../verbs/credit.ts";
 import { setRating } from "../verbs/rating.ts";
 import { abandonReading, finishReading, recordReading } from "../verbs/reading.ts";
 import { createStory } from "../verbs/story.ts";
-import { findStory, listStories } from "./story.ts";
+import { findStory, listReadStories, listStories } from "./story.ts";
 
 beforeEach(async () => {
-  await query("truncate story cascade");
+  await query("truncate story, person cascade");
 });
 
 // The state a Story is in is the thing the owner never wants to maintain again: the
@@ -191,5 +192,154 @@ describe("the Stories, listed", () => {
 
   it("answers with nothing for a Story that is not there", async () => {
     expect(await findStory("00000000-0000-0000-0000-000000000000")).toBeNull();
+  });
+});
+
+// The corpus, as the external reader reads it (ADR-0002). This is the one question the
+// whole application exists to answer from outside, so what it must carry is not "a
+// Story" but the *evidence* to recommend from: the score, the prose the owner wrote,
+// and the Provenance that says how far either can be trusted.
+describe("what the owner has read", () => {
+  it("carries every Rating with its prose and its Provenance", async () => {
+    const storyId = await createStory({ title: "Pluto", typeId: "manga" });
+    const reading = await recordReading({
+      storyId,
+      medium: "paper",
+      startedOn: "2024-01-02",
+      provenanceId: "goodreads-history",
+    });
+    await finishReading(reading, "2024-02-02");
+    await setRating({
+      storyId,
+      readingId: reading,
+      score: 9.5,
+      prose: "The best thing Urasawa has done.",
+      provenanceId: "remembered",
+    });
+
+    // Credited too, because who made it is evidence a recommender reasons about, and the
+    // corpus read is the only place that claim can be checked.
+    await creditStory({ storyId, person: "Naoki Urasawa", roleId: "writer" });
+
+    expect(await listReadStories()).toEqual([
+      {
+        id: storyId,
+        title: "Pluto",
+        type: { id: "manga", name: "Manga" },
+        state: "read",
+        credits: [
+          {
+            id: expect.any(String),
+            person: { id: expect.any(String), name: "Naoki Urasawa" },
+            role: { id: "writer", name: "Writer" },
+          },
+        ],
+        readings: [
+          {
+            id: reading,
+            medium: "paper",
+            outcome: "finished",
+            startedOn: "2024-01-02",
+            endedOn: "2024-02-02",
+            provenance: {
+              id: "goodreads-history",
+              name: "Goodreads history",
+            },
+            rating: {
+              id: expect.any(String),
+              score: 9.5,
+              prose: "The best thing Urasawa has done.",
+              provenance: { id: "remembered", name: "Remembered" },
+            },
+          },
+        ],
+        standaloneRatings: [],
+      },
+    ]);
+  });
+
+  // The three states that are not `read` are all absent for their own reason: nothing
+  // has been read yet, it is in the owner's hands right now (user story 33), or they
+  // gave up on it. A recommender told "you have read this" about any of the three would
+  // be recommending from a fact that is not one.
+  it("leaves out what was never read, what is in hand, and what was abandoned", async () => {
+    await createStory({ title: "Vagabond", typeId: "manga" });
+
+    const inHand = await createStory({ title: "Vinland Saga", typeId: "manga" });
+    await recordReading({ storyId: inHand, medium: "paper", provenanceId: "remembered" });
+
+    const gaveUp = await createStory({ title: "Ulysses", typeId: "novel" });
+    const attempt = await recordReading({
+      storyId: gaveUp,
+      medium: "digital",
+      provenanceId: "remembered",
+    });
+    await abandonReading(attempt, "2019-04-04");
+
+    const finished = await createStory({ title: "Sapiens", typeId: "non-fiction" });
+    const reading = await recordReading({
+      storyId: finished,
+      medium: "paper",
+      provenanceId: "remembered",
+    });
+    await finishReading(reading, "2024-05-05");
+
+    expect((await listReadStories()).map((story) => story.title)).toEqual(["Sapiens"]);
+  });
+
+  // A reread that is still open makes the Story `reading` again, and the derivation is
+  // the same expression `findStory` uses — so this is really an assertion that there is
+  // one derivation and not two.
+  it("drops a Story the owner has started reading again", async () => {
+    const storyId = await createStory({ title: "Berserk", typeId: "manga" });
+    const first = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishReading(first, "2021-06-01");
+    expect((await listReadStories()).map((story) => story.title)).toEqual(["Berserk"]);
+
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    expect(await listReadStories()).toEqual([]);
+  });
+
+  // A score imported from a spreadsheet has no act of reading to point at. It is still
+  // the owner's judgement, so it travels — and it says so in its own Provenance.
+  it("carries a judgement that points at no Reading, marked for what it is", async () => {
+    const storyId = await createStory({ title: "Death Note", typeId: "manga" });
+    const reading = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishReading(reading, "2020-01-01");
+    await setRating({
+      storyId,
+      score: 8,
+      prose: "Four out of five, doubled.",
+      provenanceId: "converted-from-a-coarser-scale",
+    });
+
+    const [story] = await listReadStories();
+
+    expect(story.standaloneRatings).toEqual([
+      {
+        id: expect.any(String),
+        score: 8,
+        prose: "Four out of five, doubled.",
+        provenance: {
+          id: "converted-from-a-coarser-scale",
+          name: "Converted from a coarser scale",
+        },
+      },
+    ]);
+  });
+
+  it("is by title, so that reading it twice reads the same", async () => {
+    for (const title of ["Zeru", "Akira", "Monster"]) {
+      const storyId = await createStory({ title, typeId: "manga" });
+      const reading = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+      await finishReading(reading, "2024-01-01");
+    }
+
+    expect((await listReadStories()).map((story) => story.title)).toEqual([
+      "Akira",
+      "Monster",
+      "Zeru",
+    ]);
   });
 });
