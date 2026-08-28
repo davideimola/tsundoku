@@ -99,6 +99,14 @@ export default async function Home() {
             — the routes I chose, and what comes next on each.
           </span>
         </li>
+        <li>
+          <Link href="/inbox" className="underline underline-offset-4">
+            Inbox
+          </Link>{" "}
+          <span className="text-muted-foreground">
+            — what an assistant asked for, and what I decided.
+          </span>
+        </li>
       </ul>
 
       <p className="mt-6 text-pretty text-xs leading-relaxed text-muted-foreground">
