@@ -6,7 +6,7 @@ import { countCollection, searchCollection } from "./collection.ts";
 // Seam 1. The Collection is the question asked standing in a shop, so what is asserted
 // here is what the owner sees after typing a word into it.
 beforeEach(async () => {
-  await query("truncate volume");
+  await query("truncate volume cascade");
 });
 
 async function threeVolumesInTheHouse(): Promise<void> {

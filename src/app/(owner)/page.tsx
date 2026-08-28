@@ -77,6 +77,12 @@ export default async function Home() {
           </Link>{" "}
           <span className="text-muted-foreground">— what am I missing.</span>
         </li>
+        <li>
+          <Link href="/wishes" className="underline underline-offset-4">
+            Wishes
+          </Link>{" "}
+          <span className="text-muted-foreground">— what to buy, and what it should cost.</span>
+        </li>
       </ul>
 
       <p className="mt-6 text-pretty text-xs leading-relaxed text-muted-foreground">

@@ -7,7 +7,7 @@ import { type AcquiredVolume, acquireVolume, releaseVolume } from "./collection.
 // what the owner can see afterwards — the Collection — rather than the row that was
 // written, because the row is the schema's business and the Collection is the product.
 beforeEach(async () => {
-  await query("truncate volume");
+  await query("truncate volume cascade");
 });
 
 describe("acquiring a Volume", () => {
