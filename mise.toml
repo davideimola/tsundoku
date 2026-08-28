@@ -1,0 +1,14 @@
+# Toolchain for tsundoku, managed by mise (https://mise.jdx.dev).
+# `mise install` provisions these.
+#
+# Node + pnpm run the Next.js app that holds both doors — the web view and the
+# MCP route handler — over one core module (ADR-0002). Pinned to the same
+# versions as `bindex` so the muscle memory carries over.
+#
+# There is deliberately no database CLI here. Postgres runs in Docker locally
+# (see the README's local loop) and in-cluster under CloudNativePG in production
+# (ADR-0003); neither needs a tool on the developer's PATH. `psql` is reached
+# through `pnpm db:psql`, which runs it inside the container.
+[tools]
+node = "22"
+pnpm = "10.32.1"
