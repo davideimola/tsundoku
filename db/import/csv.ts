@@ -114,18 +114,27 @@ export function parseCsv(text: string): string[][] {
 }
 
 /**
- * A header reduced to what two spellings of the same column have in common: letters and
- * digits, folded to lower case, accents removed.
+ * What two spellings of the same thing have in common: letters and digits, folded to lower
+ * case, accents removed, everything else replaced by `separator`.
  *
- * `Serie / Universo`, `serie/universo` and `Serie/Universo ` are one key. So are
- * `Priorità` and `Priorita`, which matters because the owner's exports have both.
+ * The one fold in the import, and both callers matter. With no separator it is a **header**
+ * key, so `Serie / Universo`, `serie/universo` and `Serie/Universo ` are one column — and
+ * `Priorità` and `Priorita` are one, which the owner's exports need. With a space it is a
+ * **value** key, where words have to stay apart so that `Must Have` and `musthave` do not
+ * become the same entry in two different vocabularies (`vocabulary.ts`).
  */
-function key(header: string): string {
-  return header
+export function fold(said: string, separator: "" | " "): string {
+  return said
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+    .replace(/[^a-z0-9]+/g, separator)
+    .trim();
+}
+
+/** A header as a key: the fold with nothing between the words. */
+function key(header: string): string {
+  return fold(header, "");
 }
 
 /** One row of a tab, addressed by the header the owner typed. */

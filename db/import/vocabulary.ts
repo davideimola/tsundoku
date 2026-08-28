@@ -22,6 +22,8 @@
 //      at all — it is a **Wish that ended**, plus a Volume that came home. `wishStateOf`
 //      says so, and the plan writes the two facts the row actually holds.
 
+import { fold } from "./csv.ts";
+
 /** A value in the sheet the model has no word for. The import stops on one. */
 export class Untranslatable extends Error {
   // Declared and assigned rather than taken as constructor parameter properties: `db/` is
@@ -41,14 +43,9 @@ export class Untranslatable extends Error {
   }
 }
 
-/** Fold a cell to what two spellings of one value have in common. */
+/** Fold a cell to what two spellings of one value have in common — see `fold`. */
 function folded(said: string): string {
-  return said
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+  return fold(said, " ");
 }
 
 function translate<T>(column: string, said: string, table: Record<string, T>): T {
@@ -234,6 +231,15 @@ export function provenanceOf(said: string | null): string {
 
 // ── `Serie / Universo` ─────────────────────────────────────────────────────
 
+/**
+ * The Series and the Paths the two sheets **declare**, which is how a part of a
+ * `Serie / Universo` cell gets recognised instead of guessed at.
+ */
+export type Declared = {
+  readonly series: ReadonlySet<string>;
+  readonly paths: ReadonlySet<string>;
+};
+
 /** What one cell of `Serie / Universo` was actually holding. */
 export type SeriesUniversePath = {
   /** The publisher's line, which is what the model calls a Series. */
@@ -266,10 +272,7 @@ const SEPARATORS = /\s*[/|·•]\s*|\s+[–—]\s+/;
  * the column's first token is the line the volume belongs to in every row of the owner's
  * sheet, and a Series the owner never declared is still a Series.
  */
-export function splitSeriesUniversePath(
-  cell: string,
-  declared: { series: ReadonlySet<string>; paths: ReadonlySet<string> }
-): SeriesUniversePath {
+export function splitSeriesUniversePath(cell: string, declared: Declared): SeriesUniversePath {
   const parts = cell
     .split(SEPARATORS)
     .map((part) => part.trim())

@@ -34,7 +34,8 @@
 // only way.
 
 import { Client } from "pg";
-import type { Expectation, Plan } from "./plan.ts";
+import type { Expectation } from "./expectations.ts";
+import type { Plan } from "./plan.ts";
 
 /** The tables an import writes, and therefore the tables that say it has already run. */
 const WRITTEN_TABLES = [
@@ -199,18 +200,14 @@ export async function writeImport(
       );
     }
 
-    // A Credit is one person in one role on one Story, said once: two rows crediting the
-    // same person twice are one Credit and not a refusal.
-    const credited = new Set<string>();
+    // The plan says a Credit once however many rows said it, so there is nothing to
+    // de-duplicate here — and the rows that repeated one are counted and asserted.
     for (const credit of plan.credits) {
-      const said = `${credit.storyKey}|${credit.personKey}|${credit.roleId}`;
-      if (credited.has(said)) continue;
-      credited.add(said);
-      await run(said, "insert into credit (story_id, person_id, role_id) values ($1, $2, $3)", [
-        storyIds.get(credit.storyKey),
-        personIds.get(credit.personKey),
-        credit.roleId,
-      ]);
+      await run(
+        `${credit.storyKey}|${credit.personKey}|${credit.roleId}`,
+        "insert into credit (story_id, person_id, role_id) values ($1, $2, $3)",
+        [storyIds.get(credit.storyKey), personIds.get(credit.personKey), credit.roleId]
+      );
     }
 
     const volumeIds = new Map<string, string>();
@@ -351,22 +348,6 @@ export async function writeImport(
   } catch (error) {
     await client.query("rollback").catch(() => undefined);
     throw error;
-  } finally {
-    await client.end();
-  }
-}
-
-/** What the database holds now, for the run to print after it has finished. */
-export async function countRows(url: string): Promise<ReadonlyMap<string, number>> {
-  const client = new Client({ connectionString: url });
-  await client.connect();
-  try {
-    const counts = new Map<string, number>();
-    for (const table of WRITTEN_TABLES) {
-      const { rows } = await client.query<{ count: string }>(`select count(*) from ${table}`);
-      counts.set(table, Number(rows[0].count));
-    }
-    return counts;
   } finally {
     await client.end();
   }

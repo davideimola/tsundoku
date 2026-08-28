@@ -292,7 +292,8 @@ pnpm import:sheets                       # the real thing, against db/import/she
 ```
 
 One transaction that **checks its own work before committing** — twenty-two counts, each
-one arithmetic over the source tabs' own row counts — and that **refuses a database which
+one arithmetic over the source tabs' own row counts and the cells read off them, never over
+what it is about to insert — and that **refuses a database which
 already holds imported data**, because there is no key in these sheets to match a second
 run against. Re-running is `pnpm db:reset` and then this.
 

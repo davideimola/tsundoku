@@ -18,8 +18,11 @@ Three things it guarantees, and they are the point of it:
 
 - **One transaction.** Everything lands or nothing does.
 - **It checks its own work before committing.** Twenty-two counts, each one arithmetic over
-  the source tabs' own row counts. One disagreement rolls the whole thing back and prints
-  which tab to go and look at.
+  the source tabs' own row counts and the cells the translation read — never over the arrays
+  it is about to insert, which could not fail. Every fold is counted as it folds, so
+  `Stories = Collezione 98 + Biblioteca 54 - 68 titles a later row repeated` is an assertion
+  and not a restatement. One disagreement rolls the whole thing back and prints which tab to
+  go and look at. `db/import/expectations.ts` is deliberately unable to see the plan.
 - **It refuses a database that already holds imported data.** There is no key in these
   sheets to match a second run against — a row is a title and a receipt — so a second run
   would leave two of everything with nothing to tell them apart. Re-running means
@@ -80,8 +83,9 @@ without is refused loudly, with the headers your file actually had printed besid
   `Stato`, `In raccolta`, `Percorso`, `Intento`, `Vincoli`
 - `Biblioteca`: **Titolo**, **Tipo**, **Formato**, **Stato**, `Autore`, `Data inizio`,
   `Data fine`, `Voto`, `Note`, `Provenienza`
-- `Wishlist` (books): **Titolo**, **Formato**, `Autore`, `Editore`, `Collana`, `Lingua`,
-  `Priorità`, `Prezzo obiettivo`, `Prezzo trovato`, `Negozio`
+- `Wishlist` (books): **Titolo**, **Formato**, **Editore** — a Volume is nothing without its
+  publisher — `Autore`, `Collana`, `Lingua`, `Priorità`, `Prezzo obiettivo`,
+  `Prezzo trovato`, `Negozio`
 - `Percorsi`: **Percorso**, `Intento`, `Titoli` (the stops, separated by `;`), `Vincoli`
 - `Liste`: one column per vocabulary — `Tipo`, `Formato`, `Stato lettura`,
   `Stato wishlist`, `Lingua`, `Provenienza`
@@ -135,7 +139,9 @@ in — it is open until a deliberate act closes it, and reading this row is that
   on a row and declared nowhere is reported, and the object is catalogued outside any ledger.
 - **Guess at a vocabulary.** A value no table knows **stops the import** with nothing
   written. Widening `db/import/vocabulary.ts` is a deliberate act; silently letting a
-  spreadsheet's word through is how a spreadsheet's vocabulary becomes the schema.
+  spreadsheet's word through is how a spreadsheet's vocabulary becomes the schema. The one
+  exception is the `Liste` tab: a validation value the owner has never picked is reported
+  and does not stop anything, because no row depends on it.
 
 ## The choices this import makes, which are not in an ADR
 

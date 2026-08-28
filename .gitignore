@@ -8,7 +8,7 @@
 !.env.example
 
 # The owner's own export of the two sheets. It is their reading history and their
-# receipts, it is read once by `pnpm import`, and it is never committed. The fixtures in
+# receipts, it is read once by `pnpm import:sheets`, and it is never committed. The fixtures in
 # db/import/fixtures are committed and are what the import is rehearsed against.
 /db/import/sheets/
 

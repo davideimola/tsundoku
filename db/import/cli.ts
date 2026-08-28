@@ -1,9 +1,9 @@
 // The import, run.
 //
-//   pnpm import                       against db/import/sheets/
-//   pnpm import db/import/fixtures    against the fixtures, which is how it is rehearsed
-//   pnpm import --dry-run             read and translate, touch no database
-//   pnpm import --prove-rollback      fail a check on purpose, and leave nothing behind
+//   pnpm import:sheets                       against db/import/sheets/
+//   pnpm import:sheets db/import/fixtures    against the fixtures — the rehearsal
+//   pnpm import:sheets --dry-run             read and translate, touch no database
+//   pnpm import:sheets --prove-rollback      fail a check on purpose, and leave nothing
 //
 // One deliberate act. It is **not** a migration, it is **not** a seed, and it is not run by
 // `pnpm db:up` or `pnpm db:reset` — the same posture `bindex`'s ADR-0009 took, for the same
@@ -17,6 +17,7 @@
 
 import { resolve } from "node:path";
 import { requireDatabaseUrl } from "../env.ts";
+import { TALLY } from "./expectations.ts";
 import type { Finding, Plan } from "./plan.ts";
 import { planImport } from "./plan.ts";
 import { readSheets, tabsRead } from "./sheets.ts";
@@ -30,6 +31,11 @@ const USAGE = `usage: node db/import/cli.ts [directory] [--dry-run] [--prove-rol
 
 See db/import/README.md for which tab goes in which file.
 `;
+
+/** One tally, counted while the tabs were being read. */
+function read(plan: Plan, what: string): number {
+  return plan.tally.get(what) ?? 0;
+}
 
 function out(line: string): void {
   process.stdout.write(`${line}\n`);
@@ -72,10 +78,10 @@ function reportTranslation(plan: Plan): void {
     `                   ${plan.series.length} Series, ${plan.paths.length} Path(s), ` +
       `${plan.universes.size} universe(s) with nowhere to go.`
   );
-  // Two facts and neither of them a wish state: the object is in the house — which is
-  // every acquisition the wishlist accounts for — and the intention that led there is over.
-  const cameHome = plan.acquisitions.length - (plan.counts.get("Collezione") ?? 0);
-  const ended = plan.wishes.filter((wish) => wish.closedOn !== null).length;
+  // Two facts and neither of them a wish state: the object is in the house, and the
+  // intention that led there is over. Both counted off the tab, not off the plan.
+  const cameHome = read(plan, TALLY.acquistato);
+  const ended = read(plan, TALLY.wishEnded);
   out(
     `  Acquistato       ${cameHome} row(s) read as an object in the house plus a Wish that ` +
       `ended. ${ended} Wish(es) have ended in all, and no Wish anywhere has a state column ` +
@@ -101,6 +107,9 @@ function reportPlan(plan: Plan): void {
     ["Path stops", plan.pathItems.length],
     ["declared constraints", plan.constraints.length],
     ["Stories", plan.stories.length],
+    // Printed rather than left inside one expectation's prose: a hundred and fifty-two rows
+    // becoming eighty-four Stories is the loudest thing this import does.
+    ["titles a later row repeated", read(plan, TALLY.titleSaidAgain)],
     // Said once: a person credited on twenty rows of one Series is one Credit on the one
     // Story those rows collapse into.
     ["Credits", new Set(plan.credits.map((c) => `${c.storyKey}|${c.personKey}|${c.roleId}`)).size],
@@ -110,7 +119,7 @@ function reportPlan(plan: Plan): void {
     ["Volumes carrying a Story", plan.volumeStories.length],
     ["Edition notes", plan.editionNotes.length],
     ["Readings", plan.readings.length],
-    ["of which through no Volume", plan.readings.filter((r) => r.volumeKey === null).length],
+    ["of which through no Volume", read(plan, TALLY.readInTheBooks)],
     ["Ratings", plan.ratings.length],
     ["of which coarse", plan.ratings.filter((r) => r.scale === "coarse").length],
     ["Wishes", plan.wishes.length],

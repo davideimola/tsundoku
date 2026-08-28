@@ -31,10 +31,12 @@
 //     ownership is not modelled, so there is nothing for the Wish to name.
 
 import type { Tab, TabRow } from "./csv.ts";
+import { type Expectation, expectationsOf, TALLY } from "./expectations.ts";
 import type { Sheets } from "./sheets.ts";
 import {
   amountOf,
   bindingOf,
+  type Declared,
   dayOf,
   integerOf,
   languageOf,
@@ -127,21 +129,6 @@ export type WishPlan = {
   readonly closedOn: string | null;
 };
 
-/**
- * A count the database has to agree with, and where the number came from.
- *
- * `expected` is arithmetic over the **source tabs' row counts** and nothing else — never a
- * length of a plan array that was built from the same loop it would be checking, and never
- * a constant anybody typed. `from` is that arithmetic in prose, so a failure names the
- * tabs to go and look at rather than a number to go and change.
- */
-export type Expectation = {
-  readonly what: string;
-  readonly sql: string;
-  readonly expected: number;
-  readonly from: string;
-};
-
 export type Plan = {
   readonly series: readonly SeriesPlan[];
   readonly paths: readonly PathPlan[];
@@ -172,6 +159,14 @@ export type Plan = {
   readonly universes: ReadonlyMap<string, number>;
   /** How many rows of each tab were read, for the report and for the arithmetic. */
   readonly counts: ReadonlyMap<string, number>;
+  /**
+   * How many cells the translation read, and how many it deliberately folded together.
+   *
+   * Counted while the tabs are being read, one increment per cell, before any entity
+   * exists — which is what lets `expectations.ts` assert the library against the tabs
+   * rather than against the arrays it is about to insert. See that file.
+   */
+  readonly tally: ReadonlyMap<string, number>;
 };
 
 /** `Sì`, `X`, `1` — the ways a sheet says yes. */
@@ -219,6 +214,31 @@ function people(said: string | null): string[] {
     .filter((name) => name !== "");
 }
 
+/** Which to buy first, from the word or the number the sheet uses. */
+function priorityOf(planner: Planner, tab: Tab, row: TabRow): number | undefined {
+  const said = row.value("Priorità", "Priorita", "Priority");
+  // An empty cell is `2`: the owner wants it, and has not said it comes before anything.
+  const priority = PRIORITIES[nameKey(said ?? "media")];
+  if (priority === undefined) {
+    planner.blocks(tab.name, row.line, `Priorità: "${said}" is not 1 next, 2 soon or 3 someday.`);
+    return undefined;
+  }
+  return priority;
+}
+
+/** What a wishlist row says about the shopping, on either sheet. */
+function shoppingOn(row: TabRow): {
+  targetPrice: string | null;
+  priceFound: string | null;
+  shop: string | null;
+} {
+  return {
+    targetPrice: amountOf(row.value("Prezzo obiettivo", "Prezzo target")),
+    priceFound: amountOf(row.value("Prezzo trovato", "Trovato a")),
+    shop: row.value("Negozio", "Shop", "Dove"),
+  };
+}
+
 class Planner {
   readonly blocking: Finding[] = [];
   readonly noted: Finding[] = [];
@@ -239,9 +259,24 @@ class Planner {
   readonly wishes: WishPlan[] = [];
   readonly pathItems = new Map<string, { pathKey: string; storyKey: string; position: number }>();
   readonly counts = new Map<string, number>();
+  readonly tally = new Map<string, number>();
+  /** Credits already said, so a name repeating a role is counted rather than inserted twice. */
+  private readonly credited = new Set<string>();
 
-  /** Stories the two sheets named twice, which become one Story carrying two objects. */
-  collapsedStories = 0;
+  /**
+   * A shared world carried out of a `Serie / Universo` cell, on its way to being dropped.
+   *
+   * Kept only as a count per name, because that is the whole of what the report needs: how
+   * much of the sheets was speaking a word the model does not have.
+   */
+  universe(name: string): void {
+    this.universes.set(name, (this.universes.get(name) ?? 0) + 1);
+  }
+
+  /** One more cell read, or one more fold. */
+  count(what: string, by = 1): void {
+    this.tally.set(what, (this.tally.get(what) ?? 0) + by);
+  }
 
   blocks(where: string, line: number | null, said: string): void {
     this.blocking.push({ where, line, said });
@@ -258,6 +293,36 @@ class Planner {
     } catch (error) {
       if (error instanceof Untranslatable) {
         this.blocks(where, line, error.message);
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  /** One person in one role on one Story, said once however many rows say it. */
+  credits_(storyKey: string, personKey: string, roleId: string): void {
+    this.count(TALLY.creditCells);
+    const said = `${storyKey}|${personKey}|${roleId}`;
+    if (this.credited.has(said)) {
+      this.count(TALLY.creditSaidAgain);
+      return;
+    }
+    this.credited.add(said);
+    this.credits.push({ storyKey, personKey, roleId });
+  }
+
+  /**
+   * Translate something **no row depends on**, and report rather than stop.
+   *
+   * The `Liste` tab is the only caller: a validation value the owner never picked is worth
+   * knowing about before they pick it, and is not worth refusing an import over.
+   */
+  tolerating<T>(where: string, line: number, translate: () => T): T | undefined {
+    try {
+      return translate();
+    } catch (error) {
+      if (error instanceof Untranslatable) {
+        this.notes(where, line, error.message);
         return undefined;
       }
       throw error;
@@ -284,7 +349,7 @@ class Planner {
   storyKey(title: string, typeId: string): string {
     const key = `story:${typeId}:${nameKey(title)}`;
     if (this.stories.has(key)) {
-      this.collapsedStories += 1;
+      this.count(TALLY.titleSaidAgain);
       return key;
     }
     this.stories.set(key, { key, title, typeId });
@@ -298,6 +363,9 @@ class Planner {
       this.ratings.set(rating.storyKey, rating);
       return;
     }
+    this.count(
+      rating.where === "Biblioteca" ? TALLY.ratedAgainInTheBooks : TALLY.ratedAgainOnTheShelf
+    );
     if (standing.score !== rating.score) {
       this.blocks(
         rating.where,
@@ -305,12 +373,29 @@ class Planner {
         `two rows judge the same Story differently — ${standing.said} in ${standing.where} ` +
           `and ${rating.said} here. One Story has one score; the sheets have to agree first.`
       );
+      return;
+    }
+    // They agree, so the score stands as it was — and the second row's prose does not.
+    // Said out loud, because this is the only place a cell the owner wrote is dropped
+    // without being printed, and *L'uomo che ride* is the reason: one Voto for three
+    // stories was the complaint that started this project.
+    if (rating.prose !== null && rating.prose !== standing.prose) {
+      this.notes(
+        rating.where,
+        null,
+        `a second row gives the same Story the same score and different prose. The score ` +
+          `stands; this row's comment is not kept: "${rating.prose}"`
+      );
     }
   }
 
   placesOnPath(pathKey: string, storyKey: string): void {
+    this.count(TALLY.stopClaims);
     const key = `${pathKey}|${storyKey}`;
-    if (this.pathItems.has(key)) return;
+    if (this.pathItems.has(key)) {
+      this.count(TALLY.stopSaidAgain);
+      return;
+    }
     // Position is the order the sheet lists them in. The order of a Path is a judgement
     // and never a publication sequence (`CONTEXT.md`) — and the judgement already made is
     // the order the owner typed.
@@ -354,10 +439,7 @@ class Planner {
 }
 
 /** The names the two sheets declare, so a cell's parts can be recognised. */
-function declaredNames(sheets: Sheets): {
-  series: ReadonlySet<string>;
-  paths: ReadonlySet<string>;
-} {
+function declaredNames(sheets: Sheets): Declared {
   const series = new Set<string>();
   const paths = new Set<string>();
 
@@ -387,10 +469,10 @@ export function planImport(sheets: Sheets): Plan {
 
   planSeriesAndPaths(planner, sheets.seriesAndPaths);
   planBooksPaths(planner, sheets.booksPaths);
-  const collezione = planCollezione(planner, sheets.collezione, declared);
-  const comicsWishes = planComicsWishlist(planner, sheets.comicsWishlist, declared);
-  const biblioteca = planBiblioteca(planner, sheets.biblioteca);
-  const booksWishes = planBooksWishlist(planner, sheets.booksWishlist, declared);
+  planCollezione(planner, sheets.collezione, declared);
+  planComicsWishlist(planner, sheets.comicsWishlist, declared);
+  planBiblioteca(planner, sheets.biblioteca);
+  planBooksWishlist(planner, sheets.booksWishlist, declared);
   planBooksPathItems(planner, sheets.booksPaths);
   checkMaster(planner, sheets);
   checkLists(planner, sheets);
@@ -407,13 +489,6 @@ export function planImport(sheets: Sheets): Plan {
     planner.counts.set(tab.name, tab.rows.length);
   }
 
-  const expectations = expectationsOf(planner, {
-    collezione,
-    comicsWishes,
-    biblioteca,
-    booksWishes,
-  });
-
   return {
     series: [...planner.series.values()],
     paths: [...planner.paths.values()],
@@ -429,11 +504,12 @@ export function planImport(sheets: Sheets): Plan {
     ratings: [...planner.ratings.values()],
     wishes: planner.wishes,
     pathItems: [...planner.pathItems.values()],
-    expectations,
+    expectations: expectationsOf(planner.counts, planner.tally),
     blocking: planner.blocking,
     noted: planner.noted,
     universes: planner.universes,
     counts: planner.counts,
+    tally: planner.tally,
   };
 }
 
@@ -451,9 +527,7 @@ function planSeriesAndPaths(planner: Planner, tab: Tab): void {
         .filter((part) => part !== "");
       const name = parts.shift();
       if (name === undefined) continue;
-      for (const universe of parts) {
-        planner.universes.set(universe, (planner.universes.get(universe) ?? 0) + 1);
-      }
+      for (const universe of parts) planner.universe(universe);
 
       const publisher = row.value("Editore", "Publisher");
       if (publisher === null) {
@@ -474,7 +548,10 @@ function planSeriesAndPaths(planner: Planner, tab: Tab): void {
             );
           }
           const key = `series:${nameKey(name)}`;
-          if (!planner.series.has(key)) {
+          planner.count(TALLY.seriesRows);
+          if (planner.series.has(key)) {
+            planner.count(TALLY.seriesSaidAgain);
+          } else {
             planner.series.set(key, {
               key,
               name,
@@ -516,7 +593,10 @@ function planBooksPaths(planner: Planner, tab: Tab): void {
 
 function definePath(planner: Planner, row: TabRow, route: string): void {
   const key = `path:${nameKey(route)}`;
-  if (!planner.paths.has(key)) {
+  planner.count(TALLY.pathCells);
+  if (planner.paths.has(key)) {
+    planner.count(TALLY.pathSaidAgain);
+  } else {
     planner.paths.set(key, {
       key,
       name: route,
@@ -528,28 +608,18 @@ function definePath(planner: Planner, row: TabRow, route: string): void {
   // The same Path is declared on both sheets' Paths tabs, so the same sentence can arrive
   // twice. A constraint said twice is one constraint: it is prose the advisor reads, and
   // repeating it changes nothing except how often it is read.
-  if (prose !== null && !planner.constraints.some((s) => s.pathKey === key && s.prose === prose)) {
-    planner.constraints.push({ pathKey: key, prose });
+  if (prose === null) return;
+  planner.count(TALLY.constraintCells);
+  if (planner.constraints.some((said) => said.pathKey === key && said.prose === prose)) {
+    planner.count(TALLY.constraintSaidAgain);
+    return;
   }
+  planner.constraints.push({ pathKey: key, prose });
 }
 
 // ── Collezione ─────────────────────────────────────────────────────────────
 
-type Owned = {
-  /** Rows that became a Reading, which is where the reading state column went. */
-  readonly read: number;
-  /** Rows carrying a score. */
-  readonly rated: number;
-};
-
-function planCollezione(
-  planner: Planner,
-  tab: Tab,
-  declared: { series: ReadonlySet<string>; paths: ReadonlySet<string> }
-): Owned {
-  let read = 0;
-  let rated = 0;
-
+function planCollezione(planner: Planner, tab: Tab, declared: Declared): void {
   for (const row of tab.rows) {
     const title = row.value("Titolo", "Volume");
     const publisher = row.value("Editore", "Publisher");
@@ -578,14 +648,13 @@ function planCollezione(
       said === null
         ? { series: null, universe: null, path: null }
         : splitSeriesUniversePath(said, declared);
-    if (split.universe !== null) {
-      planner.universes.set(split.universe, (planner.universes.get(split.universe) ?? 0) + 1);
-    }
+    if (split.universe !== null) planner.universe(split.universe);
 
     const volumeKey = `volume:${tab.name}:${row.line}`;
     const seriesKey = split.series === null ? null : `series:${nameKey(split.series)}`;
     const seriesNumber = integerOf(row.value("Numero", "N.", "Vol."));
     const placed = seriesKey !== null && planner.series.has(seriesKey) && seriesNumber !== null;
+    if (placed) planner.count(TALLY.placedFromTheShelf);
     if (seriesKey !== null && !planner.series.has(seriesKey)) {
       planner.notes(
         tab.name,
@@ -617,10 +686,14 @@ function planCollezione(
     });
 
     const storyKey = planner.storyKey(title, typeId);
+    planner.count(TALLY.storyOnAnObject);
     planner.volumeStories.push({ volumeKey, storyKey });
 
     const note = row.value("Note edizione", "Note volume", "Giudizio edizione");
-    if (note !== null) planner.editionNotes.push({ volumeKey, note });
+    if (note !== null) {
+      planner.count(TALLY.editionNoteCells);
+      planner.editionNotes.push({ volumeKey, note });
+    }
 
     for (const [column, roleId] of [
       ["Sceneggiatura", "writer"],
@@ -629,7 +702,7 @@ function planCollezione(
       for (const name of people(
         row.value(column, column === "Disegni" ? "Disegnatore" : "Autore")
       )) {
-        planner.credits.push({ storyKey, personKey: planner.personKey(name), roleId });
+        planner.credits_(storyKey, planner.personKey(name), roleId);
       }
     }
 
@@ -644,7 +717,7 @@ function planCollezione(
       const state = planner.translating(tab.name, row.line, () => readingStateOf(saidState));
       if (state === undefined) continue;
       if (state.read) {
-        read += 1;
+        planner.count(TALLY.readOnTheShelf);
         readingKey = `reading:${tab.name}:${row.line}`;
         planner.readings.push({
           key: readingKey,
@@ -666,7 +739,7 @@ function planCollezione(
       // This sheet's column is already the owner's own scale: 1-10, half points.
       const score = planner.scoreOf(tab.name, row.line, saidScore, "half-points");
       if (score !== undefined) {
-        rated += 1;
+        planner.count(TALLY.ratedOnTheShelf);
         planner.rates({
           storyKey,
           score,
@@ -692,8 +765,6 @@ function planCollezione(
       }
     }
   }
-
-  return { read, rated };
 }
 
 function normaliseIsbn(planner: Planner, tab: Tab, row: TabRow): string | null {
@@ -712,26 +783,7 @@ function normaliseIsbn(planner: Planner, tab: Tab, row: TabRow): string | null {
 
 // ── The two Wishlists ──────────────────────────────────────────────────────
 
-type Wanted = {
-  /** Rows whose `Stato` said the object came home: a Wish that ended, and an acquisition. */
-  readonly acquired: number;
-  /** Rows whose intention is over, however it ended — `acquired` among them. */
-  readonly ended: number;
-  /** Rows the model has nothing for — a wanted file. */
-  readonly unrepresentable: number;
-  /** Rows naming a Series position that cannot be written. */
-  readonly unplaced: number;
-};
-
-function planComicsWishlist(
-  planner: Planner,
-  tab: Tab,
-  declared: { series: ReadonlySet<string>; paths: ReadonlySet<string> }
-): Wanted {
-  let acquired = 0;
-  let ended = 0;
-  let unplaced = 0;
-
+function planComicsWishlist(planner: Planner, tab: Tab, declared: Declared): void {
   for (const row of tab.rows) {
     const title = row.value("Titolo", "Volume");
     const publisher = row.value("Editore", "Publisher");
@@ -763,9 +815,7 @@ function planComicsWishlist(
       said === null
         ? { series: null, universe: null, path: null }
         : splitSeriesUniversePath(said, declared);
-    if (split.universe !== null) {
-      planner.universes.set(split.universe, (planner.universes.get(split.universe) ?? 0) + 1);
-    }
+    if (split.universe !== null) planner.universe(split.universe);
 
     const volumeKey = `volume:${tab.name}:${row.line}`;
     const seriesNumber = integerOf(row.value("Numero", "N.", "Vol."));
@@ -777,7 +827,7 @@ function planComicsWishlist(
     // reported and not written. The ledger loses nothing: a position with no owned object
     // in it is missing either way.
     if (!state.acquired && split.series !== null && seriesNumber !== null) {
-      unplaced += 1;
+      planner.count(TALLY.unplacedWish);
       planner.notes(
         tab.name,
         row.line,
@@ -789,7 +839,12 @@ function planComicsWishlist(
     }
 
     const seriesKey = split.series === null ? null : `series:${nameKey(split.series)}`;
-    const placeable = state.acquired && seriesKey !== null && planner.series.has(seriesKey);
+    const placeable =
+      state.acquired &&
+      seriesKey !== null &&
+      planner.series.has(seriesKey) &&
+      seriesNumber !== null;
+    if (placeable) planner.count(TALLY.placedFromTheWishlist);
 
     planner.volumes.push({
       key: volumeKey,
@@ -803,17 +858,14 @@ function planComicsWishlist(
       seriesNumber: placeable ? seriesNumber : null,
     });
 
-    const priority = PRIORITIES[nameKey(row.value("Priorità", "Priorita", "Priority") ?? "media")];
-    if (priority === undefined) {
-      planner.blocks(tab.name, row.line, "Priorità: a Wish is 1 next, 2 soon or 3 someday.");
-      continue;
-    }
+    const priority = priorityOf(planner, tab, row);
+    if (priority === undefined) continue;
 
     if (state.acquired) {
       // `Acquistato` is not a state of wanting. It is two facts: the object is in the
       // house, and the intention that led there is over.
-      acquired += 1;
-      ended += 1;
+      planner.count(TALLY.acquistato);
+      planner.count(TALLY.wishEnded);
       const acquiredOn = dayOf(row.value("Data acquisto", "Acquistato il", "Data"));
       planner.acquisitions.push({
         volumeKey,
@@ -823,9 +875,7 @@ function planComicsWishlist(
       planner.wishes.push({
         volumeKey,
         priority,
-        targetPrice: amountOf(row.value("Prezzo obiettivo", "Prezzo target")),
-        priceFound: amountOf(row.value("Prezzo trovato", "Trovato a")),
-        shop: row.value("Negozio", "Shop", "Dove"),
+        ...shoppingOn(row),
         closedOn: acquiredOn ?? today(),
       });
       planner.notes(
@@ -838,7 +888,7 @@ function planComicsWishlist(
     }
 
     if (!state.open) {
-      ended += 1;
+      planner.count(TALLY.wishEnded);
       planner.notes(
         tab.name,
         row.line,
@@ -850,23 +900,13 @@ function planComicsWishlist(
     planner.wishes.push({
       volumeKey,
       priority,
-      targetPrice: amountOf(row.value("Prezzo obiettivo", "Prezzo target")),
-      priceFound: amountOf(row.value("Prezzo trovato", "Trovato a")),
-      shop: row.value("Negozio", "Shop", "Dove"),
+      ...shoppingOn(row),
       closedOn: state.open ? null : today(),
     });
   }
-
-  return { acquired, ended, unrepresentable: 0, unplaced };
 }
 
-function planBooksWishlist(
-  planner: Planner,
-  tab: Tab,
-  declared: { series: ReadonlySet<string>; paths: ReadonlySet<string> }
-): Wanted {
-  let unrepresentable = 0;
-
+function planBooksWishlist(planner: Planner, tab: Tab, declared: Declared): void {
   for (const row of tab.rows) {
     const title = row.value("Titolo", "Libro");
     const saidBinding = row.value("Formato");
@@ -880,7 +920,7 @@ function planBooksWishlist(
     if (bindingId === null) {
       // A Wish names a Volume, and digital ownership is deliberately not modelled: a file
       // is not something the owner collects (`CONTEXT.md`). There is nothing to name.
-      unrepresentable += 1;
+      planner.count(TALLY.wantedAsAFile);
       planner.notes(
         tab.name,
         row.line,
@@ -904,9 +944,7 @@ function planBooksWishlist(
     const said = row.value("Serie / Universo", "Serie", "Collana");
     if (said !== null) {
       const split = splitSeriesUniversePath(said, declared);
-      if (split.universe !== null) {
-        planner.universes.set(split.universe, (planner.universes.get(split.universe) ?? 0) + 1);
-      }
+      if (split.universe !== null) planner.universe(split.universe);
     }
 
     const volumeKey = `volume:${tab.name}:${row.line}`;
@@ -922,38 +960,15 @@ function planBooksWishlist(
       seriesNumber: null,
     });
 
-    const priority = PRIORITIES[nameKey(row.value("Priorità", "Priorita", "Priority") ?? "media")];
-    if (priority === undefined) {
-      planner.blocks(tab.name, row.line, "Priorità: a Wish is 1 next, 2 soon or 3 someday.");
-      continue;
-    }
-    planner.wishes.push({
-      volumeKey,
-      priority,
-      targetPrice: amountOf(row.value("Prezzo obiettivo", "Prezzo target")),
-      priceFound: amountOf(row.value("Prezzo trovato", "Trovato a")),
-      shop: row.value("Negozio", "Shop", "Dove"),
-      closedOn: null,
-    });
+    const priority = priorityOf(planner, tab, row);
+    if (priority === undefined) continue;
+    planner.wishes.push({ volumeKey, priority, ...shoppingOn(row), closedOn: null });
   }
-
-  return { acquired: 0, ended: 0, unrepresentable, unplaced: 0 };
 }
 
 // ── Biblioteca ─────────────────────────────────────────────────────────────
 
-type Readings = {
-  /** Rows that became a Reading. */
-  readonly read: number;
-  readonly rated: number;
-  readonly fromGoodreads: number;
-};
-
-function planBiblioteca(planner: Planner, tab: Tab): Readings {
-  let read = 0;
-  let rated = 0;
-  let fromGoodreads = 0;
-
+function planBiblioteca(planner: Planner, tab: Tab): void {
   for (const row of tab.rows) {
     const title = row.value("Titolo", "Libro");
     const saidType = row.value("Tipo");
@@ -971,12 +986,12 @@ function planBiblioteca(planner: Planner, tab: Tab): Readings {
       provenanceOf(row.value("Provenienza", "Fonte"))
     );
     if (typeId === undefined || medium === undefined || provenanceId === undefined) continue;
-    if (provenanceId === "goodreads-history") fromGoodreads += 1;
+    if (provenanceId === "goodreads-history") planner.count(TALLY.fromGoodreads);
 
     const storyKey = planner.storyKey(title, typeId);
 
     for (const name of people(row.value("Autore", "Autori", "Scrittore"))) {
-      planner.credits.push({ storyKey, personKey: planner.personKey(name), roleId: "writer" });
+      planner.credits_(storyKey, planner.personKey(name), "writer");
     }
 
     const saidState = row.value("Stato", "Stato lettura");
@@ -992,7 +1007,7 @@ function planBiblioteca(planner: Planner, tab: Tab): Readings {
     // a shelf. A row that was not read at all is a Story with no Reading rather than an
     // invented one.
     if (state.read) {
-      read += 1;
+      planner.count(TALLY.readInTheBooks);
       planner.readings.push({
         key: `reading:${tab.name}:${row.line}`,
         storyKey,
@@ -1023,7 +1038,7 @@ function planBiblioteca(planner: Planner, tab: Tab): Readings {
       // different things and both are now sayable.
       const score = planner.scoreOf(tab.name, row.line, saidScore, "coarse");
       if (score !== undefined) {
-        rated += 1;
+        planner.count(TALLY.ratedInTheBooks);
         planner.rates({
           storyKey,
           score,
@@ -1036,8 +1051,6 @@ function planBiblioteca(planner: Planner, tab: Tab): Readings {
       }
     }
   }
-
-  return { read, rated, fromGoodreads };
 }
 
 // ── Percorsi's ordered titles ──────────────────────────────────────────────
@@ -1058,6 +1071,8 @@ function planBooksPathItems(planner: Planner, tab: Tab): void {
         (story) => nameKey(story.title) === nameKey(title)
       );
       if (found.length === 0) {
+        planner.count(TALLY.stopClaims);
+        planner.count(TALLY.stopUnresolved);
         planner.notes(
           tab.name,
           row.line,
@@ -1140,7 +1155,7 @@ function checkLists(planner: Planner, sheets: Sheets): void {
       const said = row.value(...headers);
       if (said === null) continue;
       checked += 1;
-      planner.translating(lists.name, row.line, () => translate(said));
+      planner.tolerating(lists.name, row.line, () => translate(said));
     }
   }
   planner.notes(
@@ -1174,176 +1189,4 @@ function countInboxes(planner: Planner, sheets: Sheets): void {
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function expectationsOf(
-  planner: Planner,
-  measured: {
-    collezione: Owned;
-    comicsWishes: Wanted;
-    biblioteca: Readings;
-    booksWishes: Wanted;
-  }
-): readonly Expectation[] {
-  const collezione = planner.counts.get("Collezione") ?? 0;
-  const comicsWishlist = planner.counts.get("Wishlist (Collezione)") ?? 0;
-  const biblioteca = planner.counts.get("Biblioteca") ?? 0;
-  const booksWishlist = planner.counts.get("Wishlist (Biblioteca)") ?? 0;
-  const wantedBooks = booksWishlist - measured.booksWishes.unrepresentable;
-  const acquiredWishes = measured.comicsWishes.acquired;
-  const endedWishes = measured.comicsWishes.ended;
-
-  return [
-    {
-      what: "catalogued Volumes",
-      sql: "select count(*) from volume",
-      expected: collezione + comicsWishlist + wantedBooks,
-      from:
-        `Collezione ${collezione} + Wishlist (Collezione) ${comicsWishlist} + ` +
-        `Wishlist (Biblioteca) ${booksWishlist} - ${measured.booksWishes.unrepresentable} ` +
-        "wanting a file",
-    },
-    {
-      what: "Volumes in the Collection (an open acquisition)",
-      sql: "select count(*) from acquisition where released_on is null",
-      expected: collezione + acquiredWishes,
-      from: `Collezione ${collezione} + ${acquiredWishes} wishlist row(s) saying Acquistato`,
-    },
-    {
-      what: "Volumes catalogued and never in the house",
-      sql: "select count(*) from volume v where not exists (select 1 from acquisition a where a.volume_id = v.id)",
-      expected: comicsWishlist - acquiredWishes + wantedBooks,
-      from:
-        `Wishlist (Collezione) ${comicsWishlist} - ${acquiredWishes} Acquistato + ` +
-        `${wantedBooks} wanted book(s) — ADR-0007's whole point`,
-    },
-    {
-      what: "open Wishes",
-      sql: "select count(*) from wish where closed_on is null",
-      expected: comicsWishlist - endedWishes + wantedBooks,
-      from:
-        `Wishlist (Collezione) ${comicsWishlist} - ${endedWishes} whose intention is over + ` +
-        `${wantedBooks} wanted book(s)`,
-    },
-    {
-      what: "Wishes that ended",
-      sql: "select count(*) from wish where closed_on is not null",
-      expected: endedWishes,
-      from:
-        `${acquiredWishes} row(s) saying Acquistato — a Wish that ended and not a wish ` +
-        `state — and ${endedWishes - acquiredWishes} given up on`,
-    },
-    {
-      what: "Stories",
-      sql: "select count(*) from story",
-      expected: collezione + biblioteca - planner.collapsedStories,
-      from:
-        `Collezione ${collezione} + Biblioteca ${biblioteca} - ${planner.collapsedStories} ` +
-        "row(s) naming a title another row already named",
-    },
-    {
-      what: "Readings",
-      sql: "select count(*) from reading",
-      expected: measured.collezione.read + measured.biblioteca.read,
-      from:
-        `${measured.collezione.read} Collezione row(s) that say they were read + ` +
-        `${measured.biblioteca.read} Biblioteca row(s) that do`,
-    },
-    {
-      what: "Readings through no Volume",
-      sql: "select count(*) from reading where volume_id is null",
-      expected: planner.readings.filter((reading) => reading.volumeKey === null).length,
-      from: "every Biblioteca row: a book read is a Reading, and the shelf is another question",
-    },
-    {
-      what: "Goodreads Readings, none of which passes through a Volume",
-      sql: "select count(*) from reading where provenance_id = 'goodreads-history' and volume_id is not null",
-      expected: 0,
-      from: `the ${measured.biblioteca.fromGoodreads} Goodreads row(s) land as a Story and a Reading, with no Volume`,
-    },
-    {
-      what: "Ratings",
-      sql: "select count(*) from rating",
-      expected: planner.ratings.size,
-      from: `${measured.collezione.rated} Collezione + ${measured.biblioteca.rated} Biblioteca row(s) with a Voto, one score per Story`,
-    },
-    {
-      what: "Ratings given in half points",
-      sql: "select count(*) from rating where scale = 'half-points'",
-      expected: [...planner.ratings.values()].filter((r) => r.scale === "half-points").length,
-      from: "the Collezione Voto column, which is already the owner's own 1-10",
-    },
-    {
-      what: "Ratings doubled off a 1-5 column, and marked coarse",
-      sql: "select count(*) from rating where scale = 'coarse'",
-      expected: [...planner.ratings.values()].filter((r) => r.scale === "coarse").length,
-      from: `the Biblioteca Voto column: ${measured.biblioteca.rated} score(s) out of 5, doubled (ADR-0008)`,
-    },
-    {
-      what: "Ratings still carrying the retired coarse Provenance",
-      sql: "select count(*) from rating where provenance_id = 'converted-from-a-coarser-scale'",
-      expected: 0,
-      from: "ADR-0008 retired that row: the grain is an axis of its own, not an origin",
-    },
-    {
-      what: "Series",
-      sql: "select count(*) from series",
-      expected: planner.series.size,
-      from: `the ${planner.counts.get("Serie e Percorsi") ?? 0} rows of Serie e Percorsi`,
-    },
-    {
-      what: "Paths",
-      sql: "select count(*) from path",
-      expected: planner.paths.size,
-      from: `Serie e Percorsi ${planner.counts.get("Serie e Percorsi") ?? 0} + Percorsi ${planner.counts.get("Percorsi") ?? 0} rows`,
-    },
-    {
-      what: "Volumes given a position in a Series",
-      sql: "select count(*) from volume where series_id is not null",
-      expected: planner.volumes.filter((volume) => volume.seriesKey !== null).length,
-      from:
-        `${measured.comicsWishes.unplaced} wanted position(s) are reported and not written: ` +
-        "placing a Volume in a Series asks that the house hold it (ADR-0007)",
-    },
-    {
-      what: "Volumes given a position the house does not hold",
-      sql:
-        "select count(*) from volume v where v.series_id is not null and not exists " +
-        "(select 1 from acquisition a where a.volume_id = v.id and a.released_on is null)",
-      expected: 0,
-      from: "ADR-0007's standing rule, which this import honours rather than loosening",
-    },
-    {
-      what: "which Stories a Volume carries",
-      sql: "select count(*) from volume_story",
-      expected: planner.volumeStories.length,
-      from: `one per Collezione row: ${collezione}, over the Stories they collapse into`,
-    },
-    {
-      what: "Credits",
-      sql: "select count(*) from credit",
-      expected: new Set(
-        planner.credits.map((credit) => `${credit.storyKey}|${credit.personKey}|${credit.roleId}`)
-      ).size,
-      from: "the Sceneggiatura and Disegni columns of Collezione, and Autore on Biblioteca",
-    },
-    {
-      what: "Path stops",
-      sql: "select count(*) from path_item",
-      expected: planner.pathItems.size,
-      from: "the Path part of Serie / Universo, and the ordered titles on Percorsi",
-    },
-    {
-      what: "Edition notes",
-      sql: "select count(*) from edition_note",
-      expected: planner.editionNotes.length,
-      from: "the Note edizione column of Collezione: what the owner thinks of the object",
-    },
-    {
-      what: "declared constraints",
-      sql: "select count(*) from declared_constraint",
-      expected: planner.constraints.length,
-      from: "the Vincoli cells on the two Paths tabs, in the owner's own words",
-    },
-  ];
 }
