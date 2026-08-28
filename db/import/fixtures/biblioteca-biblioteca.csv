@@ -1,0 +1,55 @@
+Titolo,Autore,Tipo,Formato,Stato,Data inizio,Data fine,Voto,Note,Provenienza
+The Manager's Path,Camille Fournier,Saggio,Cartaceo,Letto,2024-01-10,2024-02-20,5,il libro che mi ha fatto capire il ruolo,Scaffale
+Team Topologies,Matthew Skelton,Saggio,Ebook,Letto,2024-03-01,2024-03-28,4,,Scaffale
+Accelerate,Nicole Forsgren,Saggio,Ebook,Letto,2024-04-02,2024-04-30,4,misurare batte discutere,Goodreads
+Kafka sulla spiaggia,Haruki Murakami,Romanzo,Cartaceo,Letto,2023-07-01,2023-08-15,5,,Goodreads
+Musashi,Eiji Yoshikawa,Romanzo,Cartaceo,In lettura,2026-06-01,,,"mille pagine, ci vuole tempo",Scaffale
+Il nome della rosa,Umberto Eco,Romanzo,Cartaceo,Letto,2018-02-01,2018-03-20,5,,Goodreads
+1984,George Orwell,Romanzo,Ebook,Letto,2019-01-05,2019-01-25,4,,Goodreads
+Fahrenheit 451,Ray Bradbury,Romanzo,Ebook,Letto,2019-02-01,2019-02-14,4,,Goodreads
+Il deserto dei Tartari,Dino Buzzati,Romanzo,Cartaceo,Letto,2017-05-01,2017-05-22,5,,Goodreads
+Se una notte d'inverno un viaggiatore,Italo Calvino,Romanzo,Cartaceo,Letto,2020-09-01,2020-09-30,4,,Goodreads
+Le città invisibili,Italo Calvino,Romanzo,Cartaceo,Letto,2020-10-01,2020-10-12,5,,Goodreads
+La strada,Cormac McCarthy,Romanzo,Ebook,Letto,2021-01-08,2021-01-20,4,,Goodreads
+Non lasciarmi,Kazuo Ishiguro,Romanzo,Cartaceo,Letto,2021-03-01,2021-03-18,4,,Goodreads
+Il maestro e Margherita,Michail Bulgakov,Romanzo,Cartaceo,Abbandonato,2021-06-01,2021-06-20,2,non era il momento,Scaffale
+Guerra e pace,Lev Tolstoj,Romanzo,Cartaceo,Abbandonato,2022-01-02,2022-02-01,,mai più in estate,Scaffale
+Dune,Frank Herbert,Romanzo,Ebook,Letto,2022-03-01,2022-04-10,5,,Goodreads
+Il problema dei tre corpi,Liu Cixin,Romanzo,Ebook,Letto,2022-05-01,2022-05-28,4,,Goodreads
+La foresta oscura,Liu Cixin,Romanzo,Ebook,Letto,2022-06-01,2022-06-30,5,,Goodreads
+Nella fine del tempo,Liu Cixin,Romanzo,Ebook,Da leggere,,,,comprato e mai iniziato,Scaffale
+Clean Code,Robert C. Martin,Saggio,Cartaceo,Letto,2016-01-10,2016-03-01,3,invecchiato,Goodreads
+The Pragmatic Programmer,Andrew Hunt,Saggio,Cartaceo,Letto,2016-04-01,2016-05-15,5,,Goodreads
+Refactoring,Martin Fowler,Saggio,Cartaceo,Letto,2017-01-05,2017-02-28,5,,Goodreads
+Domain-Driven Design,Eric Evans,Saggio,Cartaceo,In lettura,2026-02-01,,,"il grande blu, a piccoli morsi",Scaffale
+Implementing Domain-Driven Design,Vaughn Vernon,Saggio,Ebook,Da leggere,,,,,Scaffale
+Designing Data-Intensive Applications,Martin Kleppmann,Saggio,Cartaceo,Letto,2023-01-10,2023-04-01,5,il migliore della categoria,Scaffale
+Building Microservices,Sam Newman,Saggio,Ebook,Letto,2023-05-01,2023-06-10,4,,Goodreads
+Release It!,Michael Nygard,Saggio,Ebook,Letto,2023-07-01,2023-08-01,4,,Goodreads
+Site Reliability Engineering,Betsy Beyer,Saggio,Ebook,Abbandonato,2023-09-01,2023-09-20,3,,Goodreads
+An Elegant Puzzle,Will Larson,Saggio,Ebook,Letto,2024-05-01,2024-05-20,4,,Goodreads
+Staff Engineer,Will Larson,Saggio,Ebook,Letto,2024-06-01,2024-06-18,4,,Goodreads
+Radical Candor,Kim Scott,Saggio,Cartaceo,Letto,2024-07-01,2024-07-25,3,,Scaffale
+High Output Management,Andrew Grove,Saggio,Cartaceo,Letto,2024-08-01,2024-08-28,5,,Scaffale
+The Making of a Manager,Julie Zhuo,Saggio,Ebook,Letto,2024-09-01,2024-09-14,3,,Goodreads
+Turn the Ship Around!,David Marquet,Saggio,Ebook,Letto,2024-10-01,2024-10-20,4,,Goodreads
+Thinking in Systems,Donella Meadows,Saggio,Cartaceo,Letto,2025-01-05,2025-02-01,5,,Scaffale
+La sottile arte di fare quello che vuoi,Mark Manson,Saggio,Ebook,Abbandonato,2025-03-01,2025-03-05,1,non per me,Goodreads
+Sapiens,Yuval Noah Harari,Saggio,Cartaceo,Letto,2019-06-01,2019-07-15,4,,Goodreads
+Homo Deus,Yuval Noah Harari,Saggio,Cartaceo,Letto,2019-08-01,2019-09-10,3,,Goodreads
+Il gene egoista,Richard Dawkins,Saggio,Cartaceo,Letto,2018-06-01,2018-07-20,4,,Goodreads
+Breve storia del tempo,Stephen Hawking,Saggio,Cartaceo,Letto,2018-08-01,2018-08-20,4,,Goodreads
+Il mondo di Sofia,Jostein Gaarder,Romanzo,Cartaceo,Letto,2015-01-01,2015-02-20,4,,Goodreads
+Norwegian Wood,Haruki Murakami,Romanzo,Cartaceo,Letto,2023-09-01,2023-09-25,4,,Scaffale
+L'uccello che girava le viti del mondo,Haruki Murakami,Romanzo,Cartaceo,Letto,2023-10-01,2023-11-20,5,,Scaffale
+La ragazza dello Sputnik,Haruki Murakami,Romanzo,Ebook,Letto,2023-12-01,2023-12-12,3,,Goodreads
+Tokyo Blues,Haruki Murakami,Romanzo,Ebook,Da leggere,,,,,Scaffale
+Il libro dei cinque anelli,Miyamoto Musashi,Saggio,Cartaceo,Letto,2026-01-02,2026-01-08,5,breve e affilato,Scaffale
+Hagakure,Yamamoto Tsunetomo,Saggio,Cartaceo,Letto,2026-01-10,2026-01-20,4,,Scaffale
+Lo Zen e l'arte della manutenzione della motocicletta,Robert Pirsig,Romanzo,Cartaceo,Abbandonato,2026-02-01,2026-02-20,2,,Scaffale
+Shogun,James Clavell,Romanzo,Cartaceo,Da leggere,,,,mille pagine in attesa,Scaffale
+Il Tao della fisica,Fritjof Capra,Saggio,Ebook,Letto,2025-05-01,2025-05-20,3,,Goodreads
+Il piccolo principe,Antoine de Saint-Exupéry,Romanzo,Cartaceo,Letto,2014-01-01,2014-01-05,5,,Goodreads
+Cronache marziane,Ray Bradbury,Romanzo,Cartaceo,Letto,2025-06-01,2025-06-20,4,,Goodreads
+Solaris,Stanislaw Lem,Romanzo,Ebook,Letto,2025-07-01,2025-07-18,#ERROR!,,Goodreads
+Neuromante,William Gibson,Romanzo,Ebook,Letto,2025-08-01,#ERROR!,4,,Goodreads
