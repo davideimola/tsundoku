@@ -20,14 +20,22 @@ import type { Medium, Outcome } from "../verbs/reading.ts";
  */
 export type StoryState = "to-read" | "reading" | "read" | "abandoned";
 
-// The derivation, written once and used by both queries in this file.
-//
-// The order of the branches is the judgement in it: **an open Reading wins over a
-// finished one**, so a Story being reread reads `reading` and an assistant does not
-// recommend what is currently in the owner's hands (user story 33). A finished Reading
-// then wins over an abandoned one, because having given up in 2019 and finished it in
-// 2024 means the owner has read it.
-const STATE = `
+/**
+ * The derivation, written once and used by every query that asks where the owner is with
+ * a Story — in this file, and in `queries/path.ts`, where "the next **unread** Story of
+ * an active Path" is `= 'to-read'` over this expression rather than a column of its own.
+ *
+ * Exported as SQL because there is only one right place for these four branches, and a
+ * second copy of them would be a second answer. The fragment names the Story `s`, so a
+ * statement using it joins `story s`.
+ *
+ * The order of the branches is the judgement in it: **an open Reading wins over a
+ * finished one**, so a Story being reread reads `reading` and an assistant does not
+ * recommend what is currently in the owner's hands (user story 33). A finished Reading
+ * then wins over an abandoned one, because having given up in 2019 and finished it in
+ * 2024 means the owner has read it.
+ */
+export const STORY_STATE = `
   case
     when not exists (select 1 from reading r where r.story_id = s.id)
       then 'to-read'
@@ -106,7 +114,7 @@ export async function findStory(storyId: string): Promise<Story | null> {
        s.id,
        s.title,
        jsonb_build_object('id', t.id, 'name', t.name) as type,
-       ${STATE} as state,
+       ${STORY_STATE} as state,
        coalesce((
          select jsonb_agg(
            jsonb_build_object(
@@ -168,7 +176,7 @@ export async function listStories(): Promise<StorySummary[]> {
        s.id,
        s.title,
        jsonb_build_object('id', t.id, 'name', t.name) as type,
-       ${STATE} as state,
+       ${STORY_STATE} as state,
        (select count(*)::int from reading r where r.story_id = s.id) as "readingCount",
        (select g.score::float8
           from rating g
