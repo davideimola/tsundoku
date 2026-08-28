@@ -24,8 +24,9 @@ completeness ledger and not a narrative: nothing here says whether the story is 
 
 \`missing\` is the positions absent from the house, ascending, and \`nextMissing\` is the one to buy
 next. Both are computed from the published count against the shelf, so they cannot be stale — and a
-Volume the owner has released counts as missing again, because the shelf is what the ledger is
-measured against.
+Volume that is not in the house counts as missing whichever way it is absent, whether the owner
+released it or it is merely catalogued and was never acquired, because the shelf is what the ledger
+is measured against (ADR-0007).
 
 **Collecting is a deliberate decision and never derived from ownership.** A Series the owner has
 not decided to collect is not in this list at all, however many of its Volumes they happen to own:
@@ -70,9 +71,10 @@ const find: McpTool = {
   description: `One Series by id: its ledger, and the Volumes of it physically in the owner's house, by position,
 each with its Binding.
 
-The \`series_id\` comes from \`series_list\` or \`series_missing\`. Only owned objects are listed —
-a released Volume is absent here and counts as missing again — so the list is the shelf and not the
-publisher's catalogue. Answers \`null\` where no such Series exists, which is an answer and not a
+The \`series_id\` comes from \`series_list\` or \`series_missing\`. Only objects **in the house** are
+listed, so the list is the shelf and not the publisher's catalogue. A Volume is absent from it in two
+ways, and both count as missing: one the owner released, and one that is catalogued but was never
+acquired (ADR-0007). Answers \`null\` where no such Series exists, which is an answer and not a
 failure.
 
 A Volume standing here says nothing about the story having been read: being on the shelf and having
