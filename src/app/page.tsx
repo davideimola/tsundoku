@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { listTypes } from "@/core/queries/type";
 
@@ -47,6 +48,17 @@ export default async function Home() {
           </ul>
         </CardContent>
       </Card>
+
+      {/* The one way in to what the app is actually for. A Story is reachable with no
+          Volume at all, so it is the first thing here (ADR-0001). */}
+      <p className="mt-6">
+        <Link
+          href="/stories"
+          className="font-mono text-xs uppercase tracking-[0.22em] underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Stories, Readings and Ratings →
+        </Link>
+      </p>
 
       <p className="mt-6 text-pretty text-xs leading-relaxed text-muted-foreground">
         {types.length} rows, read from Postgres for this request. Nothing is hosted at this stage:

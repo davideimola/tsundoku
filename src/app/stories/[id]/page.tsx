@@ -1,0 +1,140 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { StoryRating, StoryReading } from "@/core/queries/story";
+import { findStory } from "@/core/queries/story";
+import { StoryStateLabel } from "../story-state";
+
+export const dynamic = "force-dynamic";
+
+// The page the whole slice exists for, and its one argument is made by the layout: the
+// Readings are a **stack, newest first, each carrying its own Rating**. A reread is
+// visibly a second entry with a second opinion beside the first, which is precisely what
+// the spreadsheet could not hold — one cell for `Voto`, overwritten.
+//
+// Monochrome shadcn tokens, one card, one rule between entries. Nothing here is
+// invented, and there is only one column, so the phone gets the same page as the desk.
+
+/** The medium and the outcome, in the words the owner uses. */
+function reading(record: StoryReading): string {
+  const outcome = record.outcome ?? "still reading";
+  return `${record.medium}, ${outcome}`;
+}
+
+/** When it happened, with whichever half of it is known. */
+function when(record: StoryReading): string {
+  if (record.startedOn && record.endedOn) return `${record.startedOn} → ${record.endedOn}`;
+  if (record.startedOn) return `from ${record.startedOn}`;
+  if (record.endedOn) return `until ${record.endedOn}`;
+  return "no date recorded";
+}
+
+function Judgement({ rating }: { rating: StoryRating }) {
+  return (
+    <div className="mt-2">
+      <p className="font-mono text-sm tabular-nums">
+        {rating.score.toFixed(1)}
+        <span className="text-muted-foreground"> / 10</span>
+      </p>
+      {rating.prose ? <p className="mt-1 text-pretty text-sm">{rating.prose}</p> : null}
+      <p className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
+        {rating.provenance.name}
+        {rating.convertedFromCoarserScale ? " · converted from a coarser scale" : ""}
+      </p>
+    </div>
+  );
+}
+
+export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const story = await findStory(id);
+  if (!story) notFound();
+
+  return (
+    <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-16">
+      <Link
+        href="/stories"
+        className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        tsundoku / stories
+      </Link>
+
+      <header className="mt-8">
+        <h1 className="text-pretty font-heading text-2xl leading-tight">{story.title}</h1>
+        <p className="mt-2 flex items-baseline gap-3">
+          <span className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
+            {story.type.name}
+          </span>
+          <StoryStateLabel state={story.state} />
+        </p>
+      </header>
+
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Readings</CardTitle>
+          <CardDescription className="text-pretty">
+            One act of reading each, newest first, with the Rating it carried. Nothing here is ever
+            overwritten: reading it again adds an entry, and the opinion from last time stays beside
+            the new one.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {story.readings.length === 0 ? (
+            <p className="text-pretty text-sm text-muted-foreground">
+              No Reading yet, which is the whole of why this Story reads{" "}
+              <span className="font-mono text-xs uppercase tracking-[0.18em]">to read</span>.
+            </p>
+          ) : (
+            <ol className="-my-1">
+              {story.readings.map((record) => (
+                <li key={record.id} className="border-t border-border py-3.5 first:border-t-0">
+                  <p className="flex flex-wrap items-baseline justify-between gap-x-4">
+                    <span className="font-mono text-xs tabular-nums">{when(record)}</span>
+                    <span className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
+                      {reading(record)}
+                    </span>
+                  </p>
+                  {record.note ? <p className="mt-1.5 text-pretty text-sm">{record.note}</p> : null}
+                  <p className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
+                    {record.provenance.name}
+                  </p>
+                  {record.rating ? (
+                    <Judgement rating={record.rating} />
+                  ) : (
+                    <p className="mt-2 text-sm text-muted-foreground">No Rating on this Reading.</p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardContent>
+      </Card>
+
+      {story.standaloneRatings.length > 0 ? (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Ratings with no Reading</CardTitle>
+            <CardDescription className="text-pretty">
+              A judgement of this Story that points at no particular act of reading — a score that
+              arrived from a sheet, most often. The Provenance says how far it can be trusted.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="-my-1">
+              {story.standaloneRatings.map((rating) => (
+                <li key={rating.id} className="border-t border-border py-2 first:border-t-0">
+                  <Judgement rating={rating} />
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <p className="mt-6 text-pretty text-xs leading-relaxed text-muted-foreground">
+        The judgement is of the Story and never of an object: a Volume carries an Edition note
+        instead, and this page has no place to put one.
+      </p>
+    </main>
+  );
+}
