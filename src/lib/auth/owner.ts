@@ -1,6 +1,6 @@
 import "server-only";
 
-import { devGateIsOpen, type GateRefusal, type Owner, ownerGate } from "./gate";
+import { devGateIsOpen, type GateRefusal, gateSessionFrom, type Owner, ownerGate } from "./gate";
 import { auth } from "./index";
 
 // The wall. Not the proxy — this.
@@ -16,6 +16,13 @@ import { auth } from "./index";
 //
 // Every page and every Server Function behind the gate calls this first, and
 // `src/app/gated.test.ts` fails when one of them stops doing so.
+//
+// It **throws** rather than redirecting, and the visitor of a bypassed proxy therefore
+// sees an error rather than the sign-in screen. That is the intended shape: the
+// friendly answer is the proxy's job, this layer only has to be certain, and a wall
+// that also had an opinion about where to send people would be a second destination to
+// drift from the first. A refusal reaching here at all means the layer in front of it
+// failed, which is a thing to see and not to smooth over.
 
 export class OwnerGateError extends Error {
   readonly refusal: GateRefusal;
@@ -40,10 +47,7 @@ export class OwnerGateError extends Error {
 export async function requireOwner(): Promise<Owner> {
   const session = devGateIsOpen(process.env) ? null : await auth();
 
-  const verdict = ownerGate(
-    process.env,
-    session === null ? null : { email: session.user?.email, openedAt: session.openedAt }
-  );
+  const verdict = ownerGate(process.env, gateSessionFrom(session));
   if (!verdict.ok) throw new OwnerGateError(verdict.refusal);
   return verdict.owner;
 }

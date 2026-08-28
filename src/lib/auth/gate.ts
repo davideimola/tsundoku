@@ -83,6 +83,21 @@ export type GateSession = {
 };
 
 /**
+ * What the gate reads out of a session Auth.js resolved.
+ *
+ * Both layers need exactly this, and having it once means the proxy and the wall
+ * cannot come to read a *different* two facts out of the same cookie. It takes
+ * `unknown`-ish shapes because that is what a resolved session is: an object whose
+ * every field is optional, or nothing at all.
+ */
+export function gateSessionFrom(
+  session: { user?: { email?: string | null } | null; openedAt?: number } | null | undefined
+): GateSession | null {
+  if (!session) return null;
+  return { email: session.user?.email, openedAt: session.openedAt };
+}
+
+/**
  * The development gate: `AUTH_DEV_OPEN=true`, and **never** honoured in a
  * production build.
  *

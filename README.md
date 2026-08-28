@@ -54,7 +54,12 @@ Google OAuth client yet, so without it the loop above would end at a sign-in but
 that cannot work. See [the owner gate](#the-owner-gate) for what it does and why it
 cannot be the reason the library ends up readable from the internet.
 
-### DATABASE_URL is the only variable
+### DATABASE_URL is the only variable the local loop needs
+
+The gate adds `AUTH_DEV_OPEN` while nothing is hosted, and four more once there is a
+Google client to point at — all of them documented in
+[`.env.example`](.env.example) and none of them a value this repo carries. Everything
+about the database is still one variable.
 
 It carries the host, the port, the credentials and the database name, and everything
 reads it: `next dev`, `pnpm db:*` and `pnpm test`. It is also what the container is
@@ -134,8 +139,8 @@ export default async function CollectionPage() {
 }
 ```
 
-The same for an `actions.ts` beside it: a layout does not run for a Server Function,
-so the assert goes in each one.
+The same for a Server Function or a route handler beside it: a layout does not run for
+either, so the assert goes in each one.
 
 Both halves of that rule are a test rather than a paragraph
 ([`src/app/gated.test.ts`](src/app/gated.test.ts)), because both failures are silent —
@@ -242,8 +247,11 @@ together and the adapters need no tests of their own.
 
 **The second seam is the two gates at the HTTP edge**, and it is deliberately thin
 because it is protocol behaviour rather than the model: the owner gate in both
-directions, and — when the MCP door is built — `/mcp` refusing an absent or wrong
-bearer. It reaches no database. Nothing else is a seam here.
+directions ([`src/proxy.test.ts`](src/proxy.test.ts)), and — when the MCP door is built
+— `/mcp` refusing an absent or wrong bearer. It reaches no database, and it needs no
+Google OAuth client: a Google client is only how an address gets into a session token,
+so the test mints its own with the same `encode` Auth.js signs with. Nothing else is a
+seam here.
 
 ```sh
 pnpm test

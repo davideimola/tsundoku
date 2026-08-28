@@ -2,7 +2,7 @@ import { type NextFetchEvent, type NextRequest, NextResponse } from "next/server
 import type { NextAuthRequest } from "next-auth";
 
 import { auth } from "@/lib/auth";
-import { devGateIsOpen, ownerGate, SIGN_IN_PATH } from "@/lib/auth/gate";
+import { devGateIsOpen, gateSessionFrom, ownerGate, SIGN_IN_PATH } from "@/lib/auth/gate";
 
 // The first of the gate's two layers, and the one that is **ergonomics rather than
 // the wall**. It exists so that a request without a session lands on a sign-in screen
@@ -27,12 +27,7 @@ export function proxy(request: NextRequest, event: NextFetchEvent) {
 // Both parameters are annotated on purpose: `auth` is overloaded for route handlers as
 // well, and a one-parameter callback resolves to that overload instead of this one.
 const gatedProxy = auth((request: NextAuthRequest, _event: NextFetchEvent) => {
-  const session = request.auth;
-  const verdict = ownerGate(
-    process.env,
-    session === null ? null : { email: session?.user?.email, openedAt: session?.openedAt }
-  );
-  if (verdict.ok) return NextResponse.next();
+  if (ownerGate(process.env, gateSessionFrom(request.auth)).ok) return NextResponse.next();
 
   // No `callbackUrl`. The app has one home, and a sign-in happens about once a
   // quarter, so returning to the refused route is not worth an open-redirect surface

@@ -30,6 +30,12 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Auth.js is transformed rather than loaded as an external package. Its internals
+    // import `next/server`, which Next resolves through its own bundler and which
+    // node's ESM resolver, reaching for it from inside `next-auth`, does not find.
+    // Inlining is what lets Seam 2 exercise the proxy with a real session cookie
+    // instead of a mock of the thing under test.
+    server: { deps: { inline: ["next-auth", "@auth/core"] } },
     include: ["src/**/*.test.ts", "db/**/*.test.ts"],
     // Brings the container up and applies the schema to the test database, so
     // `pnpm test` is the whole command on a clean clone.

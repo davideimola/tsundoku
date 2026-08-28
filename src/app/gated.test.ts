@@ -16,15 +16,24 @@ import { SRC, sourceFiles } from "@/test/source-files";
 //
 //   1. every page lives in `(owner)` — behind the gate — or in `(public)`, which is
 //      the deliberate act of putting a page outside it;
-//   2. every page and every Server Function file inside `(owner)` calls
+//   2. every page, every Server Function and every route handler inside `(owner)` calls
 //      `requireOwner()`, because the proxy is ergonomics and not the wall: a layout
 //      does not run for a Server Function, and Next's own guidance is to verify inside
 //      each one rather than to rely on the proxy.
 
 const APP = `${SRC}app`;
 
-const pages = sourceFiles(APP).filter((read) => /(?:^|\/)page\.tsx$/.test(read.file));
-const serverFunctions = sourceFiles(APP).filter((read) => /(?:^|\/)actions\.ts$/.test(read.file));
+const app = sourceFiles(APP);
+const pages = app.filter((read) => /(?:^|\/)page\.tsx$/.test(read.file));
+
+// Not `actions.ts` by name. A Server Function is any file carrying the directive, and a
+// route handler answers a request of its own — naming two filenames would wave through
+// the third one somebody adds. The pages are excluded because they are counted above.
+const otherEntryPoints = app.filter(
+  (read) =>
+    !/(?:^|\/)page\.tsx$/.test(read.file) &&
+    (/^\s*["']use server["']/m.test(read.source) || /(?:^|\/)route\.tsx?$/.test(read.file))
+);
 
 /** Files under the gated route group, which is the only group that touches data. */
 function gated(files: typeof pages) {
@@ -60,8 +69,8 @@ describe("the wall behind the gated route group", () => {
     expect(unwalled).toEqual([]);
   });
 
-  it("is called by every Server Function file in it", () => {
-    const unwalled = gated(serverFunctions)
+  it("is called by every Server Function and route handler in it", () => {
+    const unwalled = gated(otherEntryPoints)
       .filter((read) => !CALLS_THE_WALL.test(read.source))
       .map((read) => read.file);
 
