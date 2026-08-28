@@ -250,6 +250,9 @@ describe("what the owner has read", () => {
               score: 9.5,
               prose: "The best thing Urasawa has done.",
               provenance: { id: "remembered", name: "Remembered" },
+              // The other axis, and it travels with every score: this one was given in
+              // the owner's own scale rather than doubled from a coarser one (ADR-0008).
+              scale: "half-points",
             },
           },
         ],
@@ -302,7 +305,8 @@ describe("what the owner has read", () => {
   });
 
   // A score imported from a spreadsheet has no act of reading to point at. It is still
-  // the owner's judgement, so it travels — and it says so in its own Provenance.
+  // the owner's judgement, so it travels — with the grain it was given in and, separately,
+  // where it came from (ADR-0008).
   it("carries a judgement that points at no Reading, marked for what it is", async () => {
     const storyId = await createStory({ title: "Death Note", typeId: "manga" });
     const reading = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
@@ -311,7 +315,8 @@ describe("what the owner has read", () => {
       storyId,
       score: 8,
       prose: "Four out of five, doubled.",
-      provenanceId: "converted-from-a-coarser-scale",
+      scale: "coarse",
+      provenanceId: "typed-from-the-shelf",
     });
 
     const [story] = await listReadStories();
@@ -321,10 +326,8 @@ describe("what the owner has read", () => {
         id: expect.any(String),
         score: 8,
         prose: "Four out of five, doubled.",
-        provenance: {
-          id: "converted-from-a-coarser-scale",
-          name: "Converted from a coarser scale",
-        },
+        provenance: { id: "typed-from-the-shelf", name: "Typed from the shelf" },
+        scale: "coarse",
       },
     ]);
   });

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import type { RatingScale } from "../verbs/rating.ts";
 import type { Medium, Outcome } from "../verbs/reading.ts";
 
 // What the owner and an external reader ask about a Story.
@@ -73,10 +74,16 @@ export type StoryRating = {
   score: number;
   prose: string | null;
   /**
-   * How this judgement came to be known, and how far it can be trusted. A score doubled
-   * from a 1-5 scale says so here (ADR-0001).
+   * Where this judgement came from, and how far it can be trusted. **Origin only**: how
+   * coarse the score is, is the other axis below (ADR-0008).
    */
   provenance: StoryProvenance;
+  /**
+   * The grain the owner gave it in. `coarse` is a score given out of 5 and doubled onto
+   * this scale — the judgement is theirs, the precision is not — and it travels beside the
+   * Provenance rather than inside it, so an assistant can read *coarse, and remembered*.
+   */
+  scale: RatingScale;
 };
 
 /** One act of reading, with the judgement it carried. */
@@ -113,7 +120,8 @@ const RATING = `
     'id', g.id,
     'score', g.score::float8,
     'prose', g.prose,
-    'provenance', jsonb_build_object('id', gp.id, 'name', gp.name)
+    'provenance', jsonb_build_object('id', gp.id, 'name', gp.name),
+    'scale', g.scale
   )`;
 
 /**
@@ -191,8 +199,9 @@ export async function findStory(storyId: string): Promise<Story | null> {
  * **This is the corpus an external reader recommends from** (ADR-0002, user story 32),
  * and it is the reason nothing here is a summary. A score alone is a genre guess with a
  * number on it; what makes a recommendation evidence is the prose the owner wrote and
- * the Provenance that says whether they remember writing it — so both travel, and a
- * score doubled from a 1-5 scale arrives marked as coarser.
+ * the Provenance that says whether they remember writing it — so both travel, and a score
+ * doubled from a 1-5 scale arrives marked `coarse` on its own axis, with its Provenance
+ * still saying where it came from (ADR-0008).
  *
  * `read` is the derived state and not a column, so the three states that are *not* read
  * are excluded by the same expression `findStory` reports: a Story in the owner's hands
