@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "../db.ts";
 import { Refusal, refusing } from "../refusal.ts";
+import type { Executor } from "../transaction.ts";
 
 // Writing the catalogue and writing the Collection are **two acts**, and this file is
 // where they came apart (ADR-0007).
@@ -63,11 +64,18 @@ const NO_SUCH_VOLUME = "No Volume has that id.";
  * Nothing about the reading follows from it either — no Story, no Reading, no Rating —
  * because being read and being owned are unrelated facts (ADR-0001). There is no medium to
  * give: an owned ebook is not representable, so a digital book is a Reading and never this.
+ *
+ * `run` is how the Inbox's approval calls it inside its own transaction: an assistant may
+ * only *propose* an object, and approving that proposal is one act — the Volume and the
+ * entry that became it land together or not at all (see `../transaction.ts`).
  */
-export async function catalogueVolume(volume: CataloguedVolume): Promise<{ id: string }> {
+export async function catalogueVolume(
+  volume: CataloguedVolume,
+  run: Executor = query
+): Promise<{ id: string }> {
   const rows = await refusing(
     () =>
-      query<{ id: string }>(
+      run<{ id: string }>(
         `insert into volume (title, publisher, edition_line, binding_id, language, isbn)
          values ($1, $2, $3, $4, $5, $6)
          returning id`,
