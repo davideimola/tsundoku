@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
-import { pinToReadingList, unpinFromReadingList } from "@/core/verbs/reading-list";
+import {
+  type PinnedSource,
+  pinToReadingList,
+  unpinFromReadingList,
+} from "@/core/verbs/reading-list";
 import { openWish } from "@/core/verbs/wish";
 import { requireOwner } from "@/lib/auth/owner";
 
@@ -11,12 +15,12 @@ import { requireOwner } from "@/lib/auth/owner";
 // (ADR-0002): each function reads a form, calls one verb, and carries back what the verb
 // said.
 //
-// **Three verbs, and the third one is the interesting one.** The queue composes itself, so
+// **Three verbs, and the third one is the interesting one.** The list composes itself, so
 // there is nothing on it to edit: pinning and unpinning are the owner's order over a list
 // they do not maintain. `wishFor` is the one place this screen writes something that costs
 // money, and it exists precisely so that the *list* does not: the entry carries a proposal
 // built by the query, the screen renders it as a form, and a Wish is opened when the owner
-// submits it and never before (user story 28). Rendering the whole queue writes nothing.
+// submits it and never before (user story 28). Rendering the whole list writes nothing.
 //
 // The answer travels back in the URL rather than in React state, like every screen here: a
 // plain form and a redirect work with no JavaScript running at all.
@@ -30,7 +34,7 @@ function text(form: FormData, field: string): string | null {
 }
 
 /** A pin is on a Path or on a Series, and the row says which. */
-function subject(form: FormData): { kind: "path" | "series"; id: string } {
+function subject(form: FormData): PinnedSource {
   return {
     kind: text(form, "kind") === "series" ? "series" : "path",
     id: text(form, "id") ?? "",
@@ -81,7 +85,7 @@ export async function unpin(form: FormData): Promise<void> {
  *
  * The entry carried a `proposedWish` and the row rendered it; this is the submit. So the
  * Volume and the priority arrive from the form rather than being read back out of the
- * queue: what the owner saw is what is opened, and the picker is where they change the
+ * list: what the owner saw is what is opened, and the picker is where they change the
  * priority the proposal suggested.
  */
 export async function wishFor(form: FormData): Promise<void> {

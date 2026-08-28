@@ -12,7 +12,7 @@ import { openWish } from "../verbs/wish.ts";
 import { composeReadingList } from "./reading-list.ts";
 
 // Seam 1, and **the product** (#1). Everything asserted in this file is a derivation with
-// no row behind it: the queue, its order, the medium each entry is intended in, and the
+// no row behind it: the list, its order, the medium each entry is intended in, and the
 // Wish an entry needing an object proposes without opening.
 
 beforeEach(async () => {
@@ -160,7 +160,7 @@ describe("the intended medium each entry carries", () => {
     const [entry] = await composeReadingList();
 
     // The owner can start it tonight, and an entry that offered to buy the deluxe while
-    // the tankōbon sat on the shelf would be the shopping list talking over the queue.
+    // the tankōbon sat on the shelf would be the shopping list talking over the Reading list.
     expect(entry.object?.title).toBe("Vagabond 1");
     expect(entry.atHand).toBe(true);
   });
@@ -437,7 +437,7 @@ describe("the order the owner imposes with a pin", () => {
     await pinToReadingList({ kind: "path", id: pathId });
     await deactivatePath(pathId);
 
-    // The pin is still stored, and the queue is still composed. A pin is an order and
+    // The pin is still stored, and the list is still composed. A pin is an order and
     // never an entry, so there is nothing here for it to bring to the front.
     expect(await composeReadingList()).toEqual([]);
     const [{ stored }] = await query<{ stored: string }>(

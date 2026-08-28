@@ -11,7 +11,7 @@ import type { StoryType } from "./story.ts";
 //
 // This is the file the whole application is for (#1). The spreadsheet keeps a `Prossimo`
 // column per route that the owner recomputes by hand every time they finish something, and
-// three of its dashboard tiles read `#ERROR!`; here the queue is composed on the way out of
+// three of its dashboard tiles read `#ERROR!`; here the list is composed on the way out of
 // two derivations that are themselves derivations, and there is nowhere an entry could be
 // stored stale. The only thing stored is a **pin**, which is the owner's disagreement with
 // the order and cannot invent an entry — see
@@ -59,7 +59,7 @@ export type ReadingListObject = {
 // what the screen or the assistant does with the value is hand it to `openWish` — or not.
 
 /**
- * One entry of the Reading list: something to read, why it is in the queue, and what it
+ * One entry of the Reading list: something to read, why it is on the list, and what it
  * would take to start it.
  *
  * Flat rather than a union of two shapes, because both doors read it — a screen lays it out
@@ -98,9 +98,15 @@ export type ReadingListEntry = {
   /**
    * **The intended medium, and it follows the object.** `paper` where an object carries
    * this entry, `digital` where none does — because digital ownership is deliberately not
-   * modelled (CONTEXT.md), so a Story no Volume carries is one the owner needs no object
-   * for and can read tonight, and a Series is a line of objects and therefore always
-   * paper.
+   * modelled (CONTEXT.md), so a Story with no Volume is the ordinary shape of a Story read
+   * digitally, borrowed, or known only from Goodreads. A Series is a publisher's line of
+   * objects and is therefore `paper` whatever the library has catalogued.
+   *
+   * It is **derived and not declared**, and it is the one judgement in this file the owner
+   * could reasonably overturn: a Story on a route that they mean to read on paper and have
+   * not catalogued an object for reads `digital` here, because nothing in the library says
+   * otherwise and an entry has no row to record an intention on. Cataloguing the object is
+   * what changes the answer.
    */
   medium: ReadingListMedium;
   /**
@@ -126,7 +132,7 @@ export type ReadingListEntry = {
   proposedWish: ProposedWish | null;
   /** Whether the owner already means to buy the object. Nothing to propose, and no problem. */
   wishAlreadyOpen: boolean;
-  /** Whether the owner pinned this entry's source. Pinned entries lead the queue. */
+  /** Whether the owner pinned this entry's source. Pinned entries lead the list. */
   pinned: boolean;
 };
 
@@ -168,7 +174,10 @@ export async function composeReadingList(): Promise<ReadingListEntry[]> {
       path: stop.path,
       series: null,
       story: { id: stop.next.storyId, title: stop.next.title, type: stop.next.type },
-      ...through(carriers.get(stop.next.storyId)),
+      // **The medium follows the object**: paper where one carries the Story, digital
+      // where none does. A Story with no Volume is one the owner reads without an object,
+      // which is the ordinary digital case in this model (CONTEXT.md).
+      ...through(carriers.get(stop.next.storyId), mediumOf(carriers.get(stop.next.storyId))),
       pinned: pins.has(stop.path.id),
     })),
     ...incomplete.map((ledger) => ({
@@ -200,7 +209,7 @@ export async function composeReadingList(): Promise<ReadingListEntry[]> {
   return entries.sort((one, other) => place(one, pins) - place(other, pins));
 }
 
-/** Where an entry sits in the pinned part of the queue, or after all of it. */
+/** Where an entry sits in the pinned part of the list, or after all of it. */
 function place(entry: ReadingListEntry, pins: Map<string, number>): number {
   const subject = entry.path?.id ?? entry.series?.id ?? "";
   return pins.get(subject) ?? pins.size;
@@ -208,6 +217,29 @@ function place(entry: ReadingListEntry, pins: Map<string, number>): number {
 
 /** An object the library knows about, and whether the owner already means to buy it. */
 type Carrier = { object: ReadingListObject; wishAlreadyOpen: boolean };
+
+/**
+ * The medium an entry going through this object — or through none — is intended in.
+ *
+ * **Both call sites say the medium out loud** rather than letting this be a default, because
+ * the two sources answer it differently on purpose and a default would hide the one that
+ * overrides: a Series entry is `paper` even where nothing is catalogued, since a Series is a
+ * publisher's line of objects.
+ */
+function mediumOf(carrier: Carrier | undefined): ReadingListMedium {
+  return carrier ? "paper" : "digital";
+}
+
+/**
+ * What a proposal suggests for *how soon*: **2, which is "soon"**.
+ *
+ * A suggestion rather than a judgement, and the least presumptuous of the three: the list
+ * knows the owner needs this object to carry on, which is more than *someday* and less than
+ * *this is what I am buying next* — and priority is what the owner is likeliest to disagree
+ * with, so the picker on the screen defaults to this and does not obey it. Nothing derives
+ * it from the entry's place on the list: a pin is an order to read in, not a budget.
+ */
+const PROPOSED_PRIORITY = 2;
 
 /**
  * What an entry going through this object — or through none — means: the medium it is
@@ -220,7 +252,7 @@ type Carrier = { object: ReadingListObject; wishAlreadyOpen: boolean };
  */
 function through(
   carrier: Carrier | undefined,
-  medium: ReadingListMedium = carrier ? "paper" : "digital"
+  medium: ReadingListMedium
 ): Pick<ReadingListEntry, "medium" | "atHand" | "object" | "proposedWish" | "wishAlreadyOpen"> {
   const inTheHouse = carrier?.object.inTheHouse ?? false;
   const wishAlreadyOpen = carrier?.wishAlreadyOpen ?? false;
@@ -236,7 +268,7 @@ function through(
     // proposing a mistake.
     proposedWish:
       carrier && !inTheHouse && !wishAlreadyOpen
-        ? { volumeId: carrier.object.id, priority: 2 }
+        ? { volumeId: carrier.object.id, priority: PROPOSED_PRIORITY }
         : null,
     wishAlreadyOpen,
   };
@@ -261,7 +293,7 @@ const CARRIER = `
 // **What the house holds first.** A Story carried by an object on the shelf is a Story the
 // owner can start tonight, whatever else the library knows that carries it — an entry that
 // offered to buy the deluxe while the tankōbon sat on the shelf would be the shopping list
-// talking over the queue. After that the Binding's own order, which is the order the
+// talking over the Reading list. After that the Binding's own order, which is the order the
 // Collection is read in, so the choice is the same one every screen makes.
 const BEST_CARRIER = `order by (${IN_THE_HOUSE}) desc, b.display_order, lower(v.title), v.id`;
 
@@ -316,9 +348,10 @@ function at(seriesId: string, position: number): string {
  * often none.
  *
  * **A position that is missing usually has no catalogued object**, and that is structural
- * rather than a gap in the data: placing a Volume in a Series asks that the house hold it
- * (ADR-0007), so the only object that can sit at a missing position is one the owner had
- * and let go. That is exactly the case worth proposing a Wish for — buy back the volume
+ * rather than a gap in the data: `placeVolumeInSeries` refuses an object the house does not
+ * hold, which ADR-0007 left standing deliberately ("Placing a Volume in a Series still asks
+ * that the house hold it"), so the only object that can sit at a *missing* position is one
+ * the owner had and let go. That is exactly the case worth proposing a Wish for — buy back the volume
  * that was sold — and every other missing position is a thing nobody has recorded, where
  * this list has nothing to name and says so by answering with nothing.
  */

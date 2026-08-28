@@ -1,7 +1,7 @@
 -- The Reading list is a **query and never a table**, and this file is the whole of what it
 -- stores: pins.
 --
--- **There is deliberately no table of Reading list entries.** The queue composes itself
+-- **There is deliberately no table of Reading list entries.** The list composes itself
 -- from the next unread Story of every active Path and the next missing Volume of every
 -- Series being collected (CONTEXT.md, user story 22) — both of which are already
 -- derivations over rows the owner wrote for another reason — so an entry has nowhere it
@@ -20,7 +20,7 @@
 -- entry comes from, and the correspondence is exact: **each active Path contributes exactly
 -- one entry** (its next unread Story) and **each Series being collected contributes exactly
 -- one** (its next missing Volume). So a permutation of the sources *is* a permutation of the
--- queue, and a pin on *Angolo Giappone* keeps that route at the top while the owner works
+-- Reading list, and a pin on *Angolo Giappone* keeps that route at the top while the owner works
 -- through it rather than evaporating the moment they read the Story it happened to be
 -- showing.
 --
@@ -66,7 +66,7 @@ create table reading_list_pin (
 );
 
 comment on table reading_list_pin is
-  'The only thing the Reading list stores. The queue itself composes itself from active '
+  'The only thing the Reading list stores. The list itself composes itself from active '
   'Paths and Series being collected and is a table nowhere; a pin is the owner''s '
   'disagreement with its order, and points at the source of an entry — a Path or a '
   'Series — because an entry has no stable row of its own.';

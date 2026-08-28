@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { composeReadingList, type ReadingListEntry } from "@/core/queries/reading-list";
+import type { PinnedSource } from "@/core/verbs/reading-list";
 import { requireOwner } from "@/lib/auth/owner";
 import { pin, unpin, wishFor } from "./actions";
 
@@ -10,13 +11,13 @@ import { pin, unpin, wishFor } from "./actions";
 // dashboard tiles reading `#ERROR!` (#1).
 //
 // The design has one idea in it, and everything else is the house style the screens beside
-// it already set. **The queue is a numbered sequence, because it is one.** The order is the
+// it already set. **The list is a numbered sequence, because it is one.** The order is the
 // answer — pinned first, then the routes the owner chose, then the Series ledger — so the
 // ordinal sits in the gutter where the eye starts, and the second line of every row says
 // the one thing that decides whether the entry is actionable tonight: *tonight*, *on the
 // shelf*, or *buy it first*. Nothing else competes for that line.
 //
-// What is deliberately **not** on this screen: any way to edit the queue. There is nothing
+// What is deliberately **not** on this screen: any way to edit the list. There is nothing
 // to edit — an entry is composed, so the affordances are a pin (the owner's own order) and,
 // where an entry needs an object they do not have, the proposal the entry already carries.
 // Pressing that one is opening a Wish, which is why it is a button with a price attached in
@@ -154,13 +155,15 @@ function standing(entry: ReadingListEntry): string {
 
 /** One entry: what to read, why it is here, and the one thing to do about it. */
 function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
-  const source = entry.path
-    ? { kind: "path" as const, id: entry.path.id }
-    : { kind: "series" as const, id: entry.series?.id ?? "" };
+  // The pin's subject, in the verb's own type: an entry comes from one source and that
+  // source is what a pin points at.
+  const source: PinnedSource = entry.path
+    ? { kind: "path", id: entry.path.id }
+    : { kind: "series", id: entry.series?.id ?? "" };
 
   return (
     <li className="flex gap-4 border-t border-border py-4 sm:gap-5">
-      {/* The gutter carries the position in the queue, because the order *is* the answer
+      {/* The gutter carries the position on the list, because the order *is* the answer
           this screen gives. Tabular so the column stays a column past nine. */}
       <span
         aria-hidden="true"

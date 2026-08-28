@@ -6,7 +6,7 @@ import { Refusal, refusing } from "../refusal.ts";
 // Writing the Reading list, which is **one verb and its undoing**.
 //
 // There is nothing else to write here, and that is the design rather than a stage it has
-// not reached: the queue composes itself from the next unread Story of every active Path
+// not reached: the Reading list composes itself from the next unread Story of every active Path
 // and the next missing Volume of every Series being collected, so an entry has no row and
 // nothing to set on it. What the owner keeps by hand is the order, and only where they
 // disagree with it — see
@@ -26,7 +26,7 @@ import { Refusal, refusing } from "../refusal.ts";
  * Not a Story and not a Volume, because an entry is a *position* in a derivation and the
  * thing standing in it changes the moment the owner finishes something. Each active Path
  * contributes exactly one entry and each Series being collected exactly one, so a
- * permutation of the sources is a permutation of the queue.
+ * permutation of the sources is a permutation of the Reading list.
  */
 export type PinnedSource = {
   kind: "path" | "series";
@@ -37,23 +37,34 @@ export type PinnedSource = {
 // An id is generated and never typed, so a malformed one is the same event as one naming
 // nothing: there is nothing to pin. Said here because `where path_id = 'banana'` on a uuid
 // column raises a *syntax* error, which is a 500 rather than an answer.
+const NOT_PINNED = "That is not pinned.";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function noSuchSource(kind: PinnedSource["kind"]): string {
-  return kind === "path" ? "No Path has that id." : "No Series has that id.";
-}
-
-// Which column the subject goes in. A literal chosen in this file from a closed set of two
-// — nothing a caller supplies reaches SQL other than as a parameter, here as everywhere.
-function column(kind: PinnedSource["kind"]): "path_id" | "series_id" {
-  return kind === "path" ? "path_id" : "series_id";
-}
+// Everything that differs between the two kinds of pin, in one table rather than in a
+// ternary repeated at each use: the column the subject goes in, the constraint that names
+// it, and the prose the owner reads when there is no such thing to pin.
+//
+// The column is a **literal from this closed set of two** and never a caller's string —
+// nothing a caller supplies reaches SQL other than as a parameter, here as everywhere.
+const SUBJECT = {
+  path: {
+    column: "path_id",
+    constraint: "reading_list_pin_path_exists",
+    missing: "No Path has that id.",
+  },
+  series: {
+    column: "series_id",
+    constraint: "reading_list_pin_series_exists",
+    missing: "No Series has that id.",
+  },
+} as const;
 
 /**
  * Pin an entry: whatever this Path or this Series is offering, the owner wants it first.
  *
  * **It is the act of saying *this next*, so it goes to the front** — the most recently
- * pinned entry leads the queue. Said again on something already pinned it therefore
+ * pinned entry leads the list. Said again on something already pinned it therefore
  * *moves* the pin it finds rather than adding a second one, which is also what makes it
  * the way to re-order pins: pin them in the order you mean to read them.
  *
@@ -63,9 +74,8 @@ function column(kind: PinnedSource["kind"]): "path_id" | "series_id" {
  * waits. A pin cannot introduce something to read.
  */
 export async function pinToReadingList(source: PinnedSource): Promise<void> {
-  if (!UUID.test(source.id)) throw new Refusal("not-found", noSuchSource(source.kind));
-
-  const subject = column(source.kind);
+  const subject = SUBJECT[source.kind];
+  if (!UUID.test(source.id)) throw new Refusal("not-found", subject.missing);
 
   await refusing(
     () =>
@@ -73,15 +83,14 @@ export async function pinToReadingList(source: PinnedSource): Promise<void> {
       // delete racing an insert. The unique index over the subject is what the conflict
       // target is, and there is one per column — hence the `where` clause naming it.
       query(
-        `insert into reading_list_pin (${subject}) values ($1)
-         on conflict (${subject}) where ${subject} is not null
+        `insert into reading_list_pin (${subject.column}) values ($1)
+         on conflict (${subject.column}) where ${subject.column} is not null
          do update set pinned_at = now()`,
         [source.id]
       ),
     (constraint) =>
-      constraint === "reading_list_pin_path_exists" ||
-      constraint === "reading_list_pin_series_exists"
-        ? noSuchSource(source.kind)
+      constraint === subject.constraint
+        ? subject.missing
         : "That could not be pinned to the Reading list."
   );
 }
@@ -96,14 +105,15 @@ export async function pinToReadingList(source: PinnedSource): Promise<void> {
  * a second unpin is the owner looking at something else than they think.
  */
 export async function unpinFromReadingList(source: PinnedSource): Promise<void> {
-  if (!UUID.test(source.id)) throw new Refusal("not-found", "That is not pinned.");
+  if (!UUID.test(source.id)) throw new Refusal("not-found", NOT_PINNED);
 
-  const subject = column(source.kind);
-
-  const unpinned = await query<{ pinnedAt: string }>(
-    `delete from reading_list_pin where ${subject} = $1 returning pinned_at::text as "pinnedAt"`,
+  // `returning` because the delete's own row count is the diagnosis: no row means there was
+  // no pin, and a second read to find that out could disagree with the write.
+  const unpinned = await query<{ gone: boolean }>(
+    `delete from reading_list_pin where ${SUBJECT[source.kind].column} = $1
+     returning true as gone`,
     [source.id]
   );
 
-  if (unpinned.length === 0) throw new Refusal("not-found", "That is not pinned.");
+  if (unpinned.length === 0) throw new Refusal("not-found", NOT_PINNED);
 }

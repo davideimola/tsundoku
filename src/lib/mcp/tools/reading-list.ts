@@ -4,7 +4,7 @@ import type { McpTool } from "../tool.ts";
 // The Reading list area: **what to read next**, which is the question this whole app was
 // built to make askable from outside (ADR-0002, user story 22).
 //
-// One tool, because there is one question. The queue already carries the Path each entry
+// One tool, because there is one question. The answer already carries the Path each entry
 // extends and that Path's intent, so *what comes next per Path* is in this answer and not a
 // second tool; `path_next_on_active_paths` is the same derivation without the objects, the
 // Series half and the owner's pins, and an assistant that wants the raw routes can still
