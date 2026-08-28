@@ -4,11 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  countOpenWishes,
   listOpenWishes,
-  listWishableVolumes,
+  listVolumesToWishFor,
   type OpenWish,
-  type WishableVolume,
+  type VolumeToWishFor,
 } from "@/core/queries/wish";
 import { requireOwner } from "@/lib/auth/owner";
 import { close, open } from "./actions";
@@ -44,6 +43,13 @@ const PRIORITIES = [
   { value: 3, name: "Someday", hint: "not yet" },
 ] as const;
 
+// A native select rather than a scripted one, twice on this screen: on a phone it opens
+// the platform picker, and it submits with the form whether JavaScript ran or not. The
+// look is shadcn's input, borrowed by hand because shadcn's own select is a scripted
+// component and this screen runs nothing in the browser.
+const PICKER =
+  "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30";
+
 type Asked = Record<string, string | string[] | undefined>;
 
 /** One asked-for value, as a string, or nothing. */
@@ -56,11 +62,7 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
   await requireOwner();
 
   const params = await searchParams;
-  const [wishes, openCount, volumes] = await Promise.all([
-    listOpenWishes(),
-    countOpenWishes(),
-    listWishableVolumes(),
-  ]);
+  const [wishes, volumes] = await Promise.all([listOpenWishes(), listVolumesToWishFor()]);
 
   const refused = asked(params, "refused");
   const opened = asked(params, "opened");
@@ -102,7 +104,7 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
       ) : null}
 
       <p className="mt-8 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
-        {openCount} open {openCount === 1 ? "Wish" : "Wishes"}
+        {wishes.length} open {wishes.length === 1 ? "Wish" : "Wishes"}
       </p>
 
       {wishes.length === 0 ? (
@@ -156,17 +158,10 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
               <Label htmlFor="wish-volume" className="text-xs text-muted-foreground">
                 Volume
               </Label>
-              {/* A native select rather than a scripted one: on a phone it opens the
-                  platform picker, and it submits whether JavaScript ran or not. Only
-                  Volumes the library knows are offered, because creating one is not this
-                  screen's to do — a title nobody recorded is an Inbox proposal. */}
-              <select
-                id="wish-volume"
-                name="volumeId"
-                required
-                defaultValue=""
-                className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30"
-              >
+              {/* Only Volumes the library already knows are offered, because creating one
+                  is not this screen's to do: a title nobody recorded is an Inbox proposal
+                  the owner approves (ADR-0005), never a row a Wish writes. */}
+              <select id="wish-volume" name="volumeId" required defaultValue="" className={PICKER}>
                 <option value="" disabled>
                   Pick a Volume
                 </option>
@@ -182,12 +177,7 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
               <Label htmlFor="wish-priority" className="text-xs text-muted-foreground">
                 Priority
               </Label>
-              <select
-                id="wish-priority"
-                name="priority"
-                defaultValue="2"
-                className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30"
-              >
+              <select id="wish-priority" name="priority" defaultValue="2" className={PICKER}>
                 {PRIORITIES.map((priority) => (
                   <option key={priority.value} value={priority.value}>
                     {priority.name} — {priority.hint}
@@ -222,7 +212,7 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
 }
 
 /** A Volume in the picker: enough of the object to tell two editions of one story apart. */
-function named(volume: WishableVolume): string {
+function named(volume: VolumeToWishFor): string {
   const parts = [volume.title, volume.editionLine, volume.publisher, volume.binding].filter(
     Boolean
   );

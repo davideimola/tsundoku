@@ -42,6 +42,29 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NO_SUCH_VOLUME =
   "No Volume has that id. A Volume that is not in the library yet is a proposal, not a Wish.";
 
+// The picker's three labels, in one place: the prose the owner reads is the same whether
+// the value never was one of the three or the database was the one to say so.
+const NOT_A_PRIORITY = "A priority is 1 (next), 2 (soon) or 3 (someday).";
+
+/**
+ * A price on its way into `numeric`, or null where there is none.
+ *
+ * A blank is *not* a price: a door that hands the core an empty box — a form field nobody
+ * filled, an assistant sending `""` for a number it does not know — means the number is
+ * unknown, and `""` reaching a `numeric` column raises a syntax error rather than an
+ * integrity violation, which `refusing` deliberately never launders into an answer. So it
+ * would leave the caller with a 500 for the one input the owner is likeliest to send.
+ */
+function amount(price: string | null | undefined): string | null {
+  if (price === null || price === undefined) return null;
+  const written = price.trim();
+  if (written === "") return null;
+  if (!AMOUNT.test(written)) {
+    throw new Refusal("invalid", "A price is written with a dot and no currency: 15.00.");
+  }
+  return written;
+}
+
 /**
  * Open a Wish: the owner means to acquire this Volume, and it joins the shopping list.
  *
@@ -60,13 +83,10 @@ export async function openWish(wish: ProposedWish): Promise<{ id: string }> {
     throw new Refusal("not-found", NO_SUCH_VOLUME);
   }
   if (!Number.isInteger(wish.priority)) {
-    throw new Refusal("invalid", "A priority is 1 (next), 2 (soon) or 3 (someday).");
+    throw new Refusal("invalid", NOT_A_PRIORITY);
   }
-  for (const price of [wish.targetPrice, wish.priceFound]) {
-    if (price && !AMOUNT.test(price)) {
-      throw new Refusal("invalid", "A price is written with a dot and no currency: 15.00.");
-    }
-  }
+  const targetPrice = amount(wish.targetPrice);
+  const priceFound = amount(wish.priceFound);
 
   const rows = await refusing(
     () =>
@@ -74,13 +94,7 @@ export async function openWish(wish: ProposedWish): Promise<{ id: string }> {
         `insert into wish (volume_id, priority, target_price, price_found, shop)
          values ($1, $2, $3, $4, $5)
          returning id`,
-        [
-          wish.volumeId,
-          wish.priority,
-          wish.targetPrice ?? null,
-          wish.priceFound ?? null,
-          wish.shop ?? null,
-        ]
+        [wish.volumeId, wish.priority, targetPrice, priceFound, wish.shop ?? null]
       ),
     (constraint) => {
       switch (constraint) {
@@ -89,7 +103,7 @@ export async function openWish(wish: ProposedWish): Promise<{ id: string }> {
         case "wish_one_open_per_volume":
           return "There is already an open Wish for that Volume.";
         case "wish_priority_is_one_to_three":
-          return "A priority is 1 (next), 2 (soon) or 3 (someday).";
+          return NOT_A_PRIORITY;
         case "wish_target_price_is_not_negative":
         case "wish_price_found_is_not_negative":
           return "A price is not negative. Leave it empty while it is unknown.";

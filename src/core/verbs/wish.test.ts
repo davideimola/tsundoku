@@ -132,6 +132,15 @@ describe("opening a Wish", () => {
     });
   });
 
+  it("takes a blank price as no price, rather than sending an empty box to Postgres", async () => {
+    // A form field nobody filled, or an assistant with no number to give. `""` in a
+    // `numeric` column is a syntax error, which is never laundered into an answer — so
+    // this is the difference between an empty box and a 500 with the whole entry gone.
+    await openWish({ volumeId: await aVolume(), priority: 1, targetPrice: "", priceFound: "  " });
+
+    expect(await listOpenWishes()).toMatchObject([{ targetPrice: null, priceFound: null }]);
+  });
+
   it("refuses a price found written with a comma", async () => {
     await expect(
       openWish({ volumeId: await aVolume(), priority: 1, priceFound: "12,90" })
@@ -271,10 +280,14 @@ describe("there is no Acquistato state", () => {
     );
     expect(stateish).toEqual([]);
 
-    // And no enum type was minted to hold one, here or anywhere.
-    const enums = await query<{ typname: string }>(
-      "select typname from pg_type where typtype = 'e'"
-    );
-    expect(enums).toEqual([]);
+    // And no column of it is an enum, which is the other way a state could have been
+    // written down. Days, numbers, ids and prose: nothing here can hold a vocabulary.
+    expect([...new Set(columns.map((column) => column.data_type))].sort()).toEqual([
+      "date",
+      "integer",
+      "numeric",
+      "text",
+      "uuid",
+    ]);
   });
 });

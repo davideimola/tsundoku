@@ -89,22 +89,14 @@ export async function listOpenWishes(): Promise<OpenWish[]> {
   );
 }
 
-/** How many Wishes are open. The number on the screen, counted rather than fetched. */
-export async function countOpenWishes(): Promise<number> {
-  const [row] = await query<{ open: string }>(
-    "select count(*) as open from wish where closed_on is null"
-  );
-  return Number(row.open);
-}
-
 /** A Volume the owner can open a Wish on, named well enough to pick out of a list. */
-export type WishableVolume = {
+export type VolumeToWishFor = {
   id: string;
   title: string;
   publisher: string;
   editionLine: string | null;
   binding: string;
-  /** Whether it is in the Collection, so the picker can say so rather than hide it. */
+  /** Whether it is in the Collection, so the picker can mark the ones that have left. */
   inCollection: boolean;
 };
 
@@ -120,8 +112,8 @@ export type WishableVolume = {
  * is not this door's to do (ADR-0005), and a Wish naming a Volume nobody recorded is a
  * proposal for the Inbox rather than a row here.
  */
-export async function listWishableVolumes(): Promise<WishableVolume[]> {
-  return query<WishableVolume>(
+export async function listVolumesToWishFor(): Promise<VolumeToWishFor[]> {
+  return query<VolumeToWishFor>(
     `select v.id,
             v.title,
             v.publisher,
