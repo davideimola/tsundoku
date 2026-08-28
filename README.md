@@ -30,11 +30,13 @@ first — it says where a new file goes and why there is no barrel index.
 
 ## The local loop
 
-**Nothing is hosted at this stage.** Everything up to the first usable version runs on
-a local Postgres in Docker: no cloud account, no Google OAuth client, no bearer token
-and no secret to obtain. Going public is a later step
+**The local loop stays entirely local.** Everything up to the first usable version runs
+on a Postgres in Docker: no cloud account, no Google OAuth client, no bearer token and
+no secret to obtain. What it takes to run the same thing in public is
+[going live](#going-live)
 ([ADR-0003](docs/adr/0003-postgres-runs-in-cluster-on-our-own-k3s-with-off-site-backups.md),
-[ADR-0004](docs/adr/0004-two-public-surfaces-two-authentications.md)).
+[ADR-0004](docs/adr/0004-two-public-surfaces-two-authentications.md)), and none of it
+changes anything below.
 
 Docker must be running.
 
@@ -88,6 +90,7 @@ pnpm db:up        # bring the container up and apply every pending migration
 pnpm db:reset     # drop the database and apply the whole schema from scratch
 pnpm db:down      # delete the container, and its data with it
 pnpm db:psql      # a psql shell inside the container
+pnpm db:migrate   # apply pending migrations to whatever DATABASE_URL names
 pnpm test         # vitest against a real Postgres, node environment
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # biome check (lint + format), lint:fix to fix
@@ -328,6 +331,69 @@ and say so instead.
 [`db/import/README.md`](db/import/README.md) is what the owner reads before exporting: which
 tab goes in which file, which columns each one needs, what the import refuses and what it
 reports rather than absorbing.
+
+## Going live
+
+**The application is one container and the cluster is a second repository.** The code
+lives here; the Flux manifests that run it live in
+[`davideimola/home-cluster`](https://github.com/davideimola/home-cluster) under
+`apps/tsundoku/`, next to `apps/pantry/` and shaped like it — a CloudNativePG cluster with
+continuous backup to Backblaze B2, the app deployment, and a Traefik ingress with a
+certificate from cert-manager. No tunnel
+([ADR-0004](docs/adr/0004-two-public-surfaces-two-authentications.md)).
+
+### The image
+
+[`Dockerfile`](Dockerfile), and three things about it that are decisions rather than
+boilerplate:
+
+- **It builds with no database.** `pnpm build` works with `DATABASE_URL` unset because
+  every page that reads the library is per-request, and nothing in the build passes a
+  connection string. A build that needed one would need one in CI, in a registry job and on
+  a laptop, and the first thing anybody would reach for is a copy of the owner's own.
+- **It does not run as root.** `USER node` in the image, and a `securityContext` saying so
+  again in the deployment: the image is what makes it true wherever it is run, the manifest
+  is what refuses to schedule it if it ever stops being true.
+- **It carries the migrations.** `db/` is copied in beside the traced server, and the
+  deployment's init container runs `db/cli.ts migrate` from the same image that then serves
+  — so what is applied is exactly what was built. `migrate` is the one `db:*` command that
+  reaches for no Docker: in the cluster the server already exists and holds the database and
+  the role.
+
+```sh
+docker build -t tsundoku .
+```
+
+### The six variables the cluster sets, and the one it must not
+
+`DATABASE_URL` comes from the secret CloudNativePG writes itself, so no connection string
+is ever in Git. The other five are the ones from
+[`.env.example`](.env.example): `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
+`AUTH_OWNER_EMAIL`, `MCP_BEARER_TOKEN`. Each one is a SOPS-encrypted secret in the cluster
+repo; the private half of the key lives in the cluster and never in Git.
+
+**`AUTH_DEV_OPEN` is absent there**, and its absence is deliberate belt and braces rather
+than the thing that keeps the gate shut: it is never honoured in a production build, which
+the container is, and that is a test rather than a promise. Setting it in the cluster would
+change nothing — which is exactly why it is not set.
+
+### `/mcp` is rate limited, and it is the only thing published
+
+The limit is in the route handler, immediately before the bearer gate, and
+[`src/lib/mcp/README.md`](src/lib/mcp/README.md) has what it counts and the two assumptions
+it rests on. Nothing else on the cluster becomes reachable as a side effect: the Traefik
+ingress class is deliberately not the cluster's default, so an `Ingress` has to name it to
+be published, and `apps/tsundoku` is the only thing that does.
+
+### The restore is what says this is done
+
+Continuous backup that has never been restored is a belief, not a backup
+([ADR-0003](docs/adr/0003-postgres-runs-in-cluster-on-our-own-k3s-with-off-site-backups.md)),
+and the data is small, hand-curated over years and irreplaceable. So the rehearsal is a
+written procedure with a check at every step, in the cluster repo beside the manifests it
+names: `apps/tsundoku/RESTORE.md`. It is done once, before the spreadsheet import counts as
+complete, and it is the last acceptance criterion of going live.
+
 
 ## Tests
 

@@ -5,12 +5,13 @@ import { applyMigrations, dropDatabase, ensureDatabase } from "./migrate.ts";
 
 // The local loop, as four commands. See the README.
 
-const USAGE = `usage: node db/cli.ts <up|reset|down|psql>
+const USAGE = `usage: node db/cli.ts <up|reset|down|psql|migrate>
 
-  up      bring the container up and apply every pending migration
-  reset   drop the database and apply the whole schema from scratch
-  down    delete the container, and its data with it
-  psql    a psql shell inside the container
+  up       bring the container up and apply every pending migration
+  reset    drop the database and apply the whole schema from scratch
+  down     delete the container, and its data with it
+  psql     a psql shell inside the container
+  migrate  apply every pending migration to the database DATABASE_URL names
 `;
 
 async function main(): Promise<void> {
@@ -38,6 +39,22 @@ async function main(): Promise<void> {
       await ensureDatabase(url);
       const applied = await applyMigrations(url);
       process.stdout.write(`${applied.length} migration(s) applied\n`);
+      return;
+    }
+    // The one command that assumes nothing about where the database is. The other four
+    // reach for Docker, because locally the container *is* the server; in the cluster the
+    // server is a CloudNativePG cluster that already exists and already holds the
+    // database and the role (ADR-0003), and there is no Docker to reach for. So this
+    // applies migrations and does nothing else — it is what the deployment's init
+    // container runs, in the same image that then serves, so what is applied is exactly
+    // what was built.
+    case "migrate": {
+      const applied = await applyMigrations(url);
+      process.stdout.write(
+        applied.length === 0
+          ? "schema already current\n"
+          : `${applied.length} migration(s) applied\n`
+      );
       return;
     }
     case "psql": {
