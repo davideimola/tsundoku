@@ -211,13 +211,20 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
   );
 }
 
-/** A Volume in the picker: enough of the object to tell two editions of one story apart. */
+/**
+ * A Volume in the picker: enough of the object to tell two editions of one story apart.
+ *
+ * **The marked ones are the ones already in the house**, which is the inversion ADR-0007
+ * forced: an object the owner does not have is the ordinary thing to want, and marking it
+ * `(released)` claimed they had once had it — true of the ones they let go, and a lie about
+ * everything catalogued to be wanted. Wanting something owned is the case worth a word.
+ */
 function named(volume: VolumeToWishFor): string {
   const parts = [volume.title, volume.editionLine, volume.publisher, volume.binding].filter(
     Boolean
   );
   const name = parts.join(" · ");
-  return volume.inCollection ? name : `${name} (released)`;
+  return volume.inCollection ? `${name} (in the house)` : name;
 }
 
 /**
