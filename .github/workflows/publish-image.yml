@@ -1,0 +1,61 @@
+# The other half of Flux's image automation: the cluster watches this registry and writes
+# the newest tag back into `davideimola/home-cluster`, so a push to main is the deploy and
+# nothing in either repository is edited by hand.
+#
+# Shaped exactly like pantry's workflow, because the automation on the other side is
+# pantry's automation with a different name and reads the same tag shape.
+name: Publish image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-image
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # main-<sha>-<unix timestamp>: the sha says which commit, the timestamp sorts.
+          # Sorting is the point — image tags carry no inherent order, and Flux's automation
+          # needs to know which of two builds is newer. `main` stays as a human-readable
+          # pointer, and is what the manifests name before automation has run once.
+          tags: |
+            type=raw,value=main
+            type=raw,value=main-{{sha}}-{{date 'X'}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          # The cluster is amd64; building for arm64 as well costs minutes nobody is waiting
+          # for. Note this is the one place the build differs from a developer's laptop,
+          # which is arm64 — and nothing in the image is architecture-specific beyond the
+          # base image and `pg`'s pure-JS driver.
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # No build arguments, and no `DATABASE_URL`. The Dockerfile says why at length.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
