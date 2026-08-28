@@ -41,7 +41,19 @@ row's existence is the fact; the day is only when.
   violation under the same constraint name — the verb and the prose the owner reads are
   untouched. A *total* unique index was the cheaper alternative and was refused: it would
   also forbid cataloguing two printings of one position, and cataloguing what the owner does
-  not own is the point of this decision.
+  not own is the point of this decision. What the index gave for free and a query cannot is
+  **serialization** — neither of two writers claiming one position can see the other's
+  uncommitted row — so the function takes an advisory lock on the position for the length of
+  the transaction, and the guarantee is the same one #5 and #7 wrote down rather than a
+  weaker cousin of it.
+- **Placing a Volume in a Series still asks that the house hold it**, unchanged from the
+  ticket that built the ledger: an object not on the shelf fills no position, and the ledger
+  is measured against the shelf. So a catalogued and unowned object cannot be given a
+  position, and the objects on offer to be placed are the Collection's. That was a no-op
+  before this decision and is a real restriction after it; it is left standing rather than
+  loosened, because whether the ledger should let the owner pin a wanted object to position
+  4 is a decision nobody has made, and the derivation does not need it — a position with no
+  owned object in it is missing either way.
 - **The Collection screen has two registers**: the shelf, and — in a dashed frame — the
   objects the library knows and the house does not hold, each with the one form that says it
   arrived. Recording a Volume and saying it is in the house are two verbs and therefore two

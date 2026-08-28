@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { isRefusal } from "../refusal.ts";
-import { acquireVolume, releaseVolume } from "./collection.ts";
+import { acquireVolume, catalogueVolume, releaseVolume } from "./collection.ts";
 import {
   concludeSeries,
   declareSeries,
@@ -321,6 +321,28 @@ describe("placing a Volume in a Series", () => {
 
     expect(refusal.code).toBe("already-exists");
     expect(refusal.message).toBe("That position of the Series is already in the house.");
+  });
+
+  // Two ways of not being on the shelf, and the owner is told which one they are looking
+  // at (ADR-0007). The restriction itself is #7's and is left standing: an object not in
+  // the house fills no position, whether it left or was never there.
+  it("refuses an object catalogued and never owned, without saying it left", async () => {
+    const series = await blackEdition();
+    const { id } = await catalogueVolume({
+      title: "Death Note Black Edition 4",
+      publisher: "Panini Comics",
+      binding: "deluxe",
+      language: "it",
+    });
+
+    const refusal = await refusalFrom(() =>
+      placeVolumeInSeries({ volumeId: id, seriesId: series, number: 4 })
+    );
+
+    expect(refusal.code).toBe("not-allowed");
+    expect(refusal.message).toBe(
+      "That Volume is not in the house, so it fills no position of the Series."
+    );
   });
 
   it("refuses an object that has left the house, which fills no position", async () => {

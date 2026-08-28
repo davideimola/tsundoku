@@ -127,7 +127,9 @@ comment on table volume is
 create function volume_holds_one_position() returns trigger
 language plpgsql as $$
 declare
-  subject uuid;
+  subject   uuid;
+  in_series uuid;
+  position  integer;
 begin
   -- Two branches rather than one `case`, because PL/pgSQL resolves the fields of `new` in a
   -- whole expression against whichever row type fired it: `new.volume_id` written beside
@@ -138,17 +140,31 @@ begin
     subject := new.volume_id;
   end if;
 
+  select v.series_id, v.series_number into in_series, position
+    from volume v
+   where v.id = subject
+     and v.series_id is not null
+     and exists (select 1 from acquisition a
+                  where a.volume_id = v.id and a.released_on is null);
+
+  -- Not in a Series, or not in the house: there is no position to hold.
+  if in_series is null then
+    return null;
+  end if;
+
+  -- **The lock is what a unique index gave for free.** The index this replaces serialized
+  -- two writers claiming one position; a query cannot, because neither transaction can see
+  -- the other's uncommitted row and both would pass the test below. So the position itself
+  -- is the lock: taken on the pair rather than on a table, held to the end of the
+  -- transaction, and contended only by a second writer claiming the very same position.
+  perform pg_advisory_xact_lock(hashtextextended(in_series::text || ':' || position, 0));
+
   if exists (
     select 1
-      from volume mine
-      join volume other
-        on other.series_id = mine.series_id
-       and other.series_number = mine.series_number
-       and other.id <> mine.id
-     where mine.id = subject
-       and mine.series_id is not null
-       and exists (select 1 from acquisition a
-                    where a.volume_id = mine.id and a.released_on is null)
+      from volume other
+     where other.id <> subject
+       and other.series_id = in_series
+       and other.series_number = position
        and exists (select 1 from acquisition a
                     where a.volume_id = other.id and a.released_on is null)
   ) then

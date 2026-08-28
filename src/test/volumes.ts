@@ -1,4 +1,9 @@
-import { acquireVolume, type CataloguedVolume, catalogueVolume } from "@/core/verbs/collection";
+import {
+  acquireVolume,
+  type CataloguedVolume,
+  catalogueVolume,
+  type MadeAcquisition,
+} from "@/core/verbs/collection";
 
 // One fixture, and it exists because of ADR-0007.
 //
@@ -19,7 +24,7 @@ import { acquireVolume, type CataloguedVolume, catalogueVolume } from "@/core/ve
  */
 export async function volumeInTheHouse(
   volume: CataloguedVolume,
-  acquisition: { acquiredOn?: string | null; pricePaid?: string | null } = {}
+  acquisition: Omit<MadeAcquisition, "volumeId"> = {}
 ): Promise<string> {
   const { id } = await catalogueVolume(volume);
   await acquireVolume({ volumeId: id, ...acquisition });

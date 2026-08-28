@@ -1,6 +1,7 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import { IN_THE_HOUSE } from "./collection.ts";
 
 /**
  * One open Wish, as a shopping list shows it: what to buy, how much it should cost, how
@@ -86,8 +87,7 @@ export async function listOpenWishes(): Promise<OpenWish[]> {
               'language', v.language,
               'isbn', v.isbn
             )                    as volume,
-            exists (select 1 from acquisition a
-                          where a.volume_id = v.id and a.released_on is null) as "inCollection"
+            ${IN_THE_HOUSE} as "inCollection"
        from wish w
        join volume v on v.id = w.volume_id
        join binding b on b.id = v.binding_id
@@ -127,8 +127,7 @@ export async function listVolumesToWishFor(): Promise<VolumeToWishFor[]> {
             v.publisher,
             v.edition_line as "editionLine",
             b.name         as binding,
-            exists (select 1 from acquisition a
-                          where a.volume_id = v.id and a.released_on is null) as "inCollection"
+            ${IN_THE_HOUSE} as "inCollection"
        from volume v
        join binding b on b.id = v.binding_id
       order by lower(v.title), b.display_order, v.id`

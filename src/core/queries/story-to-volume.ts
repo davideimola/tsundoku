@@ -1,6 +1,7 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import { IN_THE_HOUSE } from "./collection.ts";
 
 // The many-to-many, read from both ends (ADR-0001). One stored fact, two questions:
 //
@@ -84,8 +85,7 @@ export async function listVolumesCarryingStory(storyId: string): Promise<Carryin
             v.edition_line as "editionLine",
             jsonb_build_object('id', b.id, 'name', b.name) as binding,
             v.language,
-            exists (select 1 from acquisition a
-                          where a.volume_id = v.id and a.released_on is null) as "inTheHouse"
+            ${IN_THE_HOUSE} as "inTheHouse"
        from volume_story vs
        join volume  v on v.id = vs.volume_id
        join binding b on b.id = v.binding_id

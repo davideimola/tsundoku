@@ -3,6 +3,20 @@ import "server-only";
 import { query } from "../db.ts";
 
 /**
+ * **What being in the Collection is**, as SQL: the Volume named `v` has an open
+ * acquisition (ADR-0007).
+ *
+ * Exported for the reason `STORY_STATE` is exported from `queries/story.ts`: five queries
+ * in three files ask this one question — the Collection, the Series ledger, the shopping
+ * list's overlap with the shelf, a Story's carriers — and a second copy of it would be a
+ * second answer. The fragment names the Volume `v`, so a statement using it joins
+ * `volume v`.
+ */
+export const IN_THE_HOUSE = `
+  exists (select 1 from acquisition a
+           where a.volume_id = v.id and a.released_on is null)`;
+
+/**
  * One Volume as the Collection shows it: everything about the object, and nothing about
  * the narrative.
  *
@@ -179,10 +193,7 @@ export async function findVolume(volumeId: string): Promise<RecordedVolume | nul
  */
 export async function countCollection(): Promise<number> {
   const [row] = await query<{ owned: string }>(
-    `select count(*) as owned
-       from volume v
-      where exists (select 1 from acquisition a
-                     where a.volume_id = v.id and a.released_on is null)`
+    `select count(*) as owned from volume v where ${IN_THE_HOUSE}`
   );
   return Number(row.owned);
 }
@@ -225,12 +236,11 @@ export async function listCataloguedOutsideTheCollection(): Promise<
             jsonb_build_object('id', b.id, 'name', b.name) as binding,
             v.language,
             v.isbn,
-            to_char(max(a.released_on), 'YYYY-MM-DD') as "releasedOn"
+            to_char(max(history.released_on), 'YYYY-MM-DD') as "releasedOn"
        from volume v
        join binding b on b.id = v.binding_id
-       left join acquisition a on a.volume_id = v.id
-      where not exists (select 1 from acquisition o
-                         where o.volume_id = v.id and o.released_on is null)
+       left join acquisition history on history.volume_id = v.id
+      where not ${IN_THE_HOUSE}
       group by v.id, v.title, v.publisher, v.edition_line, b.id, b.name, b.display_order,
                v.language, v.isbn
       order by lower(v.title), b.display_order, v.id`

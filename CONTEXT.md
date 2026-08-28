@@ -39,6 +39,16 @@ and not something they forget they have.
 _Avoid_: book unqualified, item, copy, and **edition** — edition is the publisher's line
 (*Ultimate Deluxe Edition*), a property of the volume rather than a synonym for it.
 
+**Acquisition**:
+The fact that a **Volume** is in the house, from a day and at a price, and until when. It
+is what the **Collection** is a query over, and it is recorded deliberately rather than
+implied by anything else: cataloguing an object does not begin one, and ending one does not
+end a **Wish**. An open acquisition is the shelf; one that ended is a record of having had
+the object, which is why selling a volume and buying it again is one object acquired twice
+rather than two objects. A Volume can have none at all, and that is an ordinary Volume.
+_Avoid_: purchase — a gift and a book owned since before any of this was written down are
+acquisitions with no purchase in them. Also: ownership, stock.
+
 **Collection**:
 The Volumes with an open acquisition: the objects physically in the owner's home. It is a
 **subset of what the library knows**, not the whole of it — the catalogue holds objects the
