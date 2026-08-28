@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
 import { acquireVolume, releaseVolume } from "../verbs/collection.ts";
-import { countCollection, searchCollection } from "./collection.ts";
+import { createStory } from "../verbs/story.ts";
+import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
+import { countCollection, findVolume, searchCollection } from "./collection.ts";
 
 // Seam 1. The Collection is the question asked standing in a shop, so what is asserted
 // here is what the owner sees after typing a word into it.
+// `cascade` since the Story to Volume slice: a Volume is now referred to by the join that
+// says what it carries, and by the Readings that went through it, so truncating it alone is
+// refused. Both go with it, which is what this file wants — and the two data-row tables,
+// Type and Binding, stay, because those are schema rather than fixtures.
 beforeEach(async () => {
-  await query("truncate volume");
+  await query("truncate volume, story cascade");
 });
 
 async function threeVolumesInTheHouse(): Promise<void> {
@@ -127,5 +133,113 @@ describe("a title with a wildcard character in it", () => {
 
     expect(titles(await searchCollection({ title: "100%" }))).toEqual(["100% Doraemon"]);
     expect(await searchCollection({ title: "%%%" })).toEqual([]);
+  });
+});
+
+// **The fourth filter, and the criterion this slice inherited.** Searching the Collection
+// by Type could not be answered when the Collection was built: Type is an attribute of a
+// *Story* (ADR-0006), so reaching it from a Volume needs the Story ↔ Volume join. Giving
+// `volume` a `type_id` would have answered the search by contradicting the model — a
+// Volume holding three Stories of two Types has no one Type — so the filter waited for
+// the join, and this is it.
+describe("narrowing the Collection by Type", () => {
+  beforeEach(async () => {
+    const lUomoCheRide = (
+      await acquireVolume({
+        title: "L'uomo che ride",
+        publisher: "Panini Comics",
+        binding: "must-have",
+        language: "it",
+      })
+    ).id;
+    const slamDunk = (
+      await acquireVolume({
+        title: "Slam Dunk 1",
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      })
+    ).id;
+    await acquireVolume({
+      title: "Sapiens",
+      publisher: "Bompiani",
+      binding: "paperback",
+      language: "it",
+    });
+
+    for (const [title, typeId] of [
+      ["Gotham Noir", "comic"],
+      // The Volume holding two Types at once, which is why a Volume has no Type of its own.
+      ["Il buio dentro", "graphic-novel"],
+    ] as const) {
+      await recordVolumeCarriesStory(lUomoCheRide, await createStory({ title, typeId }));
+    }
+    await recordVolumeCarriesStory(
+      slamDunk,
+      await createStory({ title: "Slam Dunk", typeId: "manga" })
+    );
+  });
+
+  it("answers with the Volumes carrying a Story of that Type", async () => {
+    expect(titles(await searchCollection({ type: "manga" }))).toEqual(["Slam Dunk 1"]);
+  });
+
+  it("answers with a Volume of two Types under either of them, and once", async () => {
+    expect(titles(await searchCollection({ type: "comic" }))).toEqual(["L'uomo che ride"]);
+    expect(titles(await searchCollection({ type: "graphic-novel" }))).toEqual(["L'uomo che ride"]);
+  });
+
+  it("leaves out a Volume carrying nothing, because nothing says what Type it is", async () => {
+    expect(titles(await searchCollection({ type: "non-fiction" }))).toEqual([]);
+    // And it is still in the Collection, which is the whole of what a Collection claims.
+    expect(titles(await searchCollection({}))).toContain("Sapiens");
+  });
+
+  it("narrows alongside the other three", async () => {
+    expect(titles(await searchCollection({ type: "comic", publisher: "panini" }))).toEqual([
+      "L'uomo che ride",
+    ]);
+    expect(await searchCollection({ type: "comic", binding: "tankobon" })).toEqual([]);
+  });
+});
+
+// One object's own page, which is where the Stories it carries and its Edition note are
+// read. It is a record of the object rather than a claim about the house, so it answers
+// for a Volume the owner has released.
+describe("finding one Volume", () => {
+  it("answers with the object, Binding and all", async () => {
+    const { id } = await acquireVolume({
+      title: "L'uomo che ride",
+      publisher: "Panini Comics",
+      editionLine: "DC Must Have",
+      binding: "must-have",
+      language: "it",
+      pricePaid: "14.90",
+    });
+
+    expect(await findVolume(id)).toMatchObject({
+      title: "L'uomo che ride",
+      editionLine: "DC Must Have",
+      binding: { id: "must-have", name: "Must Have" },
+      pricePaid: "14.90",
+    });
+  });
+
+  it("answers with one that left the house, which the Collection does not", async () => {
+    const { id } = await acquireVolume({
+      title: "Death Note 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await releaseVolume(id);
+
+    expect(await searchCollection({ title: "Death Note" })).toEqual([]);
+    expect(await findVolume(id)).toMatchObject({ title: "Death Note 1" });
+  });
+
+  it("answers with nothing for an id that is not one, rather than raising", async () => {
+    expect(await findVolume("banana")).toBeNull();
+    expect(await findVolume("00000000-0000-0000-0000-000000000000")).toBeNull();
   });
 });

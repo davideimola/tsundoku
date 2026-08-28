@@ -6,8 +6,12 @@ import { type AcquiredVolume, acquireVolume, releaseVolume } from "./collection.
 // Seam 1: the verbs and the query surface against a real Postgres. What is asserted is
 // what the owner can see afterwards — the Collection — rather than the row that was
 // written, because the row is the schema's business and the Collection is the product.
+// `cascade` since the Story to Volume slice: a Volume is now referred to by the join saying
+// what it carries, by its Edition note and by the Readings that went through it, so
+// truncating it alone is refused. Those go with it, which is what this file wants; Binding
+// stays, because a data row is schema rather than a fixture.
 beforeEach(async () => {
-  await query("truncate volume");
+  await query("truncate volume cascade");
 });
 
 describe("acquiring a Volume", () => {

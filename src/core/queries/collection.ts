@@ -28,13 +28,11 @@ export type CollectionVolume = {
 /**
  * What narrows the Collection. Everything absent is everything.
  *
- * **Type is missing, and it is owed rather than forgotten.** The ticket asks for it, and
- * it cannot be answered from here yet: Type is an attribute of a *Story* (ADR-0006), so
- * reaching it from a Volume needs the Story ↔ Volume join, which is many-to-many and
- * belongs to the slice that builds it. Giving a Volume a `type_id` of its own would
- * answer the search by contradicting the model — a Volume holding three Stories of two
- * Types has no one Type — so this filter stays three fields wide until the join exists,
- * and then gains a fourth here.
+ * **Type is the fourth field and it arrived with the Story ↔ Volume join**, which is what
+ * it was waiting for. Type is an attribute of a *Story* (ADR-0006), so it is reached from a
+ * Volume through what that Volume carries and never off the Volume itself: giving `volume` a
+ * `type_id` would have answered this search by contradicting the model, because a Volume
+ * holding three Stories of two Types has no one Type.
  */
 export type CollectionFilter = {
   /** Matched anywhere in the title, case-insensitively. */
@@ -43,6 +41,12 @@ export type CollectionFilter = {
   publisher?: string;
   /** A Binding id — exact, because it comes from the Binding vocabulary. */
   binding?: string;
+  /**
+   * A Type id — exact, for the reason Binding is exact. Answers with the Volumes carrying
+   * at least one Story of that Type, so a Volume of two Types is found under either, once.
+   * A Volume carrying nothing is found under no Type at all: nothing says what it is.
+   */
+  type?: string;
 };
 
 /**
@@ -73,9 +77,66 @@ export async function searchCollection(filter: CollectionFilter): Promise<Collec
         and ($1::text is null or strpos(lower(v.title), lower($1)) > 0)
         and ($2::text is null or strpos(lower(v.publisher), lower($2)) > 0)
         and ($3::text is null or v.binding_id = $3)
+        -- An existence test rather than a join, so that a Volume carrying three Stories of
+        -- the asked Type is one row here and not three: the Collection answers with objects.
+        and ($4::text is null or exists (
+              select 1
+                from volume_story vs
+                join story s on s.id = vs.story_id
+               where vs.volume_id = v.id and s.type_id = $4
+            ))
       order by lower(v.title), b.display_order, v.id`,
-    [filter.title ?? null, filter.publisher ?? null, filter.binding ?? null]
+    [filter.title ?? null, filter.publisher ?? null, filter.binding ?? null, filter.type ?? null]
   );
+}
+
+// A Volume's id is generated, so it is never typed: it arrives from a link on the Collection
+// the owner was just looking at. A malformed one is therefore the same event as an unknown
+// one — `where id = 'banana'` on a uuid column raises a syntax error, and the screen wants a
+// 404 rather than a 500.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * One Volume as its own page shows it: the object, and whether it is still in the house.
+ *
+ * `releasedOn` is here and not on `CollectionVolume` because the Collection is the Volumes
+ * in the house and everything it answers with is in it — the column would be null in every
+ * row of it. One object's own page is the only place the question is open.
+ */
+export type RecordedVolume = CollectionVolume & {
+  /** The day it left the house, or `null` while the owner still has it. */
+  releasedOn: string | null;
+};
+
+/**
+ * One Volume, owned or released, or `null` where there is no such object.
+ *
+ * **Released ones are answered with, unlike `searchCollection`.** The Collection is what is
+ * in the house and a released Volume is not in it; one object's own page is a record of the
+ * object, and what the owner learned about it — its Edition note, the Stories it carried —
+ * outlives their owning it.
+ */
+export async function findVolume(volumeId: string): Promise<RecordedVolume | null> {
+  if (!UUID.test(volumeId)) return null;
+
+  const rows = await query<RecordedVolume>(
+    `select v.id,
+            v.title,
+            v.publisher,
+            v.edition_line as "editionLine",
+            jsonb_build_object('id', b.id, 'name', b.name) as binding,
+            v.language,
+            v.price_paid::text as "pricePaid",
+            to_char(v.purchase_date, 'YYYY-MM-DD') as "purchaseDate",
+            v.isbn,
+            to_char(v.released_on, 'YYYY-MM-DD') as "releasedOn"
+       from volume v
+       join binding b on b.id = v.binding_id
+      where v.id = $1`,
+    [volumeId]
+  );
+
+  return rows[0] ?? null;
 }
 
 /**
