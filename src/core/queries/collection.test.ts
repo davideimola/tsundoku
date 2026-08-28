@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
-import { acquireVolume, releaseVolume } from "../verbs/collection.ts";
+import { acquireVolume, catalogueVolume, releaseVolume } from "../verbs/collection.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
-import { countCollection, findVolume, searchCollection } from "./collection.ts";
+import {
+  countCollection,
+  findVolume,
+  listCataloguedOutsideTheCollection,
+  searchCollection,
+} from "./collection.ts";
 
 // Seam 1. The Collection is the question asked standing in a shop, so what is asserted
 // here is what the owner sees after typing a word into it.
@@ -16,20 +22,20 @@ beforeEach(async () => {
 });
 
 async function threeVolumesInTheHouse(): Promise<void> {
-  await acquireVolume({
+  await volumeInTheHouse({
     title: "Slam Dunk 1",
     publisher: "Planet Manga",
     binding: "tankobon",
     language: "it",
   });
-  await acquireVolume({
+  await volumeInTheHouse({
     title: "Batman: Il lungo Halloween",
     publisher: "Panini Comics",
     editionLine: "DC Must Have",
     binding: "must-have",
     language: "it",
   });
-  await acquireVolume({
+  await volumeInTheHouse({
     title: "Ultimate Spider-Man Omnibus 1",
     publisher: "Panini Comics",
     binding: "omnibus",
@@ -105,6 +111,59 @@ describe("digital ownership", () => {
   });
 });
 
+// The Collection is a *subset* of the catalogue now (ADR-0007), so the screen needs the
+// other half of it too: an object the library knows and the house does not hold would
+// otherwise be invisible the moment it was catalogued.
+describe("the catalogue outside the Collection", () => {
+  it("answers with what is known and not held, and with nothing that is", async () => {
+    await threeVolumesInTheHouse();
+    await catalogueVolume({
+      title: "Blame! 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+
+    expect(titles(await listCataloguedOutsideTheCollection())).toEqual(["Blame! 1"]);
+    expect(titles(await searchCollection({}))).not.toContain("Blame! 1");
+  });
+
+  it("tells one never acquired apart from one let go, by the day it left", async () => {
+    const gone = await volumeInTheHouse({
+      title: "Death Note 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await releaseVolume(gone);
+    await catalogueVolume({
+      title: "Blame! 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+
+    expect(await listCataloguedOutsideTheCollection()).toMatchObject([
+      { title: "Blame! 1", releasedOn: null },
+      { title: "Death Note 1", releasedOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) },
+    ]);
+  });
+
+  it("answers with one row for an object acquired and released twice", async () => {
+    const twice = await volumeInTheHouse({
+      title: "Akira 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await releaseVolume(twice);
+    await acquireVolume({ volumeId: twice });
+    await releaseVolume(twice);
+
+    expect(await listCataloguedOutsideTheCollection()).toHaveLength(1);
+  });
+});
+
 describe("counting the Collection", () => {
   it("is the number of Volumes in the house, and a release takes one off it", async () => {
     await threeVolumesInTheHouse();
@@ -124,7 +183,7 @@ describe("counting the Collection", () => {
 // A search box takes a word, not a pattern.
 describe("a title with a wildcard character in it", () => {
   it("is searched for literally", async () => {
-    await acquireVolume({
+    await volumeInTheHouse({
       title: "100% Doraemon",
       publisher: "Star Comics",
       binding: "tankobon",
@@ -144,23 +203,19 @@ describe("a title with a wildcard character in it", () => {
 // the join, and this is it.
 describe("narrowing the Collection by Type", () => {
   beforeEach(async () => {
-    const lUomoCheRide = (
-      await acquireVolume({
-        title: "L'uomo che ride",
-        publisher: "Panini Comics",
-        binding: "must-have",
-        language: "it",
-      })
-    ).id;
-    const slamDunk = (
-      await acquireVolume({
-        title: "Slam Dunk 1",
-        publisher: "Planet Manga",
-        binding: "tankobon",
-        language: "it",
-      })
-    ).id;
-    await acquireVolume({
+    const lUomoCheRide = await volumeInTheHouse({
+      title: "L'uomo che ride",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+    const slamDunk = await volumeInTheHouse({
+      title: "Slam Dunk 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await volumeInTheHouse({
       title: "Sapiens",
       publisher: "Bompiani",
       binding: "paperback",
@@ -207,15 +262,34 @@ describe("narrowing the Collection by Type", () => {
 // read. It is a record of the object rather than a claim about the house, so it answers
 // for a Volume the owner has released.
 describe("finding one Volume", () => {
-  it("answers with the object, Binding and all", async () => {
-    const { id } = await acquireVolume({
-      title: "L'uomo che ride",
-      publisher: "Panini Comics",
-      editionLine: "DC Must Have",
-      binding: "must-have",
+  it("says a catalogued object is not in the house, and names no day it left", async () => {
+    const { id } = await catalogueVolume({
+      title: "Blame! 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
       language: "it",
-      pricePaid: "14.90",
     });
+
+    expect(await findVolume(id)).toMatchObject({
+      title: "Blame! 1",
+      inTheHouse: false,
+      releasedOn: null,
+      pricePaid: null,
+      acquiredOn: null,
+    });
+  });
+
+  it("answers with the object, Binding and all", async () => {
+    const id = await volumeInTheHouse(
+      {
+        title: "L'uomo che ride",
+        publisher: "Panini Comics",
+        editionLine: "DC Must Have",
+        binding: "must-have",
+        language: "it",
+      },
+      { pricePaid: "14.90" }
+    );
 
     expect(await findVolume(id)).toMatchObject({
       title: "L'uomo che ride",
@@ -226,7 +300,7 @@ describe("finding one Volume", () => {
   });
 
   it("answers with one that left the house, which the Collection does not", async () => {
-    const { id } = await acquireVolume({
+    const id = await volumeInTheHouse({
       title: "Death Note 1",
       publisher: "Planet Manga",
       binding: "tankobon",

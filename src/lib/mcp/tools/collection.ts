@@ -8,16 +8,24 @@ import { type McpTool, stringArgument } from "../tool.ts";
 // the shelf. What it answers for an assistant is *"they already own that story, in the
 // Must Have"* (user story 35), which is a different question from anything in `story.ts`
 // and is why the two are separate areas rather than one file about books.
+//
+// **The Collection is a subset of what the library knows** (ADR-0007), and the description
+// below says so, because the silence would otherwise be read as the wrong answer: an object
+// missing from a search may be one the owner catalogued and does not own — a thing they
+// mean to buy — rather than one nobody has ever recorded.
 
 const search: McpTool = {
   name: "collection_search",
   title: "Search the Collection",
   description: `The Volumes physically in the owner's house, narrowed by title, publisher or Binding.
 
-A Volume is one object they bought and kept — a tankōbon, an omnibus, a novel — carrying its
-publisher, edition line, language, price paid and ISBN. It says nothing about what was read: a
-Volume here may hold Stories they never opened, and a Story they loved may have no Volume at all,
-because digital ownership is not modelled.
+A Volume is one catalogued object — a tankōbon, an omnibus, a novel — carrying its publisher,
+edition line, language and ISBN; the price and the day it came home belong to the acquisition that
+put it in the house, and travel with it here. **This answers with the ones in the house, which are
+a subset of the objects the library knows**: a Volume the owner catalogued and does not own is not
+here, so an absence means "not on the shelf" and not "never heard of". It says nothing about what
+was read: a Volume here may hold Stories they never opened, and a Story they loved may have no
+Volume at all, because digital ownership is not modelled.
 
 The Binding — Tankōbon, Omnibus, Deluxe, Must Have, Hardcover, Paperback — is how it is bound, and
 it is what makes "you already own that in a different edition" sayable. Ask

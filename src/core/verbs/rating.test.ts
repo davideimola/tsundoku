@@ -41,26 +41,43 @@ describe("setting a Rating", () => {
     });
   });
 
-  it("marks a score converted from a coarser scale as coarser, through its Provenance", async () => {
+  it("keeps the grain of a score and its origin as two separate axes", async () => {
     // The books sheet scored 1-5; those double onto this scale on import (#14) and say
     // so, because a 7 that was a 3.5 out of 5 is not the same evidence as a 7 given in
-    // half points. ADR-0001 puts that in the Provenance rather than in a flag of its
-    // own, so there is one place to read a judgement's reliability from.
+    // half points. **The grain is not a Provenance** (ADR-0008, correcting ADR-0001):
+    // this score is coarse *and* it was typed off the sheet, and both are sayable at
+    // once — which the single Provenance value it used to carry could never do.
     const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
 
     await setRating({
       storyId,
       score: 8,
-      provenanceId: "converted-from-a-coarser-scale",
+      scale: "coarse",
+      provenanceId: "typed-from-the-shelf",
     });
 
     expect((await findStory(storyId))?.standaloneRatings[0]).toMatchObject({
       score: 8,
-      provenance: {
-        id: "converted-from-a-coarser-scale",
-        name: "Converted from a coarser scale",
-      },
+      scale: "coarse",
+      provenance: { id: "typed-from-the-shelf", name: "Typed from the shelf" },
     });
+  });
+
+  it("is given in half points unless the caller says otherwise, which is the owner's scale", async () => {
+    const storyId = await createStory({ title: "Monster", typeId: "manga" });
+
+    await setRating({ storyId, score: 9.5, provenanceId: "remembered" });
+
+    expect((await findStory(storyId))?.standaloneRatings[0]).toMatchObject({
+      scale: "half-points",
+    });
+  });
+
+  it("no longer knows a Provenance that named a scale, because that was two facts in one", async () => {
+    const [gone] = await query<{ still: boolean }>(
+      "select exists (select 1 from provenance where id = 'converted-from-a-coarser-scale') as still"
+    );
+    expect(gone.still).toBe(false);
   });
 
   it("refuses a score off the scale", async () => {

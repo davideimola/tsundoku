@@ -1,6 +1,7 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import { IN_THE_HOUSE } from "./collection.ts";
 
 // The many-to-many, read from both ends (ADR-0001). One stored fact, two questions:
 //
@@ -28,7 +29,7 @@ export type CarriedStory = {
   latestScore: number | null;
 };
 
-/** A Volume as a Story's carriers show it: the object, and whether it is still owned. */
+/** A Volume as a Story's carriers show it: the object, and whether the house holds it. */
 export type CarryingVolume = {
   id: string;
   title: string;
@@ -38,11 +39,15 @@ export type CarryingVolume = {
   binding: { id: string; name: string };
   language: string;
   /**
-   * The day it left the house, or `null` while it is in the Collection. A released Volume
-   * still carries what it held — the Reading made through it is still true — so it is
-   * answered with rather than hidden, and marked.
+   * Whether the Collection claims it right now. A Volume the house does not hold still
+   * carries what it held — the Reading made through it is still true — so it is answered
+   * with rather than hidden, and marked.
+   *
+   * A boolean rather than the day it left, since the catalogue and the Collection came
+   * apart (ADR-0007): an object can be carrying Stories and have never been owned at all,
+   * and *not on the shelf* is the whole of what this list needs to say about it.
    */
-  releasedOn: string | null;
+  inTheHouse: boolean;
 };
 
 // The Story shape, as both the single and the batched question build it. `score` leaves as
@@ -80,7 +85,7 @@ export async function listVolumesCarryingStory(storyId: string): Promise<Carryin
             v.edition_line as "editionLine",
             jsonb_build_object('id', b.id, 'name', b.name) as binding,
             v.language,
-            to_char(v.released_on, 'YYYY-MM-DD') as "releasedOn"
+            ${IN_THE_HOUSE} as "inTheHouse"
        from volume_story vs
        join volume  v on v.id = vs.volume_id
        join binding b on b.id = v.binding_id

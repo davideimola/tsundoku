@@ -1,8 +1,9 @@
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { SRC, sourceFiles } from "@/test/source-files";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
-import { acquireVolume } from "../verbs/collection.ts";
+import { releaseVolume } from "../verbs/collection.ts";
 import { eraseEditionNote, writeEditionNote } from "../verbs/edition-note.ts";
 import { findEditionNote } from "./edition-note.ts";
 
@@ -15,7 +16,7 @@ beforeEach(async () => {
 });
 
 async function aVolume(): Promise<string> {
-  const { id } = await acquireVolume({
+  const id = await volumeInTheHouse({
     title: "Batman: Il lungo Halloween",
     publisher: "Panini Comics",
     editionLine: "DC Must Have",
@@ -88,7 +89,7 @@ describe("writing an Edition note", () => {
     const volumeId = await aVolume();
     await writeEditionNote(volumeId, "Sold it: the omnibus is the better object.");
 
-    await query("update volume set released_on = current_date where id = $1", [volumeId]);
+    await releaseVolume(volumeId);
 
     expect(await findEditionNote(volumeId)).toMatchObject({
       note: "Sold it: the omnibus is the better object.",

@@ -49,9 +49,12 @@ volume, an arc, or a whole series; a **Volume** is a physical object on their sh
 1 to 10 in half points, with prose — is always of a Story and never of a Volume, and a Story may
 have several **Readings**, because rereading is ordinary and every reading keeps the judgement it
 carried. Every Reading and Rating carries a **Provenance** saying how it came to be known: weigh
-"Goodreads history" and "converted from a coarser scale" less heavily than "remembered".
-Recommend from the prose, not from the score alone. Digital ownership is not modelled: an ebook is
-a Reading with a digital medium and no Volume.`;
+"Goodreads history" less heavily than "remembered". A Rating also carries the **scale** it was given
+in, which is a separate question from where it came from: "coarse" is a score given out of 5 and
+doubled onto this one. Recommend from the prose, not from the score alone. The **Collection** is the
+Volumes in the house and is a subset of the objects the library knows — one catalogued and not owned
+is a thing they may mean to buy. Digital ownership is not modelled: an ebook is a Reading with a
+digital medium and no Volume.`;
 
 // JSON-RPC's own codes. This server adds none: a refusal from the model is an answer
 // rather than an error, and it travels as a tool result (see `called`).

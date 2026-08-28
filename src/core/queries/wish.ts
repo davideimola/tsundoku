@@ -1,6 +1,7 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import { IN_THE_HOUSE } from "./collection.ts";
 
 /**
  * One open Wish, as a shopping list shows it: what to buy, how much it should cost, how
@@ -48,6 +49,12 @@ export type OpenWish = {
    * intention to buy it, and only the owner ends that. It is here because a shopping list
    * that quietly overlapped the Collection would be the one thing worse than no list — so
    * the overlap is shown, and the owner decides.
+   *
+   * **It is a real distinction now** (ADR-0007). Until the catalogue and the Collection
+   * came apart, a Volume existed only because it had been acquired, so this was true of
+   * every row and the shopping list said *you already own this* about all twenty-one of
+   * them. An ordinary Wish now names a Volume that is catalogued and unowned, and this is
+   * false.
    */
   inCollection: boolean;
 };
@@ -80,7 +87,7 @@ export async function listOpenWishes(): Promise<OpenWish[]> {
               'language', v.language,
               'isbn', v.isbn
             )                    as volume,
-            v.released_on is null as "inCollection"
+            ${IN_THE_HOUSE} as "inCollection"
        from wish w
        join volume v on v.id = w.volume_id
        join binding b on b.id = v.binding_id
@@ -101,12 +108,13 @@ export type VolumeToWishFor = {
 };
 
 /**
- * Every Volume a Wish could name.
+ * Every Volume a Wish could name: the whole catalogue, owned or not.
  *
- * The Wish screen's own question rather than the Collection's, which is why it lives
- * here: a Wish names a Volume whether or not it is on the shelf, so this deliberately
- * does not read `released_on is null`. A Volume that left the house is a Volume the owner
- * can want again.
+ * The Wish screen's own question rather than the Collection's, which is why it lives here:
+ * a Wish names a **catalogued** Volume whether or not it is on the shelf (ADR-0007), so
+ * this deliberately does not ask for an open acquisition. Most of what it offers is now
+ * the ordinary case — objects the owner catalogued and does not own — and the rest is
+ * things they had and let go, which are things they can want again.
  *
  * A Volume that is *not in the library at all* is not offered and cannot be: creating one
  * is not this door's to do (ADR-0005), and a Wish naming a Volume nobody recorded is a
@@ -119,7 +127,7 @@ export async function listVolumesToWishFor(): Promise<VolumeToWishFor[]> {
             v.publisher,
             v.edition_line as "editionLine",
             b.name         as binding,
-            v.released_on is null as "inCollection"
+            ${IN_THE_HOUSE} as "inCollection"
        from volume v
        join binding b on b.id = v.binding_id
       order by lower(v.title), b.display_order, v.id`

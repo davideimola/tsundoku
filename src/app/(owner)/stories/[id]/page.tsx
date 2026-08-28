@@ -349,7 +349,7 @@ export default async function StoryPage({
                       href={`/collection/${volume.id}`}
                       className="flex items-baseline gap-2 rounded-lg px-2.5 py-1.5 ring-1 ring-border outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <span className={volume.releasedOn ? "text-muted-foreground" : undefined}>
+                      <span className={volume.inTheHouse ? undefined : "text-muted-foreground"}>
                         {volume.title}
                       </span>
                       <Badge variant="outline" className="shrink-0 text-[0.65rem]">
@@ -361,8 +361,9 @@ export default async function StoryPage({
               </ul>
               <p className="mt-4 text-pretty text-xs leading-relaxed text-muted-foreground">
                 {carriedBy.length} {carriedBy.length === 1 ? "Volume" : "Volumes"}. A greyed title
-                is one that left the house — what it carried is still true. What the owner thinks of
-                any of them as an object is an Edition note, on its own page, and it is not a score.
+                is one the house does not hold — catalogued, or let go — and what it carried is
+                still true. What the owner thinks of any of them as an object is an Edition note, on
+                its own page, and it is not a score.
               </p>
             </>
           )}

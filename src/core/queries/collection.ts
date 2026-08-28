@@ -3,6 +3,20 @@ import "server-only";
 import { query } from "../db.ts";
 
 /**
+ * **What being in the Collection is**, as SQL: the Volume named `v` has an open
+ * acquisition (ADR-0007).
+ *
+ * Exported for the reason `STORY_STATE` is exported from `queries/story.ts`: five queries
+ * in three files ask this one question — the Collection, the Series ledger, the shopping
+ * list's overlap with the shelf, a Story's carriers — and a second copy of it would be a
+ * second answer. The fragment names the Volume `v`, so a statement using it joins
+ * `volume v`.
+ */
+export const IN_THE_HOUSE = `
+  exists (select 1 from acquisition a
+           where a.volume_id = v.id and a.released_on is null)`;
+
+/**
  * One Volume as the Collection shows it: everything about the object, and nothing about
  * the narrative.
  *
@@ -11,6 +25,10 @@ import { query } from "../db.ts";
  * Money and days are strings rather than `number` and `Date`: `24.90` is what the owner
  * typed and what both doors render, and a float would make it `24.900000000000002` on the
  * way through.
+ *
+ * The price and the day come off the **open acquisition** rather than off the object, and
+ * that is where they live now: what was paid is a fact about coming home, and the same
+ * catalogued Volume bought twice was bought at two prices (ADR-0007).
  */
 export type CollectionVolume = {
   id: string;
@@ -21,7 +39,8 @@ export type CollectionVolume = {
   binding: { id: string; name: string };
   language: string;
   pricePaid: string | null;
-  purchaseDate: string | null;
+  /** The day it came home, where the owner knows it. */
+  acquiredOn: string | null;
   isbn: string | null;
 };
 
@@ -54,8 +73,13 @@ export type CollectionFilter = {
  *
  * This is the query the shop is standing in — *do I already have this?* — and it is the
  * one the MCP door exposes, Binding included, so an assistant can say *you own that story
- * in the Must Have already*. A Volume the owner released is not here and never comes back;
- * its row is kept, because Readings made through it are still true.
+ * in the Must Have already*.
+ *
+ * **It is a subset of the catalogue, and that is what makes it worth asking** (ADR-0007).
+ * A Volume the library knows but the owner does not own — the wishlist's twenty-one, an
+ * object released years ago — is not here, and answering *no* about one of those is the
+ * whole point of the question. Every row here has an open acquisition; nothing is deleted
+ * to make that true, because Readings made through an object are still true after it goes.
  */
 export async function searchCollection(filter: CollectionFilter): Promise<CollectionVolume[]> {
   return query<CollectionVolume>(
@@ -65,12 +89,15 @@ export async function searchCollection(filter: CollectionFilter): Promise<Collec
             v.edition_line                       as "editionLine",
             jsonb_build_object('id', b.id, 'name', b.name) as binding,
             v.language,
-            v.price_paid::text                   as "pricePaid",
-            to_char(v.purchase_date, 'YYYY-MM-DD') as "purchaseDate",
+            a.price_paid::text                   as "pricePaid",
+            to_char(a.acquired_on, 'YYYY-MM-DD') as "acquiredOn",
             v.isbn
        from volume v
        join binding b on b.id = v.binding_id
-      where v.released_on is null
+       -- The join *is* the Collection: an open acquisition is what being in the house
+       -- means, so a catalogued Volume the owner does not own has no row to join to and
+       -- drops out here rather than being filtered out afterwards.
+       join acquisition a on a.volume_id = v.id and a.released_on is null
         -- strpos rather than ilike '%…%', so that what the owner typed is a word and not
         -- a pattern: % and _ are ordinary characters in a title, and a search box that
         -- treated them as wildcards would answer a question nobody asked.
@@ -97,24 +124,31 @@ export async function searchCollection(filter: CollectionFilter): Promise<Collec
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * One Volume as its own page shows it: the object, and whether it is still in the house.
+ * One Volume as its own page shows it: the object, and where it stands with the owner.
  *
- * `releasedOn` is here and not on `CollectionVolume` because the Collection is the Volumes
- * in the house and everything it answers with is in it — the column would be null in every
- * row of it. One object's own page is the only place the question is open.
+ * Three states rather than two, since the catalogue and the Collection came apart
+ * (ADR-0007): in the house, catalogued and never acquired, or acquired and let go. The
+ * first is `inTheHouse`; the other two are told apart by `releasedOn`, which only an
+ * object that was once owned has. None of it is on `CollectionVolume`, because everything
+ * the Collection answers with is in the house and the question is not open there.
  */
 export type RecordedVolume = CollectionVolume & {
-  /** The day it left the house, or `null` while the owner still has it. */
+  /** Whether the Collection claims it right now. */
+  inTheHouse: boolean;
+  /** The day the last acquisition of it ended, or `null` if none ever did. */
   releasedOn: string | null;
 };
 
 /**
- * One Volume, owned or released, or `null` where there is no such object.
+ * One Volume, however the owner stands with it, or `null` where there is no such object.
  *
- * **Released ones are answered with, unlike `searchCollection`.** The Collection is what is
- * in the house and a released Volume is not in it; one object's own page is a record of the
- * object, and what the owner learned about it — its Edition note, the Stories it carried —
- * outlives their owning it.
+ * **Answers with more than `searchCollection` does.** The Collection is what is in the
+ * house; one object's own page is a record of the object, and what the owner learned about
+ * it — its Edition note, the Stories it carried — outlives their owning it, or their ever
+ * having owned it.
+ *
+ * The price and the day are the **latest** acquisition's, open or ended, because that is
+ * the one the page is a record of: what it cost the last time it came home.
  */
 export async function findVolume(volumeId: string): Promise<RecordedVolume | null> {
   if (!UUID.test(volumeId)) return null;
@@ -126,12 +160,23 @@ export async function findVolume(volumeId: string): Promise<RecordedVolume | nul
             v.edition_line as "editionLine",
             jsonb_build_object('id', b.id, 'name', b.name) as binding,
             v.language,
-            v.price_paid::text as "pricePaid",
-            to_char(v.purchase_date, 'YYYY-MM-DD') as "purchaseDate",
+            latest.price_paid::text as "pricePaid",
+            to_char(latest.acquired_on, 'YYYY-MM-DD') as "acquiredOn",
             v.isbn,
-            to_char(v.released_on, 'YYYY-MM-DD') as "releasedOn"
+            latest.id is not null and latest.released_on is null as "inTheHouse",
+            to_char(latest.released_on, 'YYYY-MM-DD') as "releasedOn"
        from volume v
        join binding b on b.id = v.binding_id
+       -- The latest acquisition, left-joined because a catalogued Volume has none: an open
+       -- one first, then the most recent that ended. Ordered rather than filtered, so the
+       -- three states are one row with different columns filled in.
+       left join lateral (
+         select a.id, a.acquired_on, a.released_on, a.price_paid
+           from acquisition a
+          where a.volume_id = v.id
+          order by a.released_on desc nulls first, a.acquired_on desc nulls last, a.created_at desc
+          limit 1
+       ) latest on true
       where v.id = $1`,
     [volumeId]
   );
@@ -148,7 +193,56 @@ export async function findVolume(volumeId: string): Promise<RecordedVolume | nul
  */
 export async function countCollection(): Promise<number> {
   const [row] = await query<{ owned: string }>(
-    "select count(*) as owned from volume where released_on is null"
+    `select count(*) as owned from volume v where ${IN_THE_HOUSE}`
   );
   return Number(row.owned);
+}
+
+/** A catalogued Volume the Collection does not claim, and the little the owner knows of it. */
+export type CataloguedVolumeOutsideTheCollection = {
+  id: string;
+  title: string;
+  publisher: string;
+  editionLine: string | null;
+  binding: { id: string; name: string };
+  language: string;
+  isbn: string | null;
+  /** The day the last acquisition of it ended, or `null` if it was never in the house. */
+  releasedOn: string | null;
+};
+
+/**
+ * Every Volume the library knows and the owner does not have: the other half of the
+ * catalogue.
+ *
+ * It exists because the split made it possible to record an object without owning it
+ * (ADR-0007), and a screen that could only show the Collection would let the owner
+ * catalogue something and watch it vanish. Two kinds of row are in it and they are not
+ * separated: one released years ago and one never acquired are both *not on the shelf*,
+ * which is the question, and `releasedOn` says which is which where it matters.
+ *
+ * Unnarrowed on purpose. The Collection is a hundred rows and this is a few dozen — the
+ * wishlist's twenty-one and whatever has been let go — so it is read whole and there is no
+ * filter to keep in step with the Collection's.
+ */
+export async function listCataloguedOutsideTheCollection(): Promise<
+  CataloguedVolumeOutsideTheCollection[]
+> {
+  return query<CataloguedVolumeOutsideTheCollection>(
+    `select v.id,
+            v.title,
+            v.publisher,
+            v.edition_line as "editionLine",
+            jsonb_build_object('id', b.id, 'name', b.name) as binding,
+            v.language,
+            v.isbn,
+            to_char(max(history.released_on), 'YYYY-MM-DD') as "releasedOn"
+       from volume v
+       join binding b on b.id = v.binding_id
+       left join acquisition history on history.volume_id = v.id
+      where not ${IN_THE_HOUSE}
+      group by v.id, v.title, v.publisher, v.edition_line, b.id, b.name, b.display_order,
+               v.language, v.isbn
+      order by lower(v.title), b.display_order, v.id`
+  );
 }

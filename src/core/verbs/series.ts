@@ -224,8 +224,8 @@ export type VolumePlacement = {
  * Nothing about the narrative follows from it. A Volume joining a Series says which object
  * this is, never what story it tells (ADR-0001).
  *
- * Refused on a Volume that has left the house: it fills no position, and the ledger is
- * measured against what is on the shelf.
+ * Refused on a Volume the house does not hold — let go, or catalogued and never had: it
+ * fills no position, and the ledger is measured against what is on the shelf.
  */
 export async function placeVolumeInSeries(placement: VolumePlacement): Promise<void> {
   if (!UUID.test(placement.volumeId)) {
@@ -240,15 +240,20 @@ export async function placeVolumeInSeries(placement: VolumePlacement): Promise<v
 
   const [outcome] = await refusing(
     () =>
-      query<{ known: boolean; placed: boolean }>(
+      query<{ known: boolean; owned: boolean; placed: boolean }>(
         `with known as (
            select id from volume where id = $1
+         ), ever as (
+           select id from acquisition where volume_id = $1
          ), placed as (
            update volume set series_id = $2, series_number = $3
-            where id = $1 and released_on is null
+            where id = $1
+              and exists (select 1 from acquisition a
+                           where a.volume_id = volume.id and a.released_on is null)
            returning id
          )
          select exists (select 1 from known)  as known,
+                exists (select 1 from ever)   as owned,
                 exists (select 1 from placed) as placed`,
         [placement.volumeId, placement.seriesId, placement.number]
       ),
@@ -267,13 +272,17 @@ export async function placeVolumeInSeries(placement: VolumePlacement): Promise<v
   );
 
   if (!outcome.known) throw new Refusal("not-found", "No Volume has that id.");
-  // Known, and not placed: it is a Volume that left the house. Refused rather than
-  // recorded, because the ledger is measured against the shelf and an object no longer on
-  // it would take a position without filling it.
+  // Known, and not placed: the house does not hold it. Refused rather than recorded,
+  // because the ledger is measured against the shelf and an object not on it would take a
+  // position without filling it. **Two ways of not being held since ADR-0007**, and they
+  // are different mistakes: one is an object the owner let go, the other an object they
+  // have catalogued and never had — most likely something they mean to buy.
   if (!outcome.placed) {
     throw new Refusal(
       "not-allowed",
-      "That Volume has left the house, so it fills no position of the Series."
+      outcome.owned
+        ? "That Volume has left the house, so it fills no position of the Series."
+        : "That Volume is not in the house, so it fills no position of the Series."
     );
   }
 }
