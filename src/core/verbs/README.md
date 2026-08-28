@@ -38,3 +38,34 @@ point of the verbs being narrow, reversible and wrong-in-an-obvious-way. It may 
 approves (ADR-0005). So: no verb here creates a Story, a Volume or a Series on
 MCP's behalf. Creation belongs to the Inbox's own approval verb, which the owner
 drives.
+
+## When the database says no
+
+Invariants live in Postgres, so a verb's failure path is a `pg` error — and **nothing
+above `src/core` is allowed to see one**. The adapters are thin (ADR-0002); an adapter
+that read a SQLSTATE or matched a constraint name would be holding domain logic.
+
+So a verb that can be refused wraps its statement in `refusing` from `../refusal.ts`
+and writes the prose the owner reads:
+
+```ts
+import { refusing } from "@/core/refusal";
+
+export async function setRating(storyId: string, score: number): Promise<void> {
+  await refusing(
+    () => query("insert into rating (story_id, score) values ($1, $2)", [storyId, score]),
+    (constraint) =>
+      constraint === "rating_score_is_in_half_points"
+        ? "A Rating is 1 to 10, in half points."
+        : "That Rating could not be recorded."
+  );
+}
+```
+
+What comes out is a `Refusal` carrying a stable `code` — `already-exists`,
+`not-found`, `not-allowed`, `invalid` — and prose. The web view renders the prose; the
+MCP door returns both, because an assistant that reads `already-exists` can try
+something else where it would only re-guess at prose.
+
+**Anything that is not a `Refusal` is a bug, not an answer.** Let it stay unhandled:
+the adapter turns it into a 500, and nobody dresses a broken query up as advice.
