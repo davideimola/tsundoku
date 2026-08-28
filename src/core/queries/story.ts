@@ -50,9 +50,11 @@ export type StoryRating = {
   /** 1 to 10, in half points. */
   score: number;
   prose: string | null;
+  /**
+   * How this judgement came to be known, and how far it can be trusted. A score doubled
+   * from a 1-5 scale says so here (ADR-0001).
+   */
   provenance: StoryProvenance;
-  /** The score came from a coarser scale and is worth less as evidence. */
-  convertedFromCoarserScale: boolean;
 };
 
 /** One act of reading, with the judgement it carried. */
@@ -64,7 +66,6 @@ export type StoryReading = {
   /** `YYYY-MM-DD`, or `null` where the owner only knows that it happened. */
   startedOn: string | null;
   endedOn: string | null;
-  note: string | null;
   provenance: StoryProvenance;
   rating: StoryRating | null;
 };
@@ -88,7 +89,6 @@ const RATING = `
     'id', g.id,
     'score', g.score::float8,
     'prose', g.prose,
-    'convertedFromCoarserScale', g.converted_from_coarser_scale,
     'provenance', jsonb_build_object('id', gp.id, 'name', gp.name)
   )`;
 
@@ -115,7 +115,6 @@ export async function findStory(storyId: string): Promise<Story | null> {
              'outcome', r.outcome,
              'startedOn', r.started_on::text,
              'endedOn', r.ended_on::text,
-             'note', r.note,
              'provenance', jsonb_build_object('id', rp.id, 'name', rp.name),
              'rating', (
                select ${RATING}
@@ -131,7 +130,7 @@ export async function findStory(storyId: string): Promise<Story | null> {
           where r.story_id = s.id
        ), '[]'::jsonb) as readings,
        coalesce((
-         select jsonb_agg(${RATING} order by g.created_at desc)
+         select jsonb_agg(${RATING} order by g.set_at desc)
            from rating g
            join provenance gp on gp.id = g.provenance_id
           where g.story_id = s.id and g.reading_id is null
@@ -152,7 +151,7 @@ export type StorySummary = {
   type: StoryType;
   state: StoryState;
   readingCount: number;
-  /** The most recent score the owner gave it, or `null` if they gave none. */
+  /** The score the owner set most recently, or `null` if they set none. */
   latestScore: number | null;
 };
 
@@ -174,7 +173,7 @@ export async function listStories(): Promise<StorySummary[]> {
        (select g.score::float8
           from rating g
          where g.story_id = s.id
-         order by g.created_at desc
+         order by g.set_at desc
          limit 1) as "latestScore"
      from story s
      join type t on t.id = s.type_id

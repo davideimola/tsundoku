@@ -63,9 +63,6 @@ create table reading (
   -- unattributed reading would be weighed as a remembered one.
   provenance_id text not null,
 
-  -- Free prose about this act of reading, distinct from the Rating's prose: this one
-  -- says how it went, the Rating says what the story was worth.
-  note       text,
   created_at timestamptz not null default now(),
 
   constraint reading_medium_is_paper_or_digital check (medium in ('paper', 'digital')),
@@ -76,8 +73,6 @@ create table reading (
   constraint reading_unconcluded_has_not_ended check (outcome is not null or ended_on is null),
   constraint reading_did_not_end_before_it_started
     check (started_on is null or ended_on is null or ended_on >= started_on),
-  constraint reading_note_is_not_blank check (note is null or btrim(note) <> ''),
-
   constraint reading_story_exists foreign key (story_id) references story (id) on delete cascade,
   constraint reading_provenance_exists foreign key (provenance_id) references provenance (id),
 
@@ -131,13 +126,10 @@ create table rating (
 
   provenance_id text not null,
 
-  -- A 7 that was originally a 3.5 out of 5 is not the same evidence as a 7 given in
-  -- half points, and the recommender is told which it is holding (ADR-0001, CONTEXT.md
-  -- on Provenance). Separate from `provenance_id` on purpose: the Provenance says where
-  -- the score came from, this says what it lost on the way.
-  converted_from_coarser_scale boolean not null default false,
-
-  created_at timestamptz not null default now(),
+  -- When the owner last *set* this judgement, which is not the same as when the row
+  -- appeared: setting a Rating again replaces the score, and a list showing the most
+  -- recent one has to order by the act and not by the insert.
+  set_at timestamptz not null default now(),
 
   constraint rating_score_is_one_to_ten check (score >= 1 and score <= 10),
   constraint rating_score_is_in_half_points check (score * 2 = trunc(score * 2)),
@@ -146,9 +138,15 @@ create table rating (
   constraint rating_story_exists foreign key (story_id) references story (id) on delete cascade,
   constraint rating_provenance_exists foreign key (provenance_id) references provenance (id),
 
-  -- One judgement per act of reading. A second thought about the same Reading is an
-  -- edit of that Rating; a second thought after reading it again is a second Reading.
-  constraint rating_is_one_per_reading unique (reading_id),
+  -- One judgement per Story per act of reading, and `nulls not distinct` is what makes
+  -- that one rule instead of two: without it a Rating naming no Reading would escape
+  -- the constraint and the same verb would replace in one case and stack in the other.
+  --
+  -- A second thought about the same Reading is an edit of that Rating. A second thought
+  -- after reading the Story *again* is a second Reading, and it gets a Rating of its
+  -- own — which is why rereading keeps both opinions.
+  constraint rating_is_one_per_story_and_reading
+    unique nulls not distinct (story_id, reading_id),
 
   -- A Rating cannot point at a Reading of some *other* Story. One composite reference
   -- rather than a plain one to `reading (id)`, so the two columns agree in the database
@@ -168,8 +166,7 @@ comment on table rating is
   'wrote some. It never attaches to a Volume — the object was not the thing that was '
   'good or bad (ADR-0001) — and this table has no column with which it could.';
 
-comment on column rating.converted_from_coarser_scale is
-  'True when the score was converted from a coarser scale, so the recommender can '
-  'weigh it as coarser.';
+comment on column rating.set_at is
+  'When the owner last set this judgement. What "the most recent score" is ordered by.';
 
-create index rating_by_story on rating (story_id, created_at desc);
+create index rating_by_story on rating (story_id, set_at desc);

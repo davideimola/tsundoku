@@ -25,7 +25,7 @@ describe("setting a Rating", () => {
       expect.objectContaining({
         score: 8.5,
         prose: "Urasawa doing Tezuka, and getting away with it.",
-        convertedFromCoarserScale: false,
+        provenance: { id: "remembered", name: "Remembered" },
       }),
     ]);
   });
@@ -41,23 +41,25 @@ describe("setting a Rating", () => {
     });
   });
 
-  it("marks a score converted from a coarser scale as coarser, so the recommender can weigh it", async () => {
-    // The books sheet scored 1-5; those double into this scale on import (#14) and say
+  it("marks a score converted from a coarser scale as coarser, through its Provenance", async () => {
+    // The books sheet scored 1-5; those double onto this scale on import (#14) and say
     // so, because a 7 that was a 3.5 out of 5 is not the same evidence as a 7 given in
-    // half points (ADR-0001).
+    // half points. ADR-0001 puts that in the Provenance rather than in a flag of its
+    // own, so there is one place to read a judgement's reliability from.
     const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
 
     await setRating({
       storyId,
       score: 8,
-      provenanceId: "goodreads-history",
-      convertedFromCoarserScale: true,
+      provenanceId: "converted-from-a-coarser-scale",
     });
 
     expect((await findStory(storyId))?.standaloneRatings[0]).toMatchObject({
       score: 8,
-      convertedFromCoarserScale: true,
-      provenance: { id: "goodreads-history", name: "Goodreads history" },
+      provenance: {
+        id: "converted-from-a-coarser-scale",
+        name: "Converted from a coarser scale",
+      },
     });
   });
 
@@ -129,6 +131,25 @@ describe("setting a Rating", () => {
       code: "not-found",
       message: "That Reading is not a Reading of this Story.",
     });
+  });
+
+  it("replaces the judgement of the Story itself rather than stacking a second one", async () => {
+    // One meaning of "set", whether or not a Reading is named. Without this the same verb
+    // would replace in one case and accumulate in the other.
+    const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
+
+    await setRating({ storyId, score: 6, provenanceId: "remembered" });
+    await setRating({
+      storyId,
+      score: 7.5,
+      prose: "Kinder on a second look.",
+      provenanceId: "remembered",
+    });
+
+    const story = await findStory(storyId);
+    expect(story?.standaloneRatings).toEqual([
+      expect.objectContaining({ score: 7.5, prose: "Kinder on a second look." }),
+    ]);
   });
 
   it("replaces the judgement carried by one Reading rather than stacking a second on it", async () => {

@@ -9,23 +9,25 @@ export const dynamic = "force-dynamic";
 
 // The page the whole slice exists for, and its one argument is made by the layout: the
 // Readings are a **stack, newest first, each carrying its own Rating**. A reread is
-// visibly a second entry with a second opinion beside the first, which is precisely what
-// the spreadsheet could not hold — one cell for `Voto`, overwritten.
+// visibly a second Reading with a second opinion beside the first, which is precisely
+// what the spreadsheet could not hold — one cell for `Voto`, overwritten.
 //
-// Monochrome shadcn tokens, one card, one rule between entries. Nothing here is
+// Monochrome shadcn tokens, one card, one rule between Readings. Nothing here is
 // invented, and there is only one column, so the phone gets the same page as the desk.
 
 /** The medium and the outcome, in the words the owner uses. */
-function reading(record: StoryReading): string {
-  const outcome = record.outcome ?? "still reading";
-  return `${record.medium}, ${outcome}`;
+function howItWent(reading: StoryReading): string {
+  return `${reading.medium}, ${reading.outcome ?? "still reading"}`;
 }
 
-/** When it happened, with whichever half of it is known. */
-function when(record: StoryReading): string {
-  if (record.startedOn && record.endedOn) return `${record.startedOn} → ${record.endedOn}`;
-  if (record.startedOn) return `from ${record.startedOn}`;
-  if (record.endedOn) return `until ${record.endedOn}`;
+/**
+ * When it happened, with whichever half of it is known — Goodreads history often carries
+ * one date, and a Reading in progress has no end yet.
+ */
+function whenItHappened(reading: StoryReading): string {
+  if (reading.startedOn && reading.endedOn) return `${reading.startedOn} → ${reading.endedOn}`;
+  if (reading.startedOn) return `from ${reading.startedOn}`;
+  if (reading.endedOn) return `until ${reading.endedOn}`;
   return "no date recorded";
 }
 
@@ -39,7 +41,6 @@ function Judgement({ rating }: { rating: StoryRating }) {
       {rating.prose ? <p className="mt-1 text-pretty text-sm">{rating.prose}</p> : null}
       <p className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
         {rating.provenance.name}
-        {rating.convertedFromCoarserScale ? " · converted from a coarser scale" : ""}
       </p>
     </div>
   );
@@ -74,8 +75,8 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
           <CardTitle>Readings</CardTitle>
           <CardDescription className="text-pretty">
             One act of reading each, newest first, with the Rating it carried. Nothing here is ever
-            overwritten: reading it again adds an entry, and the opinion from last time stays beside
-            the new one.
+            overwritten: reading it again adds a Reading, and the opinion from last time stays
+            beside the new one.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -89,12 +90,11 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
               {story.readings.map((record) => (
                 <li key={record.id} className="border-t border-border py-3.5 first:border-t-0">
                   <p className="flex flex-wrap items-baseline justify-between gap-x-4">
-                    <span className="font-mono text-xs tabular-nums">{when(record)}</span>
+                    <span className="font-mono text-xs tabular-nums">{whenItHappened(record)}</span>
                     <span className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
-                      {reading(record)}
+                      {howItWent(record)}
                     </span>
                   </p>
-                  {record.note ? <p className="mt-1.5 text-pretty text-sm">{record.note}</p> : null}
                   <p className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
                     {record.provenance.name}
                   </p>

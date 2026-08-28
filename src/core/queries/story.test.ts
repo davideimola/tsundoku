@@ -130,7 +130,7 @@ describe("rereading a Story", () => {
     });
 
     const story = await findStory(storyId);
-    // Newest first: the shelf is read from the last thing that happened.
+    // Newest first: a Story is read from the last thing that happened to it.
     expect(story?.readings.map((reading) => [reading.startedOn, reading.rating?.score])).toEqual([
       ["2026-01-10", 9],
       ["2021-05-01", 7],
@@ -170,6 +170,23 @@ describe("the Stories, listed", () => {
         latestScore: null,
       },
     ]);
+  });
+
+  it("shows the score the owner set most recently, and not the one they replaced", async () => {
+    // Setting a Rating again edits the row, so the list has to order by when the
+    // judgement was *set* rather than by when the row appeared.
+    const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
+    await setRating({ storyId, score: 6, provenanceId: "remembered" });
+    const reading = await recordReading({
+      storyId,
+      medium: "paper",
+      outcome: "finished",
+      provenanceId: "remembered",
+    });
+    await setRating({ storyId, readingId: reading, score: 9, provenanceId: "remembered" });
+    await setRating({ storyId, score: 7.5, provenanceId: "remembered" });
+
+    expect((await listStories())[0]).toMatchObject({ title: "Sapiens", latestScore: 7.5 });
   });
 
   it("answers with nothing for a Story that is not there", async () => {

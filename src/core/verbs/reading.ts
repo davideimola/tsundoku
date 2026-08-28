@@ -35,8 +35,6 @@ export type NewReading = {
   endedOn?: string | null;
   /** Absent for a Reading in progress, which is what makes the Story `reading`. */
   outcome?: Outcome | null;
-  /** How this act of reading went — distinct from the Rating's prose. */
-  note?: string | null;
 };
 
 function readingProse(constraint: string | undefined): string {
@@ -65,8 +63,8 @@ export async function recordReading(reading: NewReading): Promise<string> {
   const rows = await refusing(
     () =>
       query<{ id: string }>(
-        `insert into reading (story_id, medium, outcome, started_on, ended_on, provenance_id, note)
-         values ($1, $2, $3, $4, $5, $6, $7)
+        `insert into reading (story_id, medium, outcome, started_on, ended_on, provenance_id)
+         values ($1, $2, $3, $4, $5, $6)
          returning id`,
         [
           reading.storyId,
@@ -75,7 +73,6 @@ export async function recordReading(reading: NewReading): Promise<string> {
           reading.startedOn ?? null,
           reading.endedOn ?? null,
           reading.provenanceId,
-          reading.note ?? null,
         ]
       ),
     readingProse
@@ -111,7 +108,7 @@ async function concludeReading(
                 (select count(*) from concluded)             as concluded`,
         [readingId, outcome, endedOn]
       ),
-    (constraint) => readingProse(constraint)
+    readingProse
   );
 
   const [counts] = rows;

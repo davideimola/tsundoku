@@ -50,4 +50,12 @@ insert into provenance (id, name, description, display_order) values
   ('goodreads-history',
    'Goodreads history',
    'Imported from Goodreads. The act of reading is recorded; the memory of it may not be.',
-   4);
+   4),
+  -- ADR-0001 makes this a Provenance rather than a flag of its own: 'a score converted
+  -- from the coarser scale carries its Provenance so the recommender can weigh it
+  -- accordingly'. The books sheet scored 1-5; those double onto this scale on import
+  -- (#14) and say so here, in one place rather than two.
+  ('converted-from-a-coarser-scale',
+   'Converted from a coarser scale',
+   'A score the owner gave out of 5, doubled onto this scale. The judgement is theirs; the precision is not.',
+   5);

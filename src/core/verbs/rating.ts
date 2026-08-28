@@ -24,37 +24,31 @@ export type NewRating = {
    */
   readingId?: string | null;
   prose?: string | null;
-  /**
-   * True when the score was converted from a coarser scale — the books sheet's 1-5
-   * doubled into this one — so that the recommender weighs it as coarser (#14).
-   */
-  convertedFromCoarserScale?: boolean;
 };
 
 /**
- * Record what the owner thought of a Story. Returns the Rating's id.
+ * Record what the owner thought of a Story, replacing what they said before about the
+ * same act of reading. Returns the Rating's id.
  *
- * When it names a Reading it **replaces that Reading's Rating**, because one act of
- * reading produced one judgement and a second thought about the same reading is an edit
- * of it. A second thought after reading the story *again* is a second Reading with a
- * Rating of its own, and both survive.
+ * **Set, in one sense of the word.** There is one Rating per Story per Reading, so
+ * saying it again is an edit of the same judgement — whether or not it names a Reading.
+ * A second opinion after reading the Story *again* is a second Reading carrying a Rating
+ * of its own, and both survive: that is the only way a Story ends up with two.
  *
- * When it names no Reading it adds a judgement of the Story standing on its own; those
- * accumulate rather than replace, since nothing identifies which of them the owner meant
- * to correct.
+ * A score converted from a coarser scale says so through its Provenance
+ * (`converted-from-a-coarser-scale`), which is where ADR-0001 puts it.
  */
 export async function setRating(rating: NewRating): Promise<string> {
   const rows = await refusing(
     () =>
       query<{ id: string }>(
-        `insert into rating
-           (story_id, reading_id, score, prose, provenance_id, converted_from_coarser_scale)
-         values ($1, $2, $3, $4, $5, $6)
-         on conflict on constraint rating_is_one_per_reading do update
+        `insert into rating (story_id, reading_id, score, prose, provenance_id)
+         values ($1, $2, $3, $4, $5)
+         on conflict on constraint rating_is_one_per_story_and_reading do update
             set score = excluded.score,
                 prose = excluded.prose,
                 provenance_id = excluded.provenance_id,
-                converted_from_coarser_scale = excluded.converted_from_coarser_scale
+                set_at = now()
          returning id`,
         [
           rating.storyId,
@@ -62,7 +56,6 @@ export async function setRating(rating: NewRating): Promise<string> {
           rating.score,
           rating.prose ?? null,
           rating.provenanceId,
-          rating.convertedFromCoarserScale ?? false,
         ]
       ),
     (constraint) => {
