@@ -245,7 +245,9 @@ export async function placeVolumeInSeries(placement: VolumePlacement): Promise<v
            select id from volume where id = $1
          ), placed as (
            update volume set series_id = $2, series_number = $3
-            where id = $1 and released_on is null
+            where id = $1
+              and exists (select 1 from acquisition a
+                           where a.volume_id = volume.id and a.released_on is null)
            returning id
          )
          select exists (select 1 from known)  as known,

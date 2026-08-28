@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { isRefusal } from "../refusal.ts";
 import { acquireVolume, releaseVolume } from "./collection.ts";
@@ -144,13 +145,13 @@ describe("deciding to collect a Series", () => {
       publishedCount: 72,
       status: "concluded",
     });
-    const volume = await acquireVolume({
+    const volume = await volumeInTheHouse({
       title: "Naruto 1",
       publisher: "Planet Manga",
       binding: "tankobon",
       language: "it",
     });
-    await placeVolumeInSeries({ volumeId: volume.id, seriesId: id, number: 1 });
+    await placeVolumeInSeries({ volumeId: volume, seriesId: id, number: 1 });
 
     const [row] = await query<{ collecting_since: Date | null }>(
       "select collecting_since from series where id = $1",
@@ -238,81 +239,109 @@ describe("keeping the ledger true as the publisher moves", () => {
 describe("placing a Volume in a Series", () => {
   it("records which position of the Series the object is", async () => {
     const series = await blackEdition();
-    const volume = await acquireVolume({
+    const volume = await volumeInTheHouse({
       title: "Death Note Black Edition 1",
       publisher: "Panini Comics",
       editionLine: "Black Edition",
       binding: "deluxe",
       language: "it",
     });
-    await placeVolumeInSeries({ volumeId: volume.id, seriesId: series, number: 1 });
+    await placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 1 });
 
     const [row] = await query<{ series_id: string; series_number: number }>(
       "select series_id, series_number from volume where id = $1",
-      [volume.id]
+      [volume]
     );
     expect(row).toEqual({ series_id: series, series_number: 1 });
   });
 
   it("said again, moves the object rather than refusing the correction", async () => {
     const series = await blackEdition();
-    const volume = await acquireVolume({
+    const volume = await volumeInTheHouse({
       title: "Death Note Black Edition 2",
       publisher: "Panini Comics",
       binding: "deluxe",
       language: "it",
     });
-    await placeVolumeInSeries({ volumeId: volume.id, seriesId: series, number: 1 });
-    await placeVolumeInSeries({ volumeId: volume.id, seriesId: series, number: 2 });
+    await placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 1 });
+    await placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 2 });
 
     const [row] = await query<{ series_number: number }>(
       "select series_number from volume where id = $1",
-      [volume.id]
+      [volume]
     );
     expect(row.series_number).toBe(2);
   });
 
   it("refuses a second object at a position the house already holds", async () => {
     const series = await blackEdition();
-    const first = await acquireVolume({
+    const first = await volumeInTheHouse({
       title: "Death Note Black Edition 1",
       publisher: "Panini Comics",
       binding: "deluxe",
       language: "it",
     });
-    const twice = await acquireVolume({
+    const twice = await volumeInTheHouse({
       title: "Death Note Black Edition 1",
       publisher: "Panini Comics",
       binding: "deluxe",
       language: "it",
     });
-    await placeVolumeInSeries({ volumeId: first.id, seriesId: series, number: 1 });
+    await placeVolumeInSeries({ volumeId: first, seriesId: series, number: 1 });
 
     const refusal = await refusalFrom(() =>
-      placeVolumeInSeries({ volumeId: twice.id, seriesId: series, number: 1 })
+      placeVolumeInSeries({ volumeId: twice, seriesId: series, number: 1 })
     );
     expect(refusal.code).toBe("already-exists");
   });
 
+  // The other door to the same invariant, and the reason it is a function in Postgres
+  // rather than the partial unique index #7 wrote (ADR-0007). Ownership is an acquisition
+  // now, so *acquiring* an object can be what makes two of one position sit in the house —
+  // and it is refused with the same words as placing one.
+  it("refuses acquiring an object again into a position the house has filled since", async () => {
+    const series = await blackEdition();
+    const sold = await volumeInTheHouse({
+      title: "Death Note Black Edition 1",
+      publisher: "Panini Comics",
+      binding: "deluxe",
+      language: "it",
+    });
+    const replacement = await volumeInTheHouse({
+      title: "Death Note Black Edition 1",
+      publisher: "Panini Comics",
+      binding: "deluxe",
+      language: "it",
+    });
+    await placeVolumeInSeries({ volumeId: sold, seriesId: series, number: 1 });
+    await releaseVolume(sold);
+    await placeVolumeInSeries({ volumeId: replacement, seriesId: series, number: 1 });
+
+    const refusal = await refusalFrom(() => acquireVolume({ volumeId: sold }));
+
+    expect(refusal.code).toBe("already-exists");
+    expect(refusal.message).toBe("That position of the Series is already in the house.");
+  });
+
   it("refuses an object that has left the house, which fills no position", async () => {
     const series = await blackEdition();
-    const volume = await acquireVolume({
+    const volume = await volumeInTheHouse({
       title: "Death Note Black Edition 3",
       publisher: "Panini Comics",
       binding: "deluxe",
       language: "it",
     });
-    await releaseVolume(volume.id);
+    await releaseVolume(volume);
 
     const refusal = await refusalFrom(() =>
-      placeVolumeInSeries({ volumeId: volume.id, seriesId: series, number: 3 })
+      placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 3 })
     );
     expect(refusal.code).toBe("not-allowed");
   });
 
   it("refuses a position before the first", async () => {
     const series = await blackEdition();
-    const volume = await acquireVolume({
+    const volume = await volumeInTheHouse({
       title: "Death Note Black Edition 1",
       publisher: "Panini Comics",
       binding: "deluxe",
@@ -320,14 +349,14 @@ describe("placing a Volume in a Series", () => {
     });
 
     const refusal = await refusalFrom(() =>
-      placeVolumeInSeries({ volumeId: volume.id, seriesId: series, number: 0 })
+      placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 0 })
     );
     expect(refusal.code).toBe("invalid");
   });
 
   it("refuses an object nobody owns and a Series nobody declared", async () => {
     const series = await blackEdition();
-    const volume = await acquireVolume({
+    const volume = await volumeInTheHouse({
       title: "Death Note Black Edition 1",
       publisher: "Panini Comics",
       binding: "deluxe",
@@ -350,7 +379,7 @@ describe("placing a Volume in a Series", () => {
       (
         await refusalFrom(() =>
           placeVolumeInSeries({
-            volumeId: volume.id,
+            volumeId: volume,
             seriesId: "11111111-1111-1111-1111-111111111111",
             number: 3,
           })

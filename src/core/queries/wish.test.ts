@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
-import { acquireVolume, releaseVolume } from "../verbs/collection.ts";
+import { catalogueVolume, releaseVolume } from "../verbs/collection.ts";
 import { openWish } from "../verbs/wish.ts";
 import { listOpenWishes, listVolumesToWishFor } from "./wish.ts";
 
@@ -12,7 +13,7 @@ beforeEach(async () => {
 });
 
 async function aVolume(title: string, binding = "tankobon"): Promise<string> {
-  const { id } = await acquireVolume({
+  const id = await volumeInTheHouse({
     title,
     publisher: "Planet Manga",
     binding,
@@ -44,6 +45,25 @@ describe("the Volumes a Wish can name", () => {
         inCollection: true,
       },
     ]);
+  });
+
+  // **The case the whole wishlist exists for** (ADR-0007). Until the catalogue and the
+  // Collection came apart, every Volume a Wish could name was owned, so the shopping list
+  // said *you already have this* about all twenty-one rows of it. An ordinary Wish now
+  // names an object the library knows and the house does not hold.
+  it("offers a Volume catalogued and never owned, and says the Collection has it not", async () => {
+    const { id } = await catalogueVolume({
+      title: "Blame! 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await openWish({ volumeId: id, priority: 1 });
+
+    expect(await listVolumesToWishFor()).toMatchObject([
+      { title: "Blame! 1", inCollection: false },
+    ]);
+    expect(await listOpenWishes()).toMatchObject([{ inCollection: false }]);
   });
 
   // Deliberately not the Collection. A Volume that left the house is a Volume the owner

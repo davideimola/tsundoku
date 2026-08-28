@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { listOpenWishes } from "../queries/wish.ts";
-import { type AcquiredVolume, acquireVolume, releaseVolume } from "./collection.ts";
+import { type CataloguedVolume, releaseVolume } from "./collection.ts";
 import { closeWish, openWish } from "./wish.ts";
 
 // Seam 1: the verbs and the query surface against a real Postgres. What is asserted is
@@ -16,8 +17,8 @@ beforeEach(async () => {
 });
 
 /** A Volume to want. Its id is what a Wish names; nothing else about it matters here. */
-async function aVolume(overrides: Partial<AcquiredVolume> = {}): Promise<string> {
-  const { id } = await acquireVolume({
+async function aVolume(overrides: Partial<CataloguedVolume> = {}): Promise<string> {
+  const id = await volumeInTheHouse({
     title: "Death Note Black Edition III",
     publisher: "Planet Manga",
     binding: "tankobon",

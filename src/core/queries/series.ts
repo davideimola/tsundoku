@@ -15,7 +15,8 @@ import type { SeriesStatus } from "../verbs/series.ts";
 // The derivation, written once and used by all three queries below.
 //
 // Two judgements are in it. **Only what the house holds counts**: a Volume the owner
-// released is missing again, because the shelf is what the ledger is measured against.
+// catalogued and does not own, or released, is missing again, because the shelf is what the
+// ledger is measured against and being catalogued is not being owned (ADR-0007).
 // And the list is `null` rather than empty for a Series the owner never decided to collect
 // — the Naruto case. Holding 42 of 72 volumes opens no project, so there is nothing
 // missing from it; an empty list would say the opposite, that the Series is complete.
@@ -31,8 +32,9 @@ const MISSING = `
        where not exists (
          select 1 from volume v
           where v.series_id = s.id
-            and v.released_on is null
             and v.series_number = n
+            and exists (select 1 from acquisition a
+                         where a.volume_id = v.id and a.released_on is null)
        )
     ), '[]'::jsonb) end as missing
   ) derived`;
@@ -40,7 +42,9 @@ const MISSING = `
 const OWNED = `
   (select count(*)::int
      from volume v
-    where v.series_id = s.id and v.released_on is null)`;
+    where v.series_id = s.id
+      and exists (select 1 from acquisition a
+                   where a.volume_id = v.id and a.released_on is null))`;
 
 // Name, then edition. The standard printing has no edition line and comes first, which is
 // the order the owner reads two Series of one name in.
@@ -124,7 +128,7 @@ export type SeriesVolume = {
 
 /** One Series with the objects of it that are in the house. */
 export type SeriesInDetail = SeriesLedger & {
-  /** Owned only, by position. A released Volume is not here, and is missing again. */
+  /** Owned only, by position. A Volume the house does not hold is not here, and is missing again. */
   volumes: SeriesVolume[];
 };
 
@@ -157,7 +161,9 @@ export async function findSeries(seriesId: string): Promise<SeriesInDetail | nul
               )
                 from volume v
                 join binding b on b.id = v.binding_id
-               where v.series_id = s.id and v.released_on is null
+               where v.series_id = s.id
+                 and exists (select 1 from acquisition a
+                              where a.volume_id = v.id and a.released_on is null)
             ), '[]'::jsonb) as volumes
        from series s
        ${MISSING}
@@ -188,7 +194,9 @@ export async function listVolumesOutsideASeries(): Promise<PlaceableVolume[]> {
   return query<PlaceableVolume>(
     `select v.id, v.title, v.publisher, v.edition_line as "editionLine"
        from volume v
-      where v.released_on is null and v.series_id is null
+      where v.series_id is null
+        and exists (select 1 from acquisition a
+                     where a.volume_id = v.id and a.released_on is null)
       order by lower(v.title), v.id`
   );
 }

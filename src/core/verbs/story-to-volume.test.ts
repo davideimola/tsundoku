@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { listStoriesInVolume, listVolumesCarryingStory } from "../queries/story-to-volume.ts";
-import { acquireVolume } from "./collection.ts";
 import { recordReading } from "./reading.ts";
 import { createStory } from "./story.ts";
 import { recordVolumeCarriesStory, recordVolumeNoLongerCarriesStory } from "./story-to-volume.ts";
@@ -13,7 +13,7 @@ beforeEach(async () => {
 });
 
 async function aVolume(title: string): Promise<string> {
-  const { id } = await acquireVolume({
+  const id = await volumeInTheHouse({
     title,
     publisher: "Panini Comics",
     binding: "must-have",

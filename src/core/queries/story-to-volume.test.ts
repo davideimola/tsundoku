@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
-import { acquireVolume } from "../verbs/collection.ts";
+import { releaseVolume } from "../verbs/collection.ts";
 import { setRating } from "../verbs/rating.ts";
 import { recordReading } from "../verbs/reading.ts";
 import { createStory } from "../verbs/story.ts";
@@ -24,15 +25,13 @@ describe("one Volume holding three Stories: L'uomo che ride", () => {
   // The object on the shelf is one Volume. Inside it are three narratives the owner read
   // and judged separately, which is the fact the `Voto` column destroyed.
   async function lUomoCheRide() {
-    const volumeId = (
-      await acquireVolume({
-        title: "L'uomo che ride",
-        publisher: "Panini Comics",
-        editionLine: "DC Must Have",
-        binding: "must-have",
-        language: "it",
-      })
-    ).id;
+    const volumeId = await volumeInTheHouse({
+      title: "L'uomo che ride",
+      publisher: "Panini Comics",
+      editionLine: "DC Must Have",
+      binding: "must-have",
+      language: "it",
+    });
 
     const scores: Record<string, number> = {
       "L'uomo che ride": 9,
@@ -94,14 +93,12 @@ describe("one Story across twenty Volumes: Slam Dunk", () => {
     const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
 
     for (let number = 1; number <= 20; number++) {
-      const volumeId = (
-        await acquireVolume({
-          title: `Slam Dunk ${number}`,
-          publisher: "Planet Manga",
-          binding: "tankobon",
-          language: "it",
-        })
-      ).id;
+      const volumeId = await volumeInTheHouse({
+        title: `Slam Dunk ${number}`,
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      });
       await recordVolumeCarriesStory(volumeId, storyId);
     }
 
@@ -158,14 +155,12 @@ describe("one Story across twenty Volumes: Slam Dunk", () => {
 // from the other, one of them would survive.
 describe("neither side is derived from the other", () => {
   it("is one stored fact, read from both ends", async () => {
-    const volumeId = (
-      await acquireVolume({
-        title: "Akira 1",
-        publisher: "Planet Manga",
-        binding: "tankobon",
-        language: "it",
-      })
-    ).id;
+    const volumeId = await volumeInTheHouse({
+      title: "Akira 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
     const storyId = await createStory({ title: "Akira", typeId: "manga" });
 
     expect(await listStoriesInVolume(volumeId)).toEqual([]);
@@ -190,26 +185,26 @@ describe("neither side is derived from the other", () => {
   });
 });
 
-// A Volume that left the house still carries what it held: the Readings made through it
-// are true, and the owner asking *did I ever have this?* is asking about the past.
+// A Volume the house does not hold still carries what it held: the Readings made through
+// it are true, and the owner asking *did I ever have this?* is asking about the past.
 describe("a Volume the owner released", () => {
-  it("is still shown as carrying the Story, and says it is gone", async () => {
-    const volumeId = (
-      await acquireVolume({
+  it("is still shown as carrying the Story, and says the house has it no more", async () => {
+    const volumeId = await volumeInTheHouse(
+      {
         title: "Death Note 1",
         publisher: "Planet Manga",
         binding: "tankobon",
         language: "it",
-        purchaseDate: "2019-05-02",
-      })
-    ).id;
+      },
+      { acquiredOn: "2019-05-02" }
+    );
     const storyId = await createStory({ title: "Death Note", typeId: "manga" });
     await recordVolumeCarriesStory(volumeId, storyId);
 
-    await query("update volume set released_on = '2023-01-01' where id = $1", [volumeId]);
+    await releaseVolume(volumeId);
 
     expect(await listVolumesCarryingStory(storyId)).toEqual([
-      expect.objectContaining({ title: "Death Note 1", releasedOn: "2023-01-01" }),
+      expect.objectContaining({ title: "Death Note 1", inTheHouse: false }),
     ]);
   });
 });
@@ -219,30 +214,24 @@ describe("a Volume the owner released", () => {
 // them, and it exists because the screen needs it rather than for symmetry.
 describe("what a page's worth of Volumes hold", () => {
   it("answers for many Volumes at once, keyed by Volume", async () => {
-    const first = (
-      await acquireVolume({
-        title: "L'uomo che ride",
-        publisher: "Panini Comics",
-        binding: "must-have",
-        language: "it",
-      })
-    ).id;
-    const second = (
-      await acquireVolume({
-        title: "Slam Dunk 1",
-        publisher: "Planet Manga",
-        binding: "tankobon",
-        language: "it",
-      })
-    ).id;
-    const third = (
-      await acquireVolume({
-        title: "Berserk 1",
-        publisher: "Panini Comics",
-        binding: "tankobon",
-        language: "it",
-      })
-    ).id;
+    const first = await volumeInTheHouse({
+      title: "L'uomo che ride",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+    const second = await volumeInTheHouse({
+      title: "Slam Dunk 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    const third = await volumeInTheHouse({
+      title: "Berserk 1",
+      publisher: "Panini Comics",
+      binding: "tankobon",
+      language: "it",
+    });
 
     const gothamNoir = await createStory({ title: "Gotham Noir", typeId: "comic" });
     const uomoDiLegno = await createStory({ title: "Uomo di legno", typeId: "comic" });

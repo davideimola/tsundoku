@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
-import { acquireVolume, releaseVolume } from "../verbs/collection.ts";
+import { releaseVolume } from "../verbs/collection.ts";
 import {
   declareSeries,
   declareSeriesCollected,
@@ -21,14 +22,14 @@ beforeEach(async () => {
 async function own(seriesId: string, title: string, numbers: number[]): Promise<string[]> {
   const ids: string[] = [];
   for (const number of numbers) {
-    const volume = await acquireVolume({
+    const volume = await volumeInTheHouse({
       title: `${title} ${number}`,
       publisher: "Panini Comics",
       binding: "deluxe",
       language: "it",
     });
-    await placeVolumeInSeries({ volumeId: volume.id, seriesId, number });
-    ids.push(volume.id);
+    await placeVolumeInSeries({ volumeId: volume, seriesId, number });
+    ids.push(volume);
   }
   return ids;
 }
@@ -236,7 +237,7 @@ describe("one Series in detail", () => {
 describe("the Volumes a Series screen can place", () => {
   it("offers what is owned and belongs to no Series yet", async () => {
     const id = await deathNoteBlackEdition();
-    await acquireVolume({
+    await volumeInTheHouse({
       title: "L'uomo che ride",
       publisher: "Panini Comics",
       binding: "hardcover",
