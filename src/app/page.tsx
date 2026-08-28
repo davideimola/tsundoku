@@ -49,16 +49,23 @@ export default async function Home() {
         </CardContent>
       </Card>
 
-      {/* The one way in to what the app is actually for. A Story is reachable with no
-          Volume at all, so it is the first thing here (ADR-0001). */}
-      <p className="mt-6">
-        <Link
-          href="/stories"
-          className="font-mono text-xs uppercase tracking-[0.22em] underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Stories, Readings and Ratings →
-        </Link>
-      </p>
+      {/* The screens live behind their own routes. One line each, added by the slice that
+          builds one, until there are enough of them to be worth a shell of their own.
+          A Story is reachable with no Volume at all, so it comes first (ADR-0001). */}
+      <ul className="mt-8 space-y-2 text-sm">
+        <li>
+          <Link href="/stories" className="underline underline-offset-4">
+            Stories
+          </Link>{" "}
+          <span className="text-muted-foreground">— what was read, and what it was worth.</span>
+        </li>
+        <li>
+          <Link href="/collection" className="underline underline-offset-4">
+            Collection
+          </Link>{" "}
+          <span className="text-muted-foreground">— the Volumes in the house.</span>
+        </li>
+      </ul>
 
       <p className="mt-6 text-pretty text-xs leading-relaxed text-muted-foreground">
         {types.length} rows, read from Postgres for this request. Nothing is hosted at this stage:
