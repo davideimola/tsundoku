@@ -281,6 +281,32 @@ an enum in code**
 A sixth Type is an insert, not a release. Nothing in TypeScript enumerates the five,
 and nothing should.
 
+## The import
+
+The two Google Sheets are read **once, deliberately**, by a command nobody runs for you:
+it is not a migration, not a seed, and no part of `pnpm db:up` or `pnpm db:reset`.
+
+```sh
+pnpm import:sheets db/import/fixtures    # the rehearsal, against committed fixtures
+pnpm import:sheets                       # the real thing, against db/import/sheets/
+```
+
+One transaction that **checks its own work before committing** — twenty-two counts, each
+one arithmetic over the source tabs' own row counts — and that **refuses a database which
+already holds imported data**, because there is no key in these sheets to match a second
+run against. Re-running is `pnpm db:reset` and then this.
+
+The sheets are an **address book, not a description**: they are import material and they do
+not shape the schema. `Formato` is two columns of one name — a Binding on the shelf, a
+reading medium in the books sheet — `Serie / Universo` is taken apart into a Series, a
+universe and a Path, and `Acquistato` is read as what it is, a Wish that ended plus an
+object in the house. If a column ever seems to want a migration, that is the signal to stop
+and say so instead.
+
+[`db/import/README.md`](db/import/README.md) is what the owner reads before exporting: which
+tab goes in which file, which columns each one needs, what the import refuses and what it
+reports rather than absorbing.
+
 ## Tests
 
 **The primary seam is the verbs and the queries, against a real Postgres.** Both doors
