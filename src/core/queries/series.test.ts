@@ -14,7 +14,7 @@ import { findSeries, listMissingVolumes, listSeries, listVolumesOutsideASeries }
 // spreadsheet today are `generate_series` against the shelf, so the assertion below is
 // four numbers nobody entered.
 beforeEach(async () => {
-  await query("truncate table series, volume");
+  await query("truncate table series, volume cascade");
 });
 
 /** Own the numbered Volumes of a Series, as the owner does one purchase at a time. */

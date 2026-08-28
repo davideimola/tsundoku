@@ -15,7 +15,7 @@ import {
 // that **collecting it is a separate act nothing else performs**, and that every way of
 // getting it wrong comes back as prose rather than as a SQLSTATE.
 beforeEach(async () => {
-  await query("truncate table series, volume");
+  await query("truncate table series, volume cascade");
 });
 
 /** The refusal a call produced, or a failure saying it produced none. */
