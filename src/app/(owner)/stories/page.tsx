@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { listStories } from "@/core/queries/story";
+import { requireOwner } from "@/lib/auth/owner";
 import { StoryStateLabel } from "./story-state";
 
 // A thin adapter over one query, like every page here (ADR-0002): no SQL, no pool, no
@@ -9,6 +10,8 @@ import { StoryStateLabel } from "./story-state";
 export const dynamic = "force-dynamic";
 
 export default async function Stories() {
+  await requireOwner();
+
   const stories = await listStories();
 
   return (

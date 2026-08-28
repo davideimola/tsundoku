@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
 import { acquireVolume, releaseVolume } from "@/core/verbs/collection";
+import { requireOwner } from "@/lib/auth/owner";
 
 // The write side of the Collection screen, and a thin adapter like the page beside it
 // (ADR-0002): it reads a form, calls one verb, and says what the verb said. No SQL, no
@@ -28,6 +29,8 @@ function text(form: FormData, field: string): string | null {
 
 /** Record a Volume as the owner's, and say so on the Collection. */
 export async function acquire(form: FormData): Promise<void> {
+  await requireOwner();
+
   let said: URLSearchParams;
 
   try {
@@ -55,6 +58,8 @@ export async function acquire(form: FormData): Promise<void> {
 
 /** Record that a Volume left the house. The Collection stops claiming it. */
 export async function release(form: FormData): Promise<void> {
+  await requireOwner();
+
   let said: URLSearchParams;
 
   try {

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { StoryRating, StoryReading } from "@/core/queries/story";
 import { findStory } from "@/core/queries/story";
+import { requireOwner } from "@/lib/auth/owner";
 import { StoryStateLabel } from "../story-state";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,8 @@ function Judgement({ rating }: { rating: StoryRating }) {
 }
 
 export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireOwner();
+
   const { id } = await params;
   const story = await findStory(id);
   if (!story) notFound();

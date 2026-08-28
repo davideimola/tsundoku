@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { acquire, release } from "@/app/collection/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +9,8 @@ import {
   countCollection,
   searchCollection,
 } from "@/core/queries/collection";
+import { requireOwner } from "@/lib/auth/owner";
+import { acquire, release } from "./actions";
 
 // THE COLLECTION, and the screen this whole slice exists for: *do I already have this?*
 // asked standing in a shop, one-handed, on the shop's signal. So the phone is the target
@@ -41,6 +42,8 @@ function asked(params: Asked, name: string): string | undefined {
 }
 
 export default async function CollectionPage({ searchParams }: { searchParams: Promise<Asked> }) {
+  await requireOwner();
+
   const params = await searchParams;
   const filter = {
     title: asked(params, "title"),
