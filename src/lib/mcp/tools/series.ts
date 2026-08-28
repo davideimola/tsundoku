@@ -49,7 +49,8 @@ are in the house.
 
 Read this to know the shape of a line before saying anything about it — that Naruto is 72 volumes
 is worth having before recommending a start. \`collectingSince\` is the day the owner decided to
-complete the Series, or \`null\` where they never did.
+complete the Series, or \`null\` where they never did, and \`nextMissing\` is the position to buy next
+where there is a collecting project and something absent from it.
 
 **\`missing\` is \`null\` for a Series that is not being collected, and that is not the same as
 nothing being missing.** An empty list means the line is complete in the house; \`null\` means there
