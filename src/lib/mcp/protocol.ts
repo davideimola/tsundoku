@@ -26,7 +26,7 @@ import type { McpTool } from "./tool.ts";
  * The newest MCP revision is deliberately absent — it removes `initialize` altogether,
  * and no client documents it yet (`docs/research/mcp-remote-auth.md`).
  */
-export const SPOKEN_REVISIONS = ["2025-11-25", "2025-06-18", "2025-03-26"] as const;
+const SPOKEN_REVISIONS = ["2025-11-25", "2025-06-18", "2025-03-26"] as const;
 
 const NEWEST = SPOKEN_REVISIONS[0];
 
@@ -61,8 +61,6 @@ const METHOD_NOT_FOUND = -32601;
 const INVALID_PARAMS = -32602;
 const INTERNAL_ERROR = -32603;
 
-type Id = string | number | null;
-
 type Message = {
   jsonrpc?: unknown;
   id?: unknown;
@@ -70,13 +68,21 @@ type Message = {
   params?: unknown;
 };
 
+/** A JSON-RPC correlation id. `null` where a malformed request carried none. */
+type Id = string | number | null;
+
 /**
- * What the route handler should send back: a JSON-RPC message, or nothing at all.
+ * The JSON-RPC message to send back, or `null` when there is nobody to send one to.
  *
- * `null` is the answer to a notification. A notification has no id, so there is nobody to
- * answer, and the transport asks for an empty 202 rather than a body.
+ * `null` is the answer to a notification: it carries no id, so there is nothing to
+ * correlate a reply with, and the transport asks for an empty 202 rather than a body.
  */
-export type Answer = { readonly body: unknown };
+export type Answer = {
+  readonly jsonrpc: "2.0";
+  readonly id: Id;
+  readonly result?: unknown;
+  readonly error?: { readonly code: number; readonly message: string };
+} | null;
 
 /**
  * Answer one MCP message.
@@ -113,7 +119,7 @@ export async function answer(text: string, mounted: () => Promise<McpTool[]>): P
   // A notification: no id, so no answer. `notifications/initialized` is the only one a
   // client sends a tools-only server, and there is nothing for it to do — this server
   // keeps no session to mark as ready.
-  if (id === undefined) return { body: null };
+  if (id === undefined) return null;
 
   try {
     return await answered(id, method, params, mounted);
@@ -229,9 +235,9 @@ function readObject(params: unknown, key: string): Record<string, unknown> {
 }
 
 function result(id: Id, payload: unknown): Answer {
-  return { body: { jsonrpc: "2.0", id, result: payload } };
+  return { jsonrpc: "2.0", id, result: payload };
 }
 
 function failure(id: Id, code: number, message: string): Answer {
-  return { body: { jsonrpc: "2.0", id, error: { code, message } } };
+  return { jsonrpc: "2.0", id, error: { code, message } };
 }

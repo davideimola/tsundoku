@@ -13,16 +13,20 @@ import { createHash, timingSafeEqual } from "node:crypto";
 // reads a request, writes a response or knows what a status code is — that is the route
 // handler's job, and keeping the predicate separate is what makes both directions of the
 // gate a table of cases rather than an argument (`src/app/mcp/route.test.ts`).
+//
+// `bearerGate` is the whole of what this module offers. Everything else below is the
+// reasoning it is made of and is deliberately not exported: a caller that needed to parse
+// a header or read the verdict's reason itself would be a caller deciding something.
 
 /** The variable the token comes from. Documented in `.env.example`, valued nowhere. */
-export const BEARER_VARIABLE = "MCP_BEARER_TOKEN";
+const BEARER_VARIABLE = "MCP_BEARER_TOKEN";
 
 /**
  * Why a request was refused. For the server's own diagnosis only — every one of them
  * comes back to the client as the same 401, because *which* mistake it was is
  * information the client has not earned.
  */
-export type BearerRefusal =
+type BearerRefusal =
   /** No token is configured, so nothing can be right. The deployment forgot a secret. */
   | "not-configured"
   /** No `Authorization: Bearer …` on the request. Ordinarily a client's first probe. */
@@ -30,7 +34,7 @@ export type BearerRefusal =
   /** A token arrived and it is not the owner's. */
   | "wrong";
 
-export type BearerVerdict = { ok: true } | { ok: false; refusal: BearerRefusal };
+type BearerVerdict = { ok: true } | { ok: false; refusal: BearerRefusal };
 
 /**
  * The token out of an `Authorization` header, or `null` if there is not one in it.
@@ -40,7 +44,7 @@ export type BearerVerdict = { ok: true } | { ok: false; refusal: BearerRefusal }
  * different scheme carrying the same secret is not a bearer token, and an empty one is
  * not a token.
  */
-export function bearerFrom(authorization: string | null | undefined): string | null {
+function bearerFrom(authorization: string | null | undefined): string | null {
   const match = /^Bearer +(\S.*)$/i.exec((authorization ?? "").trim());
   return match ? match[1].trim() || null : null;
 }
@@ -48,11 +52,10 @@ export function bearerFrom(authorization: string | null | undefined): string | n
 /**
  * Whether this request may read the library.
  *
- * **Fails closed**, for the reason the owner gate does: a deployment missing the
- * variable refuses every assistant rather than answering the whole collection to whoever
- * finds the URL. There is deliberately no development opt-in beside it — the owner gate
- * has one because there is no Google OAuth client to create yet, whereas a bearer token
- * is a string the owner picks, so there is nothing for an opt-in to stand in for.
+ * **Fails closed**, for the reason the owner gate does: a deployment missing the variable
+ * refuses every assistant rather than answering the whole collection to whoever finds the
+ * URL. There is deliberately no development opt-in beside it; `src/lib/mcp/README.md` says
+ * why.
  */
 export function bearerGate(
   env: NodeJS.ProcessEnv,

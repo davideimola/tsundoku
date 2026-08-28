@@ -118,3 +118,27 @@ describe("the bearer gate at the HTTP edge", () => {
     expect((await GET(post(`Bearer ${TOKEN}`))).status).toBe(405);
   });
 });
+
+// The one thing about the tools that is testable from here, and the one worth testing:
+// **this door never reports an empty tool list.**
+//
+// The list is the `tools/` directory, resolved by the application's bundler
+// (`src/lib/mcp/README.md`), so a vitest file cannot ask what is in it — which is exactly
+// the shape of the failure this pins. Every way discovery can break, in a bundler or in a
+// harness, arrives as zero tools and as nothing else: the door still answers, a client
+// still connects, and the assistant reports that the library has nothing to offer. So an
+// empty list is refused rather than served, and the request fails where somebody will see
+// it.
+describe("the tool list", () => {
+  it("is an error rather than an empty list when discovery cannot answer", async () => {
+    const response = await POST(
+      post(`Bearer ${TOKEN}`, { jsonrpc: "2.0", id: 1, method: "tools/list" })
+    );
+
+    expect(await response.json()).toMatchObject({
+      jsonrpc: "2.0",
+      id: 1,
+      error: { code: -32603 },
+    });
+  });
+});

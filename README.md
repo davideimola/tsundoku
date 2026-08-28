@@ -199,8 +199,8 @@ is the contract — read it before adding a tool, and read `src/core/README.md` 
 adding the query underneath it.
 
 The gate is `MCP_BEARER_TOKEN` and it **fails closed**: unset or blank, every request is
-refused. There is no development opt-in beside it, unlike the owner gate — that one stands
-in for a Google OAuth client that does not exist yet, whereas this is a string you pick.
+refused. Unlike the owner gate there is no development opt-in beside it, because this is a
+string you pick rather than a Google client somebody has to create.
 
 ```sh
 MCP_BEARER_TOKEN=$(openssl rand -hex 32)   # into .env.local, then pnpm dev

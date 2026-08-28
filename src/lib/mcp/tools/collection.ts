@@ -22,7 +22,7 @@ because digital ownership is not modelled.
 The Binding — Tankōbon, Omnibus, Deluxe, Must Have, Hardcover, Paperback — is how it is bound, and
 it is what makes "you already own that in a different edition" sayable. Ask
 \`collection_bindings\` for the ids to filter by. With no arguments this returns the whole
-Collection; \`owned\` is always the total, so a search reads as "3 of 98".`,
+Collection; \`owned\` is the size of the whole Collection either way.`,
   inputSchema: {
     type: "object",
     properties: {
@@ -47,12 +47,13 @@ Collection; \`owned\` is always the total, so a search reads as "3 of 98".`,
     };
 
     // Two questions, asked together because the answer is one sentence: *these ones, out
-    // of that many*. The count is its own statement in the core for the reason it is its
-    // own statement on the page — counting by fetching would read the whole Collection to
-    // print one number.
+    // of that many*. Both come back as the core answered them and neither is counted
+    // here — the count is its own statement in `src/core` for the reason it is its own
+    // statement on the page, and a number this door worked out would be a number the page
+    // would have to work out again.
     const [volumes, owned] = await Promise.all([searchCollection(filter), countCollection()]);
 
-    return { volumes, matched: volumes.length, owned };
+    return { volumes, owned };
   },
 };
 

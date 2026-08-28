@@ -19,6 +19,12 @@ import type { McpTool } from "./tool.ts";
 //   - it does **not** work outside the bundler, which is why the door's own test asks
 //     for `initialize` and never for `tools/list`. That costs nothing: the adapters need
 //     no tests of their own (ADR-0002), and what the tools answer is Seam 1's business.
+//
+// The failure mode of a mechanism like this is the dangerous kind — **an empty tool list
+// is not an error to anybody**: the door still answers, a client still connects, and the
+// assistant simply reports that there is nothing here. So an empty list is refused below
+// rather than served. `tools/` having no files in it is not a state this door has, and a
+// door that offers nothing is a bug however it got that way.
 
 /** A tool area file: `export default [ … ]`. */
 type ToolArea = { default: readonly McpTool[] };
@@ -41,7 +47,17 @@ type Directory = { keys(): string[]; (key: string): ToolArea | Promise<ToolArea>
  * caught here rather than served to an assistant as whichever file loaded last.
  */
 export async function mountedTools(): Promise<McpTool[]> {
-  const tools = (await areas()).flatMap((area) => [...area.default]);
+  const tools = (await areas()).flatMap((area) => [...(area.default ?? [])]);
+
+  // Loud, because the alternative is silent. Every way this can go wrong — a bundler that
+  // stopped resolving the directory, an area that came back as an unawaited promise, a
+  // filter that matches nothing — arrives here as zero tools and as nothing else.
+  if (tools.length === 0) {
+    throw new Error(
+      "No MCP tools were found under `src/lib/mcp/tools/`. That directory is the tool list, " +
+        "so an empty one means discovery is broken rather than that the door offers nothing."
+    );
+  }
 
   const names = new Set<string>();
   for (const tool of tools) {

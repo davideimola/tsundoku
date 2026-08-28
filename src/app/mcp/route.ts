@@ -24,14 +24,14 @@ export async function POST(request: Request): Promise<Response> {
   const refused = refuse(request);
   if (refused) return refused;
 
-  const { body } = await answer(await request.text(), mountedTools);
+  const answered = await answer(await request.text(), mountedTools);
 
   // A notification has no id, so there is nobody to answer: the transport asks for an
   // empty 202 rather than a body, and `notifications/initialized` is the one a client
   // sends here.
-  if (body === null) return new Response(null, { status: 202 });
+  if (answered === null) return new Response(null, { status: 202 });
 
-  return Response.json(body);
+  return Response.json(answered);
 }
 
 /**
@@ -46,16 +46,12 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 /**
- * The bearer gate, in front of the whole endpoint rather than of one method.
+ * The bearer gate, in front of the whole endpoint rather than of one method. What it
+ * decides and why is `@/lib/mcp/bearer`; this is only how the verdict becomes a response.
  *
- * Every refusal is the same 401 with the same body. Which mistake it was — no token, the
- * wrong token, or a deployment that forgot the variable — is written to the log for the
- * owner and never to the response, because it is information the caller has not earned.
- *
- * `WWW-Authenticate` is there so that a client is told how to authenticate rather than
- * left to guess (RFC 6750). It names no `resource_metadata`: that is how a client
- * discovers an authorization server, and there is none — the token is a static string the
- * owner configures (ADR-0004).
+ * Every refusal is the same 401 with the same body. Which mistake it was is written to the
+ * log for the owner and never to the response, because it is information the caller has
+ * not earned.
  *
  * **Rate limiting belongs here**, immediately before this gate, and is #15's: this is the
  * first publicly reachable service on the cluster, and an endpoint that answers a token
