@@ -57,8 +57,17 @@ export default async function Home() {
 
       {/* The screens live behind their own routes. One line each, added by the slice that
           builds one, until there are enough of them to be worth a shell of their own.
-          A Story is reachable with no Volume at all, so it comes first (ADR-0001). */}
+          The Reading list comes first because it is the one screen the owner opens to be
+          answered rather than to record something. */}
       <ul className="mt-8 space-y-2 text-sm">
+        <li>
+          <Link href="/reading-list" className="underline underline-offset-4">
+            Reading list
+          </Link>{" "}
+          <span className="text-muted-foreground">
+            — what to read next, composed rather than kept.
+          </span>
+        </li>
         <li>
           <Link href="/stories" className="underline underline-offset-4">
             Stories
