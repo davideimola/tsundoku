@@ -16,8 +16,15 @@ import { defineConfig } from "vitest/config";
 //
 // **Seam 2**, deliberately thin: the two gates at the HTTP edge. It is protocol
 // behaviour rather than the model — the owner gate in both directions, and `/mcp`
-// against its bearer — so it reaches no database and shares nothing with Seam 1 but
-// this config.
+// against its bearer and the rate limit in front of it — so it reaches no database and
+// shares nothing with Seam 1 but this config.
+//
+// Both gates are a **pure predicate** with a thin adapter over it, and the predicate is
+// tested beside itself rather than only through the adapter: `src/lib/auth/gate.test.ts`
+// and `src/lib/mcp/rate-limit.test.ts` are that, and they are Seam 2's arithmetic rather
+// than a third seam. The rule that keeps it from becoming one is that they test a
+// function the gate would still have if HTTP were replaced — environment or a moment in,
+// verdict out — and never a private helper of the route.
 export default defineConfig({
   resolve: {
     alias: {

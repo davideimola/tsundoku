@@ -404,11 +404,17 @@ together and the adapters need no tests of their own.
 **The second seam is the two gates at the HTTP edge**, and it is deliberately thin
 because it is protocol behaviour rather than the model: the owner gate in both
 directions ([`src/proxy.test.ts`](src/proxy.test.ts)), and `/mcp` refusing an absent or
-wrong bearer and accepting the right one
-([`src/app/mcp/route.test.ts`](src/app/mcp/route.test.ts)). It reaches no database, and it needs no
+wrong bearer, accepting the right one, and running out of requests before it looks at
+either ([`src/app/mcp/route.test.ts`](src/app/mcp/route.test.ts)). It reaches no database, and it needs no
 Google OAuth client: a Google client is only how an address gets into a session token,
-so the test mints its own with the same `encode` Auth.js signs with. Nothing else is a
-seam here.
+so the test mints its own with the same `encode` Auth.js signs with.
+
+Both gates are a pure predicate with a thin adapter over it, and the predicate is tested
+beside itself as well as through the adapter —
+[`src/lib/auth/gate.test.ts`](src/lib/auth/gate.test.ts) and
+[`src/lib/mcp/rate-limit.test.ts`](src/lib/mcp/rate-limit.test.ts). That is Seam 2's
+arithmetic rather than a third seam: what it tests is a function the gate would still
+have if HTTP were replaced. Nothing else is a seam here.
 
 ```sh
 pnpm test

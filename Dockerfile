@@ -73,8 +73,9 @@ COPY --from=build --chown=node:node /build/db ./db
 # first request rather than at start.
 RUN mkdir -p .next/cache && chown -R node:node .next
 
-# Decision 2. Numeric as well as named, because `runAsNonRoot` in Kubernetes reads the
-# image's user as a number and refuses to schedule a name it cannot resolve.
+# Decision 2. `node` is uid 1000 in this base image, which matters: Kubernetes'
+# `runAsNonRoot` cannot tell whether a *name* is root, so the deployment states the number
+# as well (`runAsUser: 1000`) and the two have to agree.
 USER node
 
 EXPOSE 3000

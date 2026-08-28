@@ -3,7 +3,9 @@ import { ensureContainer, psqlArgs, removeContainer } from "./container.ts";
 import { requireDatabaseUrl } from "./env.ts";
 import { applyMigrations, dropDatabase, ensureDatabase } from "./migrate.ts";
 
-// The local loop, as four commands. See the README.
+// The local loop, as four commands, and one more that is not part of it: `migrate` is
+// what the deployment's init container runs, and it is the only one here that does not
+// reach for Docker. See the README.
 
 const USAGE = `usage: node db/cli.ts <up|reset|down|psql|migrate>
 

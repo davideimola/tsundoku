@@ -169,50 +169,49 @@ describe("the tool list", () => {
 // it that is testable from out here: **it stands in front of the gate and not behind it.**
 //
 // What the limiter counts is arithmetic and is a table of cases beside it
-// (`src/lib/mcp/rate-limit.test.ts`). What matters at this seam is the order: a caller
-// with no token at all must run out of requests, because that is the caller the limit
-// exists for. A limiter placed after the gate would refuse them 401 for ever, cheerfully,
-// as fast as they could ask.
+// (`src/lib/mcp/rate-limit.test.ts`). What matters at this seam is the order: a caller with
+// no token at all must run out of requests, because that is the caller the limit exists for.
+// A limiter placed after the gate would refuse them 401 for ever, cheerfully, as fast as
+// they could ask.
+//
+// **One flood, and everything asserted off it.** The limiter the route uses is a module
+// singleton — it is the door's limiter and not a caller's — so its ceiling over the whole
+// door (`WHOLE_DOOR`, three hundred a minute) is shared by every request this file makes.
+// Four separate floods would spend two thirds of it and leave the file failing for a reason
+// no case is about, the next time somebody adds one. So this arranges once and then asks
+// the four questions, and the whole file stays comfortably inside the ceiling.
 describe("the rate limit in front of the gate", () => {
-  /** One address, asking far more than its allowance, and never with a token. */
-  async function flood(client: string, requests: number): Promise<number[]> {
+  const FLOODER = "203.0.113.11";
+
+  /** The flooder's whole allowance, spent without ever presenting a token. */
+  async function flood(): Promise<number[]> {
     const statuses: number[] = [];
-    for (let n = 0; n < requests; n += 1) {
-      statuses.push((await POST(post(undefined, undefined, client))).status);
+    for (let n = 0; n < PER_CLIENT; n += 1) {
+      statuses.push((await POST(post(undefined, undefined, FLOODER))).status);
     }
     return statuses;
   }
 
   it("runs out of requests for a caller who never presents a token", async () => {
-    const statuses = await flood("203.0.113.11", PER_CLIENT + 5);
+    const spent = await flood();
+    expect(spent).toEqual(Array(PER_CLIENT).fill(401));
 
-    expect(statuses.slice(0, PER_CLIENT)).toEqual(Array(PER_CLIENT).fill(401));
-    expect(statuses.slice(PER_CLIENT)).toEqual(Array(5).fill(429));
-  });
+    const refused = await POST(post(undefined, undefined, FLOODER));
 
-  it("tells the caller how long to wait", async () => {
-    await flood("203.0.113.12", PER_CLIENT);
-    const response = await POST(post(undefined, undefined, "203.0.113.12"));
+    expect(refused.status).toBe(429);
+    // Told how long to wait, because a 429 without it leaves a well-behaved client guessing
+    // and a badly-behaved one retrying at once.
+    expect(Number(refused.headers.get("retry-after"))).toBeGreaterThan(0);
+    // And nothing about the gate leaks out of a 429: the request is refused before the
+    // token is ever looked at, so there is no `www-authenticate` to answer with.
+    expect(refused.headers.get("www-authenticate")).toBeNull();
 
-    expect(response.status).toBe(429);
-    expect(Number(response.headers.get("retry-after"))).toBeGreaterThan(0);
-    // And nothing about the gate leaks out of a 429: it is refused before the token is
-    // ever looked at, so there is no `www-authenticate` to answer with.
-    expect(response.headers.get("www-authenticate")).toBeNull();
-  });
+    // The owner's own assistant is subject to the same limit. Asserted because the
+    // alternative — exempting a correct token — would put the SHA-256 back in front of the
+    // limiter and undo the whole point of the order.
+    expect((await POST(post(`Bearer ${TOKEN}`, undefined, FLOODER))).status).toBe(429);
 
-  // The owner's own assistant is subject to the same limit. Stated as a case because the
-  // alternative — exempting a correct token — would put the SHA-256 back in front of the
-  // limiter and undo the whole point of the order.
-  it("counts the owner's own requests too", async () => {
-    await flood("203.0.113.13", PER_CLIENT);
-
-    expect((await POST(post(`Bearer ${TOKEN}`, undefined, "203.0.113.13"))).status).toBe(429);
-  });
-
-  it("does not charge one caller's flood to another", async () => {
-    await flood("203.0.113.14", PER_CLIENT + 20);
-
-    expect((await POST(post(`Bearer ${TOKEN}`, undefined, "203.0.113.15"))).status).toBe(200);
+    // And none of it is charged to anybody else.
+    expect((await POST(post(`Bearer ${TOKEN}`, undefined, "203.0.113.12"))).status).toBe(200);
   });
 });

@@ -15,15 +15,26 @@
 // ## Two windows, and why the second one exists
 //
 // **Per client**, so one caller cannot occupy the door; and **over the whole door**, so a
-// caller who rotates addresses cannot either. The second is the one that actually bounds a
-// brute force of the token: thirty guesses each from a thousand addresses is thirty
-// thousand guesses, and only a ceiling over the total refuses that. It is affordable here
-// because the legitimate traffic on this endpoint is one assistant answering one person's
-// questions — a number closer to thirty a day than three hundred a minute.
+// caller who rotates addresses cannot either.
 //
-// A request already refused by its own allowance is **not** charged to the door. Otherwise
-// a single address could spend the whole ceiling and lock the owner's own assistant out,
-// which is the flood succeeding by another route.
+// The second one is there because **the first one's key is only as honest as the proxy in
+// front of it**. `clientOf` below reads a header, and a header is written by whoever is
+// calling; if the proxy ever stopped overwriting it, every request could arrive with a fresh
+// address and its own fresh allowance. The ceiling over the whole door is what is left when
+// that happens, so it is deliberately not a large number: the legitimate traffic here is one
+// assistant answering one person's questions, closer to thirty a day than three hundred a
+// minute.
+//
+// A request already refused by its own allowance is **not** charged to the door, so an
+// address hammering the endpoint spends thirty of the ceiling and not three hundred.
+// **The remaining trade is real and worth naming**: a flood spread across enough addresses
+// can still fill the ceiling, and while it does, the owner's own assistant is refused too.
+// That is accepted. It clears in a minute, and the alternative to refusing the owner for a
+// minute is not refusing the flood.
+//
+// What none of this is, is a defence of the token. A 256-bit bearer is not brute-forced at
+// three hundred guesses a minute or at three hundred million; the limit is here so that
+// trying costs this endpoint nothing, not so that trying fails.
 //
 // ## The state is in this process, and that is an assumption
 //
@@ -41,10 +52,13 @@
 /** How long a window lasts. Fixed rather than sliding — see the tests. */
 export const WINDOW_IN_SECONDS = 60;
 
+/** The same length in the unit `now` is in. Named because it was open-coded three times. */
+export const WINDOW_IN_MILLISECONDS = WINDOW_IN_SECONDS * 1000;
+
 /** What one caller may ask for in a window. Generous for an assistant, useless for a search. */
 export const PER_CLIENT = 30;
 
-/** What everybody together may ask for in a window. The bound on a distributed brute force. */
+/** What everybody together may ask for in a window. What is left if the client key is not honest. */
 export const WHOLE_DOOR = 300;
 
 /** The key a request with no proxy in front of it counts against. */
@@ -68,19 +82,27 @@ type Window = { startedAt: number; count: number };
 /**
  * Who is calling, as far as this door can tell.
  *
- * The leftmost entry of `X-Forwarded-For` — the address Traefik saw the connection come
- * from, before it appended its own hops. Trusting that header is only sound because
- * Traefik is the **only** path to this endpoint (ADR-0004); reached any other way the
- * value is whatever the caller typed, which is why the ceiling over the whole door exists
- * and does not depend on this being true.
+ * **`X-Real-Ip` first**, because it is the one the proxy writes rather than forwards: a
+ * single address, replaced on every request, with no list for a caller to prepend to.
+ * `X-Forwarded-For` is the fallback and its leftmost entry is the client — but only if
+ * whatever set it overwrote what the caller sent, and a caller is free to send one.
  *
- * With no header at all every caller shares one key. That is deliberately strict rather
- * than deliberately lax: unproxied traffic here is the local loop or something
- * unaccounted for, and neither deserves its own allowance.
+ * Traefik does overwrite both: with `forwardedHeaders.trustedIPs` empty and `insecure`
+ * false, which is what `infrastructure/traefik/release.yaml` in the cluster repo sets and
+ * says it is setting for this reason, an untrusted peer's `X-Forwarded-*` are dropped
+ * before Traefik writes its own. **The limiter does not rely on that being true**, which is
+ * the whole point of the ceiling over the whole door: if this key is ever forgeable, the
+ * ceiling is what still refuses the flood.
+ *
+ * With neither header every caller shares one key. That is deliberately strict rather than
+ * deliberately lax: unproxied traffic here is the local loop or something unaccounted for,
+ * and neither deserves its own allowance.
  */
 export function clientOf(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for");
-  const leftmost = forwarded?.split(",")[0]?.trim();
+  const real = headers.get("x-real-ip")?.trim();
+  if (real) return real;
+
+  const leftmost = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   return leftmost || DIRECT;
 }
 
@@ -119,13 +141,13 @@ function windowFor(clients: Map<string, Window>, client: string): Window {
  * first if the old one has expired.
  */
 function charge(window: Window, allowance: number, now: number): RateVerdict {
-  if (now - window.startedAt >= WINDOW_IN_SECONDS * 1000) {
+  if (now - window.startedAt >= WINDOW_IN_MILLISECONDS) {
     window.startedAt = now;
     window.count = 0;
   }
 
   if (window.count >= allowance) {
-    const remaining = window.startedAt + WINDOW_IN_SECONDS * 1000 - now;
+    const remaining = window.startedAt + WINDOW_IN_MILLISECONDS - now;
     // Never zero. A client told to retry in no time at all retries immediately, is
     // refused again, and the wait it was given became a busy loop.
     return { ok: false, retryAfterInSeconds: Math.max(1, Math.ceil(remaining / 1000)) };
@@ -149,7 +171,7 @@ function sweep(clients: Map<string, Window>, now: number): void {
   if (clients.size <= CLIENTS_REMEMBERED) return;
 
   for (const [client, window] of clients) {
-    if (now - window.startedAt >= WINDOW_IN_SECONDS * 1000) clients.delete(client);
+    if (now - window.startedAt >= WINDOW_IN_MILLISECONDS) clients.delete(client);
   }
 
   if (clients.size > CLIENTS_REMEMBERED) clients.clear();

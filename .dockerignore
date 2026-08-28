@@ -24,6 +24,12 @@ next-env.d.ts
 # Worktrees. Each one is a whole second checkout, and one of them is this build's own.
 .claude
 
+# Tests, and the committed tabs the import is rehearsed against. Neither is read by
+# anything in a container, and the fixtures are shaped like the owner's own sheets.
+**/*.test.ts
+db/import/fixtures/
+src/test/
+
 # Nothing the running app reads.
 .git
 .github
