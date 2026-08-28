@@ -71,6 +71,14 @@ export default async function Home() {
           </Link>{" "}
           <span className="text-muted-foreground">— the Volumes in the house.</span>
         </li>
+        <li>
+          <Link href="/paths" className="underline underline-offset-4">
+            Paths
+          </Link>{" "}
+          <span className="text-muted-foreground">
+            — the routes I chose, and what comes next on each.
+          </span>
+        </li>
       </ul>
 
       <p className="mt-6 text-pretty text-xs leading-relaxed text-muted-foreground">
