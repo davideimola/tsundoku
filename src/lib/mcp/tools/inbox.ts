@@ -168,7 +168,10 @@ page is the kind of guess that becomes a permanent wrong number.`,
         name: stringArgument(input, "name") ?? "",
         publisher: stringArgument(input, "publisher"),
         editionLine: stringArgument(input, "edition_line"),
-        publishedCount: numberArgument(input, "published_count"),
+        // A number if it is one, and otherwise whatever was actually sent: an unreadable
+        // count is a thing the owner should see rather than a detail that vanished.
+        publishedCount:
+          numberArgument(input, "published_count") ?? stringArgument(input, "published_count"),
         status: stringArgument(input, "status"),
       }),
     };

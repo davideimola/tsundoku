@@ -234,7 +234,14 @@ claude mcp add --transport http tsundoku http://localhost:3000/mcp \
 ```
 
 Then `/mcp` in Claude Code lists the tools, and *"what have I read?"* calls
-`stories_read`. A **Claude custom connector** on claude.ai takes the deployed
+`stories_read`. The two sentences that exercise the write boundary are:
+
+> *"I finished volume 23 of Slam Dunk, I'd give it an 8"* — a Reading and a Rating,
+> recorded directly.
+>
+> *"I bought Ultimate Spider-Man Omnibus 1"* — an object the library has not
+> catalogued, so it lands in `/inbox` and waits. The assistant should say it is
+> waiting, not that it has added it. A **Claude custom connector** on claude.ai takes the deployed
 `https://<domain>/mcp` and the same header in its *Request headers* section; the Claude
 API's MCP connector takes the token as `authorization_token`. ChatGPT's in-app connector
 is the one surface where a static bearer is unconfirmed, and ADR-0004 defers it

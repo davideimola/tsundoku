@@ -55,8 +55,8 @@ const ENTRY = `
 /**
  * What is waiting for a decision, **oldest first**.
  *
- * An Inbox is worked through rather than browsed, so the queue reads in the order things
- * arrived: the oldest proposal is the one that has been waiting, and putting the newest at
+ * An Inbox is worked through rather than browsed, so it reads in the order things arrived:
+ * the oldest proposal is the one that has been waiting longest, and putting the newest at
  * the top would leave it there forever.
  */
 export async function listWaitingInboxEntries(): Promise<InboxEntry[]> {
@@ -83,9 +83,9 @@ export async function listDecidedInboxEntries(): Promise<InboxEntry[]> {
 /**
  * How many proposals are waiting.
  *
- * Its own statement rather than the length of the list above, for the reason the
- * Collection's count is: the number is read where the list is not — a line on the home
- * page saying there is something to look at.
+ * Its own statement rather than the length of the list above, because it is read where the
+ * list is not: the home page says how many there are so that the Inbox is not a screen the
+ * owner has to remember to open. A boundary nobody looks at is a boundary that fills up.
  */
 export async function countWaitingInboxEntries(): Promise<number> {
   const [counted] = await query<{ waiting: number }>(

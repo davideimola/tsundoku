@@ -10,6 +10,7 @@ import {
   listWaitingInboxEntries,
 } from "@/core/queries/inbox";
 import { listTypes, type Type } from "@/core/queries/type";
+import type { ProposalField } from "@/core/verbs/inbox";
 import { requireOwner } from "@/lib/auth/owner";
 import { approve, reject } from "./actions";
 
@@ -72,7 +73,7 @@ function asked(params: Asked, name: string): string | undefined {
 }
 
 /** A detail the assistant supplied, as text for a field, or empty. */
-function said(entry: InboxEntry, key: string): string {
+function said(entry: InboxEntry, key: ProposalField): string {
   const value = entry.details[key];
   return value === null || value === undefined ? "" : String(value);
 }
@@ -328,7 +329,7 @@ function Field({
   ...props
 }: {
   entry: InboxEntry;
-  name: string;
+  name: ProposalField;
   label: string;
   className?: string;
 } & React.ComponentProps<typeof Input>) {
@@ -367,7 +368,7 @@ function Picker({
   options,
 }: {
   entry: InboxEntry;
-  name: string;
+  name: ProposalField;
   label: string;
   required?: boolean;
   options: { value: string; name: string }[];

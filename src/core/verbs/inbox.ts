@@ -76,17 +76,48 @@ export type ProposedSeries = Reported & {
   name: string;
   publisher?: string | null;
   editionLine?: string | null;
+  /**
+   * How many Volumes are out. A string where the assistant sent something that is not a
+   * number: `details` is raw on purpose, and keeping *twenty* is how the owner gets to see
+   * what was said and fix it, where dropping it would silently lose the only claim made.
+   */
   publishedCount?: number | string | null;
   status?: string | null;
 };
 
 /**
+ * Every field a proposal can carry, across the three entities.
+ *
+ * Named here rather than in the screen that renders them, because they are the creating
+ * verbs' arguments and not the form's: a door that kept its own list would be a door
+ * deciding what the core takes. The screen offers the ones the entity being proposed has,
+ * and reads this to know what an approval is allowed to correct.
+ */
+export const PROPOSAL_FIELDS = [
+  "title",
+  "typeId",
+  "name",
+  "publisher",
+  "editionLine",
+  "binding",
+  "language",
+  "isbn",
+  "publishedCount",
+  "status",
+] as const;
+
+/** One of them. */
+export type ProposalField = (typeof PROPOSAL_FIELDS)[number];
+
+/**
  * What the owner confirmed at the moment of approving, over what was proposed.
  *
- * Keys are the creating verb's field names, which are the keys `details` already holds, so
- * the form is filled from the proposal and comes back as a correction of it.
+ * Keys are the fields above, which are the keys `details` already holds — so the form is
+ * filled from the proposal and comes back as a correction of it. **`null` is a correction**:
+ * an edition line the object does not have is taken back by emptying it, not by leaving it
+ * alone, and a field absent here is one the owner was not asked about.
  */
-export type InboxCorrections = Record<string, string | number | null | undefined>;
+export type InboxCorrections = Partial<Record<ProposalField, string | number | null>>;
 
 /** An entry as the approval reads it, under the row lock. */
 type WaitingEntry = Pick<InboxEntry, "proposes"> & {

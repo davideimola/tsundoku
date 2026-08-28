@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
-import { approveInboxEntry, type InboxCorrections, rejectInboxEntry } from "@/core/verbs/inbox";
+import {
+  approveInboxEntry,
+  type InboxCorrections,
+  PROPOSAL_FIELDS,
+  rejectInboxEntry,
+} from "@/core/verbs/inbox";
 import { requireOwner } from "@/lib/auth/owner";
 
 // The two acts on an Inbox entry, and a thin adapter like every other `actions.ts` here
@@ -17,26 +22,6 @@ import { requireOwner } from "@/lib/auth/owner";
 //
 // The answer travels back in the URL, like the Collection's and the shopping list's: a
 // plain form and a redirect work with no JavaScript running at all.
-
-/**
- * The fields an approval can carry, which are the fields the three creating verbs take.
- *
- * A fixed list rather than everything the form posted: the form also carries the entry's
- * id, and passing the whole of a `FormData` into a verb would be a door deciding what the
- * core's arguments are.
- */
-const FIELDS = [
-  "title",
-  "typeId",
-  "name",
-  "publisher",
-  "editionLine",
-  "binding",
-  "language",
-  "isbn",
-  "publishedCount",
-  "status",
-] as const;
 
 /** What a form's field held, or nothing where the owner left it empty. */
 function text(form: FormData, field: string): string | null {
@@ -59,13 +44,17 @@ export async function approve(form: FormData): Promise<void> {
 
   let said: URLSearchParams;
 
+  // What an approval may correct is the creating verbs' business, so the list of fields
+  // comes from the core: reading the whole of a `FormData` into a verb would be this door
+  // deciding what the core takes.
+  //
   // **A field the form posted counts even when it is empty**, because empty is a
   // correction: an assistant guessed an edition line the object does not have, and the
   // owner clearing that box means *there is no edition line* rather than *keep the guess*.
   // A field the form did not post at all is one this kind of entity does not have, and it
   // is left to the proposal.
   const corrections: InboxCorrections = {};
-  for (const field of FIELDS) {
+  for (const field of PROPOSAL_FIELDS) {
     if (!form.has(field)) continue;
     corrections[field] = text(form, field);
   }

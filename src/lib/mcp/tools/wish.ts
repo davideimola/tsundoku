@@ -6,7 +6,7 @@ import { type McpTool, numberArgument, stringArgument } from "../tool.ts";
 //
 // Opening a Wish names a Volume that already exists, so this door calls the verb directly
 // (ADR-0005) — and the verb is the boundary working on its own: it refuses a Volume nobody
-// catalogued rather than creating one, so an assistant cannot want a book into the library.
+// catalogued rather than creating one, so an assistant cannot want an object into existence.
 // A title nobody recorded is `inbox_propose_volume`, then a Wish once the owner approves.
 //
 // Two tools, and there is no third: a Wish is opened deliberately and closed deliberately.

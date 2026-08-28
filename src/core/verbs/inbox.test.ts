@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
 import { searchCollection } from "../queries/collection.ts";
-import { listDecidedInboxEntries, listWaitingInboxEntries } from "../queries/inbox.ts";
+import {
+  countWaitingInboxEntries,
+  listDecidedInboxEntries,
+  listWaitingInboxEntries,
+} from "../queries/inbox.ts";
 import { listSeries } from "../queries/series.ts";
 import { listStories } from "../queries/story.ts";
 import { isRefusal } from "../refusal.ts";
@@ -335,7 +339,7 @@ describe("rejecting an entry", () => {
   });
 });
 
-describe("the queue the owner reads", () => {
+describe("what the owner reads", () => {
   it("is oldest first, because an Inbox is worked through rather than browsed", async () => {
     const first = await proposeStory({ reported: "first", title: "First", typeId: "manga" });
     const second = await proposeStory({ reported: "second", title: "Second", typeId: "manga" });
@@ -344,6 +348,15 @@ describe("the queue the owner reads", () => {
       first.id,
       second.id,
     ]);
+  });
+
+  it("counts what is waiting, so the home page can say there is something to look at", async () => {
+    const first = await proposeStory({ reported: "first", title: "First", typeId: "manga" });
+    await proposeStory({ reported: "second", title: "Second", typeId: "manga" });
+    expect(await countWaitingInboxEntries()).toBe(2);
+
+    await rejectInboxEntry(first.id);
+    expect(await countWaitingInboxEntries()).toBe(1);
   });
 
   it("shows what was decided most recently first, so the last act is visible", async () => {

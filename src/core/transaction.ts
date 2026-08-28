@@ -19,7 +19,11 @@ import { pool, type query } from "./db.ts";
 // refusal prose in one place: an approval that wrote its own inserts would be a second
 // copy of `insert into story`, with a second set of constraint names to keep true.
 //
-// This is not a general-purpose unit of work and should not become one. Nothing above
+// It sits beside `db.ts` rather than being one of the areas `README.md` asks for, because
+// what it knows is the pool and not the model: there is no question about Stories or
+// Volumes in this file, and putting it in `verbs/inbox.ts` would offer it to nobody else.
+//
+// It is not a general-purpose unit of work and should not become one. Nothing above
 // `src/core` may call it — a door that opened a transaction would be holding domain logic
 // (ADR-0002) — and a verb that is one statement has no business here.
 
