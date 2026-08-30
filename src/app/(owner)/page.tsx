@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Mark } from "@/components/mark";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { countWaitingInboxEntries } from "@/core/queries/inbox";
 import { listTypes } from "@/core/queries/type";
@@ -12,9 +13,10 @@ import { requireOwner } from "@/lib/auth/owner";
 // anything, which is the shape every page in this app has: the proxy turns a refusal
 // into a sign-in screen, and this call is what refuses.
 //
-// Deliberately plain, and it stays that way until the thing works: what is on screen
-// is the value that came out of Postgres and the words needed to read it. Visual work
-// is a later ticket's.
+// Deliberately plain: what is on screen is the value that came out of Postgres and the
+// words needed to read it. It is plain in paper and ink now rather than in whatever
+// shadcn shipped with — the tokens in `src/app/globals.css` are the whole difference,
+// and this page names no colour of its own. What it is *not* yet is a dashboard.
 //
 // Rendered per request. There is nothing to prerender — the page's whole point is that
 // the value came out of the database a moment ago — and a build that reached for the
@@ -27,7 +29,10 @@ export default async function Home() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-16">
-      <h1 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+      {/* The pile the application is named after, drawn at the size it was designed to
+          survive — the same one the tab carries. */}
+      <h1 className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+        <Mark className="size-5 shrink-0 text-foreground" />
         tsundoku
       </h1>
 

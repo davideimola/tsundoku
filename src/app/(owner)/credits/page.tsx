@@ -6,7 +6,7 @@ import { requireOwner } from "@/lib/auth/owner";
 // exists for: *what have I actually read by Jeph Loeb, before I commit to the omnibus?*
 //
 // A thin adapter over one query, like every page here (ADR-0002). Deliberately plain, in
-// the same monochrome shadcn tokens the rest of the app uses, with one structural idea of
+// the same paper and ink the rest of the app is set in, with one structural idea of
 // its own: **a person is a name, the roles they hold, and how much of them was read** —
 // so the row is a colophon line, and the fraction on the right is the only number,
 // because it is the only one that answers anything.

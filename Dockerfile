@@ -8,6 +8,12 @@
 #      nothing should. A build that needed a database would need one in CI, in a registry
 #      job and on a laptop, and the first thing anybody would reach for is a copy of the
 #      owner's own.
+#
+#      It does need **the network**, and only for the faces: `next/font/google` fetches the
+#      three families in `src/app/layout.tsx` and self-hosts them, so the owner's browser
+#      asks Google for nothing at run time. `next build` fails outright when it cannot reach
+#      them — deliberately, because an image that silently shipped fallback type would look
+#      wrong everywhere and say so nowhere.
 #   2. **It must not run as root.** The image ships with `USER node`, and
 #      `apps/tsundoku/deployment.yaml` in the cluster repo says so again as a
 #      `securityContext`. Twice on purpose: the image is what makes it true anywhere it is

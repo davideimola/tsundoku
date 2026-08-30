@@ -226,6 +226,9 @@ export default async function VolumePage({
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Set in the serif, in the box it is typed in as much as anywhere it is read
+              back: what the owner thinks of an object is theirs, and the box that says so
+              while they are writing is the box that will say so afterwards. */}
           <form action={writeNote} className="grid gap-3">
             <input type="hidden" name="volumeId" value={volume.id} />
             <Label htmlFor="edition-note" className="sr-only">
@@ -237,7 +240,7 @@ export default async function VolumePage({
               rows={4}
               defaultValue={note?.note ?? ""}
               placeholder="Thin paper, good translation, and cheap enough to try the saga on."
-              className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-base leading-relaxed outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+              className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 font-serif text-base leading-relaxed outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
             />
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <Button type="submit" className="h-11 sm:h-10 sm:px-6">

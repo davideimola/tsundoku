@@ -100,7 +100,9 @@ export default async function PathPage({
       <details className="group mt-6">
         <summary className="cursor-pointer list-none marker:hidden">
           {path.intent ? (
-            <span className="max-w-prose text-pretty italic">{path.intent}</span>
+            <span className="max-w-prose text-pretty font-serif text-prose italic">
+              {path.intent}
+            </span>
           ) : (
             <span className="text-sm text-muted-foreground underline underline-offset-4">
               Say what this route is for
@@ -139,7 +141,7 @@ export default async function PathPage({
               rows={3}
               defaultValue={path.intent ?? ""}
               placeholder="privilegiare titoli davvero coerenti con samurai e cultura giapponese"
-              className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+              className="w-full rounded-lg border border-input bg-transparent px-3 py-2 font-serif text-base leading-relaxed outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
             />
           </label>
           <div>

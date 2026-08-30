@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!--
+    THE MARK, AS A TAB PUTS IT.
+
+    The same pile `src/components/mark.tsx` draws, and `src/components/mark.test.ts` is what
+    keeps the two from drifting: it reads this file, parses these rectangles and compares
+    them to the geometry the chrome renders. Edit one and the other fails.
+
+    Two things this file has that the component does not, both for the same reason — a tab
+    is outside this application's cascade:
+
+      1. It states ink itself. `currentColor` here would resolve to whatever the browser
+         chrome happens to be, which on some of them is nothing at all.
+      2. It states both grounds. These two greys are `--ink` from `src/app/globals.css`,
+         light and dark, converted to sRGB because a favicon is the one surface where the
+         tokens cannot be reached.
+
+    Transparent behind, so the mark sits on the tab's own ground rather than on a card of
+    its own.
+  -->
+  <style>
+    rect { fill: #1b1b1b; }
+    @media (prefers-color-scheme: dark) {
+      rect { fill: #e8e8e8; }
+    }
+  </style>
+  <rect x="4.4" y="3.9" width="14.6" height="3.8" rx="0.6" transform="rotate(-4.5 11.7 5.8)"/>
+  <rect x="2.5" y="10.3" width="19" height="3.8" rx="0.6" transform="rotate(2 12 12.2)"/>
+  <rect x="3.9" y="16.7" width="16.2" height="3.8" rx="0.6" transform="rotate(-1.5 12 18.6)"/>
+</svg>

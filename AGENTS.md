@@ -41,3 +41,14 @@ list, so the route handler is never edited and there is no barrel to conflict in
 route group is the owner gate; a page outside it is a page served to anyone with the
 URL. `src/app/gated.test.ts` fails when either half stops being true. See the README's
 owner gate section.
+
+### Where a colour and a face go
+
+**`src/app/globals.css`, and nowhere else.** Paper, ink, two rules and **one hue**,
+declared on both grounds, with every shadcn token an alias over them — and three faces
+wired to three roles, the serif reserved for the owner's own prose. A screen names no
+colour and picks no family: it spends the tokens. `src/app/palette.test.ts` is the wall,
+and it fails when a screen names a colour of its own or when a ground stops being legible.
+
+The mark is `src/components/mark.tsx`, drawn from one geometry that `src/app/icon.svg`
+draws again as the favicon; `src/components/mark.test.ts` is what stops the two drifting.

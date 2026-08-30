@@ -3,8 +3,9 @@ import type { StoryState } from "@/core/queries/story";
 // How each of the four derived states is printed. One map rather than two, so that a
 // change to the derivation is one edit here and not a hunt through parallel tables.
 //
-// Weight rather than colour carries the distinction: the whole page is monochrome
-// (shadcn's neutral tokens, unchanged), and what the owner scans for is which of these
+// Weight rather than colour carries the distinction, and after the palette landed that is
+// not a restraint but the only option: the chrome has no hue to spend. What the owner scans
+// for is which of these
 // is *open* — reading — against everything settled.
 const SHOWN: Record<StoryState, { word: string; emphasis: string }> = {
   "to-read": { word: "to read", emphasis: "text-muted-foreground" },

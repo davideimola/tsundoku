@@ -1,3 +1,4 @@
+import { Mark } from "@/components/mark";
 import { Button } from "@/components/ui/button";
 import { signInWithGoogle } from "@/lib/auth/actions";
 
@@ -7,10 +8,11 @@ import { signInWithGoogle } from "@/lib/auth/actions";
 //
 // It carries no chrome either: navigation would name screens a visitor may not open.
 //
-// Visually it is the home page's own voice and nothing new: the same mono eyebrow, the
-// same hairline rule, shadcn's neutrals. Design work beyond what shadcn supplies is
-// out of this spec's scope, so the decision here is restraint executed precisely —
-// centred on the phone, centred on the desktop, one full-width touch target.
+// Visually it is the home page's own voice and nothing new: the same mark, the same mono
+// eyebrow, the same hairline rule, the same paper and ink. The decision here is restraint
+// executed precisely — centred on the phone, centred on the desktop, one full-width touch
+// target — and the one thing it does say is the mark, because a stranger should be able to
+// tell that they have arrived somewhere rather than at a login form.
 
 export default async function SignInPage({
   searchParams,
@@ -25,7 +27,10 @@ export default async function SignInPage({
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-5 py-10 sm:px-8">
       <div>
-        <h1 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+        {/* The mark, at the size it was drawn to survive. It is the pile the application
+            is named after, and this is the one screen a stranger ever sees. */}
+        <h1 className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+          <Mark className="size-5 shrink-0 text-foreground" />
           tsundoku
         </h1>
         <p className="mt-4 border-t border-border pt-4 text-pretty text-sm leading-relaxed">

@@ -22,8 +22,9 @@ export const dynamic = "force-dynamic";
 // visibly a second Reading with a second opinion beside the first, which is precisely
 // what the spreadsheet could not hold — one cell for `Voto`, overwritten.
 //
-// Monochrome shadcn tokens, one card, one rule between Readings. Nothing here is
-// invented, and there is only one column, so the phone gets the same page as the desk.
+// Paper and ink, one card, one rule between Readings, and only one column — so the phone
+// gets the same page as the desk. The one thing set apart is **what the owner wrote**: a
+// Rating's prose is the serif, because their judgement is not the application talking.
 
 /** The medium and the outcome, in the words the owner uses. */
 function howItWent(reading: StoryReading): string {
@@ -92,7 +93,11 @@ function Judgement({ rating }: { rating: StoryRating }) {
         {rating.score.toFixed(1)}
         <span className="text-muted-foreground"> / 10</span>
       </p>
-      {rating.prose ? <p className="mt-1 text-pretty text-sm">{rating.prose}</p> : null}
+      {/* The serif, which on this surface means one thing and only one thing: these are the
+          owner's own words, and the application's are not. */}
+      {rating.prose ? (
+        <p className="mt-1 text-pretty font-serif text-prose">{rating.prose}</p>
+      ) : null}
       <p className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
         {rating.provenance.name}
       </p>

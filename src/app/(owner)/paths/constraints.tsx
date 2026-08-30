@@ -43,8 +43,9 @@ export function DeclaredConstraints({
           {constraints.map((constraint) => (
             <li key={constraint.id} className="flex items-start justify-between gap-3">
               {/* A quotation, because these are the owner's sentences and the only
-                  element on the page that is. */}
-              <blockquote className="border-l-2 border-foreground/25 pl-3 text-pretty text-sm italic">
+                  element on the page that is — and set in the serif for the same reason,
+                  which is the register the whole application reserves for their words. */}
+              <blockquote className="border-l-2 border-foreground/25 pl-3 text-pretty font-serif text-prose italic">
                 {constraint.prose}
               </blockquote>
               <form action={withdraw}>
@@ -76,7 +77,7 @@ export function DeclaredConstraints({
             rows={2}
             required
             placeholder={placeholder}
-            className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+            className="w-full rounded-lg border border-input bg-transparent px-3 py-2 font-serif text-base leading-relaxed outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
           />
         </label>
         <Button type="submit" variant="outline" className="h-11 sm:h-auto sm:self-start sm:px-5">

@@ -215,7 +215,7 @@ function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
         ) : null}
 
         {entry.path?.intent ? (
-          <p className="mt-1.5 max-w-prose text-pretty text-sm italic text-muted-foreground">
+          <p className="mt-1.5 max-w-prose text-pretty font-serif text-prose italic text-muted-foreground">
             {entry.path.intent}
           </p>
         ) : null}

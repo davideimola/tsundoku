@@ -5,8 +5,8 @@ import { requireOwner } from "@/lib/auth/owner";
 import { StoryStateLabel } from "./story-state";
 
 // A thin adapter over one query, like every page here (ADR-0002): no SQL, no pool, no
-// domain logic. Deliberately plain and monochrome — shadcn's own tokens, unchanged, and
-// no design system invented on top of them.
+// domain logic. Deliberately plain, in paper and ink: it reads the tokens in
+// `src/app/globals.css` and names no colour of its own.
 export const dynamic = "force-dynamic";
 
 export default async function Stories() {

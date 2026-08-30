@@ -14,8 +14,8 @@ import { Completeness, Progress, SeriesName } from "./completeness";
 // decided to complete, each with its gaps. The full list of declared Series is under it,
 // because knowing that Naruto is 72 volumes is worth having and is not a project.
 //
-// Deliberately plain, and the same house style as the Collection: shadcn's own tokens,
-// nothing invented, a phone first and a desktop as the same screen with more air. Nothing
+// Deliberately plain, and the same house style as the Collection: the paper-and-ink tokens
+// and nothing of its own, a phone first and a desktop as the same screen with more air. Nothing
 // here runs in the browser — the one write on this page is a `POST` to a server action.
 //
 // A thin adapter over the core (ADR-0002): two queries, laid out.

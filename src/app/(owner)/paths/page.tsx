@@ -17,7 +17,9 @@ import { DeclaredConstraints } from "./constraints";
 // being maintained.
 //
 // A thin adapter over the core, like every page here (ADR-0002): two queries, laid out.
-// Monochrome, shadcn's own tokens, and no design system invented on top of them.
+// Paper and ink, read from the tokens in `src/app/globals.css` and naming no colour of
+// its own — the owner's declared constraints and a route's intent are the serif, because
+// those are their words and the rest of the screen is the application's.
 export const dynamic = "force-dynamic";
 
 type Asked = Record<string, string | string[] | undefined>;
@@ -137,7 +139,7 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
               name="intent"
               rows={3}
               placeholder="privilegiare titoli davvero coerenti con samurai e cultura giapponese"
-              className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+              className="w-full rounded-lg border border-input bg-transparent px-3 py-2 font-serif text-base leading-relaxed outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
             />
             <p className="text-xs text-muted-foreground">
               Your own words. The recommender reads them to extend the route rather than guess at a
@@ -197,7 +199,7 @@ function PathRow({ path }: { path: PathSummary }) {
         </span>
 
         {path.intent ? (
-          <span className="mt-1.5 block max-w-prose text-pretty text-sm italic text-muted-foreground">
+          <span className="mt-1.5 block max-w-prose text-pretty font-serif text-prose italic text-muted-foreground">
             {path.intent}
           </span>
         ) : null}

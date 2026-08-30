@@ -4,9 +4,161 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * PAPER, INK AND A RULE.
+ *
+ * Everything on screen is one of eight colours, and seven of them have no hue at all.
+ * That is not minimalism for its own sake. The redesign this belongs to (#18) spends the
+ * application's whole colour budget in one place — a tint derived from a Series' identity,
+ * carried by the tiles the Collection and the Stories will be laid out as — and a chrome
+ * with an accent of its own would be competing with the library for the one thing the
+ * owner is meant to look at. Nothing here knows about that tint; it simply leaves room.
+ *
+ * The ground is a **greyish stock**, the one a tankōbon is printed on, rather than white
+ * or a warm cream. White is a screen's default and cream is a different book: this is the
+ * cheap, slightly grey paper the pile is actually made of.
+ *
+ * Three surfaces, because a page has three depths and no more: the stock itself, a plate
+ * raised off it (a card), and a quiet recess sunk into it (a muted block, a filled row).
+ * In a dark room "raised" and "quiet" both read lighter than the ground, which is how
+ * depth works when the light is behind the paper rather than on it — the names are roles,
+ * not lightnesses.
+ *
+ * Two inks, because a page says things at two volumes, and two rules, because a hairline
+ * between rows and the edge of a box you type into are not the same object: the second one
+ * has to be findable, and it is drawn to clear 3:1 for exactly that reason.
+ *
+ * And **one hue in the whole application**: `--refusal`, ink that has been bled into. It
+ * marks a refusal and it is spent on nothing else. It is not an accent, it is not
+ * available to a screen that wants to look lively, and `src/app/palette.test.ts` holds it
+ * under a stated chroma ceiling so that it can never quietly become one.
+ *
+ * Every number below is checked by that file rather than eyeballed: it computes each
+ * contrast from these values, on both grounds, against WCAG's own thresholds. A palette
+ * that is wrong is wrong there and not in a dark room at midnight.
+ */
+:root {
+  /* The stock, and its two depths. */
+  --paper: oklch(0.955 0 0);
+  --paper-raised: oklch(0.985 0 0);
+  --paper-quiet: oklch(0.915 0 0);
+
+  /* What is printed on it, at two volumes. */
+  --ink: oklch(0.22 0 0);
+  --ink-quiet: oklch(0.5 0 0);
+
+  /* A hairline between rows, and the edge of something you type in. */
+  --rule: oklch(0.865 0 0);
+  --rule-field: oklch(0.62 0 0);
+
+  /* The one hue. */
+  --refusal: oklch(0.48 0.09 25);
+
+  /*
+   * shadcn's vocabulary, mapped onto the eight above and carrying no value of its own.
+   * The components are bought rather than written, so they keep their names — and a
+   * colour still exists in exactly one place, which is the rule the wall enforces.
+   */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper-raised);
+  --card-foreground: var(--ink);
+  --popover: var(--paper-raised);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary: var(--paper-quiet);
+  --secondary-foreground: var(--ink);
+  --muted: var(--paper-quiet);
+  --muted-foreground: var(--ink-quiet);
+  --accent: var(--paper-quiet);
+  --accent-foreground: var(--ink);
+  --destructive: var(--refusal);
+  --border: var(--rule);
+  --input: var(--rule-field);
+  --ring: var(--ink-quiet);
+  --sidebar: var(--paper-raised);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: var(--paper);
+  --sidebar-accent: var(--paper-quiet);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--rule);
+  --sidebar-ring: var(--ink-quiet);
+
+  /*
+   * Tighter than the theme shipped with. A tankōbon's corners are cut, not moulded, and a
+   * generous radius is the single loudest tell of an interface nobody chose the shape of.
+   */
+  --radius: 0.375rem;
+
+  /*
+   * THREE FACES, THREE JOBS.
+   *
+   * The families themselves are loaded in `src/app/layout.tsx` and reach here as
+   * `--face-*`; what is decided here is what each one is *for*. Each stack keeps a real
+   * fallback behind it, because `next/font` warns and falls back rather than failing when
+   * it cannot reach the foundry, and a clone with no network should still look composed.
+   *
+   * `--font-sans` — a **variable-width grotesque**, and the application's own voice: every
+   * word the interface says about itself. Its width axis is the reason it is this family
+   * and not another one: the same face has to set a heading wide and a spine narrow, and
+   * two families doing that would be two voices.
+   *
+   * `--font-serif` — **the owner's own prose, and nothing else.** A Rating's words, an
+   * Edition note, a declared constraint, a Path's intent. What they wrote must be visibly
+   * not what the application says, because the whole point of this library is that the
+   * judgement in it is theirs. Never used for chrome.
+   *
+   * `--font-mono` — numbers, ISBNs, dates and prices. Functional rather than decorative:
+   * these are identifiers and quantities, they line up in columns, and a Type's id is what
+   * an external assistant reads over MCP.
+   */
+  --font-sans:
+    var(--face-grotesque), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-serif: var(--face-serif), ui-serif, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-mono:
+    var(--face-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+}
+
+/*
+ * The same eight roles in a dark room, and only those eight: every token above is a
+ * `var()` on the same element, so redeclaring the palette here is the whole of the theme.
+ * A token added above with a value of its own would be a colour this block cannot reach,
+ * which is the second reason the wall forbids one.
+ */
+.dark {
+  --paper: oklch(0.175 0 0);
+  --paper-raised: oklch(0.225 0 0);
+  --paper-quiet: oklch(0.265 0 0);
+
+  --ink: oklch(0.93 0 0);
+  --ink-quiet: oklch(0.65 0 0);
+
+  --rule: oklch(0.33 0 0);
+  --rule-field: oklch(0.5 0 0);
+
+  --refusal: oklch(0.72 0.085 25);
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+
+  /*
+   * The size the owner's prose is set at, and the only one the serif is ever given.
+   *
+   * It is a notch above the grotesque's because a serif's x-height runs smaller: set at the
+   * same nominal size the two do not look the same size, and the owner's words would read
+   * as a footnote to the application's. Declared here rather than as an arbitrary value on
+   * six screens, for the same reason the colours are.
+   */
+  --text-prose: 0.95rem;
+  --text-prose--line-height: 1.625;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -15,11 +167,6 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -45,90 +192,6 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
-/*
- * The two faces the app names, as system stacks.
- *
- * No web font: a first clone needs no network for the page to look right, and visual
- * work comes after the thing works. The monospace one is functional rather than
- * decorative — it sets identifiers, and a Type's id is what an external assistant
- * reads over MCP.
- */
-:root {
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 @layer base {
