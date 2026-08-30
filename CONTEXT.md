@@ -149,13 +149,26 @@ Wish is narrow, reversible and wrong in an obvious way, so an assistant records 
 directly, while a **Story, a Volume or a Series it creates is a permanent fact** — a
 hallucinated title or a fabricated edition the owner carries for years. So creating one from
 outside is impossible, and the attempt lands here as an entry the owner reads: what was
-said, in the words it was said in, which of the three it proposes, and everything else the
-assistant supplied, unchecked. **Approval is the act that creates the entity**, which is
+said, in the words it was said in, what it proposes, and everything else the
+assistant supplied, unchecked. It carries **Amendments** beside creations, for the same
+reason and against the same risk. **Approval is the act that creates the entity**, which is
 why a rejected entry leaves nothing anywhere — the entry was the only trace the proposal
 ever had. A **first-class entity, not a log**: the owner's own `Inbox` tab already sketched
 it, columns and all.
 _Avoid_: queue, pending, draft, staging — and **approval workflow**, which promises states
 this has none of: an entry waits, or it has been decided.
+
+**Amendment**:
+A proposal to complete or correct a **record that already exists** — the ISBN a Volume was
+catalogued without, the artist nobody credited, the publisher left blank — waiting in the
+**Inbox** the way a creation does. It is not written directly because the risk it carries is
+the Inbox's risk and not the verbs': an invented ISBN or a misattributed artist is a
+permanent fact, silent, and wrong in a way the owner will never notice, where a Reading
+recorded on the wrong day is obvious the moment it is read back. It amends **one record**,
+so what it proposes is legible beside what stands there today, and approving it is the act
+that changes the record.
+_Avoid_: edit, update, correction, patch — and **suggestion**, which promises something the
+owner may leave lying around; an amendment waits for a decision exactly as a creation does.
 
 **Type**:
 Manga, Comic, Graphic Novel, Novel, Non-fiction. An **attribute** of a story, not a kind
