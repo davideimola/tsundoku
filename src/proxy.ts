@@ -39,7 +39,7 @@ const gatedProxy = auth((request: NextAuthRequest, _event: NextFetchEvent) => {
 });
 
 export const config = {
-  // Everything is gated except four things, and each of them is load-bearing:
+  // Everything is gated except five things, and each of them is load-bearing:
   //
   //   - **`api/auth`**, Auth.js's own endpoints. A gated sign-in endpoint is a gate
   //     that can never be opened.
@@ -48,12 +48,23 @@ export const config = {
   //     by Google (ADR-0004), and a redirect to a Google consent screen is not an
   //     answer an assistant can read. Reserved here so the slice that builds it does
   //     not have to edit this line.
+  //   - **`.well-known`**, the prefix RFC 8615 reserves for metadata a machine fetches
+  //     *before* it has any credentials to fetch it with. Gating it does not protect
+  //     anything — nothing is served under it — and it actively breaks the clients it
+  //     is meant to answer: an `/.well-known/oauth-protected-resource` that replies
+  //     `307 /signin` tells a discovery probe nothing, where a `404` correctly says
+  //     "this server publishes none". A cross-origin redirect is also refused outright
+  //     by well-behaved probes, which is how this was found — `tunnel-client` reported
+  //     the gate's redirect as `redirect blocked: destination must use the discovery
+  //     origin`, and stayed unready.
   //   - **the build output and the favicon**, which the browser fetches unprompted and
   //     **without credentials**.
   //
-  // All three named paths are anchored to a path boundary. Unanchored they would also
-  // excuse anything merely *starting* with those letters — `/api/authors`, `/mcp-token`
-  // — which is a wider hole than the reservation: the exclusion is for three paths,
-  // not for three prefixes.
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|(?:api/auth|signin|mcp)(?:$|/)).*)"],
+  // All four named paths are anchored to a path boundary. Unanchored they would also
+  // excuse anything merely *starting* with those letters — `/api/authors`, `/mcp-token`,
+  // `/.well-known-ish` — which is a wider hole than the reservation: the exclusion is
+  // for four paths, not for four prefixes.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|(?:api/auth|signin|mcp|\\.well-known)(?:$|/)).*)",
+  ],
 };

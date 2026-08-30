@@ -43,6 +43,9 @@ describe("the proxy's matcher", () => {
   //   - `/mcp`, which is the other door and is authenticated by a static bearer
   //     rather than by Google (ADR-0004) — a redirect to a Google consent screen is
   //     not an answer an assistant can read;
+  //   - `/.well-known`, which RFC 8615 reserves for metadata a machine fetches before
+  //     it has credentials. A discovery probe that gets `307 /signin` learns nothing;
+  //     a `404` correctly says this server publishes none;
   //   - the build output and the favicon, which the browser fetches unprompted and
   //     without credentials.
   it.each([
@@ -51,6 +54,9 @@ describe("the proxy's matcher", () => {
     "/signin",
     "/mcp",
     "/mcp/",
+    "/.well-known",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-protected-resource/mcp",
     "/favicon.ico",
     "/_next/static/chunks/main.js",
     "/_next/image",
@@ -60,11 +66,15 @@ describe("the proxy's matcher", () => {
 
   // The exclusions are paths, not prefixes. Unanchored they would also excuse
   // anything merely starting with those letters, which is a wider hole than the
-  // reservation: two paths were excluded, not two prefixes.
-  it.each(["/signing-off", "/mcps", "/mcp-token", "/api/authors"])(
-    "covers %s, which only looks like an exclusion",
-    (pathname) => {
-      expect(gateCovers(pathname)).toBe(true);
-    }
-  );
+  // reservation: four paths were excluded, not four prefixes.
+  it.each([
+    "/signing-off",
+    "/mcps",
+    "/mcp-token",
+    "/api/authors",
+    "/.well-known-ish",
+    "/.well-knownish/anything",
+  ])("covers %s, which only looks like an exclusion", (pathname) => {
+    expect(gateCovers(pathname)).toBe(true);
+  });
 });
