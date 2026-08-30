@@ -250,6 +250,12 @@ API's MCP connector takes the token as `authorization_token`. ChatGPT's in-app c
 is the one surface where a static bearer is unconfirmed, and ADR-0004 defers it
 deliberately.
 
+Connecting the door is half of it. What the owner pastes into the assistant's project —
+the vocabulary, the write boundary, and the order to ask the questions in — is in
+[`docs/assistant-projects/`](docs/assistant-projects/), one document per project over this
+one library. The connector makes the collection answerable; those make it answered
+correctly.
+
 ## The schema
 
 **Invariants live in Postgres.** The database refuses what must never be true rather
