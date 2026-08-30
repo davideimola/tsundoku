@@ -1,6 +1,11 @@
-# The other half of Flux's image automation: the cluster watches this registry and writes
-# the newest tag back into `davideimola/home-cluster`, so a push to main is the deploy and
+# The other half of Flux's image automation: the Cluster watches this registry and writes
+# the newest tag back into `davideimola/cluster`, so a push to main is the deploy and
 # nothing in either repository is edited by hand.
+#
+# **`davideimola/cluster`, not `davideimola/home-cluster`.** tsundoku was written to run on the
+# house machine and moved before it ever reconciled there: it is the one service published to
+# the internet, which is what the cloud Cluster exists for and what the house deliberately is
+# not (infrastructure ADR-0006).
 #
 # Shaped exactly like pantry's workflow, because the automation on the other side is
 # pantry's automation with a different name and reads the same tag shape.
@@ -25,11 +30,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # arm64 is built by emulation on an amd64 runner, so the binfmt handlers have to be
-      # registered before buildx starts. Native arm64 runners are a paid-plan feature on a
-      # private repository; QEMU is the option that works on any plan.
-      - uses: docker/setup-qemu-action@v3
-
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -53,17 +53,20 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          # The cluster's node is arm64, and so is a developer's laptop; amd64 is published
-          # alongside it so the image stays runnable anywhere rather than only where it
-          # happens to be deployed today. Nothing in the image is architecture-specific
-          # beyond the base image and the native binaries pnpm resolves per platform — the
-          # lockfile carries the arm64-musl variants of swc, oxide and lightningcss, which
-          # is what makes the arm64 leg build at all.
+          # The Node this deploys to is x86: Contabo's VPS line is, and infrastructure
+          # ADR-0008 says so outright — "arm64 is no longer a constraint", because the Cluster
+          # was only ever aarch64 as a consequence of Oracle's A1 being Ampere.
           #
-          # The arm64 leg runs under emulation and is the slow half of this job by a wide
-          # margin. That is the price of one runner; the gha cache keeps it off the path of
-          # every push that does not touch the lockfile or the sources.
-          platforms: linux/amd64,linux/arm64
+          # It was `linux/amd64,linux/arm64` for a day, from when the target was the house
+          # machine, which is arm64. The arm64 leg has to be emulated with QEMU on a GitHub
+          # runner (native arm64 runners are a paid-plan feature on a private repository) and
+          # was the slow half of this job by a wide margin — so once it stopped being deployed
+          # anywhere it stopped being worth building. `docker/setup-qemu-action` went with it;
+          # it was only ever there to register the binfmt handlers that leg needed.
+          #
+          # If a developer's arm64 laptop ever needs to run this image rather than the source,
+          # add the leg back rather than reaching for `--platform` and emulating at run time.
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
