@@ -48,6 +48,19 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
+# The migration runner is not part of what `standalone` traces. `db/cli.ts migrate` is run
+# by node directly — that is the whole point of decision 3 below — so it resolves its
+# imports from `node_modules` at runtime rather than from the traced bundle. It needs `pg`,
+# which the server imports too and which is therefore traced, and `drizzle-orm`, which is
+# not: Next bundles Drizzle's code into the server's own chunks and leaves no package
+# behind for anything else to import.
+#
+# So the one package is staged here explicitly. `cp -RL` because pnpm's `node_modules` entry
+# is a symlink into `.pnpm/`, and the runtime stage has no store to point at. It is
+# self-contained: `drizzle-orm` declares no runtime dependencies of its own.
+RUN mkdir -p /build/runtime-node-modules \
+ && cp -RL node_modules/drizzle-orm /build/runtime-node-modules/drizzle-orm
+
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime
@@ -67,7 +80,13 @@ COPY --from=build --chown=node:node /build/.next/static ./.next/static
 # The schema, and the runner that applies it. Plain `.ts` run through node's own type
 # stripping, which is how `pnpm db:migrate` runs it on a laptop too — one runner, one
 # convention, and no build step of its own to drift.
+#
+# `db/migrations/` comes with it, `meta/` included: Drizzle's migrator reads the journal
+# there to decide what this database still needs (ADR-0009).
 COPY --from=build --chown=node:node /build/db ./db
+
+# What the runner imports and the traced server does not leave behind. See the build stage.
+COPY --from=build --chown=node:node /build/runtime-node-modules/drizzle-orm ./node_modules/drizzle-orm
 
 # Next writes here when it caches a fetch, and a `node` that cannot create it fails at the
 # first request rather than at start.
