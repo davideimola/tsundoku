@@ -1,6 +1,9 @@
 import "server-only";
 
-import { query } from "../db.ts";
+import { asc } from "drizzle-orm";
+
+import { type as typeTable } from "../../../db/schema.ts";
+import { db } from "../db.ts";
 
 /**
  * A Type: Manga, Comic, Graphic Novel, Novel, Non-fiction.
@@ -16,5 +19,8 @@ export type Type = {
 
 /** Every Type, in the order they are offered in. */
 export async function listTypes(): Promise<Type[]> {
-  return query<Type>("select id, name from type order by display_order");
+  return db()
+    .select({ id: typeTable.id, name: typeTable.name })
+    .from(typeTable)
+    .orderBy(asc(typeTable.displayOrder));
 }

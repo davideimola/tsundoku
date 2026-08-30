@@ -27,20 +27,18 @@ async function main(): Promise<void> {
     case "up": {
       await ensureContainer(url);
       await ensureDatabase(url);
-      const applied = await applyMigrations(url);
-      process.stdout.write(
-        applied.length === 0
-          ? "schema already current\n"
-          : `${applied.length} migration(s) applied\n`
-      );
+      // Drizzle's migrator prints what it applies and returns nothing, so there is no
+      // count to report here. Silence means the schema was already current.
+      await applyMigrations(url);
+      process.stdout.write("schema is current\n");
       return;
     }
     case "reset": {
       await ensureContainer(url);
       await dropDatabase(url);
       await ensureDatabase(url);
-      const applied = await applyMigrations(url);
-      process.stdout.write(`${applied.length} migration(s) applied\n`);
+      await applyMigrations(url);
+      process.stdout.write("schema rebuilt from the migrations\n");
       return;
     }
     // The one command that assumes nothing about where the database is. The other four
@@ -51,12 +49,8 @@ async function main(): Promise<void> {
     // container runs, in the same image that then serves, so what is applied is exactly
     // what was built.
     case "migrate": {
-      const applied = await applyMigrations(url);
-      process.stdout.write(
-        applied.length === 0
-          ? "schema already current\n"
-          : `${applied.length} migration(s) applied\n`
-      );
+      await applyMigrations(url);
+      process.stdout.write("schema is current\n");
       return;
     }
     case "psql": {

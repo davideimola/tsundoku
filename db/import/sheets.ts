@@ -76,10 +76,14 @@ export type Sheets = {
  * will have one more.
  */
 export function readSheets(directory: string): Sheets {
+  // `Editore / Edizione` because that is what the owner's sheet calls it: `Collezione` and
+  // `Wishlist` are filtered views of `Master`, so they carry `Master`'s headers. Widening
+  // the list rather than renaming the column is what `README.md` asks for — the tab is the
+  // source of truth about itself.
   const collezione = requiredTab(directory, "collezione-collezione.csv", "Collezione", [
     ["Titolo"],
     ["Tipo"],
-    ["Editore"],
+    ["Editore", "Editore / Edizione"],
     ["Formato"],
   ]);
 
@@ -87,7 +91,10 @@ export function readSheets(directory: string): Sheets {
     directory,
     "collezione-wishlist.csv",
     "Wishlist (Collezione)",
-    [["Titolo"], ["Editore"], ["Formato"], ["Stato"]]
+    // `Stato acquisto` is this sheet's name for the wishlist's state. `Stato collezione`
+    // is a different question — owned or wanted — and is what the view filters on, so it
+    // is deliberately not a candidate here.
+    [["Titolo"], ["Editore", "Editore / Edizione"], ["Formato"], ["Stato", "Stato acquisto"]]
   );
 
   const seriesAndPaths = requiredTab(

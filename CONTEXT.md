@@ -60,8 +60,10 @@ leaving the catalogue.
 _Avoid_: library, shelf, inventory.
 
 **Binding**:
-How a Volume is bound: tankōbon, omnibus, deluxe, Must Have, hardcover, paperback. It is
-what an Edition note usually judges.
+How a Volume is bound: tankōbon, omnibus, deluxe, Must Have, hardcover, paperback, spillato.
+It is what an Edition note usually judges. Stored as data rather than as an enum, so meeting
+a binding this list does not have is an insert — which is how *spillato*, a single stapled
+comic, arrived (#17).
 _Avoid_: **format** — in the spreadsheets that one word meant binding in one place and
 reading medium in another, and served neither.
 

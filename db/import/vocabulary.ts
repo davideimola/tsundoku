@@ -90,8 +90,27 @@ const BINDINGS: Record<string, string> = {
   rilegato: "hardcover",
   hardcover: "hardcover",
   brossura: "paperback",
+  brossurato: "paperback",
   paperback: "paperback",
   tascabile: "paperback",
+  spillato: "stapled",
+  // The comics sheet says the binding and something else in the same cell — a dust jacket,
+  // a doubled volume, a trim size. Only the binding is read. The rest is collector's
+  // metadata about the object and answers nothing this application is for, so it is
+  // dropped rather than carried into the model as a note nobody queries.
+  //
+  // One of them does have a home here, and it is not a note: `volume doppio` says the
+  // Volume carries two volumes' worth of Stories, which is `volume_story`
+  // (migration 0006_01). If that is ever wanted it belongs there, stated per Story,
+  // rather than as prose on the object.
+  "brossurato con sovraccoperta": "paperback",
+  "brossurato volume doppio": "paperback",
+  "15x21 brossurato": "paperback",
+  "cartonato 17x26": "hardcover",
+  // A trim size and no binding at all. Read as a paperback because that is what J-Pop's
+  // edition at this size is; it is an inference about one row, and it is here in the open
+  // rather than in the plan so that correcting it is one word.
+  "15x21": "paperback",
 };
 
 /**
@@ -186,6 +205,13 @@ export type WishState = {
  */
 const WISH_STATES: Record<string, WishState> = {
   "da comprare": { open: true, acquired: false },
+  // Still weighing it up: an intention, and not yet an act.
+  "da valutare": { open: true, acquired: false },
+  // Ordered and not yet here. Deliberately an **open** wish rather than a closed one with
+  // an acquisition: the object is not in the house, and saying it is would make the
+  // library claim a volume the owner cannot pick up. The wish closes when the parcel
+  // arrives, which is the deliberate act #10 asks for.
+  ordinato: { open: true, acquired: false },
   desiderato: { open: true, acquired: false },
   aperto: { open: true, acquired: false },
   "in attesa": { open: true, acquired: false },

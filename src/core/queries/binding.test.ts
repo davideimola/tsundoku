@@ -12,6 +12,7 @@ describe("the Bindings", () => {
       { id: "must-have", name: "Must Have" },
       { id: "hardcover", name: "Hardcover" },
       { id: "paperback", name: "Paperback" },
+      { id: "stapled", name: "Spillato" },
     ]);
   });
 });

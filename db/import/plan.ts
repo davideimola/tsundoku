@@ -529,7 +529,7 @@ function planSeriesAndPaths(planner: Planner, tab: Tab): void {
       if (name === undefined) continue;
       for (const universe of parts) planner.universe(universe);
 
-      const publisher = row.value("Editore", "Publisher");
+      const publisher = row.value("Editore", "Publisher", "Editore / Edizione");
       if (publisher === null) {
         planner.blocks(tab.name, row.line, `${name}: a Series needs its publisher.`);
       } else {
@@ -622,7 +622,7 @@ function definePath(planner: Planner, row: TabRow, route: string): void {
 function planCollezione(planner: Planner, tab: Tab, declared: Declared): void {
   for (const row of tab.rows) {
     const title = row.value("Titolo", "Volume");
-    const publisher = row.value("Editore", "Publisher");
+    const publisher = row.value("Editore", "Publisher", "Editore / Edizione");
     const saidType = row.value("Tipo");
     const saidBinding = row.value("Formato");
 
@@ -786,7 +786,7 @@ function normaliseIsbn(planner: Planner, tab: Tab, row: TabRow): string | null {
 function planComicsWishlist(planner: Planner, tab: Tab, declared: Declared): void {
   for (const row of tab.rows) {
     const title = row.value("Titolo", "Volume");
-    const publisher = row.value("Editore", "Publisher");
+    const publisher = row.value("Editore", "Publisher", "Editore / Edizione");
     const saidBinding = row.value("Formato");
     if (title === null || publisher === null || saidBinding === null) {
       planner.blocks(
@@ -803,7 +803,7 @@ function planComicsWishlist(planner: Planner, tab: Tab, declared: Declared): voi
     );
     if (bindingId === undefined || language === undefined) continue;
 
-    const saidState = row.value("Stato", "Stato wishlist");
+    const saidState = row.value("Stato", "Stato wishlist", "Stato acquisto");
     const state =
       saidState === null
         ? { open: true, acquired: false }
@@ -931,7 +931,7 @@ function planBooksWishlist(planner: Planner, tab: Tab, declared: Declared): void
       continue;
     }
 
-    const publisher = row.value("Editore", "Publisher");
+    const publisher = row.value("Editore", "Publisher", "Editore / Edizione");
     if (publisher === null) {
       planner.blocks(tab.name, row.line, "a wanted Volume needs its publisher.");
       continue;

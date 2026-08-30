@@ -16,7 +16,10 @@
       "!node_modules",
       "!.next",
       "!public",
-      "!**/*.svg"
+      "!**/*.svg",
+      "!db/migrations/meta",
+      "!db/schema.ts",
+      "!db/relations.ts"
     ]
   },
   "formatter": {
@@ -47,7 +50,9 @@
       "cssModules": false,
       "tailwindDirectives": true
     },
-    "linter": { "enabled": true },
+    "linter": {
+      "enabled": true
+    },
     "formatter": {
       "enabled": true,
       "indentStyle": "space",
@@ -57,7 +62,9 @@
   "assist": {
     "enabled": true,
     "actions": {
-      "source": { "organizeImports": "on" }
+      "source": {
+        "organizeImports": "on"
+      }
     }
   }
 }

@@ -19,12 +19,14 @@
     "db:down": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts down",
     "db:psql": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts psql",
     "db:migrate": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/cli.ts migrate",
+    "db:generate": "drizzle-kit generate",
     "import:sheets": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON db/import/cli.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
     "next": "16.2.10",
     "next-auth": "5.0.0-beta.32",
     "pg": "^8.16.3",
@@ -41,6 +43,7 @@
     "@types/pg": "^8.15.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.10",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"

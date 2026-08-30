@@ -1,6 +1,9 @@
 import "server-only";
 
-import { query } from "../db.ts";
+import { asc } from "drizzle-orm";
+
+import { provenance } from "../../../db/schema.ts";
+import { db } from "../db.ts";
 
 // Provenance: how a record came to be known, and therefore how far it can be trusted.
 //
@@ -37,5 +40,8 @@ export const FIRST_HAND = "remembered";
 
 /** Every Provenance, in the order the model offers them. */
 export async function listProvenances(): Promise<Provenance[]> {
-  return query<Provenance>("select id, name, description from provenance order by display_order");
+  return db()
+    .select({ id: provenance.id, name: provenance.name, description: provenance.description })
+    .from(provenance)
+    .orderBy(asc(provenance.displayOrder));
 }

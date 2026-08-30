@@ -1,6 +1,9 @@
 import "server-only";
 
-import { query } from "../db.ts";
+import { asc } from "drizzle-orm";
+
+import { binding } from "../../../db/schema.ts";
+import { db } from "../db.ts";
 
 /**
  * A Binding: how a Volume is bound — Tankōbon, Omnibus, Deluxe, Must Have, Hardcover,
@@ -19,7 +22,16 @@ export type Binding = {
   name: string;
 };
 
-/** Every Binding, in the order they are offered in. */
+/**
+ * Every Binding, in the order they are offered in.
+ *
+ * Written against the schema rather than as SQL because there is nothing here to derive:
+ * two columns off one table in a stated order. Where a query *does* derive something — the
+ * reading list, the collection — it stays SQL, for the reason `db.ts` gives.
+ */
 export async function listBindings(): Promise<Binding[]> {
-  return query<Binding>("select id, name from binding order by display_order");
+  return db()
+    .select({ id: binding.id, name: binding.name })
+    .from(binding)
+    .orderBy(asc(binding.displayOrder));
 }
