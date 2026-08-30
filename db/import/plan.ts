@@ -39,6 +39,7 @@ import {
   type Declared,
   dayOf,
   integerOf,
+  judgementIn,
   languageOf,
   mediumOf,
   nameKey,
@@ -652,7 +653,7 @@ function planCollezione(planner: Planner, tab: Tab, declared: Declared): void {
 
     const volumeKey = `volume:${tab.name}:${row.line}`;
     const seriesKey = split.series === null ? null : `series:${nameKey(split.series)}`;
-    const seriesNumber = integerOf(row.value("Numero", "N.", "Vol."));
+    const seriesNumber = integerOf(row.value("Numero", "N.", "Vol.", "Volume"));
     const placed = seriesKey !== null && planner.series.has(seriesKey) && seriesNumber !== null;
     if (placed) planner.count(TALLY.placedFromTheShelf);
     if (seriesKey !== null && !planner.series.has(seriesKey)) {
@@ -743,7 +744,10 @@ function planCollezione(planner: Planner, tab: Tab, declared: Declared): void {
         planner.rates({
           storyKey,
           score,
-          prose: row.value("Commento", "Recensione", "Note lettura"),
+          // `Note` because that is what the comics sheet calls it, and `judgementIn`
+          // because that column carries the logistics of buying the book as well as what
+          // the owner thought of it.
+          prose: judgementIn(row.value("Commento", "Recensione", "Note lettura", "Note")),
           provenanceId,
           scale: "half-points",
           said: saidScore,
@@ -818,7 +822,7 @@ function planComicsWishlist(planner: Planner, tab: Tab, declared: Declared): voi
     if (split.universe !== null) planner.universe(split.universe);
 
     const volumeKey = `volume:${tab.name}:${row.line}`;
-    const seriesNumber = integerOf(row.value("Numero", "N.", "Vol."));
+    const seriesNumber = integerOf(row.value("Numero", "N.", "Vol.", "Volume"));
 
     // ADR-0007's open question, arriving exactly where #14 was named as the ticket that
     // might reopen it. The row names a position of a Series and the house does not hold
@@ -1042,7 +1046,7 @@ function planBiblioteca(planner: Planner, tab: Tab): void {
         planner.rates({
           storyKey,
           score,
-          prose: row.value("Note", "Commento", "Recensione"),
+          prose: judgementIn(row.value("Note", "Commento", "Recensione")),
           provenanceId,
           scale: "coarse",
           said: saidScore,

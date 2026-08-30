@@ -105,12 +105,17 @@ const BINDINGS: Record<string, string> = {
   // rather than as prose on the object.
   "brossurato con sovraccoperta": "paperback",
   "brossurato volume doppio": "paperback",
-  "15x21 brossurato": "paperback",
-  "cartonato 17x26": "hardcover",
+  "15 21 brossurato": "paperback",
+  "cartonato 17 26": "hardcover",
+  // The keys are written **as `folded` leaves them**, which is why these read oddly: the
+  // sheet says `15×21` with a multiplication sign, and folding replaces anything that is
+  // not a letter or a digit with a space. A key spelled `15x21` with an ASCII x is a key
+  // this table will never match, and the import says so at the row rather than silently.
+  //
   // A trim size and no binding at all. Read as a paperback because that is what J-Pop's
   // edition at this size is; it is an inference about one row, and it is here in the open
   // rather than in the plan so that correcting it is one word.
-  "15x21": "paperback",
+  "15 21": "paperback",
 };
 
 /**
@@ -180,6 +185,28 @@ const READING_STATES: Record<string, ReadingState> = {
   "non letto": { read: false, outcome: null },
   arretrato: { read: false, outcome: null },
 };
+
+/**
+ * The judgement inside a notes cell that also carries other things.
+ *
+ * The comics sheet has one `Note` column and the owner put two kinds of thing in it: what
+ * they thought of the book, and the logistics of getting it — "Codice articolo Panini:
+ * M1DCMH0", "Ordine Ebond annullato per copia danneggiata", an ISBN, a cover price.
+ *
+ * They separated the two themselves, consistently, by writing `Mini-review:` in front of
+ * the judgement. So this reads their marker rather than guessing at sentences: what follows
+ * it is the Rating's prose, and the logistics stay out of a field that is meant to hold an
+ * opinion.
+ *
+ * With no marker the whole cell is the judgement, which is the honest reading of a note on
+ * a book somebody scored: it is all they wrote about it.
+ */
+export function judgementIn(said: string | null): string | null {
+  if (said === null) return null;
+  const marked = /mini-?review\s*:\s*(.+)/is.exec(said);
+  const prose = (marked ? marked[1] : said).trim();
+  return prose === "" ? null : prose;
+}
 
 /** `Stato lettura` as the act of reading it stands for, if there was one. */
 export function readingStateOf(said: string): ReadingState {
@@ -345,8 +372,37 @@ export function amountOf(said: string | null): string | null {
 export function integerOf(said: string | null): number | null {
   if (said === null) return null;
   const digits = said.replace(/[^0-9-]/g, "");
-  if (!/^-?[0-9]+$/.test(digits)) return null;
-  return Number(digits);
+  if (/^-?[0-9]+$/.test(digits)) return Number(digits);
+  return romanOf(said);
+}
+
+/**
+ * A volume number written the way its publisher wrote it.
+ *
+ * Death Note Black Edition is numbered I to VI on the spine, and the owner's sheet says
+ * so. Reading it as "no number" would leave those volumes catalogued outside their Series
+ * — which is not what the sheet says, only what a parser that knows one notation would
+ * hear.
+ *
+ * Only whole Roman numerals, and only where a number is what was asked for: `integerOf` is
+ * used in three places and all three ask which volume this is or how many are out. It is
+ * deliberately not a general string-to-number, because `I` is a number here and a pronoun
+ * almost anywhere else.
+ */
+const ROMAN: Record<string, number> = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
+
+function romanOf(said: string): number | null {
+  const letters = said.trim().toLowerCase();
+  if (!/^[ivxlcdm]+$/.test(letters)) return null;
+
+  let total = 0;
+  for (let at = 0; at < letters.length; at += 1) {
+    const here = ROMAN[letters[at]] as number;
+    const next = at + 1 < letters.length ? (ROMAN[letters[at + 1]] as number) : 0;
+    // IV is four and VI is six: a smaller numeral before a larger one subtracts.
+    total += here < next ? -here : here;
+  }
+  return total;
 }
 
 /**
