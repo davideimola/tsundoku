@@ -18,15 +18,9 @@ export default async function CreditsPage() {
   const people = await listCreditedPeople();
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 pb-16 sm:px-8">
+    <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <Link
-          href="/"
-          className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground hover:text-foreground"
-        >
-          tsundoku
-        </Link>
-        <h1 className="mt-6 font-heading text-2xl sm:text-3xl">Credits</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl">Credits</h1>
         <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
           Who wrote it and who drew it. A Credit is a contribution to a Story in a named role, so
           one person can hold both — and two people usually do.

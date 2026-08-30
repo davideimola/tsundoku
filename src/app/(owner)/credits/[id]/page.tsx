@@ -20,7 +20,7 @@ export default async function CreditPage({ params }: { params: Promise<{ id: str
   if (!person) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 pb-16 sm:px-8">
+    <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
         <Link
           href="/credits"

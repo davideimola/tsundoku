@@ -143,7 +143,7 @@ export default async function StoryPage({
   const uncredited = said(asked, "uncredited");
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-16">
+    <main className="px-5 py-10 sm:px-8 sm:py-16">
       <Link
         href="/stories"
         className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,15 +93,9 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const rejected = asked(params, "rejected");
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 pb-16 sm:px-8">
+    <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <Link
-          href="/"
-          className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground hover:text-foreground"
-        >
-          tsundoku
-        </Link>
-        <h1 className="mt-6 font-heading text-2xl sm:text-3xl">Inbox</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl">Inbox</h1>
         <p className="mt-2 text-pretty text-sm text-muted-foreground">
           What an assistant asked for and you have not decided. Nothing here is in the library yet:
           approving is what creates the thing, and rejecting leaves no trace of it anywhere.

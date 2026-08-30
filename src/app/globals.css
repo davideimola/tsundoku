@@ -159,6 +159,20 @@
    */
   --text-prose: 0.95rem;
   --text-prose--line-height: 1.625;
+
+  /*
+   * The smallest type in the application, and the one the shell is built out of: a
+   * section's name over a list of destinations, a destination's name under its rule in the
+   * phone's bottom bar. It wraps — *Reading list* does not fit a fifth of a phone on one
+   * line — so it carries a line height tight enough for two lines to read as one label.
+   *
+   * The tracking is beside it rather than in it: an eyebrow is letterspaced because it is
+   * read as a label, and a name in a bottom bar is not, so the two are spent separately.
+   * Both are here for the same reason `--text-prose` is, and the reason the colours are.
+   */
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1.25;
+  --tracking-eyebrow: 0.18em;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

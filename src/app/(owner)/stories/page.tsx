@@ -15,10 +15,8 @@ export default async function Stories() {
   const stories = await listStories();
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-16">
-      <h1 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-        tsundoku / stories
-      </h1>
+    <main className="px-5 py-10 sm:px-8 sm:py-16">
+      <h1 className="font-heading text-2xl sm:text-3xl">Stories</h1>
 
       <Card className="mt-8">
         <CardHeader>

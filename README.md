@@ -125,7 +125,9 @@ directions of the gate a table of cases rather than an argument.
 ```
 src/app/
 ├── (owner)/          behind the gate. Everything that reads the library.
-│   ├── layout.tsx    force-dynamic, and the sign-out affordance
+│   ├── layout.tsx    force-dynamic, and the shell put on around every screen
+│   ├── navigation.ts the destinations, grouped into the three questions
+│   ├── shell.tsx     the sidebar at the desk, the bottom bar on a phone
 │   └── page.tsx
 ├── (public)/         outside it. Today: /signin, and nothing else.
 └── api/auth/         Auth.js's own endpoints
@@ -144,6 +146,20 @@ export default async function CollectionPage() {
 
 The same for a Server Function or a route handler beside it: a layout does not run for
 either, so the assert goes in each one.
+
+**And it goes in the navigation**, as one line in
+[`src/app/(owner)/navigation.ts`](src/app/(owner)/navigation.ts), under whichever of the
+three questions it answers — *Reading*, *Owning*, *Repairing*. The shell renders that one
+map at both widths, so a destination cannot exist on the desk and not on the phone. A
+screen that is in the tree and not in the map is a screen reachable only by typing its
+URL, which is the state this application was in until #20: eight links on the home page
+and no `<nav>` anywhere. It is a test rather than a paragraph, for the same reason the
+gate is ([`src/app/(owner)/shell.test.ts`](src/app/(owner)/shell.test.ts)).
+
+That file also holds the width: the shell owns it, and a page that puts `mx-auto` and a
+`max-w-*` on the same element — the 34 constraints that used to run the library down the
+middle of a wide monitor — fails it. `max-w-prose` on a paragraph is measure, not a
+column, and stays.
 
 Both halves of that rule are a test rather than a paragraph
 ([`src/app/gated.test.ts`](src/app/gated.test.ts)), because both failures are silent —

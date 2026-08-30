@@ -69,15 +69,9 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
   const closed = asked(params, "closed");
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 pb-16 sm:px-8">
+    <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <Link
-          href="/"
-          className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground hover:text-foreground"
-        >
-          tsundoku
-        </Link>
-        <h1 className="mt-6 font-heading text-2xl sm:text-3xl">Wishes</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl">Wishes</h1>
         <p className="mt-2 text-pretty text-sm text-muted-foreground">
           What to buy, and what it should cost. A Wish names one Volume and ends only when you end
           it — nothing here disappears on its own.

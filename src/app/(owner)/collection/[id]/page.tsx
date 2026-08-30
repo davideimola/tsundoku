@@ -64,7 +64,7 @@ export default async function VolumePage({
   const offerable = stories.filter((story) => !held.has(story.id));
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pb-16 sm:px-8">
+    <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
         <Link
           href="/collection"

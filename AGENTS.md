@@ -42,6 +42,15 @@ route group is the owner gate; a page outside it is a page served to anyone with
 URL. `src/app/gated.test.ts` fails when either half stops being true. See the README's
 owner gate section.
 
+### Where a screen goes in the shell
+
+**One line in `src/app/(owner)/navigation.ts`, under one of the three questions.** The
+shell renders that one map as a sidebar at the desk and as a bottom bar plus *More* on a
+phone, so a destination cannot exist at one width and not the other.
+`src/app/(owner)/shell.test.ts` fails when a screen in the tree is in no one's
+navigation — and when a page takes the width back off the shell by centring itself in a
+column.
+
 ### Where a colour and a face go
 
 **`src/app/globals.css`, and nowhere else.** Paper, ink, two rules and **one hue**,

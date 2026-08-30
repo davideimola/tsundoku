@@ -59,15 +59,9 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
   const tonight = entries.filter((entry) => entry.atHand).length;
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 pb-16 sm:px-8">
+    <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <Link
-          href="/"
-          className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground hover:text-foreground"
-        >
-          tsundoku / reading list
-        </Link>
-        <h1 className="mt-6 font-heading text-2xl sm:text-3xl">What to read next</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl">What to read next</h1>
         <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
           Composed from the routes I am walking and the Series I am completing, in the order I
           should read them. Nothing here is a list I keep: finish something and it recomposes. Pin

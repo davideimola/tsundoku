@@ -45,15 +45,9 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
   const aside = paths.filter((path) => !path.active);
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 pb-16 sm:px-8">
+    <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <Link
-          href="/"
-          className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground hover:text-foreground"
-        >
-          tsundoku / paths
-        </Link>
-        <h1 className="mt-6 font-heading text-2xl sm:text-3xl">Paths</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl">Paths</h1>
         <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
           A route through Stories, in the order I chose — crossing manga, comics and non-fiction
           wherever the route goes. The order is my judgement, so nothing here computes it, and what

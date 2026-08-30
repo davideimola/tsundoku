@@ -38,15 +38,9 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
   const declared = asked(params, "declared");
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pb-16 sm:px-8">
+    <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <Link
-          href="/"
-          className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground hover:text-foreground"
-        >
-          tsundoku
-        </Link>
-        <h1 className="mt-6 font-heading text-2xl sm:text-3xl">Series</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl">Series</h1>
         <p className="mt-2 text-pretty text-sm text-muted-foreground">
           A publisher's ordered sequence of Volumes, held as a ledger: how many are out, whether it
           is over, and therefore what is missing. What was any good is a Rating on a Story, and it
