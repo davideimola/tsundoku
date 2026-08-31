@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 // THE SHELF'S COLOUR, and the only colour this application computes.
 //
 // The palette is paper and ink and one restrained hue (`src/app/globals.css`), and it is
@@ -93,4 +95,33 @@ export function tint(identity: string | null | undefined): Tint | null {
   if (!identity) return null;
 
   return TINTS[fingerprint(identity) % TINTS.length];
+}
+
+/**
+ * **How a tile wears a tint**, written once: the two custom properties, and the classes that
+ * spend them.
+ *
+ * It is here rather than in the components because two of them wear one now — the cover the
+ * walls are laid out as (`@/components/cover`) and the spine the pile is stacked from
+ * (`@/components/pile`) — and the *wiring* is the tint's own contract rather than either
+ * tile's taste: both grounds travel, because they are not a filter over each other, and the
+ * sheet's own dark variant picks one. A second copy of these three lines is how an untinted
+ * spine and an untinted cover come to sit on two different grounds.
+ */
+export const WORN = "bg-[var(--tint)] dark:bg-[var(--tint-dark)]";
+
+/**
+ * The ground a tile falls back to where there is no Series to take a colour from, which is the
+ * ordinary case for a Story carried by no object. The palette's quiet paper, legible by
+ * construction (`src/app/palette.test.ts`).
+ */
+export const UNWORN = "bg-muted";
+
+/** The two properties `WORN` spends, or nothing at all where there is no tint to wear. */
+export function worn(tint: Tint | null): CSSProperties | undefined {
+  if (!tint) return undefined;
+
+  // Cast because custom properties are not in `CSSProperties`, and this is the one place in
+  // the repo that has to say so.
+  return { "--tint": tint.paper, "--tint-dark": tint.dark } as CSSProperties;
 }

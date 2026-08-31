@@ -10,7 +10,7 @@ import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import { cn } from "@/lib/utils";
-import { bandName, stateWord, WALL_STATES } from "./story-state";
+import { bandName, stateWord, storyDetail, WALL_STATES } from "./story-state";
 
 // THE STORY WALL, and the screen where **the state stopped being a label at the end of a
 // row and became the axis of the application** (#22).
@@ -176,7 +176,7 @@ function Band({ state, stories }: { state: StoryState; stories: WallStory[] }) {
               href={`/stories/${story.id}`}
               title={story.title}
               tint={tint(story.series?.id)}
-              detail={detailOf(story)}
+              detail={storyDetail(story)}
               foot={<Score of={story.latestScore} />}
             />
           </li>
@@ -208,15 +208,6 @@ function emptily(typeId: string | undefined, state: StoryState | undefined, type
   // Unreachable — the caller asks only when something is narrowed — and answered rather
   // than thrown, because an empty wall is never the place to raise.
   return NOTHING_YET;
-}
-
-/** What a tile cannot fit and a pointer can wait for: the Type, and the line it stands in. */
-function detailOf(story: WallStory): string {
-  const line = story.series
-    ? [story.series.name, story.series.editionLine].filter(Boolean).join(", ")
-    : null;
-
-  return [story.title, story.type.name, line].filter(Boolean).join(" — ");
 }
 
 /**

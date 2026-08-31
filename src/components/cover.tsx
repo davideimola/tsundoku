@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Tint } from "@/lib/tint";
+import { type Tint, UNWORN, WORN, worn } from "@/lib/tint";
 import { cn } from "@/lib/utils";
 
 // THE COVER, which is what a library looks like when it is faced outwards.
@@ -54,14 +54,10 @@ export function Cover({
       // still starts with the word that is drawn on the tile.
       title={detail}
       aria-label={detail}
-      // The two grounds are not a filter over each other, so the tint carries both and the
-      // sheet's own dark variant picks one. A tile with no tint falls back to the palette's
-      // quiet paper, which is legible by construction (`src/app/palette.test.ts`).
-      style={
-        tint
-          ? ({ "--tint": tint.paper, "--tint-dark": tint.dark } as React.CSSProperties)
-          : undefined
-      }
+      // How a tile wears a tint is `@/lib/tint`'s, because the spine in the pile wears one
+      // the same way (#24): both grounds travel, and a tile with no tint falls back to the
+      // palette's quiet paper.
+      style={worn(tint)}
       className={cn(
         // 210 by 297: the page the tile is pretending to be, written as the paper size
         // rather than as a decimal nobody could look up.
@@ -70,7 +66,7 @@ export function Cover({
         // Lifting off the shelf on hover, and only where the owner has not asked things to
         // stay still (user story 67).
         "motion-safe:transition-transform motion-safe:hover:-translate-y-1",
-        tint ? "bg-[var(--tint)] dark:bg-[var(--tint-dark)]" : "bg-muted"
+        tint ? WORN : UNWORN
       )}
     >
       <span className="flex min-h-0 flex-1 items-center justify-center">

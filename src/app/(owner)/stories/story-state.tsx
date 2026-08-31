@@ -1,9 +1,16 @@
-import type { StoryState } from "@/core/queries/story";
+import type { StoryState, WallStory } from "@/core/queries/story";
 
-// The four derived states, in one map — **and it is one map because the state became the
-// axis of the application** (#22). It is printed beside a Story on a Path, it names each
-// shelf of the wall, and it is one of the two filters in the URL, so three screens say the
-// same four words and none of them may invent a fifth wording.
+// HOW A STORY IS SAID, on any screen that draws one — and the file exists because several do
+// now, so none of them may invent a second wording for the same fact.
+//
+// Most of it is the four derived states, in one map — **and it is one map because the state
+// became the axis of the application** (#22). It is printed beside a Story on a Path, it names
+// each shelf of the wall, and it is one of the two filters in the URL, so three screens say
+// the same four words and none of them may invent a fifth. Beside that map is `storyDetail`,
+// which is what a *tile* of a Story says when it has no room to say it: the wall faces those
+// tiles outwards as covers and the dashboard stacks them as a pile (#24), and one Story
+// described two ways depending on which screen the pointer was over is the same failure at a
+// smaller scale.
 //
 // Weight rather than colour carries the distinction, and after the palette landed that is
 // not a restraint but the only option: the chrome has no hue to spend. What the owner scans
@@ -51,6 +58,24 @@ export function stateWord(state: StoryState): string {
  */
 export function bandName(state: StoryState): string {
   return SHOWN[state].band;
+}
+
+/**
+ * **Everything a tile cannot fit, in the order the owner would say it**: the title, the
+ * Type, and the line the Story stands in.
+ *
+ * It is the accessible name and the tooltip of every tile a Story is drawn as, and it is
+ * here for the reason the four words above are here — two screens draw those tiles now. The
+ * Story wall faces them outwards as covers and the dashboard stacks them as a pile (#24), and
+ * a second copy of this would be two descriptions of one Story depending on which screen the
+ * pointer was over.
+ */
+export function storyDetail(story: WallStory): string {
+  const line = story.series
+    ? [story.series.name, story.series.editionLine].filter(Boolean).join(", ")
+    : null;
+
+  return [story.title, story.type.name, line].filter(Boolean).join(" — ");
 }
 
 /**

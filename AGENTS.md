@@ -88,9 +88,44 @@ came back into bands is the screen's, and that is the whole of the distinction.
 `src/app/(owner)/stories/page.tsx` is what reading a filter against the vocabulary looks
 like — an unknown value narrows to nothing in the core, and is shown as no filter at all.
 
+**One stated exception, and it is about composition rather than narrowing.** The Reading list
+is not rows in a table: `composeReadingList` builds it out of two derivations and then *orders*
+it, and the order is the answer it gives. So the dashboard takes its first three entries with a
+`slice` — the first three are not knowable until the whole list has been composed, and the band
+prints the total beside them, which needs all of it anyway. The rule's purpose is that a screen
+must not read seventy-seven rows to show four; a composed answer has no such rows to leave
+unread.
+
 **And a control offers only what the wall can be narrowed to.** Where the vocabulary is the
 library's rather than a fixed list, it is read off what is there: the Collection wall's Series
 and publisher pickers come from `listCollectionSeries` and `listCollectionPublishers`, which
 answer with the Series and the publishers the *house holds*. A picker naming a Series the owner
 owns nothing of is a control whose every use empties the wall. A vocabulary too long for a row
 of chips is a native `<select>` in a `GET` form rather than links — still no script, still a URL.
+
+### Where a figure goes, and what it must arrive with
+
+**An aggregate over records that may not carry the fact it needs is wrapped in its own
+coverage in the core.** `Covered<Figure>` in `src/core/queries/library.ts` is the shape: the
+figure, how many records carried the fact, and how many there were. Eighteen of this library's
+seventy-seven acquisitions carry a price, so a total handed over on its own would read as
+*what I have spent* and be wrong by a factor of four — and no screen can defend itself against
+that, because a total carries no evidence of what it was computed over. **The denominator is
+the query's to supply and impossible for a page to invent**, which is why this is a contract
+and not a habit.
+
+**Coverage is not a proportion, and the rule does not reach one.** *67 of 77 Stories are
+unread* is the thing being reported; *18 of 77 acquisitions carried a price* is how far the
+report can be trusted. So the length of a list a page holds whole and renders whole — the
+spines in the pile, the entries in a band's heading — is not a figure this rule binds: there is
+nothing partial about it and no denominator to get wrong.
+
+Two rules follow, and `src/app/(owner)/page.tsx` is the pattern for both. Coverage is rendered
+only where it is short (`whole()` answers that, so no screen writes the comparison itself) — a
+coverage sentence on every figure is noise the owner learns to skip, and then skips on the one
+that matters. And **records that exist and carry nothing read as an absence rather than a
+zero**: an em dash with the reason said out loud, the way an unrated Story already reads on the
+Story wall. The other half of that is as important — **no records at all still gets its zero**,
+because nothing bought is a measurement where *nobody wrote the price down* is not one. Both
+halves live in `figureOf`, in one place, so a figure cannot decide for itself which case it
+is.

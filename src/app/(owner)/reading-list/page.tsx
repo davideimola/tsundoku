@@ -5,6 +5,7 @@ import { composeReadingList, type ReadingListEntry } from "@/core/queries/readin
 import type { PinnedSource } from "@/core/verbs/reading-list";
 import { requireOwner } from "@/lib/auth/owner";
 import { pin, unpin, wishFor } from "./actions";
+import { entryKey, entryStanding, entryTitle } from "./entry";
 
 // THE READING LIST. The screen the owner opens most, and the one the whole application is
 // for: the spreadsheet's `Prossimo` column, recomputed by hand for every route, plus three
@@ -114,7 +115,7 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
 
           <ol className="mt-3">
             {entries.map((entry, place) => (
-              <Entry key={key(entry)} entry={entry} place={place + 1} />
+              <Entry key={entryKey(entry)} entry={entry} place={place + 1} />
             ))}
           </ol>
         </>
@@ -123,29 +124,8 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
   );
 }
 
-/** An entry's source is its identity: one per active Path, one per Series being collected. */
-function key(entry: ReadingListEntry): string {
-  return `${entry.because}:${entry.path?.id ?? entry.series?.id}`;
-}
-
-/** What to call the thing to read. A Series entry names an object, so it says which one. */
-function title(entry: ReadingListEntry): string {
-  if (entry.story) return entry.story.title;
-  if (entry.object) return entry.object.title;
-
-  const series = entry.series;
-  if (!series) return "Something to read";
-  // Nobody has catalogued this position, so the honest name for it is the Series and the
-  // number — which is also exactly what the owner would look for in a shop.
-  return [series.name, series.editionLine, series.position].filter(Boolean).join(" ");
-}
-
-/** The one line that decides whether the entry is actionable tonight. */
-function standing(entry: ReadingListEntry): string {
-  if (entry.medium === "digital") return "digital · tonight";
-  if (entry.atHand) return "paper · on the shelf";
-  return entry.wishAlreadyOpen ? "paper · already on the shopping list" : "paper · buy it first";
-}
+// What an entry is called and how its standing is worded are `./entry` now, because the
+// dashboard says both as well (#24) and a second wording would be a second answer.
 
 /** One entry: what to read, why it is here, and the one thing to do about it. */
 function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
@@ -168,7 +148,7 @@ function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h2 className="font-heading text-lg text-balance">{title(entry)}</h2>
+          <h2 className="font-heading text-lg text-balance">{entryTitle(entry)}</h2>
           {entry.pinned ? (
             <Badge variant="outline" className="shrink-0 text-muted-foreground">
               Pinned
@@ -177,7 +157,7 @@ function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
         </div>
 
         <p className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
-          {standing(entry)}
+          {entryStanding(entry)}
         </p>
 
         {/* Why it is here. A route is a judgement the owner made, so it is named and its
@@ -242,12 +222,12 @@ function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
           {entry.proposedWish ? (
             <form action={wishFor} className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="volumeId" value={entry.proposedWish.volumeId} />
-              <input type="hidden" name="title" value={title(entry)} />
-              <label className="sr-only" htmlFor={`priority-${key(entry)}`}>
+              <input type="hidden" name="title" value={entryTitle(entry)} />
+              <label className="sr-only" htmlFor={`priority-${entryKey(entry)}`}>
                 How soon
               </label>
               <select
-                id={`priority-${key(entry)}`}
+                id={`priority-${entryKey(entry)}`}
                 name="priority"
                 defaultValue={entry.proposedWish.priority}
                 className={PICKER}
