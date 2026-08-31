@@ -62,14 +62,10 @@ export default async function SeriesDetailPage({
 
   return (
     <main className="px-5 pb-16 sm:px-8">
+      {/* No breadcrumb: the shell marks *Series* while the owner is standing here, so a
+          trail one step long was a second answer to a question the chrome answers. */}
       <header className="pt-8 sm:pt-12">
-        <Link
-          href="/series"
-          className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          tsundoku / series
-        </Link>
-        <h1 className="mt-6 text-pretty font-heading text-2xl leading-tight sm:text-3xl">
+        <h1 className="text-pretty font-heading text-2xl leading-tight sm:text-3xl">
           {series.name}
         </h1>
         <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">

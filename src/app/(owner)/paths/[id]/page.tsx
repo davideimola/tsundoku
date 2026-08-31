@@ -64,15 +64,9 @@ export default async function PathPage({
 
   return (
     <main className="px-5 pb-16 sm:px-8">
+      {/* No breadcrumb: the shell marks *Paths* while the owner is standing here. */}
       <header className="pt-8 sm:pt-12">
-        <Link
-          href="/paths"
-          className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground hover:text-foreground"
-        >
-          tsundoku / paths
-        </Link>
-
-        <div className="mt-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
           <h1 className="font-heading text-2xl sm:text-3xl">{path.name}</h1>
           {path.active ? null : (
             <Badge variant="outline" className="text-muted-foreground">

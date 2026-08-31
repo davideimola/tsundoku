@@ -144,14 +144,8 @@ export default async function StoryPage({
 
   return (
     <main className="px-5 py-10 sm:px-8 sm:py-16">
-      <Link
-        href="/stories"
-        className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        tsundoku / stories
-      </Link>
-
-      <header className="mt-8">
+      {/* No breadcrumb: the shell marks *Stories* while the owner is standing here. */}
+      <header>
         <h1 className="text-pretty font-heading text-2xl leading-tight">{story.title}</h1>
         <p className="mt-2 flex items-baseline gap-3">
           <span className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">

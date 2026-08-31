@@ -21,14 +21,9 @@ export default async function CreditPage({ params }: { params: Promise<{ id: str
 
   return (
     <main className="px-5 pb-16 sm:px-8">
+      {/* No breadcrumb: the shell marks *Credits* while the owner is standing here. */}
       <header className="pt-8 sm:pt-12">
-        <Link
-          href="/credits"
-          className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground hover:text-foreground"
-        >
-          tsundoku / credits
-        </Link>
-        <h1 className="mt-6 text-pretty font-heading text-2xl leading-tight sm:text-3xl">
+        <h1 className="text-pretty font-heading text-2xl leading-tight sm:text-3xl">
           {person.name}
         </h1>
         <p className="mt-2 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
