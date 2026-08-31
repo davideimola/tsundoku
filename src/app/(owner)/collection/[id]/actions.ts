@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
+import { releaseVolume } from "@/core/verbs/collection";
 import { eraseEditionNote, writeEditionNote } from "@/core/verbs/edition-note";
 import {
   recordVolumeCarriesStory,
@@ -28,7 +29,7 @@ function text(form: FormData, field: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** Do the work, and say what it said. One shape for all four verbs on this page. */
+/** Do the work, and say what it said. One shape for all five verbs on this page. */
 async function saying(
   volumeId: string,
   said: URLSearchParams,
@@ -71,6 +72,23 @@ export async function stopCarrying(form: FormData): Promise<void> {
   return saying(volumeId, new URLSearchParams({ uncarried: "1" }), () =>
     recordVolumeNoLongerCarriesStory(volumeId, storyId)
   );
+}
+
+/**
+ * Record that this Volume left the house: sold, given away or lost.
+ *
+ * **It lives here rather than on the Collection since that screen became a wall** (#23): a
+ * tile carries no controls, and the act that stops the house claiming an object belongs on
+ * the page that is a record of the object. Nothing undoes it, so it costs a deliberate
+ * second tap — and it erases nothing, because the Readings made through this object and
+ * what the owner thought of it are still true afterwards (ADR-0007).
+ */
+export async function release(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+
+  return saying(volumeId, new URLSearchParams({ released: "1" }), () => releaseVolume(volumeId));
 }
 
 /** Write what the owner thinks of the object. Replaces what they thought before. */

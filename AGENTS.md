@@ -80,10 +80,17 @@ day covers are hotlinked (#32) an image fills the tile instead of reflowing the 
 
 **In the URL, and in the core query's arguments.** A narrowed wall is a `GET` —
 `/stories?type=manga&state=reading` — so it is linkable, survives a refresh and works with
-nothing running in the browser (ADR-0010); every control that narrows one is a link, never a
-script. **The query takes the filter as an argument**: a page never *narrows* an array it
+nothing running in the browser (ADR-0010); every control that narrows one is a link or a field
+in a `GET` form, never a script. **The query takes the filter as an argument**: a page never *narrows* an array it
 fetched, because a wall showing four Stories must not have read seventy-seven. Grouping what
 came back into bands is the screen's, and that is the whole of the distinction.
 `listStoryWall` in `src/core/queries/story.ts` is the pattern, and
 `src/app/(owner)/stories/page.tsx` is what reading a filter against the vocabulary looks
 like — an unknown value narrows to nothing in the core, and is shown as no filter at all.
+
+**And a control offers only what the wall can be narrowed to.** Where the vocabulary is the
+library's rather than a fixed list, it is read off what is there: the Collection wall's Series
+and publisher pickers come from `listCollectionSeries` and `listCollectionPublishers`, which
+answer with the Series and the publishers the *house holds*. A picker naming a Series the owner
+owns nothing of is a control whose every use empties the wall. A vocabulary too long for a row
+of chips is a native `<select>` in a `GET` form rather than links — still no script, still a URL.

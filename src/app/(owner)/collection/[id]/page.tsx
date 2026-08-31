@@ -9,7 +9,7 @@ import { findEditionNote } from "@/core/queries/edition-note";
 import { listStories } from "@/core/queries/story";
 import { listStoriesInVolume } from "@/core/queries/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
-import { carry, stopCarrying, writeNote } from "./actions";
+import { carry, release, stopCarrying, writeNote } from "./actions";
 
 // ONE VOLUME: the object, what it holds, and what the owner thinks of it.
 //
@@ -255,6 +255,33 @@ export default async function VolumePage({
           </form>
         </CardContent>
       </Card>
+
+      {/* **Where releasing an object lives now** (#23). The Collection is a wall of tiles
+          and a tile carries no controls, so the act that stops the house claiming this
+          object sits on the page that is a record of it — behind a disclosure, because
+          nothing undoes it and one mis-aimed thumb in a shop should not cost a purchase. */}
+      {volume.inTheHouse ? (
+        <details className="group mt-6 rounded-xl ring-1 ring-foreground/10">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden">
+            It left the house
+            <span className="ml-2 text-muted-foreground group-open:hidden">
+              — sold, given away or lost
+            </span>
+          </summary>
+
+          <form action={release} className="border-t border-border p-4">
+            <input type="hidden" name="volumeId" value={volume.id} />
+            <Button type="submit" variant="destructive" className="h-11 sm:h-10 sm:px-6">
+              Release it
+            </Button>
+            <p className="mt-2 max-w-prose text-xs text-muted-foreground">
+              The Collection stops claiming it and it leaves the wall. Nothing is erased: this page
+              stays, and so do the Edition note and the Readings made through it. Buying it again is
+              a second acquisition of the same object, not a second object.
+            </p>
+          </form>
+        </details>
+      ) : null}
     </main>
   );
 }

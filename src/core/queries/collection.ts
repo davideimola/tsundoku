@@ -1,6 +1,7 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import type { WallSeries } from "./story.ts";
 
 /**
  * **What being in the Collection is**, as SQL: the Volume named `v` has an open
@@ -245,4 +246,179 @@ export async function listCataloguedOutsideTheCollection(): Promise<
                v.language, v.isbn
       order by lower(v.title), b.display_order, v.id`
   );
+}
+
+/**
+ * One Volume as the Collection wall shows it: what is drawn on the tile, and what colours
+ * it.
+ *
+ * Leaner than `CollectionVolume` on purpose, and the difference is the whole argument for
+ * a second query. A wall is read on a phone on a shop's signal, and a tile carries a title,
+ * a number and a colour — so the price, the day, the language and the ISBN are not fetched
+ * to be thrown away. What the owner wants beyond that is one tap onto the object's own page.
+ *
+ * The Series is the object's own, off its column, rather than derived across the
+ * many-to-many the way a Story's is: an object belongs to exactly one Series, and which one is
+ * a fact about the thing (ADR-0001). `null` is an ordinary answer — an omnibus, a novel, a
+ * standalone — and not a gap.
+ */
+export type WallVolume = {
+  id: string;
+  title: string;
+  publisher: string;
+  editionLine: string | null;
+  binding: { id: string; name: string };
+  /** The Series the object belongs to, or `null` for one that belongs to none. */
+  series: WallSeries | null;
+  /** Its position in that Series: 12 of Slam Dunk. `null` where it belongs to none. */
+  seriesNumber: number | null;
+};
+
+/**
+ * How the wall is narrowed. Everything absent is everything, and they compose, because the
+ * URL can carry all of them at once.
+ *
+ * **The publisher is exact here and matched-anywhere in `searchCollection`, and that is the
+ * difference between the two doors rather than an inconsistency.** What narrows this wall
+ * comes off a picker over the publishers the house actually holds (`listCollectionPublishers`),
+ * so `Panini Comics` is a value the owner chose and not a word they typed; an assistant
+ * reading the Collection over MCP is typing a word, and gets the search that forgives it.
+ */
+export type CollectionWallFilter = {
+  /** Matched anywhere in the title, case-insensitively — the one thing still typed. */
+  title?: string;
+  /** A Series id — exact. Narrowing to one Series is the wall's own filter (user story 26). */
+  series?: string;
+  /** A publisher, exact and whole, as `listCollectionPublishers` offers it. */
+  publisher?: string;
+  /** A Binding id — exact, because it comes from the Binding vocabulary. */
+  binding?: string;
+  /** A Type id — exact, reached through the Stories the Volume carries, as above. */
+  type?: string;
+};
+
+// **The order the shelf stands in**, which is the whole of what makes this a wall rather
+// than a list, and it is one expression because it has to answer for two kinds of object at
+// once.
+//
+// A Volume in a Series sorts under that Series' name; one in none sorts under its own
+// title — so a standalone omnibus takes its place *among* the Series rather than being swept
+// to the end, which is where it stands on the real shelf. Inside a Series the number is the
+// order, so 2 follows 1 and 10 does not come between them.
+//
+// The rest is the tie-break, and every level of it is total: the standard printing before an
+// edition line (the order `queries/series.ts` reads two Series of one name in), then the
+// Series' id, then the title, the Binding and the object's own id. A wall whose order
+// depended on which row Postgres reached first would rearrange itself between two loads of
+// the same page.
+const THE_ORDER_THE_SHELF_STANDS_IN = `
+  order by coalesce(lower(se.name), lower(v.title)),
+           se.edition_line nulls first,
+           se.id,
+           v.series_number,
+           lower(v.title),
+           b.display_order,
+           v.id`;
+
+/**
+ * The Collection as a wall shows it: the Volumes in the house, in the order they stand in,
+ * each carrying the Series it belongs to.
+ *
+ * **Volumes and not Stories, because the object is what the question is about.** *Do I
+ * already have this?* is asked standing in a shop with a book in hand, and two editions of
+ * one story are two different things on a wall — which one is on the shelf is exactly what
+ * the owner cannot remember (#23).
+ *
+ * **In the house, never merely catalogued** (ADR-0007): the join to an open acquisition is
+ * the Collection, so an object the library knows and the house does not hold has no row to
+ * join to. That is the answer the shop is for, and a wall that blurred the two would give
+ * the owner a second copy of something they only ever wanted.
+ *
+ * The filter is an argument and not a pass over the answer, like every wall in this app: a
+ * narrowed wall is a `GET` whose state is in the URL, so it is linkable, survives a refresh
+ * and works with nothing running in the browser (ADR-0010) — and it reads the four rows it
+ * shows rather than ninety-six to keep four, on a shop's signal.
+ */
+export async function listCollectionWall(filter: CollectionWallFilter = {}): Promise<WallVolume[]> {
+  return query<WallVolume>(
+    `select v.id,
+            v.title,
+            v.publisher,
+            v.edition_line as "editionLine",
+            jsonb_build_object('id', b.id, 'name', b.name) as binding,
+            case when se.id is null then null
+                 else jsonb_build_object('id', se.id, 'name', se.name,
+                                         'editionLine', se.edition_line)
+            end as series,
+            v.series_number as "seriesNumber"
+       from volume v
+       join binding b on b.id = v.binding_id
+       -- Left, because belonging to no Series is the ordinary case for sixteen of these
+       -- objects and not a missing row: an omnibus is in no publisher's ordered line.
+       left join series se on se.id = v.series_id
+      -- The fragment rather than searchCollection's join, because nothing here is read off
+      -- the acquisition: what is wanted is the *fact* of one, said once for the whole repo.
+      where ${IN_THE_HOUSE}
+        and ($1::text is null or strpos(lower(v.title), lower($1)) > 0)
+        -- Cast to text rather than compared as a uuid: a hand-edited ?series=banana
+        -- narrows to nothing, which is the honest answer, where series_id = 'banana' on a
+        -- uuid column raises a syntax error and reaches the screen as a 500.
+        and ($2::text is null or v.series_id::text = $2)
+        and ($3::text is null or v.publisher = $3)
+        and ($4::text is null or v.binding_id = $4)
+        -- An existence test rather than a join, so a Volume carrying three Stories of the
+        -- asked Type is one tile and not three: the wall is laid out with objects.
+        and ($5::text is null or exists (
+              select 1
+                from volume_story vs
+                join story s on s.id = vs.story_id
+               where vs.volume_id = v.id and s.type_id = $5
+            ))
+      ${THE_ORDER_THE_SHELF_STANDS_IN}`,
+    [
+      filter.title ?? null,
+      filter.series ?? null,
+      filter.publisher ?? null,
+      filter.binding ?? null,
+      filter.type ?? null,
+    ]
+  );
+}
+
+/**
+ * The Series the house holds something of, in the order the wall stands them in.
+ *
+ * **Only the Series with a Volume on the shelf**, and that is the picker's whole rule: a
+ * control offering *Berserk Deluxe* to an owner who has none of it is a control whose every
+ * use empties the wall. The Series screen is where one the owner is collecting and has not
+ * started is read; this is the wall's own vocabulary, and it is a vocabulary of what is
+ * there.
+ */
+export async function listCollectionSeries(): Promise<WallSeries[]> {
+  return query<WallSeries>(
+    `select se.id, se.name, se.edition_line as "editionLine"
+       from series se
+      where exists (select 1 from volume v
+                     where v.series_id = se.id and ${IN_THE_HOUSE})
+      order by lower(se.name), se.edition_line nulls first, se.id`
+  );
+}
+
+/**
+ * The publishers the house holds something of, once each, by name.
+ *
+ * A publisher is a string on a Volume rather than a row of its own, so this is the closest
+ * thing to a vocabulary there is for it — and it is derived from the shelf for the reason
+ * the Series are: what the wall offers to narrow by is what the wall can be narrowed to.
+ */
+export async function listCollectionPublishers(): Promise<string[]> {
+  const rows = await query<{ publisher: string }>(
+    `select v.publisher
+       from volume v
+      where ${IN_THE_HOUSE}
+      group by v.publisher
+      order by lower(v.publisher)`
+  );
+
+  return rows.map((row) => row.publisher);
 }

@@ -2,12 +2,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { acquireVolume, catalogueVolume, releaseVolume } from "../verbs/collection.ts";
+import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import {
   countCollection,
   findVolume,
   listCataloguedOutsideTheCollection,
+  listCollectionPublishers,
+  listCollectionSeries,
+  listCollectionWall,
   searchCollection,
 } from "./collection.ts";
 
@@ -17,8 +21,10 @@ import {
 // says what it carries, and by the Readings that went through it, so truncating it alone is
 // refused. Both go with it, which is what this file wants — and the two data-row tables,
 // Type and Binding, stay, because those are schema rather than fixtures.
+// `series` joined them when the wall arrived: the wall is *ordered* by the line an object
+// stands in, so a Series left standing between two tests would order the next one's shelf.
 beforeEach(async () => {
-  await query("truncate volume, story cascade");
+  await query("truncate volume, story, series cascade");
 });
 
 async function threeVolumesInTheHouse(): Promise<void> {
@@ -315,5 +321,256 @@ describe("finding one Volume", () => {
   it("answers with nothing for an id that is not one, rather than raising", async () => {
     expect(await findVolume("banana")).toBeNull();
     expect(await findVolume("00000000-0000-0000-0000-000000000000")).toBeNull();
+  });
+});
+
+// THE COLLECTION WALL (#23), and the criterion that is hard to see in a list of titles:
+// **it stands the way the shelf stands**. A list ordered by title puts *Slam Dunk 10*
+// between 1 and 2 and answers *what am I missing* by making the owner read; a wall ordered
+// by the line an object stands in, and by its number inside that line, answers it by
+// looking — which is the whole reason this screen exists (ADR-0007, user story 24).
+//
+// The other half of the order is the one nothing else in this file tests: an object in **no**
+// Series is not an exception to be dropped at the end. Sixteen of this library's Volumes are
+// standalones, and they take their place under their own title, among the Series, exactly as
+// they do on a real shelf.
+
+/** The two Series the fixture declared, so a test can name the one it narrows to. */
+let declared: { slamDunk: string; blackEdition: string };
+
+/** Own a numbered Volume of a Series, as the owner does — one purchase, then its position. */
+async function ownIn(
+  seriesId: string,
+  volume: { title: string; publisher: string; binding: string; editionLine?: string },
+  number: number
+): Promise<string> {
+  const id = await volumeInTheHouse({ language: "it", ...volume });
+  await placeVolumeInSeries({ volumeId: id, seriesId, number });
+  return id;
+}
+
+/** Stand a shelf up: two Series, an object in neither, and what two of the Volumes carry. */
+async function standTheShelfUp(): Promise<void> {
+  const slamDunk = await declareSeries({
+    name: "Slam Dunk",
+    publisher: "Planet Manga",
+    publishedCount: 31,
+    status: "concluded",
+  });
+  const blackEdition = await declareSeries({
+    name: "Death Note",
+    publisher: "Planet Manga",
+    editionLine: "Black Edition",
+    publishedCount: 6,
+    status: "concluded",
+  });
+  declared = { slamDunk, blackEdition };
+
+  // Acquired in the order they were bought in, which is deliberately not the order they
+  // stand in: an order that came out right because the rows went in right proves nothing.
+  await ownIn(
+    slamDunk,
+    { title: "Slam Dunk 2", publisher: "Planet Manga", binding: "tankobon" },
+    2
+  );
+  const first = await ownIn(
+    slamDunk,
+    { title: "Slam Dunk 1", publisher: "Planet Manga", binding: "tankobon" },
+    1
+  );
+  await ownIn(
+    blackEdition,
+    { title: "Death Note Black Edition I", publisher: "Planet Manga", binding: "deluxe" },
+    1
+  );
+
+  const alone = await volumeInTheHouse({
+    title: "L'uomo che ride",
+    publisher: "Panini Comics",
+    editionLine: "DC Must Have",
+    binding: "must-have",
+    language: "it",
+  });
+
+  await recordVolumeCarriesStory(first, await createStory({ title: "Slam Dunk", typeId: "manga" }));
+  await recordVolumeCarriesStory(
+    alone,
+    await createStory({ title: "Gotham Noir", typeId: "comic" })
+  );
+}
+
+describe("the Collection wall", () => {
+  beforeEach(standTheShelfUp);
+
+  it("stands by the line an object is in, and by its number inside that line", async () => {
+    expect(titles(await listCollectionWall({}))).toEqual([
+      "Death Note Black Edition I",
+      "L'uomo che ride",
+      "Slam Dunk 1",
+      "Slam Dunk 2",
+    ]);
+  });
+
+  it("gives an object that stands in no line its place under its own title", async () => {
+    const [, alone] = await listCollectionWall({});
+
+    expect(alone).toMatchObject({
+      title: "L'uomo che ride",
+      series: null,
+      seriesNumber: null,
+      binding: { id: "must-have", name: "Must Have" },
+    });
+  });
+
+  it("carries the line and the number, which is what the tile wears", async () => {
+    const [deathNote] = await listCollectionWall({});
+
+    expect(deathNote).toMatchObject({
+      title: "Death Note Black Edition I",
+      series: { id: declared.blackEdition, name: "Death Note", editionLine: "Black Edition" },
+      seriesNumber: 1,
+    });
+  });
+
+  it("shows two editions of one Story as two objects", async () => {
+    const story = await createStory({ title: "Il lungo Halloween", typeId: "comic" });
+    const mustHave = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      editionLine: "DC Must Have",
+      binding: "must-have",
+      language: "it",
+    });
+    const omnibus = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      binding: "omnibus",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(mustHave, story);
+    await recordVolumeCarriesStory(omnibus, story);
+
+    const both = (await listCollectionWall({})).filter((volume) =>
+      volume.title.startsWith("Batman")
+    );
+
+    expect(new Set(both.map((volume) => volume.id))).toEqual(new Set([mustHave, omnibus]));
+    expect(new Set(both.map((volume) => volume.binding.id))).toEqual(
+      new Set(["must-have", "omnibus"])
+    );
+  });
+
+  it("shows what is in the house, and never what is merely catalogued", async () => {
+    await catalogueVolume({
+      title: "Blame! 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    const gone = await volumeInTheHouse({
+      title: "Akira 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await releaseVolume(gone);
+
+    expect(titles(await listCollectionWall({}))).toEqual([
+      "Death Note Black Edition I",
+      "L'uomo che ride",
+      "Slam Dunk 1",
+      "Slam Dunk 2",
+    ]);
+  });
+
+  it("narrows to one line at a time", async () => {
+    expect(titles(await listCollectionWall({ series: declared.slamDunk }))).toEqual([
+      "Slam Dunk 1",
+      "Slam Dunk 2",
+    ]);
+  });
+
+  it("narrows by publisher exactly, because the publisher comes off a picker", async () => {
+    expect(titles(await listCollectionWall({ publisher: "Panini Comics" }))).toEqual([
+      "L'uomo che ride",
+    ]);
+    expect(await listCollectionWall({ publisher: "panini" })).toEqual([]);
+  });
+
+  it("narrows by Type, through what the object carries", async () => {
+    expect(titles(await listCollectionWall({ type: "comic" }))).toEqual(["L'uomo che ride"]);
+    expect(titles(await listCollectionWall({ type: "manga" }))).toEqual(["Slam Dunk 1"]);
+  });
+
+  it("narrows by Binding, which is what tells two editions apart", async () => {
+    expect(titles(await listCollectionWall({ binding: "deluxe" }))).toEqual([
+      "Death Note Black Edition I",
+    ]);
+  });
+
+  it("narrows by a word inside the title, whatever the case", async () => {
+    expect(titles(await listCollectionWall({ title: "slam" }))).toEqual([
+      "Slam Dunk 1",
+      "Slam Dunk 2",
+    ]);
+  });
+
+  it("narrows by several at once", async () => {
+    expect(titles(await listCollectionWall({ series: declared.slamDunk, type: "manga" }))).toEqual([
+      "Slam Dunk 1",
+    ]);
+    expect(
+      await listCollectionWall({ series: declared.slamDunk, publisher: "Panini Comics" })
+    ).toEqual([]);
+  });
+
+  it("narrows to nothing for a line, a publisher or a Type that is none", async () => {
+    expect(await listCollectionWall({ series: "banana" })).toEqual([]);
+    expect(await listCollectionWall({ publisher: "Nobody" })).toEqual([]);
+    expect(await listCollectionWall({ type: "banana" })).toEqual([]);
+  });
+});
+
+// What the wall's two pickers offer, and the rule both follow: **only what the house
+// holds**. A picker naming a line the owner owns nothing of, or a publisher off a Volume
+// they never had, is a control whose every use empties the wall.
+describe("the vocabularies the wall narrows by", () => {
+  beforeEach(standTheShelfUp);
+
+  it("offers the lines the house holds, by name and then edition", async () => {
+    expect(await listCollectionSeries()).toEqual([
+      { id: declared.blackEdition, name: "Death Note", editionLine: "Black Edition" },
+      { id: declared.slamDunk, name: "Slam Dunk", editionLine: null },
+    ]);
+  });
+
+  it("leaves out a line the house holds nothing of", async () => {
+    await declareSeries({
+      name: "Berserk",
+      publisher: "Panini Comics",
+      editionLine: "Deluxe",
+      publishedCount: 41,
+      status: "ongoing",
+    });
+
+    expect((await listCollectionSeries()).map((series) => series.name)).toEqual([
+      "Death Note",
+      "Slam Dunk",
+    ]);
+  });
+
+  it("offers the publishers the house holds, once each", async () => {
+    expect(await listCollectionPublishers()).toEqual(["Panini Comics", "Planet Manga"]);
+  });
+
+  it("leaves out the publisher of an object the house does not hold", async () => {
+    await catalogueVolume({
+      title: "Sapiens",
+      publisher: "Bompiani",
+      binding: "paperback",
+      language: "it",
+    });
+
+    expect(await listCollectionPublishers()).not.toContain("Bompiani");
   });
 });

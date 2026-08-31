@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
-import { acquireVolume, catalogueVolume, releaseVolume } from "@/core/verbs/collection";
+import { acquireVolume, catalogueVolume } from "@/core/verbs/collection";
 import { requireOwner } from "@/lib/auth/owner";
 
 // The write side of the Collection screen, and a thin adapter like the page beside it
@@ -27,7 +27,7 @@ function text(form: FormData, field: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** Do the work, and say what it said. One shape for the screen's three verbs. */
+/** Do the work, and say what it said. One shape for the screen's two verbs. */
 async function saying(said: URLSearchParams, work: () => Promise<unknown>): Promise<never> {
   let answer = said;
 
@@ -81,11 +81,8 @@ export async function acquire(form: FormData): Promise<void> {
   );
 }
 
-/** Record that a Volume left the house. The Collection stops claiming it; the record stays. */
-export async function release(form: FormData): Promise<void> {
-  await requireOwner();
-
-  return saying(new URLSearchParams({ released: text(form, "title") ?? "" }), () =>
-    releaseVolume(text(form, "volumeId") ?? "")
-  );
-}
+// **Releasing a Volume is not here, and that is the wall becoming a wall** (#23). It used to
+// be a button on a row of this screen; the rows are tiles now, and a tile carries no
+// controls. The act moved to the object's own page, which is where the owner is standing
+// when they decide it has gone — and where the second tap it costs is deliberate, since
+// nothing undoes it.
