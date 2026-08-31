@@ -1,6 +1,7 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
 import type { WallSeries } from "./story.ts";
 
 /**
@@ -149,6 +150,32 @@ export type RecordedVolume = CollectionVolume & {
   series: WallSeries | null;
   /** Its position in that Series: 12 of Slam Dunk. `null` where it stands in none. */
   seriesNumber: number | null;
+  /**
+   * The image the object is faced with — the owner's own first, then whatever the lookup
+   * found — or `null` for the drawn tile, which is still the normal case (ADR-0013).
+   */
+  cover: FacedWith | null;
+  /** What the lookup last found, as it found it: the page this screen is where it is repaired from. */
+  lookedUp: LookedUpCover;
+};
+
+/**
+ * What one lookup left on the record, which is more than a wall needs and exactly what the
+ * object's own page shows.
+ *
+ * **The moment is the load-bearing field.** Without it, *we asked and there is none* and
+ * *nobody has ever asked* are the same row — and the difference is the whole of what the
+ * screen has to say to an owner wondering why a tile is blank.
+ */
+export type LookedUpCover = {
+  /** Which source answered, or `null` where none has one. */
+  source: string | null;
+  /** The source's own id for the record — Google's volume id. */
+  reference: string | null;
+  /** The source's own page for the book, which is the link a public page owes it. */
+  infoUrl: string | null;
+  /** When a lookup last ran over this object, or `null` where none ever has. */
+  at: string | null;
 };
 
 /**
@@ -181,7 +208,12 @@ export async function findVolume(volumeId: string): Promise<RecordedVolume | nul
                  else jsonb_build_object('id', se.id, 'name', se.name,
                                          'editionLine', se.edition_line)
             end as series,
-            v.series_number as "seriesNumber"
+            v.series_number as "seriesNumber",
+            ${THE_COVER_IT_IS_FACED_WITH} as cover,
+            jsonb_build_object('source', v.cover_source,
+                               'reference', v.cover_reference,
+                               'infoUrl', v.cover_info_url,
+                               'at', to_char(v.cover_looked_up_at, 'YYYY-MM-DD')) as "lookedUp"
        from volume v
        join binding b on b.id = v.binding_id
        -- Left, because standing in no Series is ordinary rather than missing: an omnibus, a
@@ -345,6 +377,14 @@ export type WallVolume = {
   series: WallSeries | null;
   /** Its position in that Series: 12 of Slam Dunk. `null` where it belongs to none. */
   seriesNumber: number | null;
+  /**
+   * The image the tile is faced with, or `null` for the drawn tile.
+   *
+   * **A column, never a lookup.** What a wall does with this is point an `<img>` at somebody
+   * else's domain; what nothing on this path does is call a third party, which is what keeps
+   * the Collection answerable on a shop's signal (ADR-0013, #32).
+   */
+  cover: FacedWith | null;
 };
 
 /**
@@ -423,7 +463,8 @@ export async function listCollectionWall(filter: CollectionWallFilter = {}): Pro
                  else jsonb_build_object('id', se.id, 'name', se.name,
                                          'editionLine', se.edition_line)
             end as series,
-            v.series_number as "seriesNumber"
+            v.series_number as "seriesNumber",
+            ${THE_COVER_IT_IS_FACED_WITH} as cover
        from volume v
        join binding b on b.id = v.binding_id
        -- Left, because belonging to no Series is the ordinary case for sixteen of these

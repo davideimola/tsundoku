@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
 import { acquireVolume, amendVolume, releaseVolume } from "@/core/verbs/collection";
+import { dropOwnCover, lookUpCoverFor, setOwnCover } from "@/core/verbs/cover";
 import { eraseEditionNote, writeEditionNote } from "@/core/verbs/edition-note";
 import {
   recordVolumeCarriesStory,
@@ -138,6 +139,65 @@ export async function recordIsbn(form: FormData): Promise<void> {
   return saying(volumeId, new URLSearchParams({ isbn: "1" }), () =>
     amendVolume(volumeId, { isbn: text(form, "isbn") })
   );
+}
+
+/**
+ * Ask the sources for this one object's cover, and say what came back.
+ *
+ * **The one thing on this screen that waits on somebody else's server**, and it is still a
+ * plain form post: nothing runs in the browser, and the page after it is an ordinary server
+ * render with the jacket on the tile (ADR-0010). A render calls no source, ever — this
+ * action is the only path that does (#32).
+ *
+ * A Volume with no ISBN is refused in the verb's own words rather than probed, and that
+ * refusal reaches the screen the way every other one does. The four answers are four
+ * different sentences, and the one that matters is the third: a rate limit or a timeout is
+ * *not* an absence, and nothing about the object was written down.
+ */
+export async function lookUpCover(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+
+  // The one verb on this page whose *answer* is worth carrying back rather than only its
+  // success, so the work fills in the params `saying` is already holding — it redirects with
+  // that same object, and a refusal replaces it wholesale as it does everywhere else.
+  const said = new URLSearchParams();
+
+  return saying(volumeId, said, async () => {
+    const answer = await lookUpCoverFor(volumeId);
+    said.set("cover", answer.outcome);
+    if (answer.outcome === "unanswered") said.set("because", answer.because);
+  });
+}
+
+/**
+ * Put the owner's own image on the object: a photograph, or a scan. It overrides whatever
+ * the lookup found.
+ *
+ * **The one image this application is allowed to keep** (ADR-0013). Hosting a source's cover
+ * is a breach of their terms; hosting the owner's own is not a question anybody else has a
+ * say in — and it is the only thing that will ever face a Bonelli monthly, which carries no
+ * ISBN to look one up by. The verb refuses an address on a source's own domain, because that
+ * would be somebody else's bytes wearing the owner's name.
+ */
+export async function useOwnImage(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+
+  return saying(volumeId, new URLSearchParams({ imaged: "1" }), () =>
+    setOwnCover(volumeId, text(form, "imageUrl") ?? "")
+  );
+}
+
+/** Take the owner's own image off. What the lookup found is standing underneath it. */
+export async function removeOwnImage(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+
+  return saying(volumeId, new URLSearchParams({ unimaged: "1" }), () => dropOwnCover(volumeId));
 }
 
 /** Write what the owner thinks of the object. Replaces what they thought before. */

@@ -17,8 +17,18 @@ import { listStories } from "@/core/queries/story";
 import { listStoriesInVolume } from "@/core/queries/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { acquire, carry, recordIsbn, release, stopCarrying, writeNote } from "./actions";
-import { timesSaid, whatTheHouseSays } from "./standing";
+import {
+  acquire,
+  carry,
+  lookUpCover,
+  recordIsbn,
+  release,
+  removeOwnImage,
+  stopCarrying,
+  useOwnImage,
+  writeNote,
+} from "./actions";
+import { facedWith, timesSaid, whatTheHouseSays, whatTheLookupSaid } from "./standing";
 
 // ONE VOLUME: the object as the library catalogues it, whether it is in the house, what it
 // holds, and what the owner thinks of it.
@@ -81,6 +91,7 @@ export default async function VolumePage({
 
   const said = await searchParams;
   const refused = asked(said, "refused");
+  const cover = asked(said, "cover");
   // Every Story is offerable: a Story the object already carries is filtered out here, so
   // the picker only ever proposes something that would change the record.
   const held = new Set(carried.map((story) => story.id));
@@ -106,6 +117,7 @@ export default async function VolumePage({
               tint={tint(volume.series?.id)}
               detail={objectSaid(volume)}
               foot={volume.seriesNumber ?? volume.binding.name}
+              image={volume.cover}
             />
           </div>
 
@@ -140,6 +152,11 @@ export default async function VolumePage({
           className="mt-6 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           {refused}
+        </p>
+      ) : null}
+      {cover ? (
+        <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
+          {whatTheLookupSaid(cover, asked(said, "because"))}
         </p>
       ) : null}
 
@@ -195,6 +212,8 @@ export default async function VolumePage({
               the record is a different act from putting one in.
             </p>
           </form>
+
+          <TheCover volume={volume} />
         </section>
 
         <section>
@@ -407,6 +426,118 @@ export default async function VolumePage({
         </Card>
       </div>
     </main>
+  );
+}
+
+/**
+ * THE COVER, on the object's own page: where the image on the tile comes from, and the two
+ * ways the owner changes it.
+ *
+ * **The distinction the block is laid out along is whose bytes they are** (ADR-0013). A
+ * looked-up cover is a *reference* — the source's own address, pointed at and never copied
+ * here, revocable by them at any moment — and it is 128 pixels wide, which is the only size
+ * that exists. An image of the owner's own is hosted, is theirs, and overrides the other one:
+ * it is the only thing that will ever face a Bonelli monthly, and the only image this
+ * application is allowed to keep.
+ *
+ * The lookup is offered only where there is an ISBN to look one up by, and where there is
+ * not the block says so instead of standing a button there that can only ever be refused.
+ */
+function TheCover({ volume }: { volume: RecordedVolume }) {
+  const own = volume.cover?.from === "own";
+
+  return (
+    <details className="group mt-6 rounded-xl ring-1 ring-foreground/10">
+      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden">
+        Cover
+        <span className="ml-2 text-muted-foreground group-open:hidden">— {facedWith(volume)}</span>
+      </summary>
+
+      <div className="grid gap-5 border-t border-border p-4">
+        <p className="max-w-prose text-pretty text-sm text-muted-foreground">
+          {facedWith(volume)}
+          {volume.lookedUp.at ? ` Last asked about on ${volume.lookedUp.at}.` : null}{" "}
+          {/* Off the **record**, not off the tile. `cover.at` describes the image being shown,
+              so it is absent the moment an image of the owner's own covers the looked-up one
+              — and the source's page for the book is still a fact about this object, and is
+              the exact column a public page owes Google a link to (ADR-0013). */}
+          {volume.lookedUp.infoUrl ? (
+            <a
+              href={volume.lookedUp.infoUrl}
+              // A link off this application entirely, so it says so and takes nothing with it.
+              target="_blank"
+              rel="noreferrer noopener"
+              className="underline decoration-border underline-offset-4 hover:decoration-foreground"
+            >
+              The source&apos;s own page for it
+            </a>
+          ) : null}
+        </p>
+
+        {volume.isbn ? (
+          <form action={lookUpCover}>
+            <input type="hidden" name="volumeId" value={volume.id} />
+            <Button type="submit" variant="outline" className="h-11 sm:h-10 sm:px-6">
+              {volume.cover && !own ? "Look it up again" : "Look up a cover"}
+            </Button>
+            <p className="mt-2 max-w-prose text-xs text-muted-foreground">
+              Google Books first, then Open Library. The image is <em>pointed at</em> where it lives
+              and never copied here, so it is 128 pixels wide — which is all there is — and it can
+              be withdrawn by whoever owns it. A cover that has gone is looked up again by this
+              button, and by the run on the Collection.
+            </p>
+          </form>
+        ) : (
+          <p className="max-w-prose text-pretty text-xs text-muted-foreground">
+            Every source is keyed by ISBN, and this object has none — so there is nothing to ask.
+            Record its ISBN above, or give it an image of your own below. A Bonelli monthly never
+            gets one: those carry a periodical EAN and no ISBN at all.
+          </p>
+        )}
+
+        <form action={useOwnImage} className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          <input type="hidden" name="volumeId" value={volume.id} />
+          <div className="grid gap-1.5">
+            <Label htmlFor="volume-image" className="text-xs text-muted-foreground">
+              An image of your own
+            </Label>
+            <Input
+              id="volume-image"
+              name="imageUrl"
+              type="url"
+              defaultValue={own ? volume.cover?.url : ""}
+              placeholder="https://…/one-piece-100.jpg"
+              autoComplete="off"
+              required
+              className="h-11 sm:h-10"
+            />
+          </div>
+          <Button type="submit" variant="outline" className="h-11 sm:h-10 sm:px-6">
+            {own ? "Use this one" : "Use my own"}
+          </Button>
+          <p className="max-w-prose text-xs text-muted-foreground sm:col-span-2">
+            A photograph or a scan you host yourself. It overrides whatever the lookup found, at
+            whatever size you took it — and it is the only image this library keeps, because it is
+            yours and no third party can withdraw it. An address on a source&apos;s own domain is
+            refused: that would be their bytes under your name.
+          </p>
+        </form>
+
+        {own ? (
+          <form action={removeOwnImage}>
+            <input type="hidden" name="volumeId" value={volume.id} />
+            <Button
+              type="submit"
+              variant="ghost"
+              size="sm"
+              className="-ml-2.5 h-8 text-xs text-muted-foreground"
+            >
+              Take my image off
+            </Button>
+          </form>
+        ) : null}
+      </div>
+    </details>
   );
 }
 

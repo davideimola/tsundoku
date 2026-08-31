@@ -62,13 +62,32 @@ import { defineConfig } from "vitest/config";
 //
 // **The same licence, stated once, reaches a screen's own derivation** — `src/lib/tint.ts`,
 // `src/app/(owner)/inbox/decisions.ts`, which bands a few hundred waiting Inbox entries
-// into the handful of decisions the owner actually takes and names them, and
+// into the handful of decisions the owner actually takes and names them,
 // `src/app/(owner)/find/kinds.ts`, which says what each kind of record is called and where
-// enter lands on it. It is the same rule and not a wider one: data in, data out, a function
+// enter lands on it, and `src/app/(owner)/collection/covers-found.ts`, which turns a cover
+// run's six numbers into the clauses the owner reads.
+//
+// It is the same rule and not a wider one: data in, data out, a function
 // this application would still have if React were replaced, and never a component, a render
 // or a private helper of a page. What a *screen* is tested through is still the query behind
 // it and the Server Function its plain form posts to. A pure derivation grown into a page is how this rule would be broken, and
 // the test file has to say out loud which of the two it is.
+//
+// **The same licence reaches one file that is not a screen's, and that is `src/core/covers.ts`'s
+// readers.** They take the text of a source's answer, or an HTTP status, and answer *found*,
+// *none* or *unanswered* — data in, data out, and this application would still have them if
+// `fetch` were replaced by a courier. Everything in that file which touches a socket is
+// exercised through the verb instead, which takes its source as an argument and is Seam 1
+// (`src/core/verbs/cover.test.ts`). So the rule is unchanged rather than widened, and the thing
+// it buys is worth naming: **no test in this repository calls a third party**, and the two
+// behaviours that matter most — a rate limit is not an absence, and a cover that has gone is
+// looked up again — are exactly the two a live source would not produce on demand.
+//
+// **Three files are neither seam, and they are walls**: `src/app/gated.test.ts`,
+// `src/app/palette.test.ts` and `src/app/hotlinked.test.ts`. Each is arithmetic or a grep
+// over the source, each catches a failure that is silent — a page served ungated, a colour
+// nobody chose, a page that calls a third party on the render — and none of them renders
+// anything. They are the same licence as the paragraph above: text in, verdict out.
 export default defineConfig({
   resolve: {
     alias: {

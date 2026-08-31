@@ -39,6 +39,24 @@ and not something they forget they have.
 _Avoid_: book unqualified, item, copy, and **edition** — edition is the publisher's line
 (*Ultimate Deluxe Edition*), a property of the volume rather than a synonym for it.
 
+**Cover**:
+The image a **Volume** is faced with on a wall. It is either **looked up** — asked for by ISBN
+at Google Books, and at Open Library for what Google does not have, and then *pointed at* where
+it lives rather than copied here — or it is the **owner's own image**, a photograph or a scan
+they host themselves, which overrides the looked-up one. The distinction is not a detail: a
+looked-up cover is somebody else's, 128 pixels wide because that is the only size that exists,
+and revocable by them at any moment; an owner's image is theirs, at whatever size they took it,
+and is the only thing that will ever face a Volume with no ISBN — every Bonelli monthly, always
+(ADR-0013). **A Volume with no cover is the ordinary case, not a gap**: the tile the walls draw
+in the Series' tint is the cover, and an image covers it.
+A **Story** has none of its own — a narrative is not an object — and what it wears on a wall is
+borrowed from the first Volume that carries it.
+_Avoid_: thumbnail and artwork — *thumbnail* names a size, and the size is a consequence of
+the source rather than the thing. And **image** unqualified wherever whose it is matters,
+which is nearly everywhere: it is *the owner's own image*, or it is a looked-up cover. The one
+place the bare word is right is a tile, which is handed whichever of the two won and has no
+business knowing.
+
 **Acquisition**:
 The fact that a **Volume** is in the house, from a day and at a price, and until when. It
 is what the **Collection** is a query over, and it is recorded deliberately rather than

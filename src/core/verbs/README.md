@@ -30,6 +30,15 @@ whose caller finds that out by surprise is not.
 `begin`/`commit` on a single client, or put it in a function in a migration and call
 that. Composing two verbs in a caller invents a transaction that does not exist.
 
+**There is exactly one exception, and the reason is a third party's network.**
+`lookUpCovers` in `cover.ts` walks a batch of Volumes, asks a source about each, and writes
+what came back — one statement per object, and no transaction around the run. What the rule
+protects is an atomic *fact*, and each object's answer is one: they are independent, and
+holding a transaction open across two dozen requests to somebody else's CDN would put a lock
+behind a stranger's timeout and lose twenty-three good answers because the twenty-fourth
+hung. A second exception wants the same argument written down, in the verb, before it is
+taken — not a shorter one.
+
 ## The MCP boundary
 
 The MCP server may call verbs on entities that **already exist** — that is the whole

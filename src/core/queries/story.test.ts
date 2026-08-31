@@ -396,6 +396,10 @@ describe("the Story wall", () => {
         state: "to-read",
         latestScore: null,
         series: { id: seriesId, name: "Vinland Saga", editionLine: null },
+        // Nothing has looked one up, so the tile is the drawn one — which is the normal
+        // case and not a gap (ADR-0013). What a jacket is borrowed from is asserted in
+        // `queries/cover.test.ts`, beside the fragment that resolves it.
+        cover: null,
       },
     ]);
   });

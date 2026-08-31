@@ -29,6 +29,13 @@
       "when": 1788190979181,
       "tag": "0003_the_finder_folds_accents",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788212609335,
+      "tag": "0004_a_cover_is_hotlinked_and_never_hosted",
+      "breakpoints": true
     }
   ]
 }

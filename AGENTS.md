@@ -107,9 +107,9 @@ walks every colour the function can produce and holds each one to the palette's 
 threshold on both grounds, which is what buys the exception the palette wall states.
 
 The tile that wears it is `src/components/cover.tsx`, and it is **the cover rather than a
-placeholder for one**: 0 of 96 Volumes carry an ISBN, so a drawn tile is the normal case and
-an image is the exception. It is shaped like the page it stands for (210 by 297) so that the
-day covers are hotlinked (#32) an image fills the tile instead of reflowing the wall.
+placeholder for one**: a drawn tile is the normal case and an image is the exception. It is
+shaped like the page it stands for (210 by 297), which is what let #32 hotlink an image into the
+tile without reflowing a single wall.
 
 Two other things wear a tint, and each is a different view of the same object: the lying-down
 spine the pile is stacked from (`src/components/pile.tsx`), because a pile is read from the
@@ -118,6 +118,29 @@ side, and the **standing** spine a Series is drawn as
 the cover; a Series' sequence — thirty positions with two notches taken out of them — gets
 spines, which is what makes a 72-volume ledger one screen instead of six. How a tile wears a
 tint is `worn()`/`WORN` in `src/lib/tint.ts` and never each tile's own three lines.
+
+### Where a cover comes from, and what may be kept of it
+
+**Hotlinked, never hosted, and Postgres is what refuses the alternative** (ADR-0013). A Volume
+carries the cover as a *reference* — which source answered, that source's id for the record, the
+address, and the source's own page for the book — and an `<img>` points at somebody else's
+domain. Google Books is the only source that has these covers (91% of a measured sample against
+5.6% for the next two) and its terms forbid a permanent copy, so `cover_url` is constrained to
+their domain and `own_image_url` is constrained *away* from it: hosting is reserved for the
+owner's own photograph, which overrides the looked-up one and is the only thing that will ever
+face a Bonelli monthly.
+
+Three rules follow, and each is a file:
+
+- **Nothing on a render calls a third party.** A page reads a column. The lookup is
+  `lookUpCovers` in `src/core/verbs/cover.ts`, a verb the owner runs from the Collection, and
+  `src/core/covers.ts` is the only file in the repository that knows what a `fetch` is.
+- **A rate limit is not an absence.** A source answers *found*, *none* or *unanswered*, and the
+  third writes nothing at all — a 403 recorded as "no cover" produced a false 0% in the research
+  this rests on (`docs/research/cover-images-by-isbn.md`).
+- **The fallback chain is resolved once, in the core.** `THE_COVER_IT_IS_FACED_WITH` in
+  `src/core/queries/cover.ts` is the owner's image over the looked-up one, and the three walls
+  that draw a tile all read it rather than each deciding.
 
 ### Where a screen's own derivation goes
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
 import { acquireVolume, catalogueVolume } from "@/core/verbs/collection";
+import { type CoverLookupReport, lookUpCovers } from "@/core/verbs/cover";
 import { requireOwner } from "@/lib/auth/owner";
 
 // The write side of the Collection screen, and a thin adapter like the page beside it
@@ -78,6 +79,49 @@ export async function acquire(form: FormData): Promise<void> {
       pricePaid: text(form, "pricePaid"),
       acquiredOn: text(form, "acquiredOn"),
     })
+  );
+}
+
+/**
+ * Look up the covers of the objects that could have one, and come back saying what was found
+ * **and what was not**.
+ *
+ * **The one action in this application that waits on somebody else's server**, and it is a
+ * form post rather than anything running in the browser (ADR-0010): the owner presses it,
+ * a few seconds pass, and the wall re-renders with the jackets on it. A run touches a batch
+ * and the report says how many objects nobody has asked about yet, so the answer to "there
+ * are more" is to press it again.
+ *
+ * Nothing on a page render calls a source (#32). This is the *only* path in the app that
+ * does, which is what keeps the Collection wall answerable on a shop's signal.
+ */
+export async function findCovers(): Promise<void> {
+  await requireOwner();
+
+  let report: CoverLookupReport;
+  try {
+    report = await lookUpCovers();
+  } catch (error) {
+    if (!isRefusal(error)) throw error;
+    revalidatePath("/collection");
+    redirect(`/collection?${new URLSearchParams({ refused: error.message })}`);
+  }
+
+  // The whole report travels in the URL, because a page after a write is a plain server
+  // render (ADR-0010) and there is no React state for it to live in. Every number the verb
+  // answered with, named — a run that reported six of its seven would be a run whose sentence
+  // could not add up — and the clauses they become are the screen's own, `./covers-found.ts`.
+  revalidatePath("/collection");
+  redirect(
+    `/collection?${new URLSearchParams({
+      found: String(report.found),
+      refreshed: String(report.refreshed),
+      absent: String(report.absent),
+      unanswered: String(report.unanswered),
+      checked: String(report.checked),
+      skipped: String(report.skipped),
+      stillDue: String(report.stillDue),
+    })}`
   );
 }
 

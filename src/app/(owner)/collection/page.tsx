@@ -15,10 +15,17 @@ import {
   listCollectionWall,
   type WallVolume,
 } from "@/core/queries/collection";
+import { coverStanding } from "@/core/queries/cover";
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { acquire, catalogue } from "./actions";
+import { acquire, catalogue, findCovers } from "./actions";
+import {
+  howFarTheCoversHaveGot,
+  readCoverReport,
+  whatNoLookupReaches,
+  whatTheLookupFound,
+} from "./covers-found";
 
 // THE COLLECTION WALL, and the screen this whole redesign exists for: *do I already have
 // this?* asked standing in a shop, one-handed, on the shop's signal. So the phone is the
@@ -42,6 +49,12 @@ import { acquire, catalogue } from "./actions";
 //      every control is a form field or a link, the narrowed wall is bookmarkable, survives
 //      a refresh, and works with nothing running in the browser. The filter is an argument
 //      to the core query, so a wall showing four objects read four rows and not ninety-six.
+//   5. **The covers are on the tiles and no source is called to put them there** (#32,
+//      ADR-0013). What the wall reads is a column; the *lookup* is a verb the owner runs from
+//      the disclosure at the foot of this screen, and it is the only path in the application
+//      that waits on somebody else's server. A wall that resolved ninety-six ISBNs against
+//      Google before it could paint is a wall nobody opens in a shop, which is the one thing
+//      this screen exists for.
 //
 // **The screen keeps its two registers, and the difference between them is the point**
 // (ADR-0007). The wall is what is in the house. Under it, in a dashed frame, is the other
@@ -97,17 +110,19 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   // filters spelled out as five comparisons is five places to forget the sixth.
   const narrowed = Object.values(narrowing).some((one) => one !== undefined);
 
-  const [volumes, elsewhere] = await Promise.all([
+  const [volumes, elsewhere, covers] = await Promise.all([
     listCollectionWall(narrowing),
     // Unnarrowed, deliberately: it is a short list beside the Collection, and a search that
     // emptied it would hide the one answer it exists to give — *you catalogued this and you
     // do not have it*.
     listCataloguedOutsideTheCollection(),
+    coverStanding(),
   ]);
 
   const refused = asked(params, "refused");
   const catalogued = asked(params, "catalogued");
   const acquired = asked(params, "acquired");
+  const lookedUp = readCoverReport((name) => asked(params, name));
 
   return (
     <main className="px-5 pb-16 sm:px-8">
@@ -219,6 +234,18 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           {acquired} is in the Collection.
         </p>
       ) : null}
+      {lookedUp ? (
+        <div role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm">
+          {/* Every clause the run earned, and none it did not. A run that did nothing gets
+              a sentence of its own rather than an empty box: pressing a button and being
+              answered with silence reads as a button that is broken. */}
+          <p>
+            {whatTheLookupFound(lookedUp).join(" · ") ||
+              "Nothing to look up: every Volume with an ISBN has already been asked about."}
+          </p>
+          <NoLookupReaches many={lookedUp.skipped} className="mt-1 text-muted-foreground" />
+        </div>
+      ) : null}
 
       {/* What is on, and the one gesture that turns it all off. The clear is absent on a
           whole wall, because a control that does nothing is a reason to wonder what it
@@ -258,6 +285,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
                 tint={tint(volume.series?.id)}
                 detail={detailOf(volume)}
                 foot={<Standing of={volume} />}
+                image={volume.cover}
               />
             </li>
           ))}
@@ -287,7 +315,44 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </section>
       ) : null}
 
+      {/* **The lookup, and it is a verb rather than a setting.** It sits at the foot with the
+          other thing the owner comes to this screen to *do*, folded away, because the screen
+          is read a hundred times for every time it is repaired. The button is a plain form
+          post: a few seconds pass while somebody else's server is asked, and the wall
+          re-renders with the jackets on it. Nothing runs in the browser (ADR-0010). */}
       <details className="group mt-10 rounded-xl ring-1 ring-foreground/10">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden">
+          Look up the covers
+          <span className="ml-2 text-muted-foreground group-open:hidden">
+            — {howFarTheCoversHaveGot(covers) ?? "nothing catalogued yet"}
+          </span>
+        </summary>
+
+        <form action={findCovers} className="border-t border-border p-4">
+          <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto sm:px-6">
+            Look them up
+          </Button>
+          <p className="mt-3 max-w-prose text-pretty text-xs text-muted-foreground">
+            {howFarTheCoversHaveGot(covers)}{" "}
+            {covers.due > 0
+              ? `${covers.due} ${covers.due === 1 ? "carries" : "carry"} an ISBN and no cover.`
+              : "Nothing with an ISBN is missing one."}{" "}
+          </p>
+          <NoLookupReaches
+            many={covers.withoutAnIsbn}
+            className="mt-1 max-w-prose text-pretty text-xs text-muted-foreground"
+          />
+          <p className="mt-2 max-w-prose text-pretty text-xs text-muted-foreground">
+            A cover is asked for by ISBN at Google Books, and at Open Library for what Google does
+            not have — and it is <em>pointed at</em> where it lives, never copied here (ADR-0013).
+            One run asks about a couple of dozen objects and checks the covers it already has, so a
+            jacket that has been withdrawn is looked up again rather than left broken on the wall.
+            Press it again for the rest.
+          </p>
+        </form>
+      </details>
+
+      <details className="group mt-4 rounded-xl ring-1 ring-foreground/10">
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden">
           Catalogue a Volume
           <span className="ml-2 text-muted-foreground group-open:hidden">
@@ -339,6 +404,20 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
       </details>
     </main>
   );
+}
+
+/**
+ * What no lookup will ever reach, where there is anything to say.
+ *
+ * A component rather than two calls in a ternary, because the sentence is the answer to
+ * *"is there anything to say?"* as well as the saying of it — and asking `covers-found.ts` the
+ * same question twice in one expression is how the two answers drift apart.
+ */
+function NoLookupReaches({ many, className }: { many: number; className: string }) {
+  const said = whatNoLookupReaches(many);
+  if (!said) return null;
+
+  return <p className={className}>{said}</p>;
 }
 
 /**

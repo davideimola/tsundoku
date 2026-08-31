@@ -110,6 +110,7 @@ export default async function Home() {
                     tint={tint(story.series?.id)}
                     detail={storyDetail(story)}
                     foot={story.type.name}
+                    image={story.cover}
                   />
                 </li>
               ))}

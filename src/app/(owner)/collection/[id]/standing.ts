@@ -5,13 +5,19 @@ import type { RecordedVolume } from "@/core/queries/collection";
 // licence `vitest.config.ts` states: data in, data out, a function this application would
 // still have if React were replaced.
 //
-// It is a file rather than two helpers inside `page.tsx` because of what it decides. Since
+// It is a file rather than a few helpers inside `page.tsx` because of what it decides. Since
 // the catalogue and the Collection came apart there are **three** states and not two
 // (ADR-0007) — in the house, catalogued and never acquired, acquired and let go — and the one
 // that is easy to get wrong is the third: an object that left is *not* an object nobody ever
 // recorded, and a screen that said so would be telling the owner they never had the thing
 // they sold. Which state a Volume is in stays the core's answer (`inTheHouse`, `releasedOn`);
 // what is here is only the sentence, which is the screen's.
+//
+// **The cover's three sentences joined it for the same reason** (#32). Where the image on the
+// tile came from, and what a lookup just answered, are five-way distinctions the owner cannot
+// re-derive from the tile: an absence the sources established is not a question nobody asked,
+// and a source that could not be reached is neither. Which of them is true stays the core's
+// answer — `cover`, `lookedUp`, `isbn` — and the words are here, where a test can read them.
 
 /**
  * The sentence at the head of *In the house*, and the tile's own label.
@@ -56,4 +62,45 @@ export function timesSaid(times: number): string {
     default:
       return `${times} times`;
   }
+}
+
+/**
+ * What a single lookup answered, in the owner's words.
+ *
+ * **Four answers and not two, and the third is the one this exists for.** A source that could
+ * not be asked — a rate limit, a timeout, an error page — said nothing about the book, and
+ * nothing was written down. Reading that as *there is no cover* is precisely the mistake that
+ * produced a false 0% in the research this is built on, and the owner is owed the difference.
+ */
+export function whatTheLookupSaid(outcome: string, because: string | undefined): string {
+  switch (outcome) {
+    case "found":
+      return "A cover was found, and it is on the tile above.";
+    case "none":
+      return "No source has a cover for this ISBN. That is an answer, and it is recorded — an image of your own is the way to face this one.";
+    case "unchanged":
+      return "The cover it already carries is still where it was.";
+    default:
+      return `${because ?? "The source could not be reached."} Nothing was recorded, so try again.`;
+  }
+}
+
+/**
+ * What the tile is faced with right now — said once, for the summary and the paragraph under
+ * it.
+ *
+ * **Five answers, and the two at the bottom are the ones worth telling apart.** *No source has
+ * one* is a question that was asked and answered; *nobody has looked yet* is a question nobody
+ * has asked; and *no ISBN* is a question that cannot be asked at all, which is the state every
+ * Bonelli monthly is in for ever. A screen that collapsed them would leave the owner pressing
+ * a button that can never do anything.
+ */
+export function facedWith(volume: RecordedVolume): string {
+  if (volume.cover?.from === "own") return "Faced with an image of your own.";
+  if (volume.cover?.from === "google-books") return "Faced with a cover from Google Books.";
+  if (volume.cover?.from === "open-library") return "Faced with a cover from Open Library.";
+  if (volume.lookedUp.at) return "No source has a cover for it, as of the last time one was asked.";
+  if (!volume.isbn) return "No ISBN, so no source can be asked for one.";
+
+  return "Nobody has looked for one yet.";
 }

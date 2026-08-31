@@ -7,6 +7,7 @@ test seam cover both surfaces, and it is the rule to break last.
 ```
 src/core/
 ├── db.ts            the pool, and the only file that knows what a pool is
+├── covers.ts        the cover sources, and the only file that knows what a fetch is
 ├── queries/         one file per question the app answers
 │   └── type.ts
 └── verbs/           one file per area of writing — see verbs/README.md
@@ -47,6 +48,14 @@ call it, which is the other half of the rule: the owner's finder and the assista
   Series in progress, a Story's state from its Readings, a Series' missing Volumes.
 - **Not here**: anything about HTTP, sessions, bearer tokens, React or MCP framing.
   Those belong to the adapter that has them.
+- **One stated exception, and it is outbound.** That rule is about the door a request
+  arrives through: an adapter holds the framing, and the model never learns what a session
+  or a bearer is. A source the library *asks a question of* is the other direction — a
+  dependency of the model, like the pool — so `covers.ts` sits beside `db.ts` and is the
+  only file in the repository that knows what a `fetch` is (ADR-0013). It is held to the
+  same shape `db.ts` is: everything above it takes it as an argument (`AskForACover`), so no
+  test in this repository calls a third party, and **nothing on a page render calls one
+  either** — a cover lookup is a verb the owner runs, and a render reads a column.
 - **Not here either**: invariants that Postgres can enforce. The database refuses
   what must never be true rather than trusting this module to remember, so a rule
   that can be a constraint should be a constraint in a migration, not an `if`.

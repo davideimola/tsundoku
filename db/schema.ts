@@ -177,6 +177,12 @@ export const volume = pgTable("volume", {
 	isbn: text(),
 	seriesId: uuid("series_id"),
 	seriesNumber: integer("series_number"),
+	coverSource: text("cover_source"),
+	coverReference: text("cover_reference"),
+	coverUrl: text("cover_url"),
+	coverInfoUrl: text("cover_info_url"),
+	coverLookedUpAt: timestamp("cover_looked_up_at", { withTimezone: true, mode: 'string' }),
+	ownImageUrl: text("own_image_url"),
 }, (table) => [
 	foreignKey({
 			columns: [table.bindingId],
@@ -195,6 +201,12 @@ export const volume = pgTable("volume", {
 	check("volume_isbn_is_ten_or_thirteen_characters", sql`(isbn IS NULL) OR (isbn ~ '^[0-9]{9}[0-9Xx]$|^[0-9]{13}$'::text)`),
 	check("volume_in_a_series_has_a_number", sql`(series_id IS NULL) = (series_number IS NULL)`),
 	check("volume_series_number_is_positive", sql`(series_number IS NULL) OR (series_number > 0)`),
+	check("volume_cover_is_a_source_and_a_url_together", sql`(cover_source IS NULL) = (cover_url IS NULL)`),
+	check("volume_cover_source_is_one_this_app_looks_up", sql`(cover_source IS NULL) OR (cover_source = ANY (ARRAY['google-books'::text, 'open-library'::text]))`),
+	check("volume_cover_is_hotlinked_and_never_hosted", sql`(cover_url IS NULL) OR (cover_url ~ '^https://((bks[0-9]+\\.)?books\\.google\\.com|covers\\.openlibrary\\.org)/'::text)`),
+	check("volume_cover_was_looked_up", sql`(cover_url IS NULL) OR (cover_looked_up_at IS NOT NULL)`),
+	check("volume_cover_reference_and_link_come_with_a_cover", sql`(cover_url IS NOT NULL) OR ((cover_reference IS NULL) AND (cover_info_url IS NULL))`),
+	check("volume_own_image_is_the_owners_own", sql`(own_image_url IS NULL) OR ((own_image_url ~ '^https://[^ ]+$'::text) AND (own_image_url !~ '^https://((bks[0-9]+\\.)?books\\.google\\.com|covers\\.openlibrary\\.org)/'::text))`),
 ]);
 
 export const credit = pgTable("credit", {

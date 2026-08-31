@@ -3,6 +3,7 @@ import "server-only";
 import { query } from "../db.ts";
 import type { RatingScale } from "../verbs/rating.ts";
 import type { Medium, Outcome } from "../verbs/reading.ts";
+import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
 
 // What the owner and an external reader ask about a Story.
 //
@@ -291,6 +292,15 @@ export type WallStory = {
   /** The score the owner set most recently, or `null` where they judged it never. */
   latestScore: number | null;
   series: WallSeries | null;
+  /**
+   * The image the tile is faced with, off the first Volume that carries the Story and has
+   * one — or `null`, which is still the normal case and is the drawn tile (ADR-0013).
+   *
+   * **A Story is not keyed by an ISBN and never will be**: the object is, and a narrative is
+   * not an object (ADR-0001). So this is borrowed rather than owned, and what it borrows is
+   * decided in one place — see `THE_COVER_IT_IS_FACED_OUT_WITH`.
+   */
+  cover: FacedWith | null;
 };
 
 /**
@@ -329,6 +339,26 @@ const THE_LINE_IT_STANDS_IN = `
 // missing Volumes for the three questions that read it — same shape, same reason.
 const STATE_ONCE = `cross join lateral (select ${STORY_STATE} as state) derived`;
 
+// Which of a Story's Volumes lends it a jacket, when several could.
+//
+// **A Story has no cover of its own, because a Story is not an object** (ADR-0001). *Slam
+// Dunk* is one narrative across twenty tankōbon, and the picture a shelf shows for it is the
+// first of them — which is what a bookshop does, and what the owner would point at. So the
+// borrowing is: the Volumes carrying this Story, in the order they stand on the shelf, and
+// the first one that is faced with anything.
+//
+// **The pick is total**, like the line it stands in above: the position in the Series, then
+// the title, then the object's own id. A wall whose jacket depended on which row Postgres
+// reached first would change its picture between two loads of the same page.
+const THE_COVER_IT_IS_FACED_OUT_WITH = `
+  (select ${THE_COVER_IT_IS_FACED_WITH}
+     from volume_story vs
+     join volume v on v.id = vs.volume_id
+    where vs.story_id = s.id
+      and (v.own_image_url is not null or v.cover_url is not null)
+    order by v.series_number nulls last, lower(v.title), v.id
+    limit 1)`;
+
 /**
  * The Stories as a wall shows them — narrowed, and each carrying the line it stands in.
  *
@@ -353,7 +383,8 @@ export async function listStoryWall(filter: StoryWallFilter = {}): Promise<WallS
        jsonb_build_object('id', t.id, 'name', t.name) as type,
        derived.state,
        ${LATEST_SCORE} as "latestScore",
-       ${THE_LINE_IT_STANDS_IN} as series
+       ${THE_LINE_IT_STANDS_IN} as series,
+       ${THE_COVER_IT_IS_FACED_OUT_WITH} as cover
      from story s
      join type t on t.id = s.type_id
      ${STATE_ONCE}

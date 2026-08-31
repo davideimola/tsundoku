@@ -391,6 +391,33 @@ an enum in code**
 A sixth Type is an insert, not a release. Nothing in TypeScript enumerates the five,
 and nothing should.
 
+### A cover is hotlinked, and only the owner's own images are hosted
+
+**No third-party image byte is stored anywhere in this cluster**
+([ADR-0013](docs/adr/0013-covers-are-hotlinked-and-only-the-owners-own-images-are-hosted.md)).
+A Volume carries its cover as a *reference* — which source answered, that source's id for the
+record, the address, and the source's own page for the book — and an `<img>` points at
+somebody else's domain. Google Books is the only source that has these covers (91% of a
+54-ISBN sample of real Italian comics, against 5.6% for the next two —
+[`docs/research/cover-images-by-isbn.md`](docs/research/cover-images-by-isbn.md)) and its
+terms forbid a permanent copy, so `cover_url` is **constrained by Postgres** to the sources'
+own domains and `own_image_url` is constrained *away* from them. Hosting is reserved for the
+owner's own photograph, which overrides the looked-up cover and is the only thing that will
+ever face a Volume with no ISBN — every Bonelli monthly, always.
+
+**Nothing on a page render calls a third party.** The lookup is a verb the owner runs, from
+the *Look up the covers* disclosure at the foot of the Collection or from one object's own
+page; a render reads a column. `src/core/covers.ts` is the only file in the repository that
+knows what a `fetch` is, and it answers three ways — found, none, and **unanswered**, which
+writes nothing at all, because a 403 recorded as "no cover" is the mistake that produced a
+false 0% in the research above. A cover that has gone missing is looked up again by the same
+verb, oldest check first, and never on the request path.
+
+Two consequences worth expecting. **Roughly one Volume in ten will never have a looked-up
+cover**, so the drawn tile stays the normal case and the Series' tint stays underneath every
+jacket. And the covers that do arrive are **128 pixels wide**, which is the only size that
+exists: anything larger is a photograph the owner took.
+
 ## The import
 
 The two Google Sheets are read **once, deliberately**, by a command nobody runs for you:
@@ -526,7 +553,10 @@ have if HTTP were replaced. Nothing else is a seam here.
 
 **A few files are arithmetic of that same kind, and none of them renders anything.**
 [`src/app/palette.test.ts`](src/app/palette.test.ts) computes every contrast in the
-stylesheet on both grounds; [`src/lib/tint.test.ts`](src/lib/tint.test.ts) walks every
+stylesheet on both grounds;
+[`src/app/hotlinked.test.ts`](src/app/hotlinked.test.ts) greps the source for the two rules
+ADR-0013 rests on — one file knows what a `fetch` is, and nothing reaches for the image
+optimizer; [`src/lib/tint.test.ts`](src/lib/tint.test.ts) walks every
 colour the shelf's tint can produce and holds each one to the same threshold;
 [`src/components/mark.test.ts`](src/components/mark.test.ts) pins the favicon to the mark;
 [`src/lib/utils.test.ts`](src/lib/utils.test.ts) holds the class merger to the two type
@@ -553,6 +583,14 @@ derivation tested beside itself, and pressing enter with no script running at al
 `/find`, which asks the same query. So the claim is stronger than "no test needs a DOM": **a
 client component may exist, and it may hold no derivation.** The day one does, the answer is
 to move it behind a seam rather than to add a third one.
+
+**No test here calls a third party**, and the cover lookup is where that was worth
+deciding rather than assuming. The verb takes its source as an argument, so Seam 1 hands it
+one that answers off a table; what turns a real response into an answer is a pair of pure
+readers in [`src/core/covers.ts`](src/core/covers.ts), tested against bodies a real probe
+produced. That is not convenience: the two behaviours that matter most — a rate limit is
+never recorded as an absence, and a cover that has gone is looked up again — are exactly the
+two a live source will not produce on demand.
 
 A test file runs at a time rather than in parallel, because verbs write and one
 database cannot serve two files truncating the same tables.

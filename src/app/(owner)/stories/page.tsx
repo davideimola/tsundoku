@@ -178,6 +178,9 @@ function Band({ state, stories }: { state: StoryState; stories: WallStory[] }) {
               tint={tint(story.series?.id)}
               detail={storyDetail(story)}
               foot={<Score of={story.latestScore} />}
+              // Borrowed off the first Volume that carries it: a Story is a narrative and has
+              // no ISBN of its own, so the jacket it wears is an object's (ADR-0001, #32).
+              image={story.cover}
             />
           </li>
         ))}
