@@ -158,6 +158,12 @@ not an id: the library finds the person it knows, and names a new one where it k
     additionalProperties: false,
   },
   readOnly: false,
+  // The Credit itself the owner removes whole; the **person** it minted stays. There is no
+  // rename and no merge, so a misspelling is a second Yusuke Murata forever, splitting
+  // every answer about him in two — the one thing on this door that undoing does not undo
+  // (ADR-0012). The prose above asks the assistant to read `credit_people` first; this is
+  // the same warning said to the client instead.
+  destructive: true,
   async run(input) {
     return {
       credited: await creditStory({

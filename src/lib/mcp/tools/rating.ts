@@ -71,6 +71,11 @@ telling you now — that is "${FIRST_HAND}".`,
     additionalProperties: false,
   },
   readOnly: false,
+  // Rating the same Reading twice overwrites the prose the owner wrote about it, in place
+  // and with no history kept — a Rating is one per Story and Reading, so the second call
+  // updates the first rather than joining it. That is the only write on this door that
+  // destroys something the owner authored, and a client is right to confirm it.
+  destructive: true,
   async run(input) {
     return {
       // `Number.NaN` where an assistant sent something that is not a number at all, which

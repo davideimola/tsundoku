@@ -48,6 +48,30 @@ export type McpTool = {
    */
   readonly readOnly: boolean;
   /**
+   * Whether writing it takes something away that cannot be put back. Only meaningful on a
+   * tool that writes, and **omitted means it does not** — which is the safe default here
+   * and, deliberately, the opposite of the protocol's.
+   *
+   * MCP reads a missing `destructiveHint` as `true`: a client assuming the worst of a
+   * write it was told nothing about is right to. So the door states this on every tool
+   * rather than leaving it out (`protocol.ts`), and the default lives here where a tool
+   * author can see what they are claiming by saying nothing.
+   *
+   * The question is not *"is it a write?"* nor *"can the owner undo it?"* — almost
+   * everything here is undoable by a second verb. It is **what is gone afterwards**:
+   *
+   *   - `rating_set` says `true`. Rating the same Reading twice overwrites the prose the
+   *     owner wrote about it, in place, with no history — the one write here that destroys
+   *     something they authored.
+   *   - `credit_attribute` says `true`. It mints a Person, and a misspelling is a second
+   *     person forever: there is no rename and no merge, and removing the Credit does not
+   *     take the person back (ADR-0012).
+   *   - `collection_release` says nothing, and is right to. It sets `released_on` and
+   *     **keeps the acquisition** (ADR-0007), so what it writes is a fact added to a
+   *     history rather than one removed from it.
+   */
+  readonly destructive?: boolean;
+  /**
    * Answer the call. Returns plain data; the framing turns it into MCP content.
    *
    * `input` has been through no validation beyond the transport's own JSON parse: read

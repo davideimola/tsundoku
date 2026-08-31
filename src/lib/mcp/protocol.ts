@@ -172,13 +172,34 @@ function initialize(params: unknown) {
   };
 }
 
+// All three hints, on every tool, always — never two of them and never a default relied on.
+//
+// The protocol's own defaults are what makes stating them the only safe option: a missing
+// `destructiveHint` reads as `true` and a missing `openWorldHint` reads as `true`, so a tool
+// that says nothing is a tool described as destructive and unbounded. This door was emitting
+// `readOnlyHint` alone, which left every verb here looking like the worst thing it could be.
+//
+// It is also what one client requires outright rather than prefers: OpenAI refuses a connector
+// whose tools do not set `readOnlyHint`, `openWorldHint` and `destructiveHint` to true or false.
+//
+// `openWorldHint` is `false` for everything, and will be for as long as this stays true: every
+// tool here reaches exactly one Postgres and the library it holds. Nothing asks the web what a
+// book is — that is the assistant's half of the bargain (ADR-0002), and the day a tool does
+// fetch something, this stops being a constant and becomes the tool's to declare.
 function listed(tools: McpTool[]) {
   return tools.map((tool) => ({
     name: tool.name,
     title: tool.title,
     description: tool.description,
     inputSchema: tool.inputSchema,
-    annotations: { title: tool.title, readOnlyHint: tool.readOnly },
+    annotations: {
+      title: tool.title,
+      readOnlyHint: tool.readOnly,
+      // A read tool destroys nothing by construction, so this is not a second thing to
+      // remember on the thirty tools that only ask questions.
+      destructiveHint: tool.readOnly ? false : (tool.destructive ?? false),
+      openWorldHint: false,
+    },
   }));
 }
 

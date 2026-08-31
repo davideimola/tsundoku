@@ -73,7 +73,12 @@ Five rules, and they are all the review surface there is:
    of a Volume, a Volume on the shelf says nothing about having read it. A tool described
    as "list series" gets called for the wrong question.
 5. **`readOnly` means it.** A read tool a client may call without interrupting the owner;
-   a verb that writes says `false`. See the write boundary below before adding one.
+   a verb that writes says `false`. See the write boundary below before adding one. A write
+   that takes something away which cannot be put back also says `destructive: true` — the
+   question is what is *gone* afterwards, not whether the owner can undo it with a second
+   verb, and `tool.ts` has the three worked examples. Saying nothing means not destructive,
+   which is the opposite of what the protocol assumes, so the door states all three hints on
+   every tool rather than letting a default answer for you.
 
 ## The write boundary
 
@@ -132,6 +137,37 @@ does not work outside the bundler, which is why the door's own test asks for `in
 and never for `tools/list`. That costs nothing — the adapters need no tests of their own
 (ADR-0002), and what a tool answers is Seam 1's business, tested beside the query it
 calls.
+
+### Adding a file does not mean a client sees it
+
+**A new tool is invisible to ChatGPT until its connector is added again**, however long ago
+it deployed. Verified the hard way on 2026-08-31: three tools shipped —
+`credit_attribute`, `inbox_propose_amendment`, `finder_search` — and ChatGPT went on
+listing the thirty-two it had photographed the evening before, while writing perfectly
+happily through the older verbs. Claude over the Ingress had all thirty-five the same day.
+
+Nothing here is broken, and the cause is one line: `initialize` answers
+`capabilities: { tools: { listChanged: false } }`, which is the truth — this is a stateless
+door with no stream, so there is no channel to push `notifications/tools/list_changed` down
+and declaring one would be a lie. The consequence is that **a client that photographs the
+list has no signal to take another photograph**, ever. It refetches when it is made to.
+
+So, after deploying a new tool, in this order:
+
+1. **restart the tunnel client** — `kubectl -n tunnel-client rollout restart
+   deploy/tunnel-client` on the cloud Cluster, because that daemon registers its channel
+   with OpenAI's control plane at startup and only at startup;
+2. **remove and re-add the connector** in ChatGPT. "Refresh" does not refetch.
+
+Inverting the two hides which one worked. The count to check against is
+`grep -h '^  name: "' src/lib/mcp/tools/*.ts | wc -l`, and the fastest way to see what the
+door itself is serving — rather than what a client remembers — is `tools/list` over curl
+with the bearer, as under **Trying it** below.
+
+The symptom lies convincingly, which is the reason this section exists: an assistant that
+writes fine while missing a *write* tool looks exactly like a client filtering on
+`readOnlyHint`, or like a deploy that never landed. Ask it whether it can see a **read-only**
+tool you shipped at the same time. If that is missing too, it is an old list and nothing else.
 
 ## The gate
 
