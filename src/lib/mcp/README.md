@@ -16,7 +16,8 @@ src/lib/mcp/
 ├── tools.ts             the directory *is* the tool list — see below
 └── tools/               one file per area
     ├── story.ts         what the owner has read
-    └── collection.ts    what is on the shelf
+    ├── collection.ts    what is on the shelf
+    └── finder.ts        one word, and everything in the library called it
 ```
 
 ## Exposing a query over MCP is one new file
@@ -62,7 +63,10 @@ Five rules, and they are all the review surface there is:
    `src/core` where both doors reach it — that is what makes one test seam cover both.
 3. **`name` is `area_question`, lower_snake_case**, matching the file: `stories_read`,
    `collection_search`, `series_missing`. A client listing thirty tools then lists them
-   grouped.
+   grouped. `finder_search` is the one area that is not an entity: it answers across all of
+   them, which is why it is its own file rather than a sixth tool in one of theirs, and why
+   the query under it is `src/core/queries/finder.ts` rather than a question added to an
+   area's.
 4. **`description` is product, not a label.** It is what an assistant reads when deciding
    which tool answers the owner's question, so it says what the thing *is* in the owner's
    vocabulary and what it deliberately is not — a Story is not a book, a Rating is never

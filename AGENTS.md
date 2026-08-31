@@ -51,6 +51,30 @@ phone, so a destination cannot exist at one width and not the other.
 navigation — and when a page takes the width back off the shell by centring itself in a
 column.
 
+### Where a cross-entity question goes
+
+**In `src/core`, and then in both doors.** The finder is one field over the whole library —
+Stories, Volumes, Series, people, Paths — and it is `findInTheLibrary` in
+`src/core/queries/finder.ts`, called by the field in the chrome, by the `/find` screen behind
+it and by `finder_search` on `/mcp`. The owner and the assistant search one library: **a
+query the finder needs is added to the core and exposed to both**, and the finder never
+reaches a record the assistant cannot. A cross-entity question is the one case where a query
+is not named after an area, because the area it answers for is every area at once.
+
+`src/app/(owner)/finder.tsx` is the scripted half and **`/find` is the specification**
+(ADR-0010): the field *is* a `GET` form to that screen, and the suggestions, the arrow keys
+and the `/` shortcut are a shorter way to a place the owner can already get to. It is the
+one screen in the group that is deliberately **not** in the navigation — declared as
+`THE_FINDER` in `navigation.ts`, rendered as a field on every screen instead, and held to
+all of that by `shell.test.ts`. A second such exception is argued for in that module, never
+added to a list in a test.
+
+It is also the answer to *"where does behaviour in the browser get tested?"*: it does not,
+because it holds none. What is searched is a core query, and how the answer is banded,
+worded and turned into a URL is `find/kinds.ts` — a screen's own derivation, tested beside
+itself. `vitest.config.ts` states the rule: a client component may exist, and it may hold no
+derivation.
+
 ### Where a colour and a face go
 
 **`src/app/globals.css`, and nowhere else.** Paper, ink, two rules and **one hue**,
@@ -80,8 +104,9 @@ day covers are hotlinked (#32) an image fills the tile instead of reflowing the 
 
 **Beside the page, in a file named after what it answers — and it takes data and answers
 data.** `src/app/(owner)/inbox/decisions.ts` bands a few hundred waiting entries into the
-handful of decisions the owner actually takes, and names each one; `stories/story-state.tsx`
-and `reading-list/entry.ts` are the same thing at a smaller size. It is the screen's because
+handful of decisions the owner actually takes, and names each one; `find/kinds.ts` says what
+each kind of record the finder reaches is called and where enter lands on it;
+`stories/story-state.tsx` and `reading-list/entry.ts` are the same thing at a smaller size. It is the screen's because
 banding is the screen's (see the next section), and it is a *file* rather than a lump inside
 `page.tsx` because it can then be tested beside itself — which `vitest.config.ts` licenses in
 the same sentence it licenses the tint and the gate's predicate, under the same rule: data in,

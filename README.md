@@ -129,6 +129,8 @@ src/app/
 │   ├── layout.tsx    force-dynamic, and the shell put on around every screen
 │   ├── navigation.ts the destinations, grouped into the three questions
 │   ├── shell.tsx     the sidebar at the desk, the bottom bar on a phone
+│   ├── finder.tsx    the field in the chrome, at both widths
+│   ├── find/         where it lands, unscripted: one GET over one core query
 │   └── page.tsx
 ├── (public)/         outside it. Today: /signin, and nothing else.
 └── api/auth/         Auth.js's own endpoints
@@ -156,6 +158,15 @@ screen that is in the tree and not in the map is a screen reachable only by typi
 URL, which is the state this application was in until #20: eight links on the home page
 and no `<nav>` anywhere. It is a test rather than a paragraph, for the same reason the
 gate is ([`src/app/(owner)/shell.test.ts`](src/app/(owner)/shell.test.ts)).
+
+**There is exactly one screen that is not in the map, and it is `/find`.** The three
+sections are the three questions the owner asks; *find* is not a fourth one, it is how they
+get to the answer to any of them. So it is declared as `THE_FINDER` in `navigation.ts`
+instead, and the shell renders the field itself on every screen — which is a stronger claim
+than a line in a list, and the wall holds it to all of it: the screen exists, it is not
+*also* a destination, and the chrome renders the field at both widths. A second exception
+has to be argued for in that module rather than added to a list in a test. See
+[the finder](#the-finder-is-one-query-and-both-doors-get-it).
 
 That file also holds the width: the shell owns it, and a page that puts `mx-auto` and a
 `max-w-*` on the same element — the 34 constraints that used to run the library down the
@@ -203,6 +214,40 @@ The four variables that boot the real gate — `AUTH_SECRET`, `AUTH_GOOGLE_ID`,
 [`.env.example`](.env.example) and have no values there. Creating the OAuth client is a
 human step: that is the price of owner identity being configuration rather than
 hardcoded data, and it is what lets someone else fork this and run it as themselves.
+
+## The finder is one query, and both doors get it
+
+One field over the whole library, reachable from every screen and from the keyboard: `/` or
+`⌘K` from anywhere, a fragment of a name, and enter lands on the record. Results are grouped
+by what they are — Story, Volume, Series, person, Path — so a narrative is distinguishable
+from an object at a glance. On a library this size a finder is worth more than any amount of
+filtering, because the owner searches **titles**, not functions.
+
+It is **one core query, and the MCP door has it too**:
+[`src/core/queries/finder.ts`](src/core/queries/finder.ts) behind the field, behind `/find`,
+and behind `finder_search` on `/mcp`. That is not tidiness — the owner and ChatGPT search the
+same library and get the same answers, and if they ever disagree one of them is lying. **A
+cross-entity question the finder needs is added to the core and both doors get it**; the
+finder never reaches a record the assistant cannot.
+
+Three things about it are decisions:
+
+- **The field is the scripted half and `/find` is the specification**
+  ([ADR-0010](docs/adr/0010-javascript-runs-on-the-owner-surface-and-no-write-depends-on-it.md)).
+  The field *is* a `GET` form to `/find` with one input called `q`; the suggestions, the
+  arrow keys and the shortcut are a shorter way to a place the owner can already get to. If
+  none of it loads they type and press enter and land on the same records, grouped the same
+  way — which is what a screen used on a shop's signal needs.
+- **The accent fold is `unaccent`**, applied to both sides of every comparison
+  ([`db/migrations/0003_the_finder_folds_accents.sql`](db/migrations/0003_the_finder_folds_accents.sql)),
+  so `perche` finds *Perché* and `kohei` finds *Kōhei Horikoshi*. It is the extension rather
+  than a hand-kept table of the accents somebody thought of, and it is a trusted contrib
+  module, so the app user that owns the database can create it and the init container applies
+  the file like any other.
+- **Volumes are the catalogue, not the Collection**
+  ([ADR-0007](docs/adr/0007-a-volume-is-catalogued-and-the-collection-is-the-subset-in-the-house.md)).
+  An object the library knows and the house does not hold has a page of its own, so the
+  finder reaches it. *Do I own this?* is `collection_search` and the Collection wall.
 
 ## The MCP door
 
@@ -471,6 +516,14 @@ and no component tests. The owner surface does run client components in producti
 and still no test here needs a DOM: what a screen is tested through is the core query
 behind it and the Server Function its plain form posts to, both of which work with
 nothing running in the browser.
+
+The finder is where that was first put to the test (#25). Its field suggests as the owner
+types and takes `/` from any screen, and it has no test — because it holds nothing to
+test: what is searched is a core query, how the answer is banded and turned into a URL is a
+derivation tested beside itself, and pressing enter with no script running at all lands on
+`/find`, which asks the same query. So the claim is stronger than "no test needs a DOM": **a
+client component may exist, and it may hold no derivation.** The day one does, the answer is
+to move it behind a seam rather than to add a third one.
 
 A test file runs at a time rather than in parallel, because verbs write and one
 database cannot serve two files truncating the same tables.

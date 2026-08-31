@@ -6,6 +6,7 @@ import { Mark } from "@/components/mark";
 import { Button } from "@/components/ui/button";
 import { signOutOwner } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
+import { Finder } from "./finder";
 import {
   BEHIND_MORE,
   currentDestination,
@@ -29,11 +30,19 @@ import {
 // portrait would rather spend that on the library and reach the bar with a thumb it
 // already has on the glass.
 //
-// It is a client component, which ADR-0010 allows and which nothing here abuses: the only
-// thing it wants from the browser is `usePathname()`, so that the navigation can say where
-// the owner is without them reading the URL. It renders on the server like everything
-// else, so that answer is already in the HTML — and the one form in here is a plain POST
-// to a Server Function, so no write depends on a script arriving.
+// **And one field**, at both widths, which is what makes the finder reachable from every
+// screen (#25). It is in the chrome rather than on a screen for exactly the reason the
+// navigation is: a search that depended on which page the owner happened to be on would send
+// them home first. `./finder` is the field; `./navigation` says why `/find` is a screen in
+// this group and not a line in the map.
+//
+// It is a client component, which ADR-0010 allows and which nothing here abuses. What it
+// wants from the browser is `usePathname()`, so that the navigation can say where the owner
+// is without them reading the URL, and the field's suggestions, arrow keys and shortcut —
+// none of which anything depends on: the field is a plain `GET` form to `/find`, the one
+// other form in here is a plain POST to a Server Function, and both work with nothing
+// running. It renders on the server like everything else, so the navigation's answer is
+// already in the HTML.
 
 /** The house's focus ring, the same one the links inside the screens carry. */
 const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -66,6 +75,10 @@ export function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
  * nine destinations at once.
  */
 function Desk({ here }: { here: string | undefined }) {
+  // Asked for again rather than handed down beside `here`, which is derived from it: two
+  // forms of one fact travelling together is how they come to disagree.
+  const pathname = usePathname();
+
   return (
     <nav
       aria-label="Sections"
@@ -82,7 +95,15 @@ function Desk({ here }: { here: string | undefined }) {
         tsundoku
       </Link>
 
-      <div className="mt-8 flex-1 space-y-7 overflow-y-auto">
+      {/* Above the map, because it is the way to a record and the map is the way to a
+          screen — and keyed on the path for the reason *More* is: a client-side navigation
+          keeps the DOM, and a field still holding the last word typed into it would be
+          suggesting records for a search the owner has already left. */}
+      <div className="mt-5 px-1">
+        <Finder key={pathname} />
+      </div>
+
+      <div className="mt-6 flex-1 space-y-7 overflow-y-auto">
         {NAVIGATION.map((section) => (
           <div key={section.title}>
             <h2 className="px-2 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
@@ -105,26 +126,37 @@ function Desk({ here }: { here: string | undefined }) {
 }
 
 /**
- * The phone's chrome above the fold: the mark, and the application's name, linking home.
+ * The phone's chrome above the fold: the mark, the application's name linking home, and the
+ * finder.
  *
- * It is a strip and not a bar of controls. The navigation on a phone lives at the bottom
- * where a thumb is, and the only thing this carries is the one affordance that has to be
- * at the top of a page rather than the bottom of it — the way back to the front of the
- * application, which is also the mark.
+ * It is still a strip and not a bar of controls. The navigation on a phone lives at the
+ * bottom where a thumb is, and what this carries is the two affordances that have to be at
+ * the top of a page rather than the bottom of it — the way back to the front of the
+ * application, which is also the mark, and the field, which is a thing typed into and
+ * therefore has to be above the keyboard rather than under it.
+ *
+ * The name is dropped below `sm` and the mark is not: on the narrowest phone the field is
+ * worth more than the word, and the mark on its own is still the way home.
  */
 function PhoneChrome() {
+  const pathname = usePathname();
+
   return (
-    <div className="sticky top-0 z-20 border-b border-border bg-background lg:hidden">
+    <div className="sticky top-0 z-20 flex h-12 items-center gap-3 border-b border-border bg-background px-5 sm:gap-4 sm:px-8 lg:hidden">
       <Link
         href="/"
         className={cn(
-          "flex h-12 items-center gap-2.5 px-5 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground sm:px-8",
+          "flex shrink-0 items-center gap-2.5 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground",
           FOCUS
         )}
       >
         <Mark className="size-5 shrink-0 text-foreground" />
-        tsundoku
+        <span className="hidden sm:inline">tsundoku</span>
       </Link>
+
+      <div className="min-w-0 flex-1">
+        <Finder key={pathname} />
+      </div>
     </div>
   );
 }

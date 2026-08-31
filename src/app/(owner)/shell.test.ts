@@ -8,6 +8,7 @@ import {
   DESTINATIONS,
   NAVIGATION,
   ON_THE_BAR,
+  THE_FINDER,
 } from "./navigation";
 
 // The third wall in this app, and it is a wall for the same reason the other two are
@@ -20,9 +21,13 @@ import {
 // So the shell is a rule rather than a paragraph, in three halves:
 //
 //   1. **The map and the routes agree, in both directions.** Every destination is a
-//      screen that exists, and every screen is a destination. The second half is the one
-//      that matters: it is what makes adding a screen and forgetting the navigation a
-//      failing test instead of a dead end nobody meets for a month.
+//      screen that exists, and every screen is reachable from the chrome. The second half
+//      is the one that matters: it is what makes adding a screen and forgetting the
+//      navigation a failing test instead of a dead end nobody meets for a month. There is
+//      exactly one screen reached by something other than a line in the map — the finder
+//      (#25) — and it is named in `./navigation` as `THE_FINDER` rather than waved through
+//      here, so that a second exception has to be argued for in the module the shell reads
+//      instead of added to a list in a test.
 //   2. **The phone is a partition, chosen rather than truncated.** Four destinations are
 //      worth opening away from the desk; the rest are behind the fifth tab. Both halves
 //      are read off the same map, so a route cannot exist at one width and not the other,
@@ -72,7 +77,7 @@ describe("the map and the routes agree", () => {
 
   // The half that earns the file. A screen nothing links to is a screen nobody opens.
   it("carries a line for every screen in the group", () => {
-    const linked = new Set(DESTINATIONS.map((destination) => destination.href));
+    const linked = new Set([...DESTINATIONS, THE_FINDER].map((destination) => destination.href));
 
     const unreachable = gated
       .map((read) => route(read.file))
@@ -91,6 +96,42 @@ describe("the map and the routes agree", () => {
   // Adding a fourth is a decision about the application, not a line in a list.
   it("groups them into the three questions", () => {
     expect(NAVIGATION.map((section) => section.title)).toEqual(["Reading", "Owning", "Repairing"]);
+  });
+});
+
+// The one screen reached by something other than a line in the map, and the four things
+// that have to be true for that to be a stronger claim than a line rather than a hole in
+// the wall above: the screen exists, it is not *also* a destination, the chrome renders the
+// field at **both** widths, and the navigation marks nothing while the owner is passing
+// through it. `./navigation` argues for the exception; this is what holds it to its word.
+describe("the finder", () => {
+  const shell = sourceFiles(APP).find((read) => read.file === `${GROUP}shell.tsx`);
+
+  /** One top-level function's source, so *where* the field is rendered can be asserted. */
+  function body(source: string, name: string): string {
+    const from = source.indexOf(`function ${name}(`);
+    const next = source.indexOf("\nfunction ", from + 1);
+    return source.slice(from, next === -1 ? undefined : next);
+  }
+
+  it("is a screen that exists", () => {
+    expect(gated.map((read) => route(read.file))).toContain(THE_FINDER.href);
+  });
+
+  // Both, and not either: on the map it would be claiming to be a fourth question, and in
+  // neither place it would be a screen nobody can open.
+  it("is not also a line in the map", () => {
+    expect(DESTINATIONS.map((destination) => destination.href)).not.toContain(THE_FINDER.href);
+  });
+
+  it("is rendered by the chrome at the desk and on the phone", () => {
+    expect(shell).toBeDefined();
+    expect(body(shell?.source ?? "", "Desk")).toContain("<Finder");
+    expect(body(shell?.source ?? "", "PhoneChrome")).toContain("<Finder");
+  });
+
+  it("marks no section while the owner is inside it", () => {
+    expect(currentDestination(THE_FINDER.href)).toBeUndefined();
   });
 });
 

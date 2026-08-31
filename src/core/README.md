@@ -31,6 +31,15 @@ named after the area they answer for, in the vocabulary of `CONTEXT.md` — `sto
 `collection.ts`, `reading-list.ts`, `series.ts` — never after a layer (`helpers.ts`,
 `utils.ts`, `service.ts`).
 
+**One kind of question is not an area's, and it says so out loud.** `queries/finder.ts`
+answers *what in this library is called that?* across Stories, Volumes, Series, people and
+Paths at once, which is exactly why it could not be added to any of the five: put in
+`story.ts` it would be a Story query reading five tables. So a cross-entity question gets a
+file named after the question rather than after an area — and if you find yourself widening
+one of these files to answer across areas, that is the file to add to instead. Both doors
+call it, which is the other half of the rule: the owner's finder and the assistant's
+`finder_search` are the same function, so neither can reach a record the other cannot.
+
 ## What belongs here, and what does not
 
 - **Here**: the verbs, the queries, and the SQL. Derivations are queries, not stored

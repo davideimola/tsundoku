@@ -1,0 +1,31 @@
+-- The finder folds accents, so `Perche` finds *Perché* and `Tankobon` finds *Tankōbon*.
+--
+-- One field over the whole library is the search this collection actually wants (#25), and
+-- the titles in it are Italian editions of Japanese series: `Perché non sono già morto?`,
+-- `Tankōbon`, `L'uomo che ride`. An owner typing at a keyboard types `perche`, and a search
+-- that answered *nothing* would be answering a question about diacritics rather than about
+-- the library.
+--
+-- `unaccent` is that fold, and it is the whole of this file. Two reasons it is the extension
+-- rather than a `translate()` of the characters we thought of:
+--
+--   - the list is not ours to guess. A hand-kept table of accents is right until the first
+--     title carrying one nobody listed, and then it is silently wrong — which is the failure
+--     mode this repository walls everywhere else;
+--   - it is contrib, present in `postgres:18-alpine` and in the CloudNativePG image, and
+--     since Postgres 13 it is marked `trusted`, so the **owner of the database** may create
+--     it. The cluster's app user owns its database (ADR-0003), which is what makes this file
+--     something the deployment's init container can apply rather than a superuser errand.
+--
+-- Hand-written, and it will stay hand-written: `drizzle-kit generate` diffs `db/schema.ts`
+-- and emits DDL for tables and columns. An extension is neither, and it will never write one
+-- (ADR-0009). The file was prepared by `drizzle-kit generate --custom`, which is what keeps
+-- the number, the journal and the snapshot the generator's own.
+--
+-- `if not exists`, because the library is live: a database that has already been given the
+-- extension by hand must not make the next deploy fail. There is no `comment on` here for the
+-- same reason — commenting an extension takes ownership of it, and one created by somebody
+-- else's hand would refuse. What this is for is above, and `src/core/queries/finder.ts` is
+-- the only thing in the application that uses it.
+
+create extension if not exists unaccent;

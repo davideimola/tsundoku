@@ -13,6 +13,36 @@ import { defineConfig } from "vitest/config";
 // Server Function its plain form posts to, and a scripted control has an unscripted
 // twin that is the specification.
 //
+// **#25 asked for that paragraph to be corrected as false, and it was already true** —
+// which is worth writing down rather than quietly fixing, because the ticket's premise
+// is what was wrong. It called itself "the first ticket to ship a client component";
+// `src/app/(owner)/shell.tsx` had been one since #20, and the sentence above was written
+// in that slice for exactly this reason. Nothing here needed correcting. What #25
+// actually changed is the *strength* of the claim, and that is what the rest of this
+// paragraph is.
+//
+// The finder's field is the first control here that does something in the browser rather
+// than reading `usePathname()`: it suggests as the owner types, walks a list with the
+// arrow keys and takes `/` from anywhere. None of that is tested, and the reason is not
+// that a runner would be inconvenient — it is that the component holds no derivation the
+// two seams could take. What is searched is `src/core/queries/finder.ts`, which is
+// Seam 1; how the answer is banded, worded and turned into a URL is
+// `src/app/(owner)/find/kinds.ts`, which is a screen's own derivation and tested beside
+// itself under the paragraph below; and where enter lands with nothing running at all is
+// `/find`, a plain `GET` over the same query.
+//
+// **What is left is not nothing, and it is the right nothing**: a highlight that wraps at
+// the end of a list, a stale answer dropped, and a predicate asking whether a key was
+// typed into an `HTMLInputElement`. Each is behaviour — and each is behaviour *over the
+// DOM*, so none of it passes the rule above and below this: a function this application
+// would still have if React were replaced. `typing()` would not exist; there would be no
+// element to ask about.
+//
+// So the rule this configuration is now stating, which is more than "no test needs a
+// DOM": **a client component may exist, and it may hold no derivation.** The day one does
+// — a filter applied in the browser, a total added up on the client — the answer is to
+// move it behind one of the two seams, not to add a third one and a DOM to run it in.
+//
 // This is a deliberate divergence from `bindex`, which tests pure logic only and
 // leaves invariants to the database. Here the derivations *are* the product — the
 // self-composing Reading list, a Story's state from its Readings, a Series' missing
@@ -30,13 +60,14 @@ import { defineConfig } from "vitest/config";
 // function the gate would still have if HTTP were replaced — environment or a moment in,
 // verdict out — and never a private helper of the route.
 //
-// **The same licence, stated once, reaches a screen's own derivation** — `src/lib/tint.ts`
-// and `src/app/(owner)/inbox/decisions.ts`, which bands a few hundred waiting Inbox entries
-// into the handful of decisions the owner actually takes and names them. It is the same rule
-// and not a wider one: data in, data out, a function this application would still have if
-// React were replaced, and never a component, a render or a private helper of a page. What a
-// *screen* is tested through is still the query behind it and the Server Function its plain
-// form posts to. A pure derivation grown into a page is how this rule would be broken, and
+// **The same licence, stated once, reaches a screen's own derivation** — `src/lib/tint.ts`,
+// `src/app/(owner)/inbox/decisions.ts`, which bands a few hundred waiting Inbox entries
+// into the handful of decisions the owner actually takes and names them, and
+// `src/app/(owner)/find/kinds.ts`, which says what each kind of record is called and where
+// enter lands on it. It is the same rule and not a wider one: data in, data out, a function
+// this application would still have if React were replaced, and never a component, a render
+// or a private helper of a page. What a *screen* is tested through is still the query behind
+// it and the Server Function its plain form posts to. A pure derivation grown into a page is how this rule would be broken, and
 // the test file has to say out loud which of the two it is.
 export default defineConfig({
   resolve: {

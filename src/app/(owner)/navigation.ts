@@ -75,6 +75,27 @@ export const NAVIGATION: readonly Section[] = [
   },
 ];
 
+/**
+ * **The finder, which is a screen in this group and deliberately not a destination** (#25).
+ *
+ * It is declared here rather than left as a string in the shell for the same reason the map
+ * is: `./shell.test.ts` reads this module, and the wall that says every screen is reachable
+ * has to know about the one screen that is reachable another way. Naming it here is what
+ * turns "the finder is the exception" from a paragraph into the one line the test points at.
+ *
+ * Why it is not in the map: the three sections are the three questions the owner asks at
+ * three different moments, and *find* is not a fourth question — it is how they get to the
+ * answer to any of them. Put under *Reading* it would be a lie about what it is for; given a
+ * section of its own it would make the sidebar claim four questions where there are three.
+ *
+ * What replaces the line, and why the rule is not weakened: the shell renders the field
+ * itself on **every** screen, at both widths, which is stronger than a link in a list. The
+ * rule the wall protects is that no screen is reachable only by typing its URL, and this one
+ * is reachable from a field the owner never has to leave a screen to use — plus `/` and
+ * `⌘K`, which no destination in the map has.
+ */
+export const THE_FINDER: Destination = { href: "/find", label: "Find" };
+
 /** Every destination, in the order the sections give them. */
 export const DESTINATIONS: readonly Destination[] = NAVIGATION.flatMap(
   (section) => section.destinations
@@ -106,7 +127,9 @@ export const BEHIND_MORE: readonly Section[] = NAVIGATION.map((section) => ({
  * reason: `/series` must not claim a future `/series-notes`.
  *
  * Returns `undefined` where the path is no destination's, which is a real answer and not a
- * failure: `/signin` is served outside this group entirely.
+ * failure: `/signin` is served outside this group entirely, and `/find` is inside it and
+ * deliberately not on the map (`THE_FINDER`) — a navigation that marked a section while the
+ * owner was passing through the finder would be telling them where they are not.
  */
 export function currentDestination(pathname: string): string | undefined {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
