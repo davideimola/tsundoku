@@ -1,5 +1,14 @@
+import type { ProposedEntity } from "@/core/queries/inbox";
 import { listWaitingInboxEntries } from "@/core/queries/inbox";
-import { proposeSeries, proposeStory, proposeVolume } from "@/core/verbs/inbox";
+import {
+  AMENDABLE_FIELDS,
+  type InboxCorrections,
+  type ProposalField,
+  proposeAmendment,
+  proposeSeries,
+  proposeStory,
+  proposeVolume,
+} from "@/core/verbs/inbox";
 import { type McpTool, numberArgument, stringArgument } from "../tool.ts";
 
 // The Inbox area: the only way a new Story, Volume or Series can be asked for from out
@@ -12,6 +21,12 @@ import { type McpTool, numberArgument, stringArgument } from "../tool.ts";
 // becomes a permanent duplicate in a library the owner keeps for years. So the attempt does
 // not fail and does not half-succeed: it lands here as a proposal, and the owner approving
 // it is the act that creates the entity.
+//
+// **Completing or correcting a record that already exists is the same kind of act**, and it
+// lands here too (ADR-0011). An invented ISBN is that risk at its purest — nobody ever reads
+// one back, nothing looks wrong, and a wrong one quietly fetches another book's cover for as
+// long as the record stands — so an amendment is proposed rather than written, and there is no
+// tool anywhere in this directory that writes a field onto a record.
 //
 // Every description below says that out loud, in the second person, because the assistant
 // is the one that has to understand it: the honest thing to tell the owner after calling
@@ -178,6 +193,179 @@ page is the kind of guess that becomes a permanent wrong number.`,
   },
 };
 
+/**
+ * Every field an amendment can name, and the prose an assistant reads to fill it in.
+ *
+ * Keyed by `ProposalField`, so it is **exhaustive**: a field the core makes amendable stops this
+ * file compiling until it has prose of its own, where a hand-written schema beside a
+ * hand-written list would simply not offer it and say nothing. Both the schema's properties and
+ * the lists in the description come out of this, through `AMENDABLE_FIELDS`, so what the tool
+ * tells an assistant it may propose is what the verb accepts.
+ *
+ * **The arguments are the core's own field names, and that is a deliberate break with the
+ * snake_case every other tool here reads.** The refusals enumerate these fields — *it can be
+ * amended in: title, publisher, editionLine, …* — and a door that renamed them would refuse in
+ * words that are not the words the caller can send back.
+ */
+type Field = { type: "string" | "number"; description: string };
+
+const AMENDABLE: Record<ProposalField, Field> = {
+  title: { type: "string", description: "The title, as it should read on the record." },
+  typeId: {
+    type: "string",
+    description: `A Type id from \`stories_types\` — an attribute of a Story. Use one you have actually
+seen rather than the word you would expect.`,
+  },
+  name: {
+    type: "string",
+    description: `A Series' name without its edition: "Death Note", not "Death Note Black Edition".`,
+  },
+  publisher: { type: "string", description: "Panini Comics, Planet Manga, Einaudi." },
+  editionLine: {
+    type: "string",
+    description: `The publisher's line — "Ultimate Deluxe Edition", "Must Have". Leave it out for the
+standard printing rather than inventing a name for it.`,
+  },
+  binding: {
+    type: "string",
+    description: `A Binding id from \`collection_bindings\`. **Read that list rather than guessing**:
+this is the field an assistant gets wrong most often.`,
+  },
+  language: { type: "string", description: "A language code: it, en, ja." },
+  isbn: {
+    type: "string",
+    description: `10 or 13 characters, no spaces or dashes. **Never derive one**: an ISBN worked out
+from the series and the number is the most damaging thing you can put in this library, because
+nobody ever reads it back. Only one you actually read off the object or off a shop page for that
+exact edition.`,
+  },
+  publishedCount: {
+    type: "number",
+    description: `How many Volumes of the Series are out. Say it only where you actually read it: a
+count guessed off a shop page becomes a permanent wrong number in a completeness ledger.`,
+  },
+  status: { type: "string", description: `"ongoing" or "concluded".` },
+};
+
+/** The fields a record of that kind can be amended in, as the description names them. */
+function amendableIn(kind: ProposedEntity): string {
+  return AMENDABLE_FIELDS[kind].map((field) => `\`${field}\``).join(", ");
+}
+
+/**
+ * The fields the call actually named, and only those.
+ *
+ * A field nobody said anything about is left out rather than sent as null: an amendment
+ * proposes what it names and leaves everything else standing, so an absent field and an emptied
+ * one must not arrive at the verb as the same thing.
+ */
+function amended(input: Record<string, unknown>): InboxCorrections {
+  const proposed: InboxCorrections = {};
+  for (const [field, schema] of Object.entries(AMENDABLE) as [ProposalField, Field][]) {
+    // A count that is not a number is kept as what was said, for the reason
+    // `inbox_propose_series` keeps one: the owner should see *twenty* and fix it, where dropping
+    // it loses the only claim the amendment made.
+    const said =
+      schema.type === "number"
+        ? (numberArgument(input, field) ?? stringArgument(input, field))
+        : stringArgument(input, field);
+    if (said !== undefined) proposed[field] = said;
+  }
+  return proposed;
+}
+
+/**
+ * An amendment's `reported`, which is not a creation's.
+ *
+ * A proposal comes out of something the owner said; a backfill does not — the owner asked for
+ * three hundred ISBNs at once and said nothing about any one of them. So the sentence they read
+ * while deciding this entry is **where the fact came from**, and it is the only evidence they
+ * have.
+ */
+const AMENDMENT_REPORTED = {
+  type: "string",
+  description: `What the owner said, in their own words where they said anything — and where they did
+not, where you got the fact from: "read off the back cover", "Panini's shop page for the Must Have,
+checked today". This is the whole of what they have to judge the entry by, so never write a sentence
+they did not say and never dress a guess up as a source.`,
+};
+
+const amendment: McpTool = {
+  name: "inbox_propose_amendment",
+  title: "Propose a correction to a record the library already holds",
+  description: `Ask the owner to complete or correct a record that **already exists** — the ISBN a Volume
+was catalogued without, the publisher left blank, the count a Series has fallen behind on.
+
+**You cannot change a record, and this tool does not change one.** It changes nothing at all: what
+it makes is an entry waiting in the Inbox, showing what you propose beside what stands in the
+record today, and the owner approving it is the act that changes anything. That wait is the point
+rather than a formality — a wrong ISBN is silent, is never read back, and quietly fetches another
+book's cover for as long as the record stands, which is the opposite of a Reading recorded on the
+wrong day.
+
+\`amends\` says which kind of record it is about, and \`subject_id\` is that record's own id, from a
+read tool in this conversation: \`collection_search\` for a Volume, \`stories_all\` for a Story,
+\`series_list\` for a Series. The record has to exist — there is nothing else to amend — and a
+Volume's id is not a Story's, so an id of the wrong kind is refused rather than guessed at.
+
+**Name only what changes.** What an amendment does not name is left standing, so filling in an
+ISBN says nothing about the publisher. A field can be filled in from here but not emptied:
+taking something back is the owner's own gesture as they approve.
+
+Each kind of record has its own fields, and one belonging to another kind is refused rather than
+quietly dropped — a Type is a Story's and an ISBN a Volume's:
+
+- a Volume: ${amendableIn("volume")}
+- a Story: ${amendableIn("story")}
+- a Series: ${amendableIn("series")}
+
+A **Credit** is not among them. It is a record of its own — a person in a role on a Story — and
+\`credit_attribute\` is its door; a misattribution is undone by removing the Credit rather than by
+amending the Story.
+
+Read \`inbox_waiting\` first: the same amendment may already be sitting there, and a second entry
+for it is work the owner has to reject one by one.
+
+Returns the entry's id, and the record is exactly as it was. Tell the owner it is **waiting in
+their Inbox**, never that you have corrected anything — and if they asked for something that
+depends on the change, say that part is waiting too.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      reported: AMENDMENT_REPORTED,
+      amends: {
+        type: "string",
+        // Derived, so the door cannot offer a kind the Inbox does not carry.
+        enum: Object.keys(AMENDABLE_FIELDS),
+        description:
+          "Which kind of record you are amending. `subject_id` is a record of that kind.",
+      },
+      subject_id: {
+        type: "string",
+        description: `The record's own id, exact, from a read tool in this conversation. Never one you
+composed yourself.`,
+      },
+      ...AMENDABLE,
+    },
+    required: ["reported", "amends", "subject_id"],
+    additionalProperties: false,
+  },
+  readOnly: false,
+  async run(input) {
+    return {
+      proposed: await proposeAmendment({
+        reported: stringArgument(input, "reported") ?? "",
+        // The cast is where an untyped door meets a typed core, and it is safe because the
+        // verb refuses a kind it does not carry in prose the assistant can act on rather
+        // than trusting this line.
+        amends: (stringArgument(input, "amends") ?? "") as ProposedEntity,
+        subjectId: stringArgument(input, "subject_id") ?? "",
+        proposed: amended(input),
+      }),
+    };
+  },
+};
+
 const waiting: McpTool = {
   name: "inbox_waiting",
   title: "What is waiting for the owner to decide",
@@ -195,4 +383,4 @@ approves it.`,
   },
 };
 
-export default [story, volume, series, waiting];
+export default [story, volume, series, amendment, waiting];

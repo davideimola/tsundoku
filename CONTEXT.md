@@ -160,13 +160,15 @@ this has none of: an entry waits, or it has been decided.
 
 **Amendment**:
 A proposal to complete or correct a **record that already exists** — the ISBN a Volume was
-catalogued without, the artist nobody credited, the publisher left blank — waiting in the
-**Inbox** the way a creation does. It is not written directly because the risk it carries is
-the Inbox's risk and not the verbs': an invented ISBN or a misattributed artist is a
-permanent fact, silent, and wrong in a way the owner will never notice, where a Reading
-recorded on the wrong day is obvious the moment it is read back. It amends **one record**,
-so what it proposes is legible beside what stands there today, and approving it is the act
-that changes the record.
+catalogued without, the publisher left blank, the count a Series has fallen behind on —
+waiting in the **Inbox** the way a creation does. It is not written directly because the risk
+it carries is the Inbox's risk and not the verbs': an invented ISBN is a permanent fact,
+silent, and wrong in a way the owner will never notice, where a Reading recorded on the wrong
+day is obvious the moment it is read back. It amends **one record**, so what it proposes is
+legible beside what stands there today, and approving it is the act that changes the record.
+It amends the record's **fields**, and a **Credit** is not one of them: a person in a role on
+a Story is a record of its own, visible the moment it is wrong and undone whole by removing
+it, so it is attributed directly and never amended into the Story (ADR-0012).
 _Avoid_: edit, update, correction, patch — and **suggestion**, which promises something the
 owner may leave lying around; an amendment waits for a decision exactly as a creation does.
 

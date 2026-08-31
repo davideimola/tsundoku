@@ -10,6 +10,11 @@ This extends [ADR-0005](0005-the-mcp-runs-verbs-directly-and-creates-entities-on
 rather than contradicting it: the line still runs between what is narrow and reversible and
 what becomes a permanent fact.
 
+**One example above was taken back.** *The artist nobody credited* is not an amendment:
+[ADR-0012](0012-a-credit-is-attributed-directly-and-mints-its-person.md) puts a Credit on the
+direct side of that line, because it is a record of its own and not a column — visible when it is
+wrong, and undone whole. Everything else here stands, the ISBN included.
+
 ## What forced it
 
 The owner's assistant is not only the recommender. It is also the maintainer: the library

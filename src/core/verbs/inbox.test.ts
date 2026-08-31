@@ -5,6 +5,7 @@ import {
   countWaitingInboxEntries,
   listDecidedInboxEntries,
   listWaitingInboxEntries,
+  type ProposedEntity,
 } from "../queries/inbox.ts";
 import { listSeries } from "../queries/series.ts";
 import { listStories } from "../queries/story.ts";
@@ -568,6 +569,27 @@ describe("proposing an amendment to a record that exists", () => {
 
     expect(refused.code).toBe("invalid");
     expect(refused.message).toMatch(/Volume/);
+    expect(await listWaitingInboxEntries()).toEqual([]);
+  });
+
+  it("is refused where it amends a kind of record the Inbox does not carry", async () => {
+    const storyId = await createStory({ title: "One-Punch Man", typeId: "manga" });
+
+    // The other door is untyped: an assistant fills in a schema, so `amends` arrives as
+    // whatever it sent. A Credit is a record of its own rather than a field of a Story
+    // (#26), and the answer to an assistant reaching for it has to be prose it can act
+    // on rather than an internal error with nothing in it.
+    const refused = await refusalFrom(
+      proposeAmendment({
+        reported: "One-Punch Man is drawn by Yusuke Murata",
+        amends: "credit" as ProposedEntity,
+        subjectId: storyId,
+        proposed: { title: "One-Punch Man" },
+      })
+    );
+
+    expect(refused.code).toBe("invalid");
+    expect(refused.message).toMatch(/Story, a Volume or a Series/);
     expect(await listWaitingInboxEntries()).toEqual([]);
   });
 });

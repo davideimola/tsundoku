@@ -124,7 +124,16 @@ describe("crediting a Story", () => {
       creditStory({ storyId: "banana", person: "ONE", roleId: "writer" })
     );
     expect(malformed.code).toBe("not-found");
-    expect(malformed.message).toBe("That Story is not in the library yet.");
+
+    // **And it says what to do instead**, in both branches. Crediting is direct (ADR-0012)
+    // and creating the Story it hangs off is not (ADR-0005), so this refusal is where an
+    // assistant meets that line: one that only said no would leave it guessing at a door
+    // that does not exist.
+    for (const refusal of [unknown, malformed]) {
+      expect(refusal.message).toBe(
+        "That Story is not in the library yet. Propose it, and credit it once it has been approved."
+      );
+    }
   });
 
   it("leaves the person standing when a Credit is the wrong one", async () => {

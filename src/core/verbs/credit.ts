@@ -14,15 +14,24 @@ import { Refusal, refusing } from "../refusal.ts";
 // letterer or a translator is a role the owner will meet, and nothing in TypeScript is
 // allowed to enumerate today's two.
 //
-// **This verb is deliberately not exposed over MCP, and the reason is a question ADR-0005
-// does not answer.** `creditStory` mints a **Person** on a name the library has not seen —
-// entity creation, on the far side of the boundary in every respect that matters — but the
-// ADR names a Story, a Volume and a Series and does not name a Person. A hallucinated name
-// would be a permanent duplicate too: the name is unique on `lower(name)`, there is no
-// rename verb and no merge verb, so the only repair is uncrediting. Until the owner either
-// extends the Inbox to cover a Person or says plainly that minting one is safe, there is no
-// tool over this verb — the undecided half is left undecided rather than settled in code
-// (#12).
+// **This verb is exposed over MCP** — `credit_attribute` — and the question ADR-0005 leaves
+// open is the Person it mints on a name the library has not seen. That is entity creation,
+// and the ADR names a Story, a Volume and a Series without naming a Person; ADR-0012 answers
+// it, and the answer is that this side of the boundary is where a Credit belongs.
+//
+// Two things carry that decision, and the ADR has both at length. A **Credit is a record of its
+// own**,
+// visible on the Story and on the person the moment it is wrong, and `uncreditStory` below is
+// a whole undo — where an amendment overwrites a column nobody ever reads back, which is why
+// an ISBN waits in the Inbox and this does not (ADR-0011). And a **Person exists in order to
+// be credited**: minting one is not a claim about the library, because a person nothing points
+// at is absent from every screen that browses by Credit.
+//
+// What stays true is the *misspelling*: the name is unique on `lower(name)`, there is no
+// rename verb and no merge verb, so a second spelling is a second person forever and the only
+// repair is uncrediting. That is a risk carried by prose on the door — read the people who are
+// already there first — and not by a boundary, because the alternative was 0 people and 0
+// Credits, which is where the library stood.
 
 /** What crediting a Story needs, and the whole of it. */
 export type NewCredit = {
@@ -49,6 +58,18 @@ export type NewCredit = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
+ * Why a Credit has nowhere to go, and what to do about it.
+ *
+ * The second sentence is the whole reason this is prose rather than a code: crediting is direct
+ * (ADR-0012) and creating the Story it hangs off is **not** (ADR-0005), so this refusal is where
+ * an assistant meets that line — and a refusal that only says no leaves it guessing at a door
+ * that does not exist. It reads for the owner too: the Inbox is where a Story arrives on both
+ * surfaces.
+ */
+const NO_SUCH_STORY =
+  "That Story is not in the library yet. Propose it, and credit it once it has been approved.";
+
+/**
  * Credit a person on a Story in a named role. Returns the Credit and the Person it
  * points at.
  *
@@ -62,9 +83,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * allows is one person in **both** roles on one Story, and two people in the same role.
  */
 export async function creditStory(credit: NewCredit): Promise<{ id: string; personId: string }> {
-  if (!UUID.test(credit.storyId)) {
-    throw new Refusal("not-found", "That Story is not in the library yet.");
-  }
+  if (!UUID.test(credit.storyId)) throw new Refusal("not-found", NO_SUCH_STORY);
 
   // One statement, so this is one transaction without a client of its own: the Person is
   // found or named and the Credit is written in the same snapshot, and there is no way
@@ -94,7 +113,7 @@ export async function creditStory(credit: NewCredit): Promise<{ id: string; pers
         case "credit_is_one_role_per_person_per_story":
           return "That person already holds that role on this Story.";
         case "credit_story_exists":
-          return "That Story is not in the library yet.";
+          return NO_SUCH_STORY;
         case "credit_role_exists":
           return "That is not a role this library credits.";
         case "person_name_is_not_blank":

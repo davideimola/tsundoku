@@ -83,17 +83,26 @@ and they are the whole of it:
 - **Creating a Story, a Volume or a Series is impossible from here.** There is no
   `stories_create`, no `collection_catalogue` and no `series_declare`, and there must not be
   one: a hallucinated title or a fabricated edition becomes a permanent duplicate in a
-  library kept for years. The three `inbox_propose_*` tools are the whole of what an
-  assistant can do about it, and the owner approving the entry is what creates the entity.
+  library kept for years. The three `inbox_propose_story|volume|series` tools are the whole of
+  what an assistant can do about it, and the owner approving the entry is what creates the
+  entity.
+- **Completing or correcting one of those three is impossible from here too** (ADR-0011).
+  Nothing writes a field onto a record that exists: an ISBN, a publisher, a Type, a
+  published count all go through `inbox_propose_amendment` and wait, because a wrong one is
+  silent, is never read back, and stands for as long as the record does. The fields an
+  amendment may name are `AMENDABLE_FIELDS` in `src/core/verbs/inbox.ts` and the tool reads
+  its lists out of it, so the door offers exactly what the verb accepts.
 
 Two consequences for anyone adding a tool:
 
-- **A verb that creates an entity does not get a tool.** If the thing you want to expose
-  writes a row nothing else could have written, it belongs behind the Inbox, and extending
-  the Inbox to a fourth kind of entity is a decision for an ADR rather than for a tool file.
-  `creditStory` is the live example: it mints a **Person** on a name nobody has typed, and
-  there is deliberately no tool for it here — the reason is written at the top of
-  `src/core/verbs/credit.ts`.
+- **A verb that creates an entity does not get a tool, and the exception took an ADR.** If the
+  thing you want to expose writes a row nothing else could have written, it belongs behind the
+  Inbox; moving that line either way — a fourth kind of entity behind it, or an entity taken out
+  from behind it — is a decision for an ADR rather than for a tool file. There is exactly one
+  entity minted from out here, a **Person**, by `credit_attribute`, and
+  [ADR-0012](../../../docs/adr/0012-a-credit-is-attributed-directly-and-mints-its-person.md) is
+  what allows it. The risk that decision accepts, and the prose the tool carries in place of a
+  boundary, are at the top of `src/core/verbs/credit.ts`.
 - **The verb's own refusal is the boundary you are relying on.** `openWish` refuses a Volume
   that does not exist rather than creating one, and that refusal is what makes `wish_open`
   safe to expose. A tool over a verb that would create-on-write is not.

@@ -55,6 +55,16 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const NO_SUCH_ENTRY = "No Inbox entry has that id.";
 
+/**
+ * The three records the Inbox carries, and the prose for anything else.
+ *
+ * Said once, because it is answered in two places that must not drift: the check in front
+ * of an amendment below, and the constraint behind every proposal. The other door is
+ * untyped — an assistant fills in a schema, so `amends` arrives as whatever it sent — and
+ * `ProposedEntity` is a promise TypeScript cannot keep across it.
+ */
+const AMENDS_SOMETHING_ELSE = "Only a Story, a Volume or a Series can be proposed or amended.";
+
 /** What every proposal carries: the sentence it came out of. */
 type Reported = {
   /**
@@ -141,7 +151,7 @@ export type InboxCorrections = Partial<Record<ProposalField, string | number | n
  * **These are fields of the record, and a Credit is not one.** ADR-0011 names the
  * uncredited artist alongside the missing ISBN, and it is the same risk; what differs is
  * that a Credit is a record of its own — a person in a role on a Story — rather than a
- * column to fill in, and #26 gives an assistant `creditStory` as a door of its own. So a
+ * column to fill in, and ADR-0012 gives it a door of its own on both surfaces. So a
  * misattribution is undone by removing the Credit rather than by amending the Story.
  *
  * Exported, like `PROPOSAL_FIELDS` beside it, because it is what an approval may correct:
@@ -248,6 +258,21 @@ export async function proposeSeries(series: ProposedSeries): Promise<{ id: strin
  * it is about.
  */
 export async function proposeAmendment(amendment: ProposedAmendment): Promise<{ id: string }> {
+  // Before anything reads `amends` as one of the three: a Credit is a record of its own
+  // rather than a field of a Story (`AMENDABLE_FIELDS`), and an assistant reaching for one
+  // through here has to be told so in prose it can act on. Everything below — the fields
+  // this kind of record has, the table its subject is in, the word for it in the refusals
+  // — is indexed by this, so an unnamed kind reaching them is an internal error carrying
+  // nothing for the caller rather than an answer.
+  const amendable = AMENDABLE_FIELDS[amendment.amends] as readonly ProposalField[] | undefined;
+  if (!amendable) {
+    throw new Refusal(
+      "invalid",
+      `${AMENDS_SOMETHING_ELSE} A Credit is a record of its own rather than a field of one, so it ` +
+        `is attributed on the Story and never amended into it.`
+    );
+  }
+
   const NO_SUCH_RECORD = `No ${OF[amendment.amends]} has that id, so there is nothing to amend.`;
   if (!UUID.test(amendment.subjectId ?? "")) throw new Refusal("not-found", NO_SUCH_RECORD);
 
@@ -257,7 +282,6 @@ export async function proposeAmendment(amendment: ProposedAmendment): Promise<{ 
     throw new Refusal("invalid", "An amendment proposes at least one field. Say what changes.");
   }
 
-  const amendable = AMENDABLE_FIELDS[amendment.amends];
   const foreign = named.filter((field) => !amendable.includes(field as ProposalField));
   if (foreign.length > 0) {
     throw new Refusal(
@@ -443,7 +467,7 @@ function whyAProposalRefused(constraint: string | undefined, otherwise: string):
     case "inbox_entry_reference_is_not_blank":
       return "A proposal names something: the title, or the reference as it was given.";
     case "inbox_entry_proposes_a_story_volume_or_series":
-      return "Only a Story, a Volume or a Series can be proposed or amended.";
+      return AMENDS_SOMETHING_ELSE;
     default:
       return otherwise;
   }

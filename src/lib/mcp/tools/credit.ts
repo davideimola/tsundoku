@@ -1,13 +1,26 @@
 import { findCreditedPerson, listCreditedPeople, listCreditRoles } from "@/core/queries/credit";
+import { creditStory } from "@/core/verbs/credit";
 import { type McpTool, stringArgument } from "../tool.ts";
 
-// The Credit area: the people the library credits, read from the person's side.
+// The Credit area: the people the library credits, read from the person's side — and the
+// one act out here that credits somebody.
 //
 // A Credit is a person's contribution to a **Story** in a named role. The Credits *of a
 // Story* come back with the Story itself, because they are part of the answer to *"what is
-// this?"*; this area answers the other direction — *"everything the owner has read by X"*
+// this?"*; the reads here answer the other direction — *"everything the owner has read by X"*
 // (user story 15) — which is the question a recommender actually asks before suggesting
 // another Story by the same hand.
+//
+// **`credit_attribute` writes, and it writes directly.** The library holds 0 people and 0
+// Credits (#18) — the workbook that carried the `Autore` column was imported empty — so
+// without this door the reads above answer nothing at all and the backfill ADR-0011 was
+// written for cannot happen. Why an attribution sits on the direct side of that line is
+// ADR-0012, and what risk it accepts is at the top of `src/core/verbs/credit.ts`; neither
+// argument is repeated here.
+//
+// What the door owes in return is the one thing no boundary is carrying: a misspelling mints a
+// second person forever, so the tool's own prose is where *read the people who are already
+// there first* has to be said.
 
 const roles: McpTool = {
   name: "credit_roles",
@@ -91,4 +104,69 @@ an answer and not a failure.`,
   },
 };
 
-export default [roles, people, person];
+const attribute: McpTool = {
+  name: "credit_attribute",
+  title: "Credit a person on a Story in a named role",
+  description: `Record that a person wrote or drew a **Story** — the one thing in this area that writes,
+and the door the library's Credits were missing: the column that carried them was imported empty,
+so \`credit_people\` may well answer with nothing at all and every question it exists to answer
+stays unanswerable until this is used.
+
+**This writes on the spot**, unlike a proposed Story or an amendment, so say what you did rather
+than that anything is waiting. It is on this side of the line because a Credit is a record of its
+own and not a field: a wrong one is visible on the Story and on the person, and the owner removes
+it whole.
+
+**The name mints the person where the library has not met them**, and a name it already knows —
+in any capitalisation — is that person rather than a second row. That is the whole of the risk
+here, and it is the one thing removing the Credit does not undo: there is no rename and no merge,
+so a second spelling is a second Yusuke Murata forever, splitting every answer about him in two.
+So **read \`credit_people\` first
+and reuse the spelling that is already there**; where the person is genuinely new, take the name
+from what the owner told you or from the object in front of them, never from memory and never
+from the web.
+
+The role is an id from \`credit_roles\` — read that list rather than assuming the two you know, a
+colourist and a letterer are roles this library will meet. **Never say "author"**: it presumes a
+single role and silently drops the artist, and the two are routinely different people — One-Punch
+Man is written by ONE and drawn by Yusuke Murata, which is two calls and not one. One person may
+hold both roles on one Story and two people may hold the same role; the same person in the same
+role twice is refused, which is an answer and not a failure.
+
+A Credit hangs off a Story and **never off a Volume**: the narrative is what somebody wrote and
+drew, and the object is a printing of it. The \`story_id\` comes from a read tool in this
+conversation — \`stories_all\`, \`stories_read\` — and a Story the library does not have is
+\`inbox_propose_story\` first: there is nothing to credit until the owner has approved it.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      story_id: {
+        type: "string",
+        description: "A Story id from a read tool. Exact, and never one you composed yourself.",
+      },
+      person: {
+        type: "string",
+        description: `The name they are credited with — "ONE", "Yusuke Murata", "Jeph Loeb". A name and
+not an id: the library finds the person it knows, and names a new one where it knows none.`,
+      },
+      role: {
+        type: "string",
+        description: "A role id from `credit_roles`. Read it rather than guessing at the word.",
+      },
+    },
+    required: ["story_id", "person", "role"],
+    additionalProperties: false,
+  },
+  readOnly: false,
+  async run(input) {
+    return {
+      credited: await creditStory({
+        storyId: stringArgument(input, "story_id") ?? "",
+        person: stringArgument(input, "person") ?? "",
+        roleId: stringArgument(input, "role") ?? "",
+      }),
+    };
+  },
+};
+
+export default [roles, people, person, attribute];
