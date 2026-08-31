@@ -61,3 +61,27 @@ and it fails when a screen names a colour of its own or when a ground stops bein
 
 The mark is `src/components/mark.tsx`, drawn from one geometry that `src/app/icon.svg`
 draws again as the favicon; `src/components/mark.test.ts` is what stops the two drifting.
+
+### Where the shelf's colour comes from
+
+**`src/lib/tint.ts`, and it is the one file in `src/` allowed to name a colour.** The chrome
+has no accent, so the only colour on screen is the library's: a tint derived from a Series'
+identity, the same on every deploy, worn by the spines the walls are laid out as. A screen
+spends `tint()` the way it spends a token and names nothing itself — `src/lib/tint.test.ts`
+walks every colour the function can produce and holds each one to the palette's own reading
+threshold on both grounds, which is what buys the exception the palette wall states.
+
+The tile that wears it is `src/components/spine.tsx`, and it is a spine rather than a
+placeholder for a cover: 0 of 96 Volumes carry an ISBN, so this is the normal case.
+
+### Where a filter goes
+
+**In the URL, and in the core query's arguments.** A narrowed wall is a `GET` —
+`/stories?type=manga&state=reading` — so it is linkable, survives a refresh and works with
+nothing running in the browser (ADR-0010); every control that narrows one is a link, never a
+script. **The query takes the filter as an argument**: a page never *narrows* an array it
+fetched, because a wall showing four Stories must not have read seventy-seven. Grouping what
+came back into bands is the screen's, and that is the whole of the distinction.
+`listStoryWall` in `src/core/queries/story.ts` is the pattern, and
+`src/app/(owner)/stories/page.tsx` is what reading a filter against the vocabulary looks
+like — an unknown value narrows to nothing in the core, and is shown as no filter at all.

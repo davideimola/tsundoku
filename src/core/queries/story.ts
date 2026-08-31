@@ -224,6 +224,21 @@ export async function listReadStories(): Promise<Story[]> {
   return query<Story>(`${WHOLE_STORY} where ${STORY_STATE} = 'read' order by s.title`);
 }
 
+/**
+ * The score the owner set most recently, written once.
+ *
+ * Two lists ask for it — the index an assistant reads and the wall the owner looks at — and
+ * a second copy of these five lines would be a second answer to *what did I think of this*.
+ * The same rule `STORY_STATE` is exported under, for the same reason. It names the Story
+ * `s`, so a statement using it joins `story s`.
+ */
+const LATEST_SCORE = `
+  (select g.score::float8
+     from rating g
+    where g.story_id = s.id
+    order by g.set_at desc
+    limit 1)`;
+
 /** A Story as a list shows it: enough to choose one, and nothing more. */
 export type StorySummary = {
   id: string;
@@ -250,13 +265,101 @@ export async function listStories(): Promise<StorySummary[]> {
        jsonb_build_object('id', t.id, 'name', t.name) as type,
        ${STORY_STATE} as state,
        (select count(*)::int from reading r where r.story_id = s.id) as "readingCount",
-       (select g.score::float8
-          from rating g
-         where g.story_id = s.id
-         order by g.set_at desc
-         limit 1) as "latestScore"
+       ${LATEST_SCORE} as "latestScore"
      from story s
      join type t on t.id = s.type_id
     order by s.title`
+  );
+}
+
+/**
+ * The line a Story stands in, as a spine wears it.
+ *
+ * A Story does not have a Series — objects do (ADR-0001) — so this is derived across the
+ * many-to-many: the Series of the Volumes that carry it. `null` is the ordinary answer and
+ * not a gap, because a Story read digitally or borrowed is carried by no object at all.
+ */
+export type WallSeries = { id: string; name: string; editionLine: string | null };
+
+/** A Story as a spine on the wall: what is drawn on the tile, and what colours it. */
+export type WallStory = {
+  id: string;
+  title: string;
+  type: StoryType;
+  /** The axis the wall is split along, derived from the Readings like everywhere else. */
+  state: StoryState;
+  /** The score the owner set most recently, or `null` where they judged it never. */
+  latestScore: number | null;
+  series: WallSeries | null;
+};
+
+/**
+ * How the wall is narrowed. Both are optional and they compose, because the URL can carry
+ * both — `/stories?type=manga&state=reading` is a page the owner can bookmark.
+ */
+export type StoryWallFilter = {
+  /** Where the owner is with it: `to-read`, `reading`, `read`, `abandoned`. */
+  state?: StoryState;
+  /** A Type id, from `queries/type.ts`. It is a data row, never an enum (ADR-0006). */
+  typeId?: string;
+};
+
+// Which line a Story stands in, when it stands in more than one.
+//
+// *Fullmetal Alchemist* runs in the standard printing and in the Ultimate Deluxe Edition,
+// and a spine has one colour — so one is picked, and **the pick is total**: name, then
+// edition with the standard printing first, then id. That is the order `queries/series.ts`
+// reads two Series of one name in, and the id at the end is what makes it a tie-break
+// rather than a preference of the planner's. A colour that depended on which row Postgres
+// reached first would be a shelf that repainted itself between two page loads.
+const THE_LINE_IT_STANDS_IN = `
+  (select jsonb_build_object('id', se.id, 'name', se.name, 'editionLine', se.edition_line)
+     from volume_story vs
+     join volume v  on v.id = vs.volume_id
+     join series se on se.id = v.series_id
+    where vs.story_id = s.id
+    order by lower(se.name), se.edition_line nulls first, se.id
+    limit 1)`;
+
+// The state, derived once per row rather than twice.
+//
+// This wall both *reports* the state and *narrows* by it, and interpolating the expression
+// into the select list and into the `where` would walk the Readings of every Story twice
+// for the one answer. Joined laterally, which is how `queries/series.ts` computes a Series'
+// missing Volumes for the three questions that read it — same shape, same reason.
+const STATE_ONCE = `cross join lateral (select ${STORY_STATE} as state) derived`;
+
+/**
+ * The Stories as a wall shows them — narrowed, and each carrying the line it stands in.
+ *
+ * **The filter is an argument and not a pass over the answer.** A narrowed wall is a `GET`
+ * whose state is in the URL, so it is linkable, survives a refresh and works with nothing
+ * running in the browser (#18); a page that fetched everything and kept four of them would
+ * do the reading anyway, on a phone, on a shop's signal.
+ *
+ * The state stays derived here as it is everywhere else: `state` narrows by the same
+ * expression `findStory` reports, so there is still no column anybody could store it in
+ * wrongly.
+ *
+ * By title, like `listStories`, and for the same reason. What splits the wall into shelves
+ * is the state, and that is the screen's grouping rather than an order this query has been
+ * asked for.
+ */
+export async function listStoryWall(filter: StoryWallFilter = {}): Promise<WallStory[]> {
+  return query<WallStory>(
+    `select
+       s.id,
+       s.title,
+       jsonb_build_object('id', t.id, 'name', t.name) as type,
+       derived.state,
+       ${LATEST_SCORE} as "latestScore",
+       ${THE_LINE_IT_STANDS_IN} as series
+     from story s
+     join type t on t.id = s.type_id
+     ${STATE_ONCE}
+    where ($1::text is null or s.type_id = $1)
+      and ($2::text is null or derived.state = $2)
+    order by s.title`,
+    [filter.typeId ?? null, filter.state ?? null]
   );
 }

@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { creditStory } from "../verbs/credit.ts";
 import { setRating } from "../verbs/rating.ts";
 import { abandonReading, finishReading, recordReading } from "../verbs/reading.ts";
+import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
-import { findStory, listReadStories, listStories } from "./story.ts";
+import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
+import { findStory, listReadStories, listStories, listStoryWall } from "./story.ts";
 
 beforeEach(async () => {
-  await query("truncate story, person cascade");
+  await query("truncate story, person, volume, series cascade");
 });
 
 // The state a Story is in is the thing the owner never wants to maintain again: the
@@ -340,6 +343,159 @@ describe("what the owner has read", () => {
     }
 
     expect((await listReadStories()).map((story) => story.title)).toEqual([
+      "Akira",
+      "Monster",
+      "Zeru",
+    ]);
+  });
+});
+
+// THE WALL (#22). The same corpus as `listStories`, asked the way a shelf asks it: narrowed
+// by the two axes the screen offers, and carrying the one fact a spine cannot derive for
+// itself — which publisher's line it stands in, and therefore what colour it is.
+//
+// The filter is **an argument to the query** and never a `.filter()` over what came back.
+// That is not a preference: a filtered wall is a URL the owner can bookmark (#18), the
+// browser asks for it with nothing running, and the page that answers it must not have
+// fetched seventy-seven Stories to show four.
+describe("the Story wall", () => {
+  // A Story does not know its Series. It knows the Volumes that carry it, and a Volume
+  // knows its line — so this is a two-step derivation over the many-to-many, and it is the
+  // only reason this query is not `listStories`.
+  async function carriedBy(title: string, series: string, editionLine: string | null = null) {
+    const storyId = await createStory({ title, typeId: "manga" });
+    const volumeId = await volumeInTheHouse({
+      title: `${title} 1`,
+      publisher: "Star Comics",
+      editionLine,
+      binding: "tankobon",
+      language: "it",
+    });
+    const seriesId = await declareSeries({
+      name: series,
+      publisher: "Star Comics",
+      editionLine,
+      publishedCount: 3,
+      status: "ongoing",
+    });
+
+    await recordVolumeCarriesStory(volumeId, storyId);
+    await placeVolumeInSeries({ volumeId, seriesId, number: 1 });
+
+    return { storyId, seriesId };
+  }
+
+  it("carries the line a spine takes its colour from", async () => {
+    const { storyId, seriesId } = await carriedBy("Vinland Saga", "Vinland Saga");
+
+    expect(await listStoryWall()).toEqual([
+      {
+        id: storyId,
+        title: "Vinland Saga",
+        type: { id: "manga", name: "Manga" },
+        state: "to-read",
+        latestScore: null,
+        series: { id: seriesId, name: "Vinland Saga", editionLine: null },
+      },
+    ]);
+  });
+
+  // The ordinary case, not a gap: being read and being owned are unrelated facts
+  // (ADR-0001), so a Story read digitally has no object and stands in no line. The tile
+  // that draws it falls back to the palette rather than to a colour invented for the
+  // occasion.
+  it("has no line for a Story carried by no Volume", async () => {
+    await createStory({ title: "Sapiens", typeId: "non-fiction" });
+
+    expect((await listStoryWall())[0]).toMatchObject({ series: null });
+  });
+
+  // One Story running in two lines is the ordinary case too — *Fullmetal Alchemist* stands
+  // in the standard printing and in the Ultimate Deluxe Edition — and a spine has one
+  // colour. The standard printing wins, which is the order the ledger reads two Series of
+  // one name in (`queries/series.ts`), and it wins **every time**: a tint that depended on
+  // which row Postgres reached first would be a shelf that repainted itself.
+  it("takes one line, the same one every time, when a Story runs in two", async () => {
+    const { storyId, seriesId } = await carriedBy("Fullmetal Alchemist", "Fullmetal Alchemist");
+    const deluxe = await declareSeries({
+      name: "Fullmetal Alchemist",
+      publisher: "Star Comics",
+      editionLine: "Ultimate Deluxe Edition",
+      publishedCount: 18,
+      status: "concluded",
+    });
+    const volumeId = await volumeInTheHouse({
+      title: "Fullmetal Alchemist Ultimate Deluxe 1",
+      publisher: "Star Comics",
+      editionLine: "Ultimate Deluxe Edition",
+      binding: "deluxe",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(volumeId, storyId);
+    await placeVolumeInSeries({ volumeId, seriesId: deluxe, number: 1 });
+
+    const twice = [await listStoryWall(), await listStoryWall()];
+
+    expect(twice.map((wall) => wall[0].series?.id)).toEqual([seriesId, seriesId]);
+  });
+
+  it("narrows to one state, and the state is still derived", async () => {
+    const reading = await createStory({ title: "Berserk", typeId: "manga" });
+    await recordReading({ storyId: reading, medium: "paper", provenanceId: "remembered" });
+    const finished = await createStory({ title: "Pluto", typeId: "manga" });
+    const readingId = await recordReading({
+      storyId: finished,
+      medium: "paper",
+      provenanceId: "remembered",
+    });
+    await finishReading(readingId, "2024-02-02");
+    await createStory({ title: "Vagabond", typeId: "manga" });
+
+    expect((await listStoryWall({ state: "reading" })).map((story) => story.title)).toEqual([
+      "Berserk",
+    ]);
+    expect((await listStoryWall({ state: "to-read" })).map((story) => story.title)).toEqual([
+      "Vagabond",
+    ]);
+    expect((await listStoryWall({ state: "read" })).map((story) => story.title)).toEqual(["Pluto"]);
+  });
+
+  it("narrows to one Type", async () => {
+    await createStory({ title: "Akira", typeId: "manga" });
+    await createStory({ title: "Sapiens", typeId: "non-fiction" });
+
+    expect((await listStoryWall({ typeId: "manga" })).map((story) => story.title)).toEqual([
+      "Akira",
+    ]);
+  });
+
+  it("narrows by both at once, because the URL can carry both", async () => {
+    const manga = await createStory({ title: "Akira", typeId: "manga" });
+    await recordReading({ storyId: manga, medium: "paper", provenanceId: "remembered" });
+    await createStory({ title: "Monster", typeId: "manga" });
+    const novel = await createStory({ title: "Ulysses", typeId: "novel" });
+    await recordReading({ storyId: novel, medium: "digital", provenanceId: "remembered" });
+
+    expect(
+      (await listStoryWall({ typeId: "manga", state: "reading" })).map((story) => story.title)
+    ).toEqual(["Akira"]);
+  });
+
+  // A filter is a filter and not a suggestion. A Type that does not exist matches no Story,
+  // which is what a hand-edited URL must get: the alternative — falling back to everything —
+  // is a wall that quietly disagrees with the words above it.
+  it("answers with nothing for a Type nothing has", async () => {
+    await createStory({ title: "Akira", typeId: "manga" });
+
+    expect(await listStoryWall({ typeId: "graphic-novel" })).toEqual([]);
+  });
+
+  it("is by title, like every other list here", async () => {
+    for (const title of ["Zeru", "Akira", "Monster"]) {
+      await createStory({ title, typeId: "manga" });
+    }
+
+    expect((await listStoryWall()).map((story) => story.title)).toEqual([
       "Akira",
       "Monster",
       "Zeru",

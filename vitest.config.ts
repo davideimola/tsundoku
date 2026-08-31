@@ -7,7 +7,11 @@ import { defineConfig } from "vitest/config";
 // Postgres**. Both doors — the web view and the MCP route handler — are thin
 // adapters over that core (ADR-0002), so this one seam covers both and the adapters
 // need no tests of their own. There are deliberately no rendering tests, no
-// component tests and no browser runner: nothing in this app needs a DOM.
+// component tests and no browser runner. The owner surface *does* run client
+// components in production (ADR-0010) — there is a DOM out there — and still no test
+// in here needs one: what a screen is tested through is the query behind it and the
+// Server Function its plain form posts to, and a scripted control has an unscripted
+// twin that is the specification.
 //
 // This is a deliberate divergence from `bindex`, which tests pure logic only and
 // leaves invariants to the database. Here the derivations *are* the product — the

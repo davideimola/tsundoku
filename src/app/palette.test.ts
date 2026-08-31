@@ -1,6 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import {
+  type Colour,
+  contrast,
+  GROUNDS,
+  ground,
+  hex,
+  STYLESHEET_TEXT as STYLESHEET,
+} from "@/test/palette";
 import { SRC, sourceFiles } from "@/test/source-files";
 
 // The second wall in this app, and it is a wall for the same reason the first one is
@@ -20,13 +28,14 @@ import { SRC, sourceFiles } from "@/test/source-files";
 //   3. **Both grounds are legible.** The contrasts are computed here rather than eyeballed,
 //      against WCAG's own thresholds, on paper and in a dark room alike.
 //   4. **No screen names a colour.** Not a hex, not an `oklch()`, not a Tailwind palette
-//      class. The tokens are the vocabulary and there is no second one.
+//      class. The tokens are the vocabulary and there is no second one — with **one stated
+//      exception**, `src/lib/tint.ts`, which is the shelf's own colour and is held by a wall
+//      of its own. See the last block of this file.
 //
 // It is arithmetic over a stylesheet, so it needs no DOM, no renderer and no browser: the
 // two seams the configuration names are untouched by it, exactly as the gate's predicate
-// and the rate limit's are.
-
-const STYLESHEET = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
+// and the rate limit's are. The conversion itself is `src/test/palette.ts`, shared with the
+// tint's wall so that the two measure against the same declared grounds.
 
 /**
  * The palette, as roles rather than as values. `--refusal` is the one that carries a hue;
@@ -49,8 +58,6 @@ type Primitive = (typeof PRIMITIVES)[number];
 const HUED: Primitive = "--refusal";
 const CHROMA_CEILING = 0.1;
 
-type Colour = { readonly l: number; readonly c: number; readonly h: number };
-
 /**
  * Anything that would be a colour literal in a CSS *value*, whether or not this sheet uses
  * it. Safe to include the bare keywords because it is only ever matched against the right
@@ -59,87 +66,9 @@ type Colour = { readonly l: number; readonly c: number; readonly h: number };
 const CSS_LITERAL =
   /(?:oklch|rgba?|hsla?|lab|lch|color)\s*\(|#[0-9a-fA-F]{3,8}\b|\b(?:white|black|red|blue|green|grey|gray)\b/;
 
-/** `--name: oklch(L C H);` — the only literal form this sheet is allowed to use. */
-const DECLARED = /^\s*(--[a-z0-9-]+)\s*:\s*oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)\s*;/gim;
-
 /** Every `--name: value;` in the sheet, whatever the value is. */
 const ANY_DECLARATION = /^\s*(--[a-z0-9-]+)\s*:\s*([^;]+);/gim;
 
-/**
- * The declarations inside one selector's block, by brace matching rather than by a regex
- * over the whole file: `@theme` and `@layer` nest, and a pattern that stopped at the first
- * `}` would read half a ground and call it the whole one.
- */
-function block(selector: string): string {
-  const opened = STYLESHEET.indexOf(`${selector} {`);
-  expect(opened, `${selector} is declared`).toBeGreaterThan(-1);
-
-  let depth = 0;
-  for (let at = STYLESHEET.indexOf("{", opened); at < STYLESHEET.length; at += 1) {
-    if (STYLESHEET[at] === "{") depth += 1;
-    if (STYLESHEET[at] === "}") {
-      depth -= 1;
-      if (depth === 0) return STYLESHEET.slice(opened, at);
-    }
-  }
-  throw new Error(`${selector} is never closed`);
-}
-
-/** The palette one ground declares, as colours rather than as text. */
-function ground(selector: string): Map<string, Colour> {
-  const found = new Map<string, Colour>();
-  for (const [, name, l, c, h] of block(selector).matchAll(DECLARED)) {
-    found.set(name, { l: Number(l), c: Number(c), h: Number(h) });
-  }
-  return found;
-}
-
-// ── The arithmetic ────────────────────────────────────────────────────────────
-// OKLCH to sRGB (the Oklab matrices, as the CSS Color 4 specification gives them), and
-// then WCAG's relative luminance. Written out because the point of this file is that the
-// contrasts are computed from the values in the sheet rather than trusted.
-
-function linearSrgb({ l, c, h }: Colour): [number, number, number] {
-  const radians = (h * Math.PI) / 180;
-  const a = c * Math.cos(radians);
-  const b = c * Math.sin(radians);
-
-  const long = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3;
-  const medium = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3;
-  const short = (l - 0.0894841775 * a - 1.291485548 * b) ** 3;
-
-  return [
-    4.0767416621 * long - 3.3077115913 * medium + 0.2309699292 * short,
-    -1.2684380046 * long + 2.6097574011 * medium - 0.3413193965 * short,
-    -0.0041960863 * long - 0.7034186147 * medium + 1.707614701 * short,
-  ];
-}
-
-function luminance(colour: Colour): number {
-  const [r, g, b] = linearSrgb(colour).map((channel) => Math.min(1, Math.max(0, channel)));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-/** The same colour as a browser would write it: `#rrggbb`, gamma-encoded. */
-function hex(colour: Colour): string {
-  return `#${linearSrgb(colour)
-    .map((channel) => {
-      const clamped = Math.min(1, Math.max(0, channel));
-      const encoded = clamped <= 0.0031308 ? 12.92 * clamped : 1.055 * clamped ** (1 / 2.4) - 0.055;
-      return Math.round(encoded * 255)
-        .toString(16)
-        .padStart(2, "0");
-    })
-    .join("")}`;
-}
-
-/** WCAG's contrast ratio, from 1 (the same colour twice) to 21 (black on white). */
-function contrast(a: Colour, b: Colour): number {
-  const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-const GROUNDS = { paper: ":root", "a dark room": ".dark" } as const;
 const PAPERS = ["--paper", "--paper-raised", "--paper-quiet"] as const;
 
 describe("a colour is named once", () => {
@@ -214,6 +143,14 @@ describe("both grounds are legible", () => {
     it("draws the edge of a field where it can be seen", () => {
       expect(on("--rule-field", "--paper")).toBeGreaterThanOrEqual(3);
     });
+
+    // The hairline, held to the threshold a tinted spine clears against the page
+    // (`src/lib/tint.test.ts`). It matters because of the tile that has **no** tint: a
+    // Story standing in no line is drawn on quiet paper, which is barely off the ground it
+    // sits on, and its edge is then the only thing saying an object is there.
+    it("stands a hairline off the paper, which is what bounds an untinted tile", () => {
+      expect(on("--rule", "--paper")).toBeGreaterThanOrEqual(1.2);
+    });
   });
 });
 
@@ -256,16 +193,45 @@ describe("no screen names a colour", () => {
     /\b(?:text|bg|border|ring|fill|stroke|divide)-(?:white|black)\b/,
   ];
 
+  /**
+   * The four files a colour may appear in, each for a stated reason, and **no fifth**.
+   *
+   * The one that is not a test is `lib/tint.ts`: the shelf's tint is a colour the
+   * application *computes* rather than declares, so it cannot be a token in the sheet — a
+   * Series' hue is not knowable until there is a Series. It is allowed here because it is
+   * held somewhere else, by `lib/tint.test.ts`, which proves that every colour that
+   * function can produce is inside sRGB and clears the same reading threshold as ink, on
+   * both grounds. A screen still names none: it spends `tint()` the way it spends a token.
+   *
+   * Listing them rather than pattern-matching them is the point. A path that stops existing
+   * fails the first test below, so a file renamed out of the list cannot quietly take its
+   * licence with it.
+   */
+  const MAY_NAME_A_COLOUR = [
+    // Quotes the forms it forbids, which is the one place they may appear.
+    "app/palette.test.ts",
+    // The conversion the walls are computed with, and the parser that reads the sheet.
+    "test/palette.ts",
+    // The one colour the application computes, and the wall that holds it.
+    "lib/tint.ts",
+    "lib/tint.test.ts",
+  ];
+
   const sources = sourceFiles(SRC);
 
   it("finds the source it is about to check", () => {
     expect(sources.length).toBeGreaterThan(0);
   });
 
-  it("names no colour anywhere in src/", () => {
+  it("exempts four files that exist, and no others", () => {
+    const files = new Set(sources.map((read) => read.file));
+
+    expect(MAY_NAME_A_COLOUR.filter((file) => !files.has(file))).toEqual([]);
+  });
+
+  it("names no colour anywhere else in src/", () => {
     const naming = sources
-      // This file quotes the forms it forbids, which is the one place they may appear.
-      .filter((read) => read.file !== "app/palette.test.ts")
+      .filter((read) => !MAY_NAME_A_COLOUR.includes(read.file))
       .filter((read) => NAMES_A_COLOUR.some((form) => form.test(read.source)))
       .map((read) => read.file);
 

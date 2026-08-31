@@ -438,14 +438,27 @@ beside itself as well as through the adapter —
 arithmetic rather than a third seam: what it tests is a function the gate would still
 have if HTTP were replaced. Nothing else is a seam here.
 
+**A few files are arithmetic of that same kind, and none of them renders anything.**
+[`src/app/palette.test.ts`](src/app/palette.test.ts) computes every contrast in the
+stylesheet on both grounds; [`src/lib/tint.test.ts`](src/lib/tint.test.ts) walks every
+colour the shelf's tint can produce and holds each one to the same threshold;
+[`src/components/mark.test.ts`](src/components/mark.test.ts) pins the favicon to the mark;
+[`src/lib/utils.test.ts`](src/lib/utils.test.ts) holds the class merger to the two type
+sizes this application declared of its own. The rule that keeps them from becoming a seam
+is the gates': each is a function this app would still have if React were replaced.
+
 ```sh
 pnpm test
 ```
 
 That is the whole command on a clean clone with Docker running: it creates the
 container if it is missing, creates `tsundoku_test`, applies the schema, and runs. A
-node environment with **no browser runner** — there are deliberately no rendering
-tests, no component tests and no DOM anywhere in this repo.
+node environment with **no browser runner** — there are deliberately no rendering tests
+and no component tests. The owner surface does run client components in production
+([ADR-0010](docs/adr/0010-javascript-runs-on-the-owner-surface-and-no-write-depends-on-it.md)),
+and still no test here needs a DOM: what a screen is tested through is the core query
+behind it and the Server Function its plain form posts to, both of which work with
+nothing running in the browser.
 
 A test file runs at a time rather than in parallel, because verbs write and one
 database cannot serve two files truncating the same tables.
