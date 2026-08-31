@@ -6,11 +6,15 @@ import type { Executor } from "../transaction.ts";
 
 // Writing the completeness ledger.
 //
-// Six verbs, and the shape of the set is the design: the owner declares a Series, records
+// Seven verbs, and the shape of the set is the design: the owner declares a Series, records
 // what the publisher has done to it, places the objects they own in it — and, as a
 // **separate act that nothing else performs**, decides they are completing it. There is
 // no verb here that opens a collecting project as a side effect of anything, because
 // holding 42 of Naruto's 72 volumes is not a decision (CONTEXT.md).
+//
+// The seventh is `amendSeries`, and it is the ledger being **repaired** rather than kept:
+// what an approved Amendment writes when an assistant found the line out of date and the
+// owner agreed (ADR-0011).
 //
 // What is not here is the missing list. Nothing writes it: it is derived from the count
 // published and the shelf, in `../queries/series.ts`.
@@ -38,7 +42,10 @@ export type NewSeries = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The prose for every constraint the `series` table can refuse a write with. */
-function whySeriesRefused(constraint: string | undefined): string {
+function whySeriesRefused(
+  constraint: string | undefined,
+  otherwise = "That Series could not be declared."
+): string {
   switch (constraint) {
     case "series_name_is_not_blank":
       return "A Series needs a name.";
@@ -53,7 +60,7 @@ function whySeriesRefused(constraint: string | undefined): string {
     case "series_is_one_per_edition_line":
       return "That Series is already declared. The same name in another edition is a second Series.";
     default:
-      return "That Series could not be declared.";
+      return otherwise;
   }
 }
 
@@ -98,6 +105,99 @@ export async function declareSeries(series: NewSeries, run: Executor = query): P
   const [declared] = rows;
   if (!declared) throw new Error("insert into series returned no row");
   return declared.id;
+}
+
+/**
+ * What an approved Amendment writes onto a Series: the fields it names, and nothing else.
+ *
+ * `null` or absent means **leave what stands there today**, so an amendment completes and
+ * corrects but never empties.
+ */
+export type SeriesAmendment = {
+  name?: string | null;
+  publisher?: string | null;
+  /** The publisher's edition line — `Black Edition`. */
+  editionLine?: string | null;
+  /** How many Volumes are out. */
+  publishedCount?: number | null;
+  status?: SeriesStatus | null;
+};
+
+/**
+ * Complete or correct a declared Series: the publisher left blank on the way in, the count
+ * the ledger has fallen behind on, the line the publisher has since finished.
+ *
+ * **The owner's act, and the Inbox is the door an assistant reaches it through** — an
+ * assistant reading a shop page is exactly who notices the count is stale and exactly who
+ * might invent it, so it is proposed as an Amendment and waits for a decision (ADR-0011).
+ * `run` is how that approval calls this inside its own transaction (see
+ * `../transaction.ts`).
+ *
+ * It is not `recordVolumesPublished` and `concludeSeries` called twice: those are the
+ * owner's own single-fact verbs and each refuses a value the Series already holds, where an
+ * amendment names several fields at once and a field that changes nothing is an amendment
+ * the owner approved anyway. **It starts no collecting project** either — nothing here
+ * does.
+ *
+ * And it has **no way back from concluded**, which is the one rule `concludeSeries` states
+ * and the one an amendment could otherwise walk around: a publisher restarting a concluded
+ * line is a new edition, which is a new Series. Everything else about a concluded Series is
+ * amendable — a name spelt wrong stays wrong otherwise.
+ */
+export async function amendSeries(
+  seriesId: string,
+  amendment: SeriesAmendment,
+  run: Executor = query
+): Promise<void> {
+  if (!UUID.test(seriesId)) throw new Refusal("not-found", "No Series has that id.");
+  if (!Object.values(amendment).some((value) => value !== null && value !== undefined)) {
+    throw new Refusal("invalid", "An amendment changes at least one field of the Series.");
+  }
+  if (amendment.publishedCount != null && !Number.isInteger(amendment.publishedCount)) {
+    throw new Refusal("invalid", "A count of published Volumes is a whole number.");
+  }
+
+  // `coalesce` rather than a `set` clause assembled from whichever fields arrived: the
+  // fields are a closed list written here, and *leave it standing* is the same sentence in
+  // SQL as it is in the type above. One statement rather than a read and a write, as the
+  // four verbs below it are, so the diagnosis cannot disagree with what happened.
+  const [outcome] = await refusing(
+    () =>
+      run<{ known: boolean; amended: boolean }>(
+        `with known as (
+           select id from series where id = $1
+         ), amended as (
+           update series
+              set name            = coalesce($2, name),
+                  publisher       = coalesce($3, publisher),
+                  edition_line    = coalesce($4, edition_line),
+                  published_count = coalesce($5, published_count),
+                  status          = coalesce($6, status)
+            where id = $1
+              and not (status = 'concluded' and coalesce($6, status) = 'ongoing')
+            returning id
+         )
+         select exists (select 1 from known)   as known,
+                exists (select 1 from amended) as amended`,
+        [
+          seriesId,
+          amendment.name ?? null,
+          amendment.publisher ?? null,
+          amendment.editionLine ?? null,
+          amendment.publishedCount ?? null,
+          amendment.status ?? null,
+        ]
+      ),
+    (constraint) => whySeriesRefused(constraint, "That Series could not be amended.")
+  );
+
+  if (!outcome.known) throw new Refusal("not-found", "No Series has that id.");
+  if (!outcome.amended) {
+    throw new Refusal(
+      "not-allowed",
+      "That Series is concluded. A publisher restarting a concluded line is a new edition, which is a new Series."
+    );
+  }
 }
 
 /**

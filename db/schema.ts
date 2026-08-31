@@ -306,8 +306,10 @@ export const readingListPin = pgTable("reading_list_pin", {
 export const inboxEntry = pgTable("inbox_entry", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	reported: text().notNull(),
+	act: text().default('create').notNull(),
 	proposes: text().notNull(),
 	reference: text().notNull(),
+	subjectId: uuid("subject_id"),
 	details: jsonb().default({}).notNull(),
 	proposedAt: timestamp("proposed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	decidedAt: timestamp("decided_at", { withTimezone: true, mode: 'string' }),
@@ -316,11 +318,13 @@ export const inboxEntry = pgTable("inbox_entry", {
 }, (table) => [
 	check("inbox_entry_reported_is_not_blank", sql`(reported = btrim(reported)) AND (reported <> ''::text)`),
 	check("inbox_entry_reference_is_not_blank", sql`(reference = btrim(reference)) AND (reference <> ''::text)`),
+	check("inbox_entry_act_is_create_or_amend", sql`act = ANY (ARRAY['create'::text, 'amend'::text])`),
 	check("inbox_entry_proposes_a_story_volume_or_series", sql`proposes = ANY (ARRAY['story'::text, 'volume'::text, 'series'::text])`),
 	check("inbox_entry_details_is_a_document", sql`jsonb_typeof(details) = 'object'::text`),
 	check("inbox_entry_outcome_is_approved_or_rejected", sql`(outcome IS NULL) OR (outcome = ANY (ARRAY['approved'::text, 'rejected'::text]))`),
 	check("inbox_entry_is_decided_once", sql`(decided_at IS NULL) = (outcome IS NULL)`),
-	check("inbox_entry_approval_names_what_it_created", sql`(NOT (outcome IS DISTINCT FROM 'approved'::text)) = (created_id IS NOT NULL)`),
+	check("inbox_entry_an_amendment_names_what_it_amends", sql`(subject_id IS NOT NULL) = (act = 'amend'::text)`),
+	check("inbox_entry_approved_creation_names_what_it_created", sql`(created_id IS NOT NULL) = ((act = 'create'::text) AND (NOT (outcome IS DISTINCT FROM 'approved'::text)))`),
 ]);
 
 export const acquisition = pgTable("acquisition", {

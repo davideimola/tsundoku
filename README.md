@@ -281,43 +281,54 @@ not stored columns, and they are the product: the Reading list that composes its
 a Story's state from its Readings, a Series' missing Volumes.
 
 Migrations are **plain, ordered, forward-only SQL files**. There is no down migration,
-and **a file is never edited once it has been applied** — the runner keeps a checksum
-per file in a `schema_migrations` table and refuses a file that has changed, rather
-than trusting anyone to remember. To change something, add a file.
+and **a file is never edited once it has been applied** — Drizzle keeps a hash per file
+in its own ledger and refuses a file that has changed, rather than trusting anyone to
+remember. To change something, add a file.
 
-### Picking a migration number
+### Writing a migration
 
+**You do not pick a number, and you do not write the DDL by hand**
+([ADR-0009](docs/adr/0009-drizzle-owns-the-migrations-and-the-schema-is-still-sql.md)).
+Describe the change in [`db/schema.ts`](db/schema.ts) and let the generator write the
+file:
+
+```sh
+pnpm db:generate    # diffs db/schema.ts against the last snapshot, writes the next file
+pnpm db:migrate     # applies what the database has not seen
 ```
-db/migrations/<issue>_<step>_<slug>.sql
 
-0002_01_type_is_a_data_row.sql
-│    │  └─ what it does, lower_snake_case
-│    └──── the step within your ticket: 01, then 02, …
-└───────── the GitHub issue number of your ticket, four digits
-```
+It numbers sequentially from a journal it owns, which is what removed the whole class
+of problem the old `<issue>_<step>` convention had: a file from a lower-numbered ticket
+arrived from behind and was refused, correctly, and every number that convention would
+produce next sorted behind it too.
 
-**Your number is your issue number**, so there is nothing to coordinate: GitHub
-already handed out a unique one, and no two tickets can pick the same. Both parts are
-fixed width, so the lexical order is the numeric order. The runner refuses a file that
-does not follow this, which is how the convention stays true.
+The generator names the file something random. **Rename it for what it does** and change
+the `tag` in `db/migrations/meta/_journal.json` to match — the name is how the next
+reader finds it, and nothing has been applied yet.
 
-Add a **new file** rather than extending someone else's. Several slices are adding to
-this directory at once, and one file each is what keeps them out of each other's way.
+Then finish it by hand, because **three things Drizzle does not write are the schema's**:
 
-**Your file must not depend on a higher-numbered one.** The number orders the
-files; it says nothing about which table has to exist first. If your migration needs
-another slice's table, you are blocked on that slice, not free to pick a bigger
-number.
+- every `comment on`, which is where this schema documents itself. A generated
+  migration that adds a table or a column needs them appended, or the practice dies
+  quietly;
+- PL/pgSQL — `volume_holds_one_position()` and its triggers are SQL in `0000` and will
+  be SQL in whatever changes them;
+- the vocabularies, which are rows and not schema (ADR-0006). Each new one is a
+  hand-written file of its own, as `0001` is.
 
-After merging a branch whose migration sorts below one you have already applied, run
-`pnpm db:reset`. The runner **refuses** to apply a file from behind rather than
-running it out of order, because doing so would leave your database with an order no
-fresh clone would ever repeat. Locally there is nothing to preserve, so rebuilding is
-free — which is the reason to do the spreadsheet import last and deliberately.
+`db/migrations/meta/` is the generator's own state and is committed with the file: the
+snapshot is the description the *next* diff is taken against, so a snapshot that is not
+true makes the next migration wrong. It is written by `pnpm db:generate` and never by
+hand.
 
 A migration is wrapped in one transaction, so it lands whole or not at all. Two things
 follow: no `begin`/`commit`/`rollback` inside a file, and no `create index
 concurrently`, which Postgres will not run in a transaction at all.
+
+After merging a branch whose migration sorts below one you have already applied, run
+`pnpm db:reset`: applying it out of order would leave your database with an order no
+fresh clone reproduces. Locally there is nothing to preserve, so rebuilding is free —
+which is the reason to do the spreadsheet import last and deliberately.
 
 ### Type is a data row
 

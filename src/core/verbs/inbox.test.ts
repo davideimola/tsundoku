@@ -10,12 +10,16 @@ import { listSeries } from "../queries/series.ts";
 import { listStories } from "../queries/story.ts";
 import { isRefusal } from "../refusal.ts";
 import {
+  approveInboxEntries,
   approveInboxEntry,
+  proposeAmendment,
   proposeSeries,
   proposeStory,
   proposeVolume,
   rejectInboxEntry,
 } from "./inbox.ts";
+import { declareSeries } from "./series.ts";
+import { createStory } from "./story.ts";
 
 // Seam 1: the Inbox and the boundary it exists to hold, against a real Postgres.
 //
@@ -76,6 +80,11 @@ describe("proposing an entity that does not exist", () => {
         state: "waiting",
         decidedAt: null,
         createdId: null,
+        // A creation is about no record, so there is nothing standing anywhere to read
+        // beside it (ADR-0011).
+        act: "create",
+        subjectId: null,
+        standing: null,
       },
     ]);
   });
@@ -369,5 +378,551 @@ describe("what the owner reads", () => {
       "second",
       "first",
     ]);
+  });
+});
+
+// The other half of the boundary (ADR-0011): a proposal about a record that **already
+// exists**. The claim under test is the mirror of the one above — an amendment writes
+// nothing until it is approved, approving it changes the record and creates nothing, and
+// rejecting it leaves the record exactly as it stood.
+//
+// The realistic case is the one that forced the ADR: this library imported 96 Volumes from
+// spreadsheets with no ISBN column, so the ISBN is what an assistant is asked to fill in,
+// by the hundred.
+
+/** A catalogued Volume with the field an assistant is asked to fill in left empty. */
+async function aVolumeWithoutAnIsbn(): Promise<string> {
+  const [volume] = await query<{ id: string }>(
+    `insert into volume (title, publisher, binding_id, language)
+     values ('Slam Dunk 1', 'Planet Manga', 'tankobon', 'it')
+     returning id`
+  );
+  return volume.id;
+}
+
+/** The whole of a Volume row, as the amendment's effect is judged against it. */
+async function volumeRow(volumeId: string): Promise<Record<string, unknown>> {
+  const [row] = await query<Record<string, unknown>>(
+    "select title, publisher, edition_line, binding_id, language, isbn from volume where id = $1",
+    [volumeId]
+  );
+  return row;
+}
+
+describe("proposing an amendment to a record that exists", () => {
+  it("lands as a waiting entry naming the record, with what stands in it today", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+
+    await proposeAmendment({
+      reported: "Slam Dunk 1 di Planet Manga è 9788891234567",
+      amends: "volume",
+      subjectId: volumeId,
+      proposed: { isbn: "9788891234567" },
+    });
+
+    expect(await listWaitingInboxEntries()).toEqual([
+      {
+        id: expect.any(String),
+        reported: "Slam Dunk 1 di Planet Manga è 9788891234567",
+        act: "amend",
+        proposes: "volume",
+        // Read off the record rather than supplied: an entry says what it is about, and
+        // the assistant does not get to name the record something else.
+        reference: "Slam Dunk 1",
+        subjectId: volumeId,
+        details: { isbn: "9788891234567" },
+        // The diff the owner judges by: what is proposed above, what stands here.
+        standing: {
+          title: "Slam Dunk 1",
+          publisher: "Planet Manga",
+          editionLine: null,
+          binding: "tankobon",
+          language: "it",
+          isbn: null,
+        },
+        proposedAt: expect.any(String),
+        state: "waiting",
+        decidedAt: null,
+        createdId: null,
+      },
+    ]);
+  });
+
+  it("changes nothing: the entry is the only trace the proposal has", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+    const before = await volumeRow(volumeId);
+
+    await proposeAmendment({
+      reported: "the ISBN is this one",
+      amends: "volume",
+      subjectId: volumeId,
+      proposed: { isbn: "9788891234567" },
+    });
+
+    expect(await volumeRow(volumeId)).toEqual(before);
+  });
+
+  it("is proposed against a Story and against a Series too", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "ongoing",
+    });
+
+    await proposeAmendment({
+      reported: "Slam Dunk is a manga, not a comic",
+      amends: "story",
+      subjectId: storyId,
+      proposed: { typeId: "manga" },
+    });
+    await proposeAmendment({
+      reported: "Planet Manga has put out all 31",
+      amends: "series",
+      subjectId: seriesId,
+      proposed: { publishedCount: 31, status: "concluded" },
+    });
+
+    expect(await listWaitingInboxEntries()).toMatchObject([
+      { proposes: "story", subjectId: storyId, standing: { title: "Slam Dunk", typeId: "manga" } },
+      {
+        proposes: "series",
+        subjectId: seriesId,
+        standing: { name: "Slam Dunk", publishedCount: 20, status: "ongoing" },
+      },
+    ]);
+  });
+
+  it("is refused where no such record exists, because there is nothing to amend", async () => {
+    const unknown = await refusalFrom(
+      proposeAmendment({
+        reported: "the ISBN is this one",
+        amends: "volume",
+        subjectId: "6f5f4e3d-2c1b-4a09-8877-665544332211",
+        proposed: { isbn: "9788891234567" },
+      })
+    );
+    expect(unknown.code).toBe("not-found");
+
+    // A malformed id is the same event as an unknown one: there is nothing to amend.
+    const nonsense = await refusalFrom(
+      proposeAmendment({
+        reported: "the ISBN is this one",
+        amends: "volume",
+        subjectId: "banana",
+        proposed: { isbn: "9788891234567" },
+      })
+    );
+    expect(nonsense.code).toBe("not-found");
+
+    expect(await listWaitingInboxEntries()).toEqual([]);
+  });
+
+  it("is refused where the record is of another kind, so proposes always names the table", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+
+    const refused = await refusalFrom(
+      proposeAmendment({
+        reported: "the ISBN is this one",
+        amends: "volume",
+        subjectId: storyId,
+        proposed: { isbn: "9788891234567" },
+      })
+    );
+
+    expect(refused.code).toBe("not-found");
+    expect(await listWaitingInboxEntries()).toEqual([]);
+  });
+
+  it("is refused where it proposes nothing, which is a rejection with extra steps", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+
+    const refused = await refusalFrom(
+      proposeAmendment({
+        reported: "something about this volume",
+        amends: "volume",
+        subjectId: volumeId,
+        proposed: { isbn: "  " },
+      })
+    );
+
+    expect(refused.code).toBe("invalid");
+    expect(refused.message).toMatch(/at least one field/i);
+    expect(await listWaitingInboxEntries()).toEqual([]);
+  });
+
+  it("is refused where it names a field the record does not have", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+
+    const refused = await refusalFrom(
+      proposeAmendment({
+        reported: "Slam Dunk is a manga",
+        amends: "volume",
+        // A Type is an attribute of a Story. Silently dropping it would leave the owner
+        // approving an amendment that does nothing.
+        proposed: { typeId: "manga" },
+        subjectId: volumeId,
+      })
+    );
+
+    expect(refused.code).toBe("invalid");
+    expect(refused.message).toMatch(/Volume/);
+    expect(await listWaitingInboxEntries()).toEqual([]);
+  });
+});
+
+describe("approving an amendment", () => {
+  it("changes the record it names, and creates nothing", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+    const { id } = await proposeAmendment({
+      reported: "Slam Dunk 1 is 9788891234567",
+      amends: "volume",
+      subjectId: volumeId,
+      proposed: { isbn: "9788891234567" },
+    });
+
+    const approval = await approveInboxEntry(id);
+
+    expect(approval).toEqual({
+      entryId: id,
+      act: "amend",
+      proposes: "volume",
+      createdId: null,
+      subjectId: volumeId,
+    });
+    // The one field it named changed; everything else stands where it stood.
+    expect(await volumeRow(volumeId)).toEqual({
+      title: "Slam Dunk 1",
+      publisher: "Planet Manga",
+      edition_line: null,
+      binding_id: "tankobon",
+      language: "it",
+      isbn: "9788891234567",
+    });
+    expect(await domain()).toEqual({ stories: 0, volumes: 1, series: 0 });
+    expect(await listDecidedInboxEntries()).toMatchObject([
+      { act: "amend", state: "approved", createdId: null, subjectId: volumeId },
+    ]);
+  });
+
+  it("changes a Story's Type and a Series' ledger, from the same door", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "comic" });
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "ongoing",
+    });
+
+    const story = await proposeAmendment({
+      reported: "Slam Dunk is a manga",
+      amends: "story",
+      subjectId: storyId,
+      proposed: { typeId: "manga" },
+    });
+    const series = await proposeAmendment({
+      reported: "all 31 are out and it is finished",
+      amends: "series",
+      subjectId: seriesId,
+      proposed: { publishedCount: 31, status: "concluded" },
+    });
+    await approveInboxEntry(story.id);
+    await approveInboxEntry(series.id);
+
+    expect(await listStories()).toMatchObject([{ id: storyId, type: { id: "manga" } }]);
+    expect(await listSeries()).toMatchObject([
+      { id: seriesId, publishedCount: 31, status: "concluded" },
+    ]);
+  });
+
+  it("is refused with the record's own prose, and the entry stays waiting", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+    const { id } = await proposeAmendment({
+      reported: "it is a hardback",
+      amends: "volume",
+      subjectId: volumeId,
+      proposed: { binding: "hardback" },
+    });
+
+    const refused = await refusalFrom(approveInboxEntry(id));
+
+    expect(refused.message).toMatch(/not a Binding/);
+    expect(await volumeRow(volumeId)).toMatchObject({ binding_id: "tankobon" });
+    expect(await listWaitingInboxEntries()).toMatchObject([{ state: "waiting" }]);
+  });
+
+  it("is refused where the record was deleted while the entry waited", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+    const { id } = await proposeAmendment({
+      reported: "the ISBN is this one",
+      amends: "volume",
+      subjectId: volumeId,
+      proposed: { isbn: "9788891234567" },
+    });
+    await query("delete from volume where id = $1", [volumeId]);
+
+    const refused = await refusalFrom(approveInboxEntry(id));
+
+    expect(refused.code).toBe("not-found");
+    expect(await listWaitingInboxEntries()).toHaveLength(1);
+  });
+
+  it("takes the field back where the owner emptied it, leaving what stands", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+    const { id } = await proposeAmendment({
+      reported: "the ISBN is this one and it is a deluxe",
+      amends: "volume",
+      subjectId: volumeId,
+      proposed: { isbn: "9788891234567", binding: "deluxe" },
+    });
+
+    // Emptying a proposed field is how the owner says *not that one*: an amendment writes
+    // what it names, so a field with nothing in it leaves the record standing.
+    await approveInboxEntry(id, { binding: null });
+
+    expect(await volumeRow(volumeId)).toMatchObject({
+      isbn: "9788891234567",
+      binding_id: "tankobon",
+    });
+  });
+
+  it("is refused where the owner emptied every field, because it now proposes nothing", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+    const { id } = await proposeAmendment({
+      reported: "the ISBN is this one",
+      amends: "volume",
+      subjectId: volumeId,
+      proposed: { isbn: "9788891234567" },
+    });
+
+    const refused = await refusalFrom(approveInboxEntry(id, { isbn: null }));
+
+    expect(refused.code).toBe("invalid");
+    expect(await volumeRow(volumeId)).toMatchObject({ isbn: null });
+    expect(await listWaitingInboxEntries()).toHaveLength(1);
+  });
+
+  it("happens once: a decided amendment cannot be approved again", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+    const { id } = await proposeAmendment({
+      reported: "the ISBN is this one",
+      amends: "volume",
+      subjectId: volumeId,
+      proposed: { isbn: "9788891234567" },
+    });
+    await approveInboxEntry(id);
+
+    const refused = await refusalFrom(approveInboxEntry(id));
+
+    expect(refused.code).toBe("not-allowed");
+  });
+});
+
+describe("rejecting an amendment", () => {
+  it("leaves the record untouched, and the entry is its only trace", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+    const before = await volumeRow(volumeId);
+    const { id } = await proposeAmendment({
+      reported: "the ISBN is 9788891234567, I think",
+      amends: "volume",
+      subjectId: volumeId,
+      proposed: { isbn: "9788891234567" },
+    });
+
+    await rejectInboxEntry(id);
+
+    expect(await volumeRow(volumeId)).toEqual(before);
+    expect(await listWaitingInboxEntries()).toEqual([]);
+    expect(await listDecidedInboxEntries()).toMatchObject([
+      { act: "amend", state: "rejected", createdId: null, subjectId: volumeId },
+    ]);
+  });
+});
+
+// A backfill arrives by the hundred (ADR-0011), so the gesture that decides it is one
+// gesture over a selection — and one transaction, because half an applied backfill is a
+// library nobody can tell the state of.
+describe("approving a selection", () => {
+  /** Three Volumes with no ISBN, and an amendment waiting on each. */
+  async function threeWaitingIsbns(): Promise<{ volumeIds: string[]; entryIds: string[] }> {
+    const volumeIds: string[] = [];
+    const entryIds: string[] = [];
+    for (const isbn of ["9788891234561", "9788891234562", "9788891234563"]) {
+      const volumeId = await aVolumeWithoutAnIsbn();
+      const { id } = await proposeAmendment({
+        reported: `the ISBN is ${isbn}`,
+        amends: "volume",
+        subjectId: volumeId,
+        proposed: { isbn },
+      });
+      volumeIds.push(volumeId);
+      entryIds.push(id);
+    }
+    return { volumeIds, entryIds };
+  }
+
+  it("applies every entry it was given", async () => {
+    const { volumeIds, entryIds } = await threeWaitingIsbns();
+
+    const approvals = await approveInboxEntries(entryIds);
+
+    expect(approvals.map((approval) => approval.subjectId)).toEqual(volumeIds);
+    expect(await listWaitingInboxEntries()).toEqual([]);
+    expect(await query("select isbn from volume order by isbn")).toEqual([
+      { isbn: "9788891234561" },
+      { isbn: "9788891234562" },
+      { isbn: "9788891234563" },
+    ]);
+  });
+
+  it("applies creations and amendments in the same gesture", async () => {
+    const volumeId = await aVolumeWithoutAnIsbn();
+    const amendment = await proposeAmendment({
+      reported: "the ISBN is this one",
+      amends: "volume",
+      subjectId: volumeId,
+      proposed: { isbn: "9788891234567" },
+    });
+    const creation = await proposeStory({
+      reported: "I read Slam Dunk",
+      title: "Slam Dunk",
+      typeId: "manga",
+    });
+
+    const approvals = await approveInboxEntries([amendment.id, creation.id]);
+
+    expect(approvals).toEqual([
+      {
+        entryId: amendment.id,
+        act: "amend",
+        proposes: "volume",
+        createdId: null,
+        subjectId: volumeId,
+      },
+      {
+        entryId: creation.id,
+        act: "create",
+        proposes: "story",
+        createdId: expect.any(String),
+        subjectId: null,
+      },
+    ]);
+    expect(await domain()).toMatchObject({ stories: 1 });
+  });
+
+  it("leaves none applied when one of them is refused", async () => {
+    const { volumeIds, entryIds } = await threeWaitingIsbns();
+    const doomed = await aVolumeWithoutAnIsbn();
+    const bad = await proposeAmendment({
+      reported: "it is a hardback",
+      amends: "volume",
+      subjectId: doomed,
+      proposed: { binding: "hardback" },
+    });
+
+    const refused = await refusalFrom(approveInboxEntries([...entryIds, bad.id]));
+
+    expect(refused.message).toMatch(/not a Binding/);
+    // The whole selection rolled back: three good amendments and a bad one land together
+    // or not at all, which is the reason the verb takes a selection rather than the caller
+    // looping.
+    expect(await query("select count(*)::int as n from volume where isbn is not null")).toEqual([
+      { n: 0 },
+    ]);
+    expect(await volumeRow(volumeIds[0])).toMatchObject({ isbn: null });
+    expect(await listWaitingInboxEntries()).toHaveLength(4);
+  });
+
+  it("is refused whole where one id is not an entry", async () => {
+    const { entryIds } = await threeWaitingIsbns();
+
+    const refused = await refusalFrom(
+      approveInboxEntries([...entryIds, "6f5f4e3d-2c1b-4a09-8877-665544332211"])
+    );
+
+    expect(refused.code).toBe("not-found");
+    expect(await listWaitingInboxEntries()).toHaveLength(3);
+  });
+
+  it("is refused whole where one of them has already been decided", async () => {
+    const { entryIds } = await threeWaitingIsbns();
+    await rejectInboxEntry(entryIds[0]);
+
+    const refused = await refusalFrom(approveInboxEntries(entryIds));
+
+    expect(refused.code).toBe("not-allowed");
+    expect(await listWaitingInboxEntries()).toHaveLength(2);
+  });
+
+  it("is refused where nothing was selected, because that decides nothing", async () => {
+    const refused = await refusalFrom(approveInboxEntries([]));
+    expect(refused.code).toBe("invalid");
+  });
+
+  it("decides an entry named twice once", async () => {
+    const { entryIds } = await threeWaitingIsbns();
+
+    const approvals = await approveInboxEntries([entryIds[0], entryIds[0]]);
+
+    expect(approvals).toHaveLength(1);
+    expect(await listWaitingInboxEntries()).toHaveLength(2);
+  });
+});
+
+// The two branches of the approval check, asserted against the table rather than through a
+// verb (ADR-0011). The verbs cannot produce any of these four states, which is the point:
+// the invariant is the database's, so an entry marked approved that created nothing, an
+// amendment that created something, and an entry whose act and subject disagree are all
+// refused by Postgres and not by anybody remembering to check.
+describe("what the schema will not hold", () => {
+  /** Whether the table refused the row, on the constraint rather than on anything else. */
+  async function refusedByCheck(columns: string, values: readonly unknown[]): Promise<boolean> {
+    try {
+      await query(
+        `insert into inbox_entry (reported, reference, ${columns})
+         values ('said', 'named', ${values.map((_, at) => `$${at + 1}`).join(", ")})`,
+        values
+      );
+      return false;
+    } catch (error) {
+      return (error as { code?: string }).code === "23514";
+    }
+  }
+
+  const A_RECORD = "6f5f4e3d-2c1b-4a09-8877-665544332211";
+
+  it("refuses an approved creation that named nothing it created", async () => {
+    expect(
+      await refusedByCheck("act, proposes, decided_at, outcome", [
+        "create",
+        "story",
+        "now",
+        "approved",
+      ])
+    ).toBe(true);
+  });
+
+  it("refuses an approved amendment that created something", async () => {
+    expect(
+      await refusedByCheck("act, proposes, subject_id, decided_at, outcome, created_id", [
+        "amend",
+        "volume",
+        A_RECORD,
+        "now",
+        "approved",
+        A_RECORD,
+      ])
+    ).toBe(true);
+  });
+
+  it("refuses an amendment that names no record, because there is nothing to amend", async () => {
+    expect(await refusedByCheck("act, proposes", ["amend", "volume"])).toBe(true);
+  });
+
+  it("refuses a creation that names one, because it has no record yet", async () => {
+    expect(await refusedByCheck("act, proposes, subject_id", ["create", "volume", A_RECORD])).toBe(
+      true
+    );
   });
 });

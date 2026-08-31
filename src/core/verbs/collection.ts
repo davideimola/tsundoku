@@ -88,27 +88,107 @@ export async function catalogueVolume(
           volume.isbn ?? null,
         ]
       ),
-    (constraint) => {
-      switch (constraint) {
-        case "volume_binding_id_fkey":
-          return "That is not a Binding. The pickers offer the ones the model knows.";
-        case "volume_title_is_not_blank":
-          return "A Volume needs the title printed on it.";
-        case "volume_publisher_is_not_blank":
-          return "A Volume needs its publisher.";
-        case "volume_edition_line_is_not_blank":
-          return "Leave the edition line empty rather than blank: most volumes are the standard printing.";
-        case "volume_language_is_a_code":
-          return "A language is a code like it, en or ja.";
-        case "volume_isbn_is_ten_or_thirteen_characters":
-          return "An ISBN is 10 or 13 characters with no spaces or dashes.";
-        default:
-          return "That Volume could not be catalogued.";
-      }
-    }
+    (constraint) => whyVolumeRefused(constraint, "That Volume could not be catalogued.")
   );
 
   return rows[0];
+}
+
+/** The prose for every constraint the `volume` table can refuse a write with. */
+function whyVolumeRefused(constraint: string | undefined, otherwise: string): string {
+  switch (constraint) {
+    case "volume_binding_id_fkey":
+      return "That is not a Binding. The pickers offer the ones the model knows.";
+    case "volume_title_is_not_blank":
+      return "A Volume needs the title printed on it.";
+    case "volume_publisher_is_not_blank":
+      return "A Volume needs its publisher.";
+    case "volume_edition_line_is_not_blank":
+      return "Leave the edition line empty rather than blank: most volumes are the standard printing.";
+    case "volume_language_is_a_code":
+      return "A language is a code like it, en or ja.";
+    case "volume_isbn_is_ten_or_thirteen_characters":
+      return "An ISBN is 10 or 13 characters with no spaces or dashes.";
+    default:
+      return otherwise;
+  }
+}
+
+/**
+ * What an approved Amendment writes onto a Volume the library already knows: the fields it
+ * names, and nothing else.
+ *
+ * Every field is optional because an amendment is usually one — the ISBN the catalogue was
+ * imported without — and `null` or absent means **leave what stands there today**. So there
+ * is no way to empty a field through an amendment, deliberately: an assistant proposing
+ * *this Volume has no publisher* is proposing to lose a fact, and taking one out is the
+ * owner's act on the record rather than a proposal about it.
+ */
+export type VolumeAmendment = {
+  title?: string | null;
+  publisher?: string | null;
+  /** The publisher's line, where there is one. */
+  editionLine?: string | null;
+  /** A Binding id — `tankobon`, `omnibus`, `must-have`. */
+  binding?: string | null;
+  /** A language code: `it`, `en`, `ja`. */
+  language?: string | null;
+  isbn?: string | null;
+};
+
+/**
+ * Complete or correct a catalogued Volume: the ISBN it was catalogued without, the
+ * publisher left blank, the Binding somebody guessed wrong.
+ *
+ * **The owner's act, and the Inbox is the door an assistant reaches it through.** An
+ * invented ISBN is a permanent fact nobody ever reads back and nothing looks wrong about,
+ * so it is proposed as an Amendment and waits for a decision (ADR-0011); `run` is how that
+ * approval calls this inside its own transaction, so the record and the entry that changed
+ * it land together (see `../transaction.ts`).
+ *
+ * It says nothing about the house, the narrative or the Series: this is the object as the
+ * library catalogues it, and everything else about it is a different fact somewhere else.
+ */
+export async function amendVolume(
+  volumeId: string,
+  amendment: VolumeAmendment,
+  run: Executor = query
+): Promise<void> {
+  if (!UUID.test(volumeId)) throw new Refusal("not-found", NO_SUCH_VOLUME);
+  if (!Object.values(amendment).some((value) => value !== null && value !== undefined)) {
+    throw new Refusal("invalid", "An amendment changes at least one field of the Volume.");
+  }
+
+  // `coalesce` rather than a `set` clause assembled from whichever fields arrived: the
+  // fields are a closed list written here, nothing a caller supplies reaches the statement
+  // except as a parameter, and *leave it standing* is the same sentence in SQL as it is in
+  // the type above.
+  const changed = await refusing(
+    () =>
+      run<{ id: string }>(
+        `update volume
+            set title        = coalesce($2, title),
+                publisher    = coalesce($3, publisher),
+                edition_line = coalesce($4, edition_line),
+                binding_id   = coalesce($5, binding_id),
+                language     = coalesce($6, language),
+                isbn         = coalesce($7, isbn)
+          where id = $1
+          returning id`,
+        [
+          volumeId,
+          amendment.title ?? null,
+          amendment.publisher ?? null,
+          amendment.editionLine ?? null,
+          amendment.binding ?? null,
+          amendment.language ?? null,
+          amendment.isbn ?? null,
+        ]
+      ),
+    (constraint) => whyVolumeRefused(constraint, "That Volume could not be amended.")
+  );
+
+  if (changed.length === 0) throw new Refusal("not-found", NO_SUCH_VOLUME);
 }
 
 /** The fact that a catalogued Volume is in the house, as the owner records it. */

@@ -15,6 +15,13 @@
       "when": 1788120001000,
       "tag": "0001_the_vocabularies",
       "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788120002000,
+      "tag": "0002_the_inbox_carries_an_amendment",
+      "breakpoints": true
     }
   ]
 }

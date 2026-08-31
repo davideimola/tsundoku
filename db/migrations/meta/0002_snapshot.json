@@ -1,6 +1,6 @@
 {
-  "id": "6a1f8d20-0000-4000-8000-000000000000",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "e8d8305f-a2f8-497f-b8e9-9b418370a5eb",
+  "prevId": "6a1f8d20-0001-4000-8000-000000000001",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -508,6 +508,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "act": {
+          "name": "act",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'create'"
+        },
         "proposes": {
           "name": "proposes",
           "type": "text",
@@ -519,6 +526,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "subject_id": {
+          "name": "subject_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "details": {
           "name": "details",
@@ -567,6 +580,10 @@
           "name": "inbox_entry_reference_is_not_blank",
           "value": "(reference = btrim(reference)) AND (reference <> ''::text)"
         },
+        "inbox_entry_act_is_create_or_amend": {
+          "name": "inbox_entry_act_is_create_or_amend",
+          "value": "act = ANY (ARRAY['create'::text, 'amend'::text])"
+        },
         "inbox_entry_proposes_a_story_volume_or_series": {
           "name": "inbox_entry_proposes_a_story_volume_or_series",
           "value": "proposes = ANY (ARRAY['story'::text, 'volume'::text, 'series'::text])"
@@ -583,9 +600,13 @@
           "name": "inbox_entry_is_decided_once",
           "value": "(decided_at IS NULL) = (outcome IS NULL)"
         },
-        "inbox_entry_approval_names_what_it_created": {
-          "name": "inbox_entry_approval_names_what_it_created",
-          "value": "(NOT (outcome IS DISTINCT FROM 'approved'::text)) = (created_id IS NOT NULL)"
+        "inbox_entry_an_amendment_names_what_it_amends": {
+          "name": "inbox_entry_an_amendment_names_what_it_amends",
+          "value": "(subject_id IS NOT NULL) = (act = 'amend'::text)"
+        },
+        "inbox_entry_approved_creation_names_what_it_created": {
+          "name": "inbox_entry_approved_creation_names_what_it_created",
+          "value": "(created_id IS NOT NULL) = ((act = 'create'::text) AND (NOT (outcome IS DISTINCT FROM 'approved'::text)))"
         }
       },
       "isRLSEnabled": false

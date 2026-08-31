@@ -39,6 +39,14 @@ approves (ADR-0005). So: no verb here creates a Story, a Volume or a Series on
 MCP's behalf. Creation belongs to the Inbox's own approval verb, which the owner
 drives.
 
+**Completing or correcting one of those three is the same act, and the same door**
+(ADR-0011). `amendVolume`, `amendStory` and `amendSeries` are here, beside the verb
+that creates each, and they are what an approved **Amendment** performs — an invented
+ISBN or a half-remembered publisher is a permanent fact nobody ever reads back, which
+is the Inbox's risk rather than the verbs'. `proposeAmendment` is the whole of what an
+assistant may do about it, and the owner's approval is what calls the amending verb —
+so an amending verb is never a tool on the MCP surface.
+
 ## When the database says no
 
 Invariants live in Postgres, so a verb's failure path is a `pg` error — and **nothing

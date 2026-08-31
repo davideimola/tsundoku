@@ -3,6 +3,7 @@ import { query } from "../db.ts";
 import { listCataloguedOutsideTheCollection, searchCollection } from "../queries/collection.ts";
 import {
   acquireVolume,
+  amendVolume,
   type CataloguedVolume,
   catalogueVolume,
   releaseVolume,
@@ -188,6 +189,79 @@ describe("what the owner is most likely to mistype", () => {
     await expect(acquireVolume({ volumeId: id, acquiredOn: "11/03/2024" })).rejects.toMatchObject({
       code: "invalid",
       message: "A purchase date is a day, written 2024-03-11.",
+    });
+  });
+});
+
+// What an approved Amendment does to a catalogued object (ADR-0011). This library imported
+// 96 Volumes from spreadsheets with no ISBN column at all, so the ISBN arriving later is the
+// case this exists for; the Inbox is the door an assistant reaches it through, and
+// `verbs/inbox.test.ts` is where that boundary is held.
+describe("amending a Volume", () => {
+  /** The whole of a Volume row, so that what an amendment left alone is asserted too. */
+  async function volumeRow(volumeId: string): Promise<Record<string, unknown>> {
+    const [row] = await query<Record<string, unknown>>(
+      "select title, publisher, edition_line, binding_id, language, isbn from volume where id = $1",
+      [volumeId]
+    );
+    return row;
+  }
+
+  it("writes the field it names and leaves every other one standing", async () => {
+    const { id } = await catalogueVolume(aTankobon());
+
+    await amendVolume(id, { isbn: "9788891234567" });
+
+    expect(await volumeRow(id)).toEqual({
+      title: "Slam Dunk 1",
+      publisher: "Planet Manga",
+      edition_line: null,
+      binding_id: "tankobon",
+      language: "it",
+      isbn: "9788891234567",
+    });
+  });
+
+  it("leaves the record standing where a field is emptied rather than changed", async () => {
+    const { id } = await catalogueVolume(aTankobon());
+
+    // An amendment completes and corrects; it never empties. Taking a fact out is the
+    // owner's act on the record, not something an assistant proposes its way to.
+    await amendVolume(id, { isbn: "9788891234567", publisher: null });
+
+    expect(await volumeRow(id)).toMatchObject({ publisher: "Planet Manga" });
+  });
+
+  it("refuses an amendment that names nothing, because nothing is not a change", async () => {
+    const { id } = await catalogueVolume(aTankobon());
+
+    await expect(amendVolume(id, {})).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+    });
+  });
+
+  it("refuses it in the Volume's own prose", async () => {
+    const { id } = await catalogueVolume(aTankobon());
+
+    await expect(amendVolume(id, { binding: "hardback" })).rejects.toMatchObject({
+      name: "Refusal",
+      message: "That is not a Binding. The pickers offer the ones the model knows.",
+    });
+    await expect(amendVolume(id, { isbn: "978-88-9123-456-7" })).rejects.toMatchObject({
+      name: "Refusal",
+      message: "An ISBN is 10 or 13 characters with no spaces or dashes.",
+    });
+  });
+
+  it("refuses a Volume that is not there, and a malformed id is the same event", async () => {
+    await expect(
+      amendVolume("6f5f4e3d-2c1b-4a09-8877-665544332211", { isbn: "9788891234567" })
+    ).rejects.toMatchObject({ name: "Refusal", code: "not-found" });
+
+    await expect(amendVolume("banana", { isbn: "9788891234567" })).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
     });
   });
 });

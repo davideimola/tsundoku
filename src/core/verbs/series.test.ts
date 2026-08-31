@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
+import { listSeries } from "../queries/series.ts";
 import { isRefusal } from "../refusal.ts";
 import { acquireVolume, catalogueVolume, releaseVolume } from "./collection.ts";
 import {
+  amendSeries,
   concludeSeries,
   declareSeries,
   declareSeriesCollected,
@@ -408,5 +410,93 @@ describe("placing a Volume in a Series", () => {
         )
       ).code
     ).toBe("not-found");
+  });
+});
+
+// What an approved Amendment does to the ledger (ADR-0011): an assistant reading a shop page
+// is exactly who notices that a line has moved on, and exactly who might invent it. The
+// Inbox is the door it reaches this through, and `verbs/inbox.test.ts` holds that boundary.
+describe("amending a Series", () => {
+  async function aSeries(): Promise<string> {
+    return declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "ongoing",
+    });
+  }
+
+  it("changes the fields it names, several at once, and leaves the rest standing", async () => {
+    const seriesId = await aSeries();
+
+    await amendSeries(seriesId, { publishedCount: 31, status: "concluded" });
+
+    expect(await listSeries()).toMatchObject([
+      {
+        id: seriesId,
+        name: "Slam Dunk",
+        publisher: "Planet Manga",
+        publishedCount: 31,
+        status: "concluded",
+        // The one thing an amendment of the ledger never does: nothing here opens a
+        // collecting project (CONTEXT.md).
+        collectingSince: null,
+      },
+    ]);
+  });
+
+  it("accepts a value the Series already holds, where the owner's own verb refuses it", async () => {
+    const seriesId = await aSeries();
+
+    // `recordVolumesPublished` refuses a count the Series is already at, because saying it
+    // twice is a mistake. An amendment naming several fields is approved as a whole, so a
+    // field that changes nothing is not one.
+    await amendSeries(seriesId, { publishedCount: 20, status: "concluded" });
+
+    expect(await listSeries()).toMatchObject([{ publishedCount: 20, status: "concluded" }]);
+  });
+
+  it("refuses to take a concluded Series back to ongoing, because there is no verb back", async () => {
+    const seriesId = await aSeries();
+    await concludeSeries(seriesId);
+
+    const refusal = await refusalFrom(() => amendSeries(seriesId, { status: "ongoing" }));
+
+    expect(refusal.code).toBe("not-allowed");
+    expect(refusal.message).toMatch(/new edition, which is a new Series/);
+    expect(await listSeries()).toMatchObject([{ status: "concluded" }]);
+  });
+
+  it("amends a concluded Series in every other field, so a name spelt wrong is fixable", async () => {
+    const seriesId = await aSeries();
+    await concludeSeries(seriesId);
+
+    await amendSeries(seriesId, { name: "Slam Dunk", publishedCount: 31 });
+
+    expect(await listSeries()).toMatchObject([
+      { name: "Slam Dunk", publishedCount: 31, status: "concluded" },
+    ]);
+  });
+
+  it("refuses an amendment that names nothing, and a count that is not whole", async () => {
+    const seriesId = await aSeries();
+
+    expect((await refusalFrom(() => amendSeries(seriesId, {}))).code).toBe("invalid");
+    expect((await refusalFrom(() => amendSeries(seriesId, { publishedCount: 31.5 }))).code).toBe(
+      "invalid"
+    );
+  });
+
+  it("refuses a Series that is not there, and a malformed id is the same event", async () => {
+    expect(
+      (
+        await refusalFrom(() =>
+          amendSeries("11111111-1111-1111-1111-111111111111", { publishedCount: 31 })
+        )
+      ).code
+    ).toBe("not-found");
+    expect((await refusalFrom(() => amendSeries("banana", { publishedCount: 31 }))).code).toBe(
+      "not-found"
+    );
   });
 });

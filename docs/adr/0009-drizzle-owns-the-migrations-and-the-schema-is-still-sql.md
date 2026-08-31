@@ -68,6 +68,24 @@ does not model PL/pgSQL and is not going to.
 **The vocabularies are rows, so Drizzle will never write them** (ADR-0006). They are their
 own migration, `0001`, and each new one after it is another hand-written file.
 
+**And the snapshots under `db/migrations/meta/` are load-bearing, which was found the first
+time a migration was actually generated (#21).** A snapshot is the description the *next*
+diff is taken against, and `0000` and `0001` had been left holding `drizzle-kit pull`'s
+output rather than what `db/schema.ts` renders — the same lossy description measured above:
+`nulls not distinct` recorded as false where it is the invariant, composite index columns in
+the wrong order, operator classes on the wrong columns, and a `schema_migrations` table the
+database does not have. Both also carried the same id, which chains to nothing, so
+`drizzle-kit generate` refused to run at all until they were chained.
+
+Chained as they stood, it then wrote a first migration that dropped a ledger table that does
+not exist — which fails outright — and dropped and recreated all sixteen indexes and three
+unique constraints to arrive at what was already there. None of that is the change anyone
+asked for, and all of it follows from diffing against a description that is not true. So
+`0000` and `0001` were replaced with exactly what `db/schema.ts` renders and chained by id,
+and the diffs from here are minimal. The rule is the one this ADR already made about the
+schema, stated for the snapshots too: **`db/schema.ts` is the description, and `pull` output
+is not it.**
+
 **A seed assembled from old migrations is not the state they produced.** Writing `0001` by
 copying their `insert`s brought back `converted-from-a-coarser-scale`, a Provenance ADR-0008
 had deleted on purpose. `rating.test.ts` caught it. Replaying inserts is not the same as
