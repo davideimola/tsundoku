@@ -89,19 +89,17 @@ export default async function VolumePage({
   return (
     <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <Link
-          href="/collection"
-          className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          tsundoku / collection
-        </Link>
+        {/* **No breadcrumb.** `tsundoku / collection` was the way back to the wall on a screen
+            that had no navigation; the shell has one now, at both widths, and it marks
+            *Collection* while the owner is standing here. A trail of one step is a second
+            answer to a question the chrome is already answering.
 
-        {/* The tile the wall laid this object out as, at the head of its own page and in the
-            same colour — so arriving here from the Collection is arriving at the thing that
-            was tapped. **It carries no href**, because this is the page it would lead to: a
-            link to where the owner already is would be a focusable no-op that lifts under the
+            The tile the wall laid this object out as opens the page instead, in the same
+            colour — so arriving here from the Collection is arriving at the thing that was
+            tapped. **It carries no href**, because this is the page it would lead to: a link
+            to where the owner already is would be a focusable no-op that lifts under the
             pointer as though it went somewhere (`@/components/cover`). */}
-        <div className="mt-6 flex items-start gap-4 sm:gap-6">
+        <div className="flex items-start gap-4 sm:gap-6">
           <div className="w-20 shrink-0 sm:w-28">
             <Cover
               title={volume.title}
