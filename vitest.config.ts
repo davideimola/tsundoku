@@ -23,7 +23,7 @@ import { defineConfig } from "vitest/config";
 //
 // The finder's field is the first control here that does something in the browser rather
 // than reading `usePathname()`: it suggests as the owner types, walks a list with the
-// arrow keys and takes `/` from anywhere. None of that is tested, and the reason is not
+// arrow keys and takes `⌘K` from anywhere. None of that is tested, and the reason is not
 // that a runner would be inconvenient — it is that the component holds no derivation the
 // two seams could take. What is searched is `src/core/queries/finder.ts`, which is
 // Seam 1; how the answer is banded, worded and turned into a URL is

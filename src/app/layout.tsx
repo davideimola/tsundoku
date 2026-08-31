@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
+import { OUTSIDE_THE_CASCADE } from "./outside-the-cascade";
 
 export const metadata: Metadata = {
   title: "tsundoku",
   description:
     "A single-owner library: what has been read, what it was worth, what is on the shelf.",
+  // **Added to a home screen, it opens as itself** — no tab bar, no address bar over the
+  // Collection wall the owner is reading in a shop (#18, user story 24). The manifest says
+  // the same thing to Android in `./manifest.ts`; this is the half iOS reads, and it is a
+  // separate half rather than a duplicate because Safari has never read a manifest for it.
+  appleWebApp: { capable: true, title: "tsundoku", statusBarStyle: "default" },
 };
 
 // Used phone-in-hand in a shop and at a desk (user stories 31), so mobile-first and
@@ -13,6 +19,14 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // The phone's own chrome, told which ground it is on. Two entries and not one, because
+  // this is the one surface outside the document that *does* take a media query — and a
+  // status bar left to guess paints white above a dark page, which is the flash the script
+  // below exists to prevent, arriving from the operating system instead.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: OUTSIDE_THE_CASCADE.paper.light },
+    { media: "(prefers-color-scheme: dark)", color: OUTSIDE_THE_CASCADE.paper.dark },
+  ],
 };
 
 // THE THREE FACES. What each one is *for* is decided in `globals.css`, beside the palette;

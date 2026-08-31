@@ -47,7 +47,10 @@ describe("the proxy's matcher", () => {
   //     it has credentials. A discovery probe that gets `307 /signin` learns nothing;
   //     a `404` correctly says this server publishes none;
   //   - the build output and the favicon, which the browser fetches unprompted and
-  //     without credentials.
+  //     without credentials;
+  //   - the icons and the manifest, for that same reason and no new one. A manifest is
+  //     fetched with credentials *omitted*, so gated it answers `307 /signin` and the phone
+  //     silently never offers to install the app.
   it.each([
     "/api/auth/signin/google",
     "/api/auth/callback/google",
@@ -58,6 +61,9 @@ describe("the proxy's matcher", () => {
     "/.well-known/oauth-protected-resource",
     "/.well-known/oauth-protected-resource/mcp",
     "/favicon.ico",
+    "/icon.svg",
+    "/apple-icon",
+    "/manifest.webmanifest",
     "/_next/static/chunks/main.js",
     "/_next/image",
   ])("leaves %s outside the gate", (pathname) => {
@@ -66,7 +72,7 @@ describe("the proxy's matcher", () => {
 
   // The exclusions are paths, not prefixes. Unanchored they would also excuse
   // anything merely starting with those letters, which is a wider hole than the
-  // reservation: four paths were excluded, not four prefixes.
+  // reservation: these paths were excluded, not these prefixes.
   it.each([
     "/signing-off",
     "/mcps",
@@ -74,6 +80,9 @@ describe("the proxy's matcher", () => {
     "/api/authors",
     "/.well-known-ish",
     "/.well-knownish/anything",
+    "/icon.svg.map",
+    "/apple-icons",
+    "/manifest.webmanifest.bak",
   ])("covers %s, which only looks like an exclusion", (pathname) => {
     expect(gateCovers(pathname)).toBe(true);
   });

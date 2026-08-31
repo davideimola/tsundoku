@@ -88,11 +88,12 @@ export const NAVIGATION: readonly Section[] = [
  * answer to any of them. Put under *Reading* it would be a lie about what it is for; given a
  * section of its own it would make the sidebar claim four questions where there are three.
  *
- * What replaces the line, and why the rule is not weakened: the shell renders the field
- * itself on **every** screen, at both widths, which is stronger than a link in a list. The
- * rule the wall protects is that no screen is reachable only by typing its URL, and this one
- * is reachable from a field the owner never has to leave a screen to use — plus `/` and
- * `⌘K`, which no destination in the map has.
+ * What replaces the line, and why the rule is not weakened: the shell puts the way into it
+ * beside the mark on **every** screen, at both widths, which is stronger than a link in a
+ * list. The rule the wall protects is that no screen is reachable only by typing its URL,
+ * and this one is reachable from a glyph the owner never has to leave a screen to reach —
+ * and from `⌘K`, which no destination in the map has. The glyph is itself a link *to* this
+ * screen, so the claim holds with nothing running in the browser.
  */
 export const THE_FINDER: Destination = { href: "/find", label: "Find" };
 

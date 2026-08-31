@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { Mark } from "@/components/mark";
 import { Button } from "@/components/ui/button";
 import { signOutOwner } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
-import { Finder } from "./finder";
+import { FinderPalette, FinderTrigger } from "./finder";
 import {
   BEHIND_MORE,
   currentDestination,
@@ -30,11 +31,13 @@ import {
 // portrait would rather spend that on the library and reach the bar with a thumb it
 // already has on the glass.
 //
-// **And one field**, at both widths, which is what makes the finder reachable from every
-// screen (#25). It is in the chrome rather than on a screen for exactly the reason the
-// navigation is: a search that depended on which page the owner happened to be on would send
-// them home first. `./finder` is the field; `./navigation` says why `/find` is a screen in
-// this group and not a line in the map.
+// **And one glyph beside the mark**, at both widths, which is what makes the finder
+// reachable from every screen (#25). It is in the chrome rather than on a screen for exactly
+// the reason the navigation is: a search that depended on which page the owner happened to be
+// on would send them home first. The glyph opens a palette over the whole window — one of
+// them, rendered here beside the two chromes rather than inside either, so the shortcut is a
+// single listener and the answer a single piece of state. `./finder` is both halves;
+// `./navigation` says why `/find` is a screen in this group and not a line in the map.
 //
 // It is a client component, which ADR-0010 allows and which nothing here abuses. What it
 // wants from the browser is `usePathname()`, so that the navigation can say where the owner
@@ -51,12 +54,17 @@ export function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
   const here = currentDestination(pathname);
 
+  // Whether the finder is open, which is the only thing this shell remembers. It is here
+  // rather than in `./finder` because the two triggers are in the two chromes and the
+  // palette is beside them: one fact, three places, and no way for them to disagree.
+  const [finding, setFinding] = useState(false);
+
   return (
     <>
       <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <Desk here={here} />
+        <Desk here={here} onFind={() => setFinding(true)} />
         <div className="min-w-0">
-          <PhoneChrome />
+          <PhoneChrome onFind={() => setFinding(true)} />
           {/* Room for the bar the phone floats over its own content. */}
           <div className="pb-24 lg:pb-0">{children}</div>
         </div>
@@ -65,6 +73,8 @@ export function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
           client-side navigation keeps the DOM, and a `<details>` nobody remounts would
           still be hanging open over the next screen. */}
       <Phone key={pathname} here={here} />
+
+      <FinderPalette open={finding} onOpenChange={setFinding} />
     </>
   );
 }
@@ -74,36 +84,30 @@ export function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
  * with them, because at this width there is room to name a group and the owner meets all
  * nine destinations at once.
  */
-function Desk({ here }: { here: string | undefined }) {
-  // Asked for again rather than handed down beside `here`, which is derived from it: two
-  // forms of one fact travelling together is how they come to disagree.
-  const pathname = usePathname();
-
+function Desk({ here, onFind }: { here: string | undefined; onFind: () => void }) {
   return (
     <nav
       aria-label="Sections"
       className="sticky top-0 hidden h-dvh flex-col border-r border-sidebar-border bg-sidebar px-3 py-5 lg:flex"
     >
-      <Link
-        href="/"
-        className={cn(
-          "flex items-center gap-2.5 rounded-md px-2 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground",
-          FOCUS
-        )}
-      >
-        <Mark className="size-5 shrink-0 text-foreground" />
-        tsundoku
-      </Link>
+      {/* The name and the finder on one line, which is the whole of the chrome above the
+          map: the way to the front of the application, and the way to a record. */}
+      <div className="flex items-center gap-1">
+        <Link
+          href="/"
+          className={cn(
+            "flex min-w-0 items-center gap-2.5 rounded-md px-2 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground",
+            FOCUS
+          )}
+        >
+          <Mark className="size-5 shrink-0 text-foreground" />
+          tsundoku
+        </Link>
 
-      {/* Above the map, because it is the way to a record and the map is the way to a
-          screen — and keyed on the path for the reason *More* is: a client-side navigation
-          keeps the DOM, and a field still holding the last word typed into it would be
-          suggesting records for a search the owner has already left. */}
-      <div className="mt-5 px-1">
-        <Finder key={pathname} />
+        <FinderTrigger onOpen={onFind} className="ml-auto" />
       </div>
 
-      <div className="mt-6 flex-1 space-y-7 overflow-y-auto">
+      <div className="mt-8 flex-1 space-y-7 overflow-y-auto">
         {NAVIGATION.map((section) => (
           <div key={section.title}>
             <h2 className="px-2 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
@@ -132,15 +136,13 @@ function Desk({ here }: { here: string | undefined }) {
  * It is still a strip and not a bar of controls. The navigation on a phone lives at the
  * bottom where a thumb is, and what this carries is the two affordances that have to be at
  * the top of a page rather than the bottom of it — the way back to the front of the
- * application, which is also the mark, and the field, which is a thing typed into and
- * therefore has to be above the keyboard rather than under it.
+ * application, which is also the mark, and the way into the finder, which opens a field that
+ * has to be above the keyboard rather than under it.
  *
- * The name is dropped below `sm` and the mark is not: on the narrowest phone the field is
- * worth more than the word, and the mark on its own is still the way home.
+ * The glyph and no key beside it: there is no `⌘` to press on a phone, and a hint about one
+ * would be chrome that is only ever wrong here.
  */
-function PhoneChrome() {
-  const pathname = usePathname();
-
+function PhoneChrome({ onFind }: { onFind: () => void }) {
   return (
     <div className="sticky top-0 z-20 flex h-12 items-center gap-3 border-b border-border bg-background px-5 sm:gap-4 sm:px-8 lg:hidden">
       <Link
@@ -151,12 +153,10 @@ function PhoneChrome() {
         )}
       >
         <Mark className="size-5 shrink-0 text-foreground" />
-        <span className="hidden sm:inline">tsundoku</span>
+        tsundoku
       </Link>
 
-      <div className="min-w-0 flex-1">
-        <Finder key={pathname} />
-      </div>
+      <FinderTrigger onOpen={onFind} className="ml-auto" />
     </div>
   );
 }

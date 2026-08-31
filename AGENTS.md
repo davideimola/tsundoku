@@ -55,19 +55,21 @@ column.
 
 **In `src/core`, and then in both doors.** The finder is one field over the whole library —
 Stories, Volumes, Series, people, Paths — and it is `findInTheLibrary` in
-`src/core/queries/finder.ts`, called by the field in the chrome, by the `/find` screen behind
+`src/core/queries/finder.ts`, called by the palette the chrome opens, by the `/find` screen behind
 it and by `finder_search` on `/mcp`. The owner and the assistant search one library: **a
 query the finder needs is added to the core and exposed to both**, and the finder never
 reaches a record the assistant cannot. A cross-entity question is the one case where a query
 is not named after an area, because the area it answers for is every area at once.
 
 `src/app/(owner)/finder.tsx` is the scripted half and **`/find` is the specification**
-(ADR-0010): the field *is* a `GET` form to that screen, and the suggestions, the arrow keys
-and the `/` shortcut are a shorter way to a place the owner can already get to. It is the
-one screen in the group that is deliberately **not** in the navigation — declared as
-`THE_FINDER` in `navigation.ts`, rendered as a field on every screen instead, and held to
-all of that by `shell.test.ts`. A second such exception is argued for in that module, never
-added to a list in a test.
+(ADR-0010). The chrome carries a glyph beside the mark and that glyph is an
+`<a href="/find">`: with nothing running it is a link to that screen, and with a script it
+opens a palette over the window instead — so the suggestions, the arrow keys and `⌘K` are a
+shorter way to a place the owner can already get to, and a button that did nothing on a
+shop's signal was never an option. It is the one screen in the group deliberately **not** in
+the navigation — declared as `THE_FINDER` in `navigation.ts`, opened from the chrome at both
+widths instead, and held to all of that by `shell.test.ts`, which also fails if a second
+palette appears. A further exception is argued for in that module, never added to a test.
 
 It is also the answer to *"where does behaviour in the browser get tested?"*: it does not,
 because it holds none. What is searched is a core query, and how the answer is banded,
@@ -84,7 +86,16 @@ colour and picks no family: it spends the tokens. `src/app/palette.test.ts` is t
 and it fails when a screen names a colour of its own or when a ground stops being legible.
 
 The mark is `src/components/mark.tsx`, drawn from one geometry that `src/app/icon.svg`
-draws again as the favicon; `src/components/mark.test.ts` is what stops the two drifting.
+draws again as the favicon and `src/app/apple-icon.tsx` renders again as the phone's home
+screen icon — that last one *imports* `PILE`, so it cannot drift; `src/components/mark.test.ts`
+is what stops the favicon from doing so.
+
+**A tab, a home screen and a status bar are outside this cascade**, so they cannot be handed a
+`var()`. The four literals they need are named once in `src/app/outside-the-cascade.ts`, spent
+by `apple-icon.tsx`, `manifest.ts` and the `themeColor` in `layout.tsx`, and pinned to the
+stylesheet's own primitives by `palette.test.ts` — which is what buys that file its exception.
+All three files are excluded from the owner gate by name in `src/proxy.ts`: a phone fetches
+them without a cookie, and gated they answer `307 /signin`.
 
 ### Where the shelf's colour comes from
 

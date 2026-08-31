@@ -11,6 +11,8 @@ import {
 } from "@/test/palette";
 import { SRC, sourceFiles } from "@/test/source-files";
 
+import { OUTSIDE_THE_CASCADE } from "./outside-the-cascade";
+
 // The second wall in this app, and it is a wall for the same reason the first one is
 // (`src/app/gated.test.ts`): the failure it catches is silent. A screen that reaches for
 // `text-red-600` because a refusal ought to look urgent still compiles, still renders and
@@ -154,12 +156,16 @@ describe("both grounds are legible", () => {
   });
 });
 
-// The one surface this stylesheet cannot reach. A browser tab is outside the application's
-// cascade, so `src/app/icon.svg` has to state its two greys as literals — which makes them
-// the only colour in the project that is not a `var()`, and therefore the only one free to
-// drift. `src/components/mark.test.ts` pins the favicon's *geometry* to the mark; this pins
-// its *ink* to the palette, and between them the tab cannot become a different logo in a
-// different colour without something going red.
+// The surfaces this stylesheet cannot reach, and the two files that therefore state their
+// colours as literals: `src/app/icon.svg`, which a browser tab draws in its own chrome, and
+// `src/app/outside-the-cascade.ts`, which an operating system reads for a home-screen tile, a
+// splash screen and a status bar. None of them can resolve a `var()`, so these are the only
+// colours in the project that are not one — and therefore the only ones free to drift.
+//
+// `src/components/mark.test.ts` pins the favicon's *geometry* to the mark and the home-screen
+// icon imports it outright; the two blocks below pin the *ink* of both to the palette. Between
+// them the tab and the phone cannot become a different logo in a different colour without
+// something going red.
 describe("the favicon's ink", () => {
   const ICON = readFileSync(new URL("./icon.svg", import.meta.url), "utf8");
 
@@ -179,6 +185,28 @@ describe("the favicon's ink", () => {
   });
 });
 
+// The other side of that: what a phone is handed. It is a home-screen tile, a splash screen
+// and a status bar, and each is painted by an operating system out of a value it was given
+// once — so a drift here is a logo that stops matching the application it opens, discovered
+// by nobody, because nothing on screen changes.
+describe("the ink and paper an operating system is handed", () => {
+  it.each(Object.entries(GROUNDS))("are the palette's own primitives, on %s", (name, selector) => {
+    const declared = ground(selector);
+    const said = name === "paper" ? "light" : "dark";
+
+    expect(OUTSIDE_THE_CASCADE.paper[said]).toBe(hex(declared.get("--paper") as Colour));
+    expect(OUTSIDE_THE_CASCADE.ink[said]).toBe(hex(declared.get("--ink") as Colour));
+  });
+
+  // Both grounds and nothing else, for the reason the favicon states both: a third would be
+  // a colour the palette does not account for, arriving on the one surface nobody reviews.
+  it("state both grounds and nothing else", () => {
+    expect(Object.keys(OUTSIDE_THE_CASCADE)).toEqual(["paper", "ink"]);
+    expect(Object.keys(OUTSIDE_THE_CASCADE.paper)).toEqual(["light", "dark"]);
+    expect(Object.keys(OUTSIDE_THE_CASCADE.ink)).toEqual(["light", "dark"]);
+  });
+});
+
 describe("no screen names a colour", () => {
   // Two ways a screen can put an undeclared hue on the page, and both of them compile.
   //
@@ -194,7 +222,7 @@ describe("no screen names a colour", () => {
   ];
 
   /**
-   * The four files a colour may appear in, each for a stated reason, and **no fifth**.
+   * The five files a colour may appear in, each for a stated reason, and **no sixth**.
    *
    * The one that is not a test is `lib/tint.ts`: the shelf's tint is a colour the
    * application *computes* rather than declares, so it cannot be a token in the sheet — a
@@ -202,6 +230,12 @@ describe("no screen names a colour", () => {
    * held somewhere else, by `lib/tint.test.ts`, which proves that every colour that
    * function can produce is inside sRGB and clears the same reading threshold as ink, on
    * both grounds. A screen still names none: it spends `tint()` the way it spends a token.
+   *
+   * The other is `app/outside-the-cascade.ts`, and it earns its place the same way: a tab, a
+   * home screen and a status bar are outside this document, so they cannot be handed a
+   * `var()` — and the block above reads the stylesheet and asserts those four literals *are*
+   * the primitives, on both grounds. Naming them once in one module is what makes that one
+   * assertion enough to cover the manifest, the app icon and the `<meta>` together.
    *
    * Listing them rather than pattern-matching them is the point. A path that stops existing
    * fails the first test below, so a file renamed out of the list cannot quietly take its
@@ -215,6 +249,8 @@ describe("no screen names a colour", () => {
     // The one colour the application computes, and the wall that holds it.
     "lib/tint.ts",
     "lib/tint.test.ts",
+    // The colours an operating system is handed, held by the block above.
+    "app/outside-the-cascade.ts",
   ];
 
   const sources = sourceFiles(SRC);
@@ -223,7 +259,7 @@ describe("no screen names a colour", () => {
     expect(sources.length).toBeGreaterThan(0);
   });
 
-  it("exempts four files that exist, and no others", () => {
+  it("exempts five files that exist, and no others", () => {
     const files = new Set(sources.map((read) => read.file));
 
     expect(MAY_NAME_A_COLOUR.filter((file) => !files.has(file))).toEqual([]);

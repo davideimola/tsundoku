@@ -99,11 +99,12 @@ describe("the map and the routes agree", () => {
   });
 });
 
-// The one screen reached by something other than a line in the map, and the four things
-// that have to be true for that to be a stronger claim than a line rather than a hole in
-// the wall above: the screen exists, it is not *also* a destination, the chrome renders the
-// field at **both** widths, and the navigation marks nothing while the owner is passing
-// through it. `./navigation` argues for the exception; this is what holds it to its word.
+// The one screen reached by something other than a line in the map, and the things that have
+// to be true for that to be a stronger claim than a line rather than a hole in the wall
+// above: the screen exists, it is not *also* a destination, the chrome opens it at **both**
+// widths, there is exactly one palette behind those two triggers, and the navigation marks
+// nothing while the owner is passing through it. `./navigation` argues for the exception;
+// this is what holds it to its word.
 describe("the finder", () => {
   const shell = sourceFiles(APP).find((read) => read.file === `${GROUP}shell.tsx`);
 
@@ -124,10 +125,20 @@ describe("the finder", () => {
     expect(DESTINATIONS.map((destination) => destination.href)).not.toContain(THE_FINDER.href);
   });
 
-  it("is rendered by the chrome at the desk and on the phone", () => {
+  it("is opened from the chrome at the desk and on the phone", () => {
     expect(shell).toBeDefined();
-    expect(body(shell?.source ?? "", "Desk")).toContain("<Finder");
-    expect(body(shell?.source ?? "", "PhoneChrome")).toContain("<Finder");
+    expect(body(shell?.source ?? "", "Desk")).toContain("<FinderTrigger");
+    expect(body(shell?.source ?? "", "PhoneChrome")).toContain("<FinderTrigger");
+  });
+
+  // The trigger appears at both widths and the palette it opens does not: two of it would be
+  // two windows over one screen, two shortcut listeners arguing over one keystroke, and two
+  // answers to one question.
+  it("puts the palette itself in the shell, once", () => {
+    const source = shell?.source ?? "";
+
+    expect(body(source, "Shell")).toContain("<FinderPalette");
+    expect(source.match(/<FinderPalette/g)).toHaveLength(1);
   });
 
   it("marks no section while the owner is inside it", () => {

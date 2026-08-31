@@ -4,20 +4,25 @@ import { type Finding, findInTheLibrary } from "@/core/queries/finder";
 import { requireOwner } from "@/lib/auth/owner";
 import { cn } from "@/lib/utils";
 import { groupFindings, recordHref } from "./kinds";
-import { FoundRow, ROW } from "./row";
+import { FoundRow, nothingIsCalled, ROW } from "./row";
 
 // THE FINDER, unscripted — **and this screen is the specification** (ADR-0010).
 //
-// The field in the shell suggests as the owner types, and everything it can reach is
-// reachable here without a line of JavaScript running: one `GET`, one query, the same
-// records, the same order, the same groups. Where the two diverge this one is right, which
-// is not a courtesy to a browser with scripts off — it is what the owner uses on a shop's
+// The palette the chrome opens suggests as the owner types, and everything it can reach is
+// reachable here without a line of JavaScript running: one `GET`, one query, the same records,
+// the same order, the same groups — more of them, in fact, because the palette shows the first
+// few of each kind and this shows four times as many. Where the two diverge this one is right,
+// which is not a courtesy to a browser with scripts off: it is what the owner uses on a shop's
 // signal, and it is what makes the suggestion list safe to have no test.
+//
+// **It is also where the glyph in the chrome points.** That glyph is an `<a href="/find">`, so
+// this screen is what the finder degrades to rather than a page kept beside it for a
+// principle.
 //
 // It is **a way through rather than a destination** (#25), which is why it is not in the
 // navigation: the map is the three questions the owner asks, and *find* is how they get to
-// an answer rather than one of them. The shell renders the field on every screen instead,
-// and `../navigation.ts` is where that exception is declared and walled.
+// an answer rather than one of them. The chrome opens it from beside the mark on every
+// screen instead, and `../navigation.ts` is where that exception is declared and walled.
 //
 // A thin adapter over one query, like every page here (ADR-0002).
 export const dynamic = "force-dynamic";
@@ -126,7 +131,7 @@ export default async function Find({ searchParams }: { searchParams: Promise<Ask
  */
 function whatItFound(term: string, found: Finding[]): string {
   if (term === "") return "Type a word. A fragment of a title, a name, a publisher’s line.";
-  if (found.length === 0) return `Nothing in the library is called “${term}”.`;
+  if (found.length === 0) return nothingIsCalled(term);
 
   return `${found.length} ${found.length === 1 ? "record" : "records"} called “${term}”.`;
 }

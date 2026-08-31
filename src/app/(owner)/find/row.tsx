@@ -29,3 +29,15 @@ export function FoundRow({ name, qualifier }: { name: string; qualifier: string 
 
 /** The shape a row is drawn in, spent by both halves so the two cannot drift apart. */
 export const ROW = "flex items-baseline justify-between gap-3 rounded-md px-2 py-1.5 text-sm";
+
+/**
+ * What the finder says when the library holds nothing of that name.
+ *
+ * Here for the reason the row is: the palette and the screen both have to say it, and one
+ * sentence said twice is one sentence that comes to be said two ways. The other two things
+ * a screen can be in — nothing typed yet, and something found — differ between the two
+ * halves and stay where they differ.
+ */
+export function nothingIsCalled(term: string): string {
+  return `Nothing in the library is called “${term}”.`;
+}

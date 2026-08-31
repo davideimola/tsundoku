@@ -129,7 +129,7 @@ src/app/
 │   ├── layout.tsx    force-dynamic, and the shell put on around every screen
 │   ├── navigation.ts the destinations, grouped into the three questions
 │   ├── shell.tsx     the sidebar at the desk, the bottom bar on a phone
-│   ├── finder.tsx    the field in the chrome, at both widths
+│   ├── finder.tsx    the glyph beside the mark, and the palette it opens
 │   ├── find/         where it lands, unscripted: one GET over one core query
 │   └── page.tsx
 ├── (public)/         outside it. Today: /signin, and nothing else.
@@ -162,10 +162,11 @@ gate is ([`src/app/(owner)/shell.test.ts`](src/app/(owner)/shell.test.ts)).
 **There is exactly one screen that is not in the map, and it is `/find`.** The three
 sections are the three questions the owner asks; *find* is not a fourth one, it is how they
 get to the answer to any of them. So it is declared as `THE_FINDER` in `navigation.ts`
-instead, and the shell renders the field itself on every screen — which is a stronger claim
-than a line in a list, and the wall holds it to all of it: the screen exists, it is not
-*also* a destination, and the chrome renders the field at both widths. A second exception
-has to be argued for in that module rather than added to a list in a test. See
+instead, and the chrome carries the way into it beside the mark on every screen — which is a
+stronger claim than a line in a list, and the wall holds it to all of it: the screen exists,
+it is not *also* a destination, the chrome opens it at both widths, and there is exactly one
+palette behind those two triggers. A further exception has to be argued for in that module
+rather than added to a list in a test. See
 [the finder](#the-finder-is-one-query-and-both-doors-get-it).
 
 That file also holds the width: the shell owns it, and a page that puts `mx-auto` and a
@@ -217,10 +218,12 @@ hardcoded data, and it is what lets someone else fork this and run it as themsel
 
 ## The finder is one query, and both doors get it
 
-One field over the whole library, reachable from every screen and from the keyboard: `/` or
-`⌘K` from anywhere, a fragment of a name, and enter lands on the record. Results are grouped
-by what they are — Story, Volume, Series, person, Path — so a narrative is distinguishable
-from an object at a glance. On a library this size a finder is worth more than any amount of
+One field over the whole library, reachable from every screen and from the keyboard. The
+chrome spends a glyph on it beside the mark; `⌘K` opens it from anywhere; it arrives as a
+palette over the window rather than a box in the sidebar, so the answer is the size of the
+answer. A fragment of a name is enough, and enter lands on the record. Results are grouped by
+what they are — Story, Volume, Series, person, Path — so a narrative is distinguishable from
+an object at a glance. On a library this size a finder is worth more than any amount of
 filtering, because the owner searches **titles**, not functions.
 
 It is **one core query, and the MCP door has it too**:
@@ -232,12 +235,16 @@ finder never reaches a record the assistant cannot.
 
 Three things about it are decisions:
 
-- **The field is the scripted half and `/find` is the specification**
+- **The palette is the scripted half and `/find` is the specification**
   ([ADR-0010](docs/adr/0010-javascript-runs-on-the-owner-surface-and-no-write-depends-on-it.md)).
-  The field *is* a `GET` form to `/find` with one input called `q`; the suggestions, the
-  arrow keys and the shortcut are a shorter way to a place the owner can already get to. If
-  none of it loads they type and press enter and land on the same records, grouped the same
-  way — which is what a screen used on a shop's signal needs.
+  The glyph in the chrome is an `<a href="/find">`: with nothing running it is a link to that
+  screen, which carries a plain `GET` form over the same query, and with a script it opens
+  the palette instead. So the suggestions, the arrow keys and the shortcut are a shorter way
+  to a place the owner can already get to — and a button that did nothing on a shop's signal
+  was never an option. It costs one step without a script, where the old sidebar field could
+  be typed into where it stood; what it buys is a search one keystroke from every screen.
+  The palette shows the first few of each kind and the screen four times as many, so
+  everything the palette reaches the screen reaches, and never the other way round.
 - **The accent fold is `unaccent`**, applied to both sides of every comparison
   ([`db/migrations/0003_the_finder_folds_accents.sql`](db/migrations/0003_the_finder_folds_accents.sql)),
   so `perche` finds *Perché* and `kohei` finds *Kōhei Horikoshi*. It is the extension rather
@@ -443,6 +450,28 @@ boilerplate:
 docker build -t tsundoku .
 ```
 
+### The icons and the manifest are the one thing served without a cookie
+
+`icon.svg` is the tab's, `apple-icon` is the phone's home screen — a 180px PNG generated from
+the **same `PILE` geometry the chrome draws**, so there is no fourth copy of the mark to keep
+in step — and `manifest.webmanifest` is what makes *Add to Home Screen* open the library as an
+app rather than as a tab with an address bar over the Collection wall.
+
+**All three are excluded from the owner gate by name**, beside `favicon.ico` and for the
+reason already written there: a browser fetches them unprompted, and a manifest is fetched
+with credentials *omitted* unless the link says otherwise — so gated they answer `307 /signin`
+and the phone silently never offers to install anything. Nothing under them is library data:
+an application's name and its logo are already on the sign-in screen. `start_url` is `/`,
+which **is** gated, so opening the app with no session lands on the sign-in screen, which is
+correct.
+
+They are also the only place in the project besides the tint that names a colour, because a
+tab, a home screen and a status bar are outside this application's cascade and cannot be
+handed a `var()`. The four literals live once in
+[`src/app/outside-the-cascade.ts`](src/app/outside-the-cascade.ts), and
+[`src/app/palette.test.ts`](src/app/palette.test.ts) reads `globals.css`, converts the
+primitives to sRGB and asserts they are exactly them, on both grounds.
+
 ### The six variables the cluster sets, and the one it must not
 
 `DATABASE_URL` comes from the secret CloudNativePG writes itself, so no connection string
@@ -518,7 +547,7 @@ behind it and the Server Function its plain form posts to, both of which work wi
 nothing running in the browser.
 
 The finder is where that was first put to the test (#25). Its field suggests as the owner
-types and takes `/` from any screen, and it has no test — because it holds nothing to
+types and takes `⌘K` from any screen, and it has no test — because it holds nothing to
 test: what is searched is a core query, how the answer is banded and turned into a URL is a
 derivation tested beside itself, and pressing enter with no script running at all lands on
 `/find`, which asks the same query. So the claim is stronger than "no test needs a DOM": **a
