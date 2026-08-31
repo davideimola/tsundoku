@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,33 +10,63 @@ import {
   listWaitingInboxEntries,
 } from "@/core/queries/inbox";
 import { listTypes, type Type } from "@/core/queries/type";
-import type { ProposalField } from "@/core/verbs/inbox";
+import { NEEDED_TO_CREATE, type ProposalField } from "@/core/verbs/inbox";
 import { requireOwner } from "@/lib/auth/owner";
-import { approve, reject } from "./actions";
+import { cn } from "@/lib/utils";
+import { decide } from "./actions";
+import {
+  approvingWord,
+  entityWord,
+  fieldLabel,
+  groupWaiting,
+  type InboxGroup,
+  proposedFields,
+  whatItIsAbout,
+} from "./decisions";
 
-// THE INBOX. What an external assistant asked for and the owner has not decided yet, and
-// the one door a new Story, Volume or Series enters through from outside (ADR-0005).
+// THE INBOX, and the screen a maintenance session happens in (#27).
 //
-// The screen has one job and it is a judgement: *is this thing real, and is this how it
-// should be recorded?* Everything on it follows from that.
+// It was the one door a new Story, Volume or Series enters through from outside (ADR-0005),
+// and it is now also the one door a **repair** comes through (ADR-0011): the ISBN a Volume
+// was catalogued without, the publisher the sheets left blank. That is what rewrote this
+// screen. An assistant handed the two doors arrives with hundreds of proposals — an ISBN for
+// every one of 96 Volumes — and an Inbox sized for one entry at a time makes that backfill
+// cost more than typing the fields by hand, which is the same as refusing it.
 //
-// - **The sentence that was reported is the biggest thing on the card**, quoted rather than
-//   summarised. The owner is not deciding about a form; they are deciding about something
-//   they said, and *"Ho comprato Ultimate Spider-Man Omnibus 1"* is what tells them whether
-//   the fields underneath are right. It is the one place this screen is loud.
-// - **The two acts are unmistakable and asymmetric**, because they are asymmetric acts.
-//   Approving writes a permanent row into a library kept for years, so it is a form the
-//   owner reads, and its button names the entity it will create — *Catalogue the Volume*,
-//   not *Approve*. Rejecting writes nothing anywhere, so it is one quiet button, and the
-//   line under it says exactly that. The friction belongs on the irreversible half.
-// - **The fields are editable, and that is the friction earning its place.** A Binding an
-//   assistant invented is the ordinary case; correcting it here is cheaper than a duplicate
-//   the owner finds in a shop two years from now.
-// - **Nothing is bulk.** There is no approve-all, no select-many and no keyboard-driven
-//   triage: a boundary you can clear in one tap is not a boundary.
+// So four decisions, and the first one reverses what this screen used to say out loud.
 //
-// Everything else follows the screens it sits beside: a `GET`-free page, `POST`s to server
-// actions, native pickers, and nothing running in the browser.
+//   1. **Bulk is the point.** The old version of this file declared that *nothing is bulk*,
+//      because a boundary you can clear in one tap is not a boundary. That was right while
+//      the Inbox carried nothing but new entities, and ADR-0011 took it back: 43 ISBNs on
+//      Star Comics Volumes is **one** decision, and the boundary that survives is the
+//      owner's judgement rather than the number of taps it costs them. Every entry in a
+//      group is ticked when the screen arrives; the gesture is to untick what you doubt.
+//   2. **Entries are grouped by what they are about** (`./decisions`), and a group is one
+//      sentence: the same fields, on the same kind of record, under the same publisher's
+//      line. Folded shut past three entries, because the heading is what the owner reads
+//      when they approve a group without opening it — and open below three, where folding a
+//      thing to hide two of them is a click that buys nothing.
+//   3. **An amendment is read as a diff and never as a form.** What stands in the record
+//      today, beside what is proposed for it, so approving is a judgement rather than a
+//      leap. Correcting an ISBN by hand is exactly the work the owner asked the assistant
+//      to do, so this screen does not offer to: a wrong one is rejected, and the entry was
+//      its only trace. **A creation is the opposite** — approving one is choosing its
+//      fields, since the Binding an assistant could not know is the ordinary case — so it
+//      is the whole record as boxes, filled with what was said.
+//   4. **The assistant's own words stay on every entry**, quoted rather than summarised.
+//      They are how the owner tells a careful proposal from a guess: *read off the back
+//      cover* and *ho comprato Ultimate Spider-Man Omnibus 1* are different kinds of
+//      evidence, and neither is derivable from the fields underneath.
+//
+// **No field on this screen is `required`, and that is a consequence rather than an
+// oversight.** A group is one form, so the browser would refuse to submit it over an empty
+// box on an entry the owner had deliberately unticked — the validation would fight the
+// gesture. What replaces it is the creating verb's own refusal, which now names the entry it
+// was refused on, and a `needed` mark on the boxes the assistant left empty so the owner
+// sees it before pressing anything.
+//
+// Everything else follows the screens it sits beside: `POST`s to a Server Function, native
+// pickers, and nothing running in the browser (ADR-0010).
 export const dynamic = "force-dynamic";
 
 // A native select rather than a scripted one: on a phone it opens the platform picker, and
@@ -44,26 +75,35 @@ export const dynamic = "force-dynamic";
 const PICKER =
   "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30";
 
-/** What approving one of the three creates, in the words the owner reads. */
-const CREATES = {
-  story: {
-    act: "Create the Story",
-    what: "a Story",
-    says: "The narrative unit you read and judge. No Volume is implied and none is created.",
-  },
-  volume: {
-    act: "Catalogue the Volume",
-    what: "a Volume",
-    says: "The object as a catalogue holds it. It does not join the Collection — say it is in the house on the Collection screen.",
-  },
-  series: {
-    act: "Declare the Series",
-    what: "a Series",
-    says: "The publisher's line as a completeness ledger. It starts no collecting project.",
-  },
-} as const;
+/** Past this many entries a group arrives folded, with its heading as the whole decision. */
+const FOLDED_PAST = 3;
+
+// Two lists of fields, and they are here rather than in `./decisions` beside the words on
+// purpose: layout and typography are the screen's, and a field left out of either of them is
+// simply an ordinary one — nothing goes wrong, which is what makes them safe to keep short.
+
+/** The fields worth a whole row of the form: a title is not half a line of anything. */
+const WIDE: readonly ProposalField[] = ["title", "name", "isbn"];
+
+/**
+ * The two fields that are figures.
+ *
+ * The typography contract reserves the monospace for numbers, ISBNs, dates and prices, so a
+ * diff spends it on exactly those and never on a title — an ISBN is read digit by digit and
+ * a name is not.
+ */
+const FIGURES: readonly ProposalField[] = ["isbn", "publishedCount"];
 
 type Asked = Record<string, string | string[] | undefined>;
+
+/**
+ * The two vocabularies a creation is filled in from.
+ *
+ * They travel together from the page to every box, because they are read together and mean
+ * nothing apart: a Type and a Binding are both lists this library grows rather than enums
+ * TypeScript could hold (ADR-0006), so the boxes that offer them have to be handed the rows.
+ */
+type Vocabularies = { types: Type[]; bindings: Binding[] };
 
 /** One asked-for value, as a string, or nothing. */
 function asked(params: Asked, name: string): string | undefined {
@@ -71,70 +111,101 @@ function asked(params: Asked, name: string): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }
 
-/** A detail the assistant supplied, as text for a field, or empty. */
-function said(entry: InboxEntry, key: ProposalField): string {
-  const value = entry.details[key];
+/** A detail the assistant supplied, as text for a box, or empty. */
+function said(entry: InboxEntry, field: ProposalField): string {
+  const value = entry.details[field];
   return value === null || value === undefined ? "" : String(value);
+}
+
+/**
+ * The fields the record cannot be created without and the proposal cannot supply.
+ *
+ * **A guess that is not in the vocabulary counts as nothing supplied**, and that is the case
+ * this matters in: an assistant that said `hardback` gets no default in the picker, so the
+ * box is as empty as if it had said nothing — and the entry is refused on approval unless
+ * the owner chooses. Marking it only when the field was blank would leave the mark off the
+ * one entry in a group that is about to stop the gesture.
+ */
+function missing(entry: InboxEntry, vocabularies: Vocabularies): ProposalField[] {
+  if (entry.act === "amend") return [];
+  return NEEDED_TO_CREATE[entry.proposes].filter((field) => !usable(entry, field, vocabularies));
+}
+
+/**
+ * Whether what the assistant said for a field is something the form can offer back.
+ *
+ * Said once, because two places ask it: the mark above a box, and the box's own default. A
+ * picker showing the first Binding as though it had been proposed and a label saying nothing
+ * was missing are the same mistake made twice.
+ */
+function usable(entry: InboxEntry, field: ProposalField, vocabularies: Vocabularies): boolean {
+  const value = said(entry, field);
+  if (value === "") return false;
+
+  const vocabulary = offered(field, vocabularies);
+  return vocabulary === null || vocabulary.some((option) => option.value === value);
 }
 
 export default async function InboxPage({ searchParams }: { searchParams: Promise<Asked> }) {
   await requireOwner();
 
-  const params = await searchParams;
-  const [waiting, decided, types, bindings] = await Promise.all([
+  const [params, waiting, decided, types, bindings] = await Promise.all([
+    searchParams,
     listWaitingInboxEntries(),
     listDecidedInboxEntries(),
     listTypes(),
     listBindings(),
   ]);
 
+  // Banding what came back, which is the screen's job and not the query's: the page holds
+  // every waiting entry and renders every one of them.
+  const groups = groupWaiting(waiting);
+
+  const vocabularies: Vocabularies = { types, bindings };
+
   const refused = asked(params, "refused");
-  const approved = asked(params, "approved");
-  const rejected = asked(params, "rejected");
+  const done = asked(params, "done");
 
   return (
     <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
         <h1 className="font-heading text-2xl sm:text-3xl">Inbox</h1>
-        <p className="mt-2 text-pretty text-sm text-muted-foreground">
-          What an assistant asked for and you have not decided. Nothing here is in the library yet:
-          approving is what creates the thing, and rejecting leaves no trace of it anywhere.
+        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
+          What an assistant asked for and you have not decided. Nothing here has touched the
+          library: approving is the act that writes, and rejecting leaves no trace of it anywhere.
         </p>
       </header>
 
       {refused ? (
         <p
           role="alert"
-          className="mt-6 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="mt-6 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-pretty text-destructive"
         >
           {refused}
         </p>
       ) : null}
-      {approved ? (
-        <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
-          {approved} is in the library now.
-        </p>
-      ) : null}
-      {rejected ? (
-        <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
-          {rejected} was rejected. Nothing was created, and nothing changed outside this screen.
+      {done ? (
+        <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm text-pretty">
+          {done}
         </p>
       ) : null}
 
-      <p className="mt-8 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+      <p className="mt-8 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
         {waiting.length} waiting
+        {groups.length < waiting.length ? ` in ${groups.length} decisions` : null}
       </p>
 
       {waiting.length === 0 ? (
-        <p className="mt-4 text-pretty text-sm text-muted-foreground">
+        <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
           Nothing to decide. An assistant that meets a Story, a Volume or a Series this library does
-          not have cannot add it — it leaves a proposal here, and it waits for you.
+          not have cannot add it, and one that finds a record standing incomplete cannot fill it in
+          — both leave a proposal here, and it waits for you.
         </p>
       ) : (
         <ul className="mt-4 space-y-6">
-          {waiting.map((entry) => (
-            <li key={entry.id}>
-              <Waiting entry={entry} types={types} bindings={bindings} />
+          {groups.map((group) => (
+            <li key={group.key}>
+              <Decision group={group} vocabularies={vocabularies} />
             </li>
           ))}
         </ul>
@@ -162,183 +233,291 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
 }
 
 /**
- * One proposal, and the two acts it can meet.
+ * One decision: the entries that are about the same thing, and the two acts they can meet.
  *
- * The card reads top to bottom in the order the decision is made: what was said, what it
- * proposes, what would be written, and then — below a rule — the two things the owner can
- * do about it.
+ * One `<form>` per group, because approving a selection is one submission — and therefore
+ * the *Reject it* on each row is a second submit button in that same form rather than a form
+ * of its own, which HTML would not allow inside this one (`./actions`).
  */
-function Waiting({
-  entry,
-  types,
-  bindings,
-}: {
-  entry: InboxEntry;
-  types: Type[];
-  bindings: Binding[];
-}) {
-  const creates = CREATES[entry.proposes];
+function Decision({ group, vocabularies }: { group: InboxGroup; vocabularies: Vocabularies }) {
+  const howMany = group.entries.length;
+  const what = entityWord(group.proposes, howMany);
+  const { does } = approvingWord(group.act, group.proposes);
+  const incomplete = group.entries.filter(
+    (entry) => missing(entry, vocabularies).length > 0
+  ).length;
 
   return (
-    <article className="rounded-xl ring-1 ring-foreground/10">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 pt-4">
-        <Badge variant="outline">Proposes {creates.what}</Badge>
-        <span className="font-mono text-xs text-muted-foreground">{entry.proposedAt}</span>
+    <form action={decide} className="rounded-xl ring-1 ring-foreground/10">
+      {/* The decision, and above the entries rather than under them — because **the first
+          submit button in a form is the one Enter presses**, and the other button in here
+          rejects an entry. A creation is typed into boxes, so a return key while filling one
+          in has to reach the act the owner is in the middle of and never the destructive one
+          on the row above. The button names what it does to the library, too: *Approve* is a
+          word about this screen, and every act here is a word about the library. */}
+      <div className="px-4 py-4">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="font-heading text-lg leading-snug text-pretty">{whatItIsAbout(group)}</h2>
+          <span className="ml-auto font-mono text-eyebrow text-muted-foreground">
+            {group.entries[0].proposedAt}
+          </span>
+        </div>
+
+        {/* The assistant's own words, where every entry came out of the same sentence: this
+            is what a group folded shut is approved on, and *read off the back cover* and *I
+            think it was Star Comics* are not the same evidence. */}
+        {group.reported === null ? null : (
+          <blockquote className="mt-2 border-l-2 border-border pl-3 text-sm text-pretty">
+            {group.reported}
+          </blockquote>
+        )}
+
+        <p className="mt-2 max-w-prose text-xs text-pretty text-muted-foreground">
+          {group.act === "amend"
+            ? "Only the fields named change; everything else is left standing."
+            : `Approving is what creates ${howMany === 1 ? "it" : "them"}, and nothing here undoes it.`}
+        </p>
+
+        <Button type="submit" className="mt-3 h-11 w-full sm:h-10 sm:w-auto sm:px-6">
+          {howMany === 1 ? `${does} the ${what}` : `${does} the ${howMany} ticked ${what}`}
+        </Button>
+
+        <p className="mt-2 max-w-prose text-xs text-pretty text-muted-foreground">
+          {howMany === 1
+            ? "Untick it below and this decides nothing."
+            : "Every entry is ticked. Untick what you doubt — what is left is applied in one transaction, so if one of them is refused, none of them lands."}
+          {incomplete > 0
+            ? ` ${incomplete} ${incomplete === 1 ? "is" : "are"} missing something a ${entityWord(group.proposes, 1)} needs, and will be refused until the box is filled in.`
+            : null}
+        </p>
       </div>
 
-      {/* What was said, quoted. The loudest thing on the screen, because it is the evidence
-          the decision is actually made on — the fields below are a guess about it. */}
-      <blockquote className="mx-4 mt-3 border-l-2 border-border pl-3 font-heading text-lg leading-snug text-pretty">
-        {entry.reported}
-      </blockquote>
+      <details className="group border-t border-border" open={howMany <= FOLDED_PAST}>
+        <summary className="cursor-pointer list-none px-4 py-3 text-xs text-muted-foreground marker:hidden">
+          <span className="group-open:hidden">
+            Read the {howMany} {howMany === 1 ? "entry" : "entries"} one by one
+          </span>
+          <span className="hidden group-open:inline">Fold them away</span>
+        </summary>
 
-      <p className="mt-3 px-4 text-xs text-pretty text-muted-foreground">{creates.says}</p>
-
-      <form action={approve} className="px-4 pt-4">
-        <input type="hidden" name="entryId" value={entry.id} />
-        <input type="hidden" name="reference" value={entry.reference} />
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {entry.proposes === "story" ? (
-            <>
-              <Field entry={entry} name="title" label="Title" required className="sm:col-span-2" />
-              <Picker
-                entry={entry}
-                name="typeId"
-                label="Type"
-                required
-                options={types.map((type) => ({ value: type.id, name: type.name }))}
-              />
-            </>
-          ) : null}
-
-          {entry.proposes === "volume" ? (
-            <>
-              <Field entry={entry} name="title" label="Title" required className="sm:col-span-2" />
-              <Field entry={entry} name="publisher" label="Publisher" required />
-              <Field entry={entry} name="editionLine" label="Edition line" />
-              <Picker
-                entry={entry}
-                name="binding"
-                label="Binding"
-                required
-                options={bindings.map((binding) => ({ value: binding.id, name: binding.name }))}
-              />
-              <Field entry={entry} name="language" label="Language" required placeholder="it" />
-              <Field entry={entry} name="isbn" label="ISBN" className="sm:col-span-2" />
-            </>
-          ) : null}
-
-          {entry.proposes === "series" ? (
-            <>
-              <Field entry={entry} name="name" label="Name" required className="sm:col-span-2" />
-              <Field entry={entry} name="publisher" label="Publisher" required />
-              <Field entry={entry} name="editionLine" label="Edition line" />
-              <Field
-                entry={entry}
-                name="publishedCount"
-                label="Volumes published"
-                required
-                inputMode="numeric"
-                placeholder="0"
-              />
-              <Picker
-                entry={entry}
-                name="status"
-                label="Status"
-                required
-                options={[
-                  { value: "ongoing", name: "Ongoing" },
-                  { value: "concluded", name: "Concluded" },
-                ]}
-              />
-            </>
-          ) : null}
-        </div>
-
-        {/* The button names what it makes. "Approve" would be a word about the workflow;
-            this is a word about the library, and it is the last thing read before a
-            permanent row exists. */}
-        <div className="mt-4 border-t border-border pt-4">
-          <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto sm:px-6">
-            {creates.act}
-          </Button>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Fix anything the assistant guessed at first. This is the only way {creates.what} gets
-            into the library, and there is no undo.
-          </p>
-        </div>
-      </form>
-
-      {/* The cheap half, and it looks it. Rejecting writes nothing into the domain, so it
-          needs no confirmation and gets no weight — what it gets is a sentence saying so,
-          because an act with no visible consequence is one the owner will otherwise doubt. */}
-      <form action={reject} className="px-4 pt-3 pb-4">
-        <input type="hidden" name="entryId" value={entry.id} />
-        <input type="hidden" name="reference" value={entry.reference} />
-        <Button type="submit" variant="destructive" size="sm" className="h-11 sm:h-9">
-          Reject it
-        </Button>
-        <span className="ml-3 text-xs text-muted-foreground">
-          Nothing is created. The entry stays here, decided.
-        </span>
-      </form>
-    </article>
-  );
-}
-
-/** One entry the owner has answered: what it was, and which way it went. */
-function Decided({ entry }: { entry: InboxEntry }) {
-  return (
-    <li className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-border px-4 py-3 last:border-b-0">
-      <span className="min-w-0">
-        <span className="block truncate text-sm">{entry.reference}</span>
-        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-          {entry.reported}
-        </span>
-      </span>
-      <span className="flex shrink-0 items-baseline gap-2">
-        <span className="font-mono text-xs text-muted-foreground">{entry.decidedAt}</span>
-        <Badge variant={entry.state === "approved" ? "secondary" : "outline"}>
-          {entry.state === "approved" ? "In the library" : "Rejected"}
-        </Badge>
-      </span>
-    </li>
+        <ul className="border-t border-border">
+          {group.entries.map((entry) => (
+            <li key={entry.id} className="border-b border-border last:border-b-0">
+              <Entry entry={entry} vocabularies={vocabularies} />
+            </li>
+          ))}
+        </ul>
+      </details>
+    </form>
   );
 }
 
 /**
- * One field of the approval, filled with what the assistant said.
+ * One entry: what it is about, what was said, and what would change.
  *
- * `required` is the browser's own refusal, and it is only the first one: the creating verb
- * refuses the same absences in the prose the owner reads, which is what happens when a
- * field is required and empty on a form nobody scripted.
+ * The row reads in the order the judgement is made — the record it names, the sentence it
+ * came out of, then the change itself — and the tick is what carries it into the selection.
  */
-function Field({
-  entry,
-  name,
-  label,
-  className,
-  ...props
-}: {
-  entry: InboxEntry;
-  name: ProposalField;
-  label: string;
-  className?: string;
-} & React.ComponentProps<typeof Input>) {
-  const id = `${entry.id}-${name}`;
+function Entry({ entry, vocabularies }: { entry: InboxEntry; vocabularies: Vocabularies }) {
+  const tick = `${entry.id}-tick`;
+  const fields = proposedFields(entry);
 
   return (
-    <div className={`grid gap-1.5 ${className ?? ""}`}>
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
-        {label}
-      </Label>
+    <div className="flex items-start gap-3 px-4 py-4">
+      {/* Ticked on arrival, which is the whole of *approve the group in one gesture* on a
+          screen that runs nothing in the browser: there is no script here to tick 43 boxes,
+          so the boxes arrive ticked and the owner unticks. */}
+      <input
+        id={tick}
+        type="checkbox"
+        name="entryId"
+        value={entry.id}
+        defaultChecked
+        className="mt-1 size-4 shrink-0 accent-foreground"
+      />
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+          <Label htmlFor={tick} className="text-sm">
+            {entry.reference}
+          </Label>
+          <span className="font-mono text-eyebrow text-muted-foreground">{entry.proposedAt}</span>
+        </div>
+
+        {/* What was said, quoted: the evidence the decision is actually made on, where the
+            fields below are a guess about it. */}
+        <blockquote className="mt-1.5 border-l-2 border-border pl-3 text-sm text-pretty">
+          {entry.reported}
+        </blockquote>
+
+        {entry.act === "amend" ? (
+          <Diff entry={entry} fields={fields} />
+        ) : (
+          <Fill entry={entry} fields={fields} vocabularies={vocabularies} />
+        )}
+
+        {/* The cheap half of the two, and it looks it: rejecting writes nothing into the
+            domain, so it needs no confirmation and gets no weight. The friction belongs on
+            the irreversible half, which is the button at the foot of the group. */}
+        <button
+          type="submit"
+          name="reject"
+          value={entry.id}
+          className="mt-3 rounded-lg text-xs text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Reject it
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * What stands in the record today, beside what is proposed for it.
+ *
+ * The half of ADR-0011 that makes approving a judgement rather than a leap. An absence is an
+ * em dash rather than a blank, because *this Volume carries no ISBN* is the reason the
+ * amendment was proposed at all.
+ */
+function Diff({ entry, fields }: { entry: InboxEntry; fields: ProposalField[] }) {
+  if (entry.standing === null) {
+    return (
+      <p className="mt-3 text-xs text-pretty text-destructive">
+        The record this amends is no longer in the library, so there is nothing to change. Approving
+        it is refused; rejecting it costs nothing.
+      </p>
+    );
+  }
+
+  const standing = entry.standing;
+
+  return (
+    <dl className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-[max-content_1fr]">
+      {fields.map((field) => (
+        <Fragment key={field}>
+          <dt className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground sm:pt-1">
+            {fieldLabel(field)}
+          </dt>
+          <dd className="flex flex-wrap items-baseline gap-x-2 text-sm">
+            <Value field={field} value={standing[field]} quiet />
+            <span aria-hidden="true" className="text-muted-foreground">
+              →
+            </span>
+            <span className="sr-only">becomes</span>
+            <Value field={field} value={entry.details[field]} />
+          </dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
+/** One side of a diff: what is there, or an em dash where there is nothing. */
+function Value({ field, value, quiet }: { field: ProposalField; value: unknown; quiet?: boolean }) {
+  if (value === null || value === undefined || value === "") {
+    return (
+      <span className="text-muted-foreground">
+        —<span className="sr-only">nothing</span>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        FIGURES.includes(field) && "font-mono",
+        quiet ? "text-muted-foreground" : "font-medium"
+      )}
+    >
+      {String(value)}
+    </span>
+  );
+}
+
+/**
+ * The record a creation would make, as boxes filled with what was said.
+ *
+ * Every field the record has rather than only the ones the assistant knew: approving a
+ * creation is choosing its fields, and a form showing only what was guessed would have no
+ * box for the Binding nobody could know.
+ */
+function Fill({
+  entry,
+  fields,
+  vocabularies,
+}: {
+  entry: InboxEntry;
+  fields: ProposalField[];
+  vocabularies: Vocabularies;
+}) {
+  const gaps = missing(entry, vocabularies);
+
+  return (
+    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      {fields.map((field) => {
+        const vocabulary = offered(field, vocabularies);
+
+        return vocabulary === null ? (
+          <Field key={field} entry={entry} field={field} needed={gaps.includes(field)} />
+        ) : (
+          <Picker
+            key={field}
+            entry={entry}
+            field={field}
+            options={vocabulary}
+            proposed={usable(entry, field, vocabularies) ? said(entry, field) : null}
+            needed={gaps.includes(field)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/** The vocabulary a field is picked from, or `null` where it is typed. */
+function offered(
+  field: ProposalField,
+  vocabularies: Vocabularies
+): { value: string; name: string }[] | null {
+  switch (field) {
+    case "typeId":
+      return vocabularies.types.map((type) => ({ value: type.id, name: type.name }));
+    case "binding":
+      return vocabularies.bindings.map((binding) => ({
+        value: binding.id,
+        name: binding.name,
+      }));
+    case "status":
+      return [
+        { value: "ongoing", name: "Ongoing" },
+        { value: "concluded", name: "Concluded" },
+      ];
+    default:
+      return null;
+  }
+}
+
+/** One box of a creation, filled with what the assistant said. */
+function Field({
+  entry,
+  field,
+  needed,
+}: {
+  entry: InboxEntry;
+  field: ProposalField;
+  needed: boolean;
+}) {
+  const id = `${entry.id}-${field}`;
+
+  return (
+    <div className={cn("grid gap-1.5", WIDE.includes(field) && "sm:col-span-2")}>
+      <BoxLabel field={field} id={id} needed={needed} />
       <Input
         id={id}
-        name={name}
-        defaultValue={said(entry, name)}
+        name={`${entry.id}:${field}`}
+        defaultValue={said(entry, field)}
+        inputMode={field === "publishedCount" ? "numeric" : undefined}
         className="h-11 sm:h-10"
-        {...props}
       />
     </div>
   );
@@ -355,31 +534,28 @@ function Field({
  */
 function Picker({
   entry,
-  name,
-  label,
-  required,
+  field,
   options,
+  proposed,
+  needed,
 }: {
   entry: InboxEntry;
-  name: ProposalField;
-  label: string;
-  required?: boolean;
+  field: ProposalField;
   options: { value: string; name: string }[];
+  /** What was proposed, where it is one of the options, and `null` where it is not. */
+  proposed: string | null;
+  needed: boolean;
 }) {
-  const id = `${entry.id}-${name}`;
-  const proposed = said(entry, name);
-  const offered = options.some((option) => option.value === proposed);
+  const id = `${entry.id}-${field}`;
+  const guessed = said(entry, field);
 
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
-        {label}
-      </Label>
+      <BoxLabel field={field} id={id} needed={needed} />
       <select
         id={id}
-        name={name}
-        required={required}
-        defaultValue={offered ? proposed : ""}
+        name={`${entry.id}:${field}`}
+        defaultValue={proposed ?? ""}
         className={PICKER}
       >
         {/* The empty option names the guess when the guess was not one of the options, and
@@ -387,7 +563,9 @@ function Picker({
             the assistant said `hardback`, and saying so about a value that *is* offered
             would be a warning about nothing. */}
         <option value="" disabled>
-          {proposed === "" || offered ? "Choose one" : `Not a ${label}: ${proposed}`}
+          {guessed === "" || proposed !== null
+            ? "Choose one"
+            : `Not a ${fieldLabel(field)}: ${guessed}`}
         </option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -396,5 +574,49 @@ function Picker({
         ))}
       </select>
     </div>
+  );
+}
+
+/**
+ * What a box is, and whether the record cannot be created without it.
+ *
+ * The mark is what replaces the `required` this screen cannot use — a group is one form, so
+ * the browser would refuse to submit it over a box on an entry the owner had unticked. It is
+ * read from the core (`NEEDED_TO_CREATE`) rather than from a list kept here, because a screen
+ * with its own list would be a screen guessing at what the approval will refuse.
+ */
+function BoxLabel({ field, id, needed }: { field: ProposalField; id: string; needed: boolean }) {
+  return (
+    // Two children of one flex row, and the gap between them is the `Label`'s own: the mark
+    // is a word beside the field's name rather than part of it.
+    <Label htmlFor={id} className="text-xs text-muted-foreground">
+      {fieldLabel(field)}
+      {needed ? <span className="text-destructive">needed</span> : null}
+    </Label>
+  );
+}
+
+/** One entry the owner has answered: what it was, and which way it went. */
+function Decided({ entry }: { entry: InboxEntry }) {
+  const { done } = approvingWord(entry.act, entry.proposes);
+
+  return (
+    <li className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-border px-4 py-3 last:border-b-0">
+      <span className="min-w-0">
+        <span className="block truncate text-sm">{entry.reference}</span>
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+          {entry.reported}
+        </span>
+      </span>
+      <span className="flex shrink-0 items-baseline gap-2">
+        <span className="font-mono text-eyebrow text-muted-foreground">{entry.decidedAt}</span>
+        <Badge
+          variant={entry.state === "approved" ? "secondary" : "outline"}
+          className="capitalize"
+        >
+          {entry.state === "approved" ? done : "Rejected"}
+        </Badge>
+      </span>
+    </li>
   );
 }

@@ -76,6 +76,24 @@ placeholder for one**: 0 of 96 Volumes carry an ISBN, so a drawn tile is the nor
 an image is the exception. It is shaped like the page it stands for (210 by 297) so that the
 day covers are hotlinked (#32) an image fills the tile instead of reflowing the wall.
 
+### Where a screen's own derivation goes
+
+**Beside the page, in a file named after what it answers — and it takes data and answers
+data.** `src/app/(owner)/inbox/decisions.ts` bands a few hundred waiting entries into the
+handful of decisions the owner actually takes, and names each one; `stories/story-state.tsx`
+and `reading-list/entry.ts` are the same thing at a smaller size. It is the screen's because
+banding is the screen's (see the next section), and it is a *file* rather than a lump inside
+`page.tsx` because it can then be tested beside itself — which `vitest.config.ts` licenses in
+the same sentence it licenses the tint and the gate's predicate, under the same rule: data in,
+data out, a function the app would still have if React were replaced. A component, a render
+or a private helper of a page is the line, and crossing it is a third seam.
+
+**It holds the screen's words, and never a list the core owns.** The heading *43 ISBNs on
+Star Comics Volumes* and the label *ISBN* are one vocabulary, so they live in one table; but
+which fields a record has and which it cannot be created without are `AMENDABLE_FIELDS` and
+`NEEDED_TO_CREATE` in `src/core/verbs/inbox.ts`, read from there. A screen keeping its own
+copy is a screen guessing at what the core will refuse.
+
 ### Where a filter goes
 
 **In the URL, and in the core query's arguments.** A narrowed wall is a `GET` —

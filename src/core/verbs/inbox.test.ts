@@ -856,6 +856,29 @@ describe("approving a selection", () => {
     expect(await listWaitingInboxEntries()).toHaveLength(4);
   });
 
+  // With three hundred amendments in one gesture, *hardback is not a Binding* is prose the
+  // owner cannot act on: it says what is wrong and not which of three hundred records it is
+  // wrong on. So the entry names itself, and the verb behind it keeps its own words.
+  it("names the entry that stopped it", async () => {
+    const { entryIds } = await threeWaitingIsbns();
+    const [doomed] = await query<{ id: string }>(
+      `insert into volume (title, publisher, binding_id, language)
+       values ('Berserk Deluxe 3', 'Panini Comics', 'tankobon', 'it')
+       returning id`
+    );
+    const bad = await proposeAmendment({
+      reported: "it is a hardback",
+      amends: "volume",
+      subjectId: doomed.id,
+      proposed: { binding: "hardback" },
+    });
+
+    const refused = await refusalFrom(approveInboxEntries([...entryIds, bad.id]));
+
+    expect(refused.message).toMatch(/^Berserk Deluxe 3 — /);
+    expect(refused.message).toMatch(/not a Binding/);
+  });
+
   it("is refused whole where one id is not an entry", async () => {
     const { entryIds } = await threeWaitingIsbns();
 

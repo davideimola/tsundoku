@@ -29,6 +29,15 @@ import { defineConfig } from "vitest/config";
 // than a third seam. The rule that keeps it from becoming one is that they test a
 // function the gate would still have if HTTP were replaced — environment or a moment in,
 // verdict out — and never a private helper of the route.
+//
+// **The same licence, stated once, reaches a screen's own derivation** — `src/lib/tint.ts`
+// and `src/app/(owner)/inbox/decisions.ts`, which bands a few hundred waiting Inbox entries
+// into the handful of decisions the owner actually takes and names them. It is the same rule
+// and not a wider one: data in, data out, a function this application would still have if
+// React were replaced, and never a component, a render or a private helper of a page. What a
+// *screen* is tested through is still the query behind it and the Server Function its plain
+// form posts to. A pure derivation grown into a page is how this rule would be broken, and
+// the test file has to say out loud which of the two it is.
 export default defineConfig({
   resolve: {
     alias: {

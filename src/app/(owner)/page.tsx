@@ -154,17 +154,18 @@ export default async function Home() {
               that empties it. */}
           <Block label="Waiting for me" count={waiting}>
             {waiting === 0 ? (
-              /* No Amendment in this sentence, though ADR-0011 says the Inbox will carry
-                 them: nothing in the schema, the verbs or the MCP door proposes one yet, and
-                 an empty band that names a thing the application cannot do is the same
-                 dishonesty as an invitation to a form that does not exist. */
+              /* The Amendment is named here now, and it was deliberately absent while it was
+                 only an ADR: #21 gave the schema and the verbs an amendment, #26 gave the
+                 assistant the door to propose one, so the sentence naming it is a sentence
+                 about something the application can actually do. */
               <Invitation>
-                Nothing waiting. A Story, a Volume or a Series the assistant meets lands in the{" "}
+                Nothing waiting. A Story, a Volume or a Series the assistant meets — or a repair to
+                a record that stands incomplete — lands in the{" "}
                 <Link href="/inbox" className={IN_PROSE}>
                   Inbox
                 </Link>{" "}
-                for me to approve, because creating one from outside is the writing this library
-                does not allow (ADR-0005).
+                for me to approve, because writing either of those from outside is what this library
+                does not allow (ADR-0005, ADR-0011).
               </Invitation>
             ) : (
               <p className="text-pretty text-sm">

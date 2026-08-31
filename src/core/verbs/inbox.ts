@@ -2,7 +2,7 @@ import "server-only";
 
 import { query } from "../db.ts";
 import type { InboxAct, InboxEntry, ProposedEntity } from "../queries/inbox.ts";
-import { Refusal, refusing } from "../refusal.ts";
+import { isRefusal, Refusal, refusing } from "../refusal.ts";
 import { type Executor, transaction } from "../transaction.ts";
 import { amendVolume, catalogueVolume } from "./collection.ts";
 import { amendSeries, declareSeries, type SeriesStatus } from "./series.ts";
@@ -164,6 +164,54 @@ export const AMENDABLE_FIELDS: Record<ProposedEntity, readonly ProposalField[]> 
   series: ["name", "publisher", "editionLine", "publishedCount", "status"],
 };
 
+/**
+ * What each kind of record cannot be created without, in the prose it is refused in.
+ *
+ * The prose is the point: only the creating verb knows why a field is needed, and *A Volume
+ * needs the Binding it was bound in* is what the owner reads. It is a map rather than ten
+ * string literals so that the **list** of needed fields is derivable from it — the screen
+ * marks a needed field the assistant left empty, and a screen keeping its own list of which
+ * those are would be a screen guessing at what the core will refuse.
+ */
+const NEEDED = {
+  story: {
+    title: "A Story needs a title.",
+    // Deliberately no list of the Types in this prose: they are data rows and nothing in
+    // TypeScript enumerates them (ADR-0006).
+    typeId: "A Story needs a Type. Choose one before approving.",
+  },
+  volume: {
+    title: "A Volume needs the title printed on it.",
+    publisher: "A Volume needs its publisher.",
+    binding: "A Volume needs the Binding it was bound in.",
+    language: "A Volume needs the language it is printed in.",
+  },
+  series: {
+    name: "A Series needs a name.",
+    publisher: "A Series needs its publisher.",
+    publishedCount: "A Series needs how many Volumes are out. Nought is an answer.",
+    status: "Say whether the Series is ongoing or concluded.",
+  },
+} satisfies Record<ProposedEntity, Partial<Record<ProposalField, string>>>;
+
+/**
+ * Which fields a creation cannot be approved without — the keys of the prose above.
+ *
+ * Derived rather than declared, so the list and the refusals cannot fall out of step: a
+ * field that stops being needed stops being refused in the same edit. It is exported for
+ * the same reason `AMENDABLE_FIELDS` is — the screen marks the ones the assistant left
+ * empty, so an approval of two hundred entries is not refused whole over a Binding nobody
+ * was told about.
+ *
+ * **An amendment needs none of them**: it names the fields it proposes and leaves the rest
+ * standing, so a record that already exists is never missing anything.
+ */
+export const NEEDED_TO_CREATE: Record<ProposedEntity, readonly ProposalField[]> = {
+  story: Object.keys(NEEDED.story) as ProposalField[],
+  volume: Object.keys(NEEDED.volume) as ProposalField[],
+  series: Object.keys(NEEDED.series) as ProposalField[],
+};
+
 /** An amendment to a record the library already holds. */
 export type ProposedAmendment = Reported & {
   /** Which kind of record it is about, and therefore which table `subjectId` is in. */
@@ -189,7 +237,7 @@ export type Approval = {
 };
 
 /** An entry as the approval reads it, under the row lock. */
-type WaitingEntry = Pick<InboxEntry, "proposes"> & {
+type WaitingEntry = Pick<InboxEntry, "proposes" | "reference"> & {
   id: string;
   act: InboxAct;
   subjectId: string | null;
@@ -351,7 +399,7 @@ export async function approveInboxEntries(
     // nothing else in the database a creation could take one on. **In id order**, which is
     // what keeps two overlapping selections from deadlocking each other half way through.
     const entries = await run<WaitingEntry>(
-      `select id, act, proposes, subject_id as "subjectId", details, outcome
+      `select id, act, proposes, reference, subject_id as "subjectId", details, outcome
          from inbox_entry
         where id = any($1::uuid[])
         order by id
@@ -364,7 +412,7 @@ export async function approveInboxEntries(
     for (const entry of entries) {
       refuseADecidedEntry(entry);
       const said = { ...entry.details, ...corrections[entry.id] };
-      approved.set(entry.id, await carryOut(entry, said, run));
+      approved.set(entry.id, await namingTheEntry(entry, () => carryOut(entry, said, run)));
     }
 
     // One statement for the whole selection rather than one per entry: the decision is one
@@ -504,6 +552,30 @@ function said(details: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * Do one entry's work, and put the entry's own name in front of anything it is refused with.
+ *
+ * The verbs keep their prose — they are the only things that know what was wrong — and they
+ * cannot know *which* entry was wrong, because they were handed a record and a field and no
+ * Inbox. In a selection of three hundred, *hardback is not a Binding* is unactionable
+ * without the title in front of it, and the owner has no way to find where the gesture
+ * stopped. It reads the same on a selection of one, where it costs nothing.
+ */
+async function namingTheEntry(
+  entry: WaitingEntry,
+  work: () => Promise<Approval>
+): Promise<Approval> {
+  try {
+    return await work();
+  } catch (error) {
+    if (!isRefusal(error)) throw error;
+    throw new Refusal(error.code, `${entry.reference} — ${error.message}`, {
+      constraint: error.constraint,
+      cause: error,
+    });
+  }
+}
+
+/**
  * Do what the entry asked for, with the verb that owns the prose, and say what it did.
  *
  * The two branches are the two acts and they share nothing but this line: a creation makes
@@ -591,20 +663,18 @@ async function create(
     case "story":
       return createStory(
         {
-          title: needed(said, "title", "A Story needs a title."),
-          // Deliberately no list of the Types in this prose: they are data rows and
-          // nothing in TypeScript enumerates them (ADR-0006).
-          typeId: needed(said, "typeId", "A Story needs a Type. Choose one before approving."),
+          title: needed(said, "title", NEEDED.story.title),
+          typeId: needed(said, "typeId", NEEDED.story.typeId),
         },
         run
       );
     case "volume": {
       const { id } = await catalogueVolume(
         {
-          title: needed(said, "title", "A Volume needs the title printed on it."),
-          publisher: needed(said, "publisher", "A Volume needs its publisher."),
-          binding: needed(said, "binding", "A Volume needs the Binding it was bound in."),
-          language: needed(said, "language", "A Volume needs the language it is printed in."),
+          title: needed(said, "title", NEEDED.volume.title),
+          publisher: needed(said, "publisher", NEEDED.volume.publisher),
+          binding: needed(said, "binding", NEEDED.volume.binding),
+          language: needed(said, "language", NEEDED.volume.language),
           editionLine: optional(said, "editionLine"),
           isbn: optional(said, "isbn"),
         },
@@ -615,22 +685,14 @@ async function create(
     case "series":
       return declareSeries(
         {
-          name: needed(said, "name", "A Series needs a name."),
-          publisher: needed(said, "publisher", "A Series needs its publisher."),
+          name: needed(said, "name", NEEDED.series.name),
+          publisher: needed(said, "publisher", NEEDED.series.publisher),
           editionLine: optional(said, "editionLine"),
           // `Number` rather than a check of its own: a count that is not a whole number is
           // refused by `declareSeries` in the prose it already writes, and nought is a
           // legitimate answer — an announced Series with nothing out yet.
-          publishedCount: Number(
-            needed(
-              said,
-              "publishedCount",
-              "A Series needs how many Volumes are out. Nought is an answer."
-            )
-          ),
-          status: needed(said, "status", "Say whether the Series is ongoing or concluded.") as
-            | "ongoing"
-            | "concluded",
+          publishedCount: Number(needed(said, "publishedCount", NEEDED.series.publishedCount)),
+          status: needed(said, "status", NEEDED.series.status) as "ongoing" | "concluded",
         },
         run
       );
