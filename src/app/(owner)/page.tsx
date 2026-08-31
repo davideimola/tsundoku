@@ -21,10 +21,11 @@ import { storyDetail } from "./stories/story-state";
 //      evening wants the first band, and the second one is a thing to look at.
 //   2. **The hero is the pile, and it is at the foot of the page.** *Tsundoku* is named for
 //      the pile of unread books that keeps growing, so the signature of this application is
-//      that pile drawn at its real height, every spine a Story the owner can open
-//      (`@/components/pile`). It goes last because it is 67 spines tall and the band above it
-//      is the one you act on — a hero that pushed the actionable band off the screen would
-//      have got the first decision backwards.
+//      that pile drawn at its real size, every spine a Story the owner can open
+//      (`@/components/pile`). It goes last because it is the biggest thing on the screen —
+//      one stack of 67 on a phone, folded into as many piles as the width holds at the desk —
+//      and the band above it is the one you act on. A hero that pushed the actionable band
+//      off the screen would have got the first decision backwards.
 //   3. **No figure is printed without what it was computed over.** Eighteen of seventy-seven
 //      acquisitions carry a price. `libraryInFigures` answers with the coverage beside every
 //      figure precisely so this page cannot invent a denominator, and where the records exist
