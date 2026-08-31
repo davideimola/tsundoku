@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
-import { releaseVolume } from "@/core/verbs/collection";
+import { acquireVolume, amendVolume, releaseVolume } from "@/core/verbs/collection";
 import { eraseEditionNote, writeEditionNote } from "@/core/verbs/edition-note";
 import {
   recordVolumeCarriesStory,
@@ -11,8 +11,8 @@ import {
 } from "@/core/verbs/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
 
-// The write side of one Volume's page: what it carries, and what the owner thinks of it as
-// an object. A thin adapter like every other one (ADR-0002) — it reads a form, calls one
+// The write side of one Volume's page: what the object **is**, whether it is in the house,
+// what it carries, and what the owner thinks of it as an object. A thin adapter like every other one (ADR-0002) — it reads a form, calls one
 // verb, and carries the verb's own prose back to the screen. No SQL, no SQLSTATE, no
 // constraint name, and no rule about what a Volume may hold.
 //
@@ -29,7 +29,7 @@ function text(form: FormData, field: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** Do the work, and say what it said. One shape for all five verbs on this page. */
+/** Do the work, and say what it said. One shape for every verb on this page. */
 async function saying(
   volumeId: string,
   said: URLSearchParams,
@@ -89,6 +89,55 @@ export async function release(form: FormData): Promise<void> {
   const volumeId = text(form, "volumeId") ?? "";
 
   return saying(volumeId, new URLSearchParams({ released: "1" }), () => releaseVolume(volumeId));
+}
+
+/**
+ * Record that this Volume is in the house: it joins the Collection, from a day and at a
+ * price (ADR-0007).
+ *
+ * **It is here as well as on the Collection wall, and the two are not a duplicate.** The
+ * wall's copy is the shop's — a catalogued object arrived, said from the list where it was
+ * waiting. This one is the object's own page, which is where the owner stands when the thing
+ * they let go of comes back: said again after a release it is a *second acquisition* of one
+ * object, which is the event the page is a record of.
+ */
+export async function acquire(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+
+  return saying(volumeId, new URLSearchParams({ acquired: "1" }), () =>
+    acquireVolume({
+      volumeId,
+      pricePaid: text(form, "pricePaid"),
+      acquiredOn: text(form, "acquiredOn"),
+    })
+  );
+}
+
+/**
+ * Record the object's ISBN, or correct the one that stands there.
+ *
+ * **This screen is the only place a human can put one** (#30). The spreadsheets had no ISBN
+ * column at all, so 0 of 96 Volumes carry one, and until the Inbox starts delivering them
+ * from an assistant this field is the whole of the answer — and after that it is where a
+ * wrong one is fixed. It is the same verb the Inbox's approval calls, because completing a
+ * catalogued object is the owner's act either way and an Amendment is only the door a
+ * proposal reaches it through (ADR-0011).
+ *
+ * An empty box records nothing rather than emptying the field: the verb refuses an amendment
+ * that changes no field, in its own words, and that refusal is carried to the screen like
+ * every other one. Taking a fact *out* of the record is a different act and there is no verb
+ * for it here.
+ */
+export async function recordIsbn(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+
+  return saying(volumeId, new URLSearchParams({ isbn: "1" }), () =>
+    amendVolume(volumeId, { isbn: text(form, "isbn") })
+  );
 }
 
 /** Write what the owner thinks of the object. Replaces what they thought before. */

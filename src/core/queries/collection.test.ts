@@ -8,6 +8,7 @@ import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import {
   countCollection,
   findVolume,
+  listAcquisitions,
   listCataloguedOutsideTheCollection,
   listCollectionPublishers,
   listCollectionSeries,
@@ -572,5 +573,105 @@ describe("the vocabularies the wall narrows by", () => {
     });
 
     expect(await listCollectionPublishers()).not.toContain("Bompiani");
+  });
+});
+
+// **What the object has been through in the house** (#30), which is the half of ADR-0007
+// nothing read back until the Volume got its own screen: an acquisition that ended is not a
+// deleted row, so a Volume sold and bought again is *one object acquired twice* and the page
+// has to be able to say so. The assertion worth having here is the shape of the answer — two
+// rows for two acquisitions, each with its own price — because that is the sentence the
+// model makes true and a list of one would quietly reduce to.
+describe("what a Volume has been through in the house", () => {
+  it("reads an object acquired, released and acquired again as one object acquired twice", async () => {
+    const id = await volumeInTheHouse(
+      {
+        title: "Berserk 1",
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      },
+      { acquiredOn: "2019-04-02", pricePaid: "4.90" }
+    );
+    await releaseVolume(id);
+    await acquireVolume({ volumeId: id, acquiredOn: "2024-11-08", pricePaid: "9.90" });
+
+    const history = await listAcquisitions(id);
+
+    // Newest first, which is the order the page reads in: what is true now, then what was.
+    expect(history).toMatchObject([
+      { acquiredOn: "2024-11-08", pricePaid: "9.90", releasedOn: null },
+      { acquiredOn: "2019-04-02", pricePaid: "4.90" },
+    ]);
+    expect(history[1].releasedOn).not.toBeNull();
+  });
+
+  it("answers with nothing for an object the house has never held", async () => {
+    const { id } = await catalogueVolume({
+      title: "Blame! 2",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+
+    expect(await listAcquisitions(id)).toEqual([]);
+  });
+
+  // The day and the price are both optional on the fact itself: a book owned since before
+  // any of this was written down has no receipt (ADR-0007), and the record still says it
+  // was in the house.
+  it("answers for an acquisition with neither a day nor a price", async () => {
+    const id = await volumeInTheHouse({
+      title: "Akira 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+
+    expect(await listAcquisitions(id)).toMatchObject([
+      { acquiredOn: null, pricePaid: null, releasedOn: null },
+    ]);
+  });
+
+  it("answers with nothing for an id that is not one, rather than raising", async () => {
+    expect(await listAcquisitions("banana")).toEqual([]);
+  });
+});
+
+// The line an object stands in is a fact about the *thing* (ADR-0001), so the object's own
+// page carries it: which Series, and which position of it. It is what colours the tile the
+// page opens with, and the tint is a function of the Series' identity — so the page cannot
+// draw it without this.
+describe("the line one Volume stands in", () => {
+  it("carries the Series and the position, as the wall does", async () => {
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 31,
+      status: "concluded",
+    });
+    const id = await volumeInTheHouse({
+      title: "Slam Dunk 3",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await placeVolumeInSeries({ volumeId: id, seriesId, number: 3 });
+
+    expect(await findVolume(id)).toMatchObject({
+      series: { id: seriesId, name: "Slam Dunk", editionLine: null },
+      seriesNumber: 3,
+    });
+  });
+
+  it("stands in none, which is an ordinary answer and not a gap", async () => {
+    const id = await volumeInTheHouse({
+      title: "Ultimate Spider-Man Omnibus 2",
+      publisher: "Panini Comics",
+      binding: "omnibus",
+      language: "it",
+    });
+
+    expect(await findVolume(id)).toMatchObject({ series: null, seriesNumber: null });
   });
 });

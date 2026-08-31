@@ -32,7 +32,16 @@ export function Cover({
   foot,
   detail,
 }: {
-  href: string;
+  /**
+   * Where the tile leads, or nothing at all where it leads nowhere.
+   *
+   * A wall always passes one — a tile is a way onto the object, which is the point of a wall.
+   * It is absent on **one** screen: the object's own page draws the tile it was tapped as at
+   * its head (#30), and a link back to the page you are standing on is a focusable no-op with
+   * a hover lift on it. So the tile is drawn without the affordances of a link rather than
+   * given a destination it does not have.
+   */
+  href?: string;
   title: string;
   /** The Series' colour, or `null` for a Story that stands in no line — see `@/lib/tint`. */
   tint: Tint | null;
@@ -42,9 +51,41 @@ export function Cover({
    * for anything that is not looking at the page.
    */
   foot: React.ReactNode;
-  /** Everything the tile cannot fit: the Type, the line, the edition. */
+  /** Everything the tile cannot fit: the Type, the Series, the edition. */
   detail?: string;
 }) {
+  const drawn = (
+    <>
+      <span className="flex min-h-0 flex-1 items-center justify-center">
+        {/* Centred on the tile the way a title is centred on a jacket, and clamped rather
+            than ellipsised on one line: *La storia della mia vita - Spider-Man* is four
+            lines here and a single truncated word in a spine. Set in the chrome's own
+            grotesque at its normal width — the width axis is for the headings, and a tile
+            this narrow needs the letterforms it has rather than tighter ones. */}
+        <span className="line-clamp-5 text-balance text-center font-heading text-sm font-medium leading-snug">
+          {title}
+        </span>
+      </span>
+
+      <span className="text-center font-mono text-xs tabular-nums">{foot}</span>
+    </>
+  );
+
+  // 210 by 297: the page the tile is pretending to be, written as the paper size rather
+  // than as a decimal nobody could look up.
+  const shape = cn(
+    "flex aspect-[210/297] flex-col justify-between gap-2 overflow-hidden rounded-sm border border-border p-2.5 text-foreground",
+    tint ? WORN : UNWORN
+  );
+
+  if (!href) {
+    return (
+      <span title={detail} aria-label={detail} style={worn(tint)} className={shape} role="img">
+        {drawn}
+      </span>
+    );
+  }
+
   return (
     <Link
       href={href}
@@ -59,28 +100,14 @@ export function Cover({
       // palette's quiet paper.
       style={worn(tint)}
       className={cn(
-        // 210 by 297: the page the tile is pretending to be, written as the paper size
-        // rather than as a decimal nobody could look up.
-        "flex aspect-[210/297] flex-col justify-between gap-2 overflow-hidden rounded-sm border border-border p-2.5 text-foreground",
+        shape,
         "outline-none focus-visible:ring-2 focus-visible:ring-ring",
         // Lifting off the shelf on hover, and only where the owner has not asked things to
         // stay still (user story 67).
-        "motion-safe:transition-transform motion-safe:hover:-translate-y-1",
-        tint ? WORN : UNWORN
+        "motion-safe:transition-transform motion-safe:hover:-translate-y-1"
       )}
     >
-      <span className="flex min-h-0 flex-1 items-center justify-center">
-        {/* Centred on the tile the way a title is centred on a jacket, and clamped rather
-            than ellipsised on one line: *La storia della mia vita - Spider-Man* is four
-            lines here and a single truncated word in a spine. Set in the chrome's own
-            grotesque at its normal width — the width axis is for the headings, and a tile
-            this narrow needs the letterforms it has rather than tighter ones. */}
-        <span className="line-clamp-5 text-balance text-center font-heading text-sm font-medium leading-snug">
-          {title}
-        </span>
-      </span>
-
-      <span className="text-center font-mono text-xs tabular-nums">{foot}</span>
+      {drawn}
     </Link>
   );
 }

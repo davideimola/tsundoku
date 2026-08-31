@@ -111,12 +111,22 @@ placeholder for one**: 0 of 96 Volumes carry an ISBN, so a drawn tile is the nor
 an image is the exception. It is shaped like the page it stands for (210 by 297) so that the
 day covers are hotlinked (#32) an image fills the tile instead of reflowing the wall.
 
+Two other things wear a tint, and each is a different view of the same object: the lying-down
+spine the pile is stacked from (`src/components/pile.tsx`), because a pile is read from the
+side, and the **standing** spine a Series is drawn as
+(`src/app/(owner)/series/spines.tsx`), because a shelf is. A wall is faced outwards and gets
+the cover; a Series' sequence — thirty positions with two notches taken out of them — gets
+spines, which is what makes a 72-volume ledger one screen instead of six. How a tile wears a
+tint is `worn()`/`WORN` in `src/lib/tint.ts` and never each tile's own three lines.
+
 ### Where a screen's own derivation goes
 
 **Beside the page, in a file named after what it answers — and it takes data and answers
 data.** `src/app/(owner)/inbox/decisions.ts` bands a few hundred waiting entries into the
 handful of decisions the owner actually takes, and names each one; `find/kinds.ts` says what
 each kind of record the finder reaches is called and where enter lands on it;
+`series/positions.ts` says what each position of a Series is — held, missing, or merely empty
+— which is the one place the difference between *missing* and *not mine yet* is decided;
 `stories/story-state.tsx` and `reading-list/entry.ts` are the same thing at a smaller size. It is the screen's because
 banding is the screen's (see the next section), and it is a *file* rather than a lump inside
 `page.tsx` because it can then be tested beside itself — which `vitest.config.ts` licenses in

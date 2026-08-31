@@ -101,12 +101,13 @@ export function tint(identity: string | null | undefined): Tint | null {
  * **How a tile wears a tint**, written once: the two custom properties, and the classes that
  * spend them.
  *
- * It is here rather than in the components because two of them wear one now — the cover the
- * walls are laid out as (`@/components/cover`) and the spine the pile is stacked from
- * (`@/components/pile`) — and the *wiring* is the tint's own contract rather than either
- * tile's taste: both grounds travel, because they are not a filter over each other, and the
- * sheet's own dark variant picks one. A second copy of these three lines is how an untinted
- * spine and an untinted cover come to sit on two different grounds.
+ * It is here rather than in the components because three things wear one now — the cover the
+ * walls are laid out as (`@/components/cover`), the spine the pile is stacked from
+ * (`@/components/pile`) and the standing spine a Series is drawn as
+ * (`src/app/(owner)/series/spines.tsx`) — and the *wiring* is the tint's own contract rather
+ * than any tile's taste: both grounds travel, because they are not a filter over each other,
+ * and the sheet's own dark variant picks one. A second copy of these three lines is how an
+ * untinted spine and an untinted cover come to sit on two different grounds.
  */
 export const WORN = "bg-[var(--tint)] dark:bg-[var(--tint-dark)]";
 

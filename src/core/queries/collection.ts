@@ -138,6 +138,17 @@ export type RecordedVolume = CollectionVolume & {
   inTheHouse: boolean;
   /** The day the last acquisition of it ended, or `null` if none ever did. */
   releasedOn: string | null;
+  /**
+   * The Series the object belongs to, or `null` for one that belongs to none.
+   *
+   * Which Series an object stands in is a fact about the *thing* (ADR-0001), so it is part
+   * of what this object **is** rather than of what the owner has done with it — which is the
+   * distinction the object's own screen is laid out along (#30). It is also where the page
+   * takes its colour from, since a tint is a function of the Series' identity.
+   */
+  series: WallSeries | null;
+  /** Its position in that Series: 12 of Slam Dunk. `null` where it stands in none. */
+  seriesNumber: number | null;
 };
 
 /**
@@ -165,9 +176,17 @@ export async function findVolume(volumeId: string): Promise<RecordedVolume | nul
             to_char(latest.acquired_on, 'YYYY-MM-DD') as "acquiredOn",
             v.isbn,
             latest.id is not null and latest.released_on is null as "inTheHouse",
-            to_char(latest.released_on, 'YYYY-MM-DD') as "releasedOn"
+            to_char(latest.released_on, 'YYYY-MM-DD') as "releasedOn",
+            case when se.id is null then null
+                 else jsonb_build_object('id', se.id, 'name', se.name,
+                                         'editionLine', se.edition_line)
+            end as series,
+            v.series_number as "seriesNumber"
        from volume v
        join binding b on b.id = v.binding_id
+       -- Left, because standing in no Series is ordinary rather than missing: an omnibus, a
+       -- novel, a standalone. The wall joins it the same way, off the object's own column.
+       left join series se on se.id = v.series_id
        -- The latest acquisition, left-joined because a catalogued Volume has none: an open
        -- one first, then the most recent that ended. Ordered rather than filtered, so the
        -- three states are one row with different columns filled in.
@@ -183,6 +202,60 @@ export async function findVolume(volumeId: string): Promise<RecordedVolume | nul
   );
 
   return rows[0] ?? null;
+}
+
+/**
+ * One acquisition of a Volume: it was in the house from a day, at a price, and until when.
+ *
+ * The day and the price are both optional on the fact itself — a book owned since before any
+ * of this was written down has no receipt — and `releasedOn` is `null` for the one that is
+ * open, which is to say for the object that is on the shelf right now (ADR-0007).
+ */
+export type Acquisition = {
+  id: string;
+  /** The day it came home, where the owner knows it. */
+  acquiredOn: string | null;
+  /** What was paid for *this* acquisition, as the owner typed it. */
+  pricePaid: string | null;
+  /** The day this acquisition ended, or `null` while the object is still in the house. */
+  releasedOn: string | null;
+};
+
+/**
+ * Everything the house has done with one object, newest first.
+ *
+ * **This is the query that lets a screen say *one object acquired twice***, which is the
+ * half of ADR-0007 that nothing read back before the object got its own screen (#30). An
+ * acquisition that ends is not deleted, so a Volume sold and bought again is one object with
+ * two acquisitions at two prices — and a page reading only the latest one would print the
+ * second acquisition and quietly lose the first.
+ *
+ * It answers `[]` for a catalogued object the house has never held, which is an ordinary
+ * answer and not a gap, and for an id that is no id at all: a Volume's id is never typed, so
+ * a malformed one is the same event as an unknown one.
+ *
+ * **The open acquisition first, then the ones that ended, most recently ended first** — the
+ * order the object's page reads in: what is true now, then what was true before it. It is
+ * `findVolume`'s ordering, deliberately the same one, so *the latest acquisition* means the
+ * same row in both answers and the sentence at the top of a screen cannot describe a
+ * different acquisition than the first row of the list under it.
+ */
+export async function listAcquisitions(volumeId: string): Promise<Acquisition[]> {
+  if (!UUID.test(volumeId)) return [];
+
+  return query<Acquisition>(
+    `select a.id,
+            to_char(a.acquired_on, 'YYYY-MM-DD') as "acquiredOn",
+            a.price_paid::text                   as "pricePaid",
+            to_char(a.released_on, 'YYYY-MM-DD') as "releasedOn"
+       from acquisition a
+      where a.volume_id = $1
+      -- The open one first, then the most recent that ended, and the row's own moment under both, so
+      -- that two acquisitions with no day recorded still come back in a stable order rather
+      -- than in whichever order Postgres reached them.
+      order by a.released_on desc nulls first, a.acquired_on desc nulls last, a.created_at desc`,
+    [volumeId]
+  );
 }
 
 /**
