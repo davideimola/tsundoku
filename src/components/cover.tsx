@@ -2,23 +2,30 @@ import Link from "next/link";
 import type { Tint } from "@/lib/tint";
 import { cn } from "@/lib/utils";
 
-// THE SPINE, which is what a library looks like when it is standing up.
+// THE COVER, which is what a library looks like when it is faced outwards.
 //
-// **It is not a placeholder for a missing cover.** With 0 of 96 Volumes carrying an ISBN
-// (#18) a cover is the exception and this is the normal case, so it is designed first: a
-// tall tile in its Series' own tint, the title set the way a title is set on a spine, and
-// the one number worth reading at this size at the foot. A cover, if one ever arrives,
-// simply covers it.
+// **It is not a placeholder for a missing cover — it is the cover, until there is a
+// photograph of one.** With 0 of 96 Volumes carrying an ISBN (#18) an image is the
+// exception and this is the normal case, so it is designed first rather than drawn as a
+// gap: a tile in its Series' own tint, the title set across it, and the one number worth
+// reading at this size at the foot.
 //
-// The title runs top to bottom rather than bottom to top, which is how the spines on the
-// owner's own shelf are printed: Italian and English books are read with the head of the
-// book to the left, and the glyphs rotate with the line rather than standing on end.
+// It is shaped like the object it stands for — the proportions of an A4 page, near enough
+// to a tankōbon faced out — and that is the argument for the shape rather than taste.
+// #22 asked for a spine, and a spine is the narrower, handsomer tile; but covers are coming
+// (#32 hotlinks them by ISBN once the backfill lands), and an image dropped into a tile
+// shaped like a spine would either be letterboxed or reflow the whole wall on the day it
+// arrives. A tile the width of the thing that will fill it changes nothing when it does.
+//
+// The title runs across rather than up the tile for the same reason it does on a cover:
+// this one is read at four words on a phone, and vertical type is read a beat slower for
+// no gain once the tile is wide enough to hold a line.
 //
 // Full ink and nothing quieter is printed on a tint — no muted foreground, no opacity. The
 // tint's wall (`src/lib/tint.test.ts`) proves the reading threshold against `--ink` and
 // against nothing else, and a quieter grey on a coloured ground clears no threshold at all.
 
-export function Spine({
+export function Cover({
   href,
   title,
   tint,
@@ -56,7 +63,9 @@ export function Spine({
           : undefined
       }
       className={cn(
-        "flex aspect-[2/5] flex-col justify-between gap-2 overflow-hidden rounded-sm border border-border p-2 text-foreground",
+        // 210 by 297: the page the tile is pretending to be, written as the paper size
+        // rather than as a decimal nobody could look up.
+        "flex aspect-[210/297] flex-col justify-between gap-2 overflow-hidden rounded-sm border border-border p-2.5 text-foreground",
         "outline-none focus-visible:ring-2 focus-visible:ring-ring",
         // Lifting off the shelf on hover, and only where the owner has not asked things to
         // stay still (user story 67).
@@ -64,12 +73,13 @@ export function Spine({
         tint ? "bg-[var(--tint)] dark:bg-[var(--tint-dark)]" : "bg-muted"
       )}
     >
-      <span className="flex min-h-0 flex-1 justify-center overflow-hidden">
-        {/* The width axis Archivo was bought for (#19): a spine is the narrowest thing in
-            the application, and setting it in the same family as the headings is what keeps
-            the shelf in one voice. Ellipsised along the block axis, which in vertical text
-            is the height — so a long title runs out at the foot rather than overflowing. */}
-        <span className="max-h-full overflow-hidden text-ellipsis whitespace-nowrap font-heading text-sm font-medium font-stretch-semi-condensed [writing-mode:vertical-rl]">
+      <span className="flex min-h-0 flex-1 items-center justify-center">
+        {/* Centred on the tile the way a title is centred on a jacket, and clamped rather
+            than ellipsised on one line: *La storia della mia vita - Spider-Man* is four
+            lines here and a single truncated word in a spine. Set in the chrome's own
+            grotesque at its normal width — the width axis is for the headings, and a tile
+            this narrow needs the letterforms it has rather than tighter ones. */}
+        <span className="line-clamp-5 text-balance text-center font-heading text-sm font-medium leading-snug">
           {title}
         </span>
       </span>

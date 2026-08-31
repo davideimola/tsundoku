@@ -351,7 +351,7 @@ describe("what the owner has read", () => {
 });
 
 // THE WALL (#22). The same corpus as `listStories`, asked the way a shelf asks it: narrowed
-// by the two axes the screen offers, and carrying the one fact a spine cannot derive for
+// by the two axes the screen offers, and carrying the one fact a tile cannot derive for
 // itself — which publisher's line it stands in, and therefore what colour it is.
 //
 // The filter is **an argument to the query** and never a `.filter()` over what came back.
@@ -385,7 +385,7 @@ describe("the Story wall", () => {
     return { storyId, seriesId };
   }
 
-  it("carries the line a spine takes its colour from", async () => {
+  it("carries the line a tile takes its colour from", async () => {
     const { storyId, seriesId } = await carriedBy("Vinland Saga", "Vinland Saga");
 
     expect(await listStoryWall()).toEqual([
@@ -411,7 +411,7 @@ describe("the Story wall", () => {
   });
 
   // One Story running in two lines is the ordinary case too — *Fullmetal Alchemist* stands
-  // in the standard printing and in the Ultimate Deluxe Edition — and a spine has one
+  // in the standard printing and in the Ultimate Deluxe Edition — and a tile has one
   // colour. The standard printing wins, which is the order the ledger reads two Series of
   // one name in (`queries/series.ts`), and it wins **every time**: a tint that depended on
   // which row Postgres reached first would be a shelf that repainted itself.

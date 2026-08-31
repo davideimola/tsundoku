@@ -31,7 +31,7 @@ function parse(colour: string): Colour {
   return { l: Number(read[1]), c: Number(read[2]), h: Number(read[3]) };
 }
 
-/** The two grounds, and what a spine is printed in on each: the palette's own ink. */
+/** The two grounds, and what a tile is printed in on each: the palette's own ink. */
 const ON = {
   paper: {
     ink: token(":root", "--ink"),
@@ -108,9 +108,9 @@ describe("every tint it can produce", () => {
       expect(outside).toEqual([]);
     });
 
-    // The same threshold the palette holds ink to on paper: a spine's title is read, and
+    // The same threshold the palette holds ink to on paper: a tile's title is read, and
     // the tint is the ground it is read on. Full ink and nothing quieter is printed on a
-    // spine for exactly this reason — quiet ink on a tint clears nothing.
+    // tile for exactly this reason — quiet ink on a tint clears nothing.
     it("keeps a title legible, at the reading threshold", () => {
       const unreadable = TINTS.map(on.of)
         .map((colour) => ({ colour, ratio: contrast(parse(colour), on.ink) }))
@@ -120,7 +120,7 @@ describe("every tint it can produce", () => {
       expect(unreadable).toEqual([]);
     });
 
-    // And the other direction: a spine has to read as an object standing on the page rather
+    // And the other direction: a tile has to read as an object standing on the page rather
     // than as a wash over it. Well under a text threshold — it is a boundary between two
     // large areas, and the hairline around the tile does the rest.
     it("stands off the ground it is laid on", () => {

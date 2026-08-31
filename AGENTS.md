@@ -71,8 +71,10 @@ spends `tint()` the way it spends a token and names nothing itself — `src/lib/
 walks every colour the function can produce and holds each one to the palette's own reading
 threshold on both grounds, which is what buys the exception the palette wall states.
 
-The tile that wears it is `src/components/spine.tsx`, and it is a spine rather than a
-placeholder for a cover: 0 of 96 Volumes carry an ISBN, so this is the normal case.
+The tile that wears it is `src/components/cover.tsx`, and it is **the cover rather than a
+placeholder for one**: 0 of 96 Volumes carry an ISBN, so a drawn tile is the normal case and
+an image is the exception. It is shaped like the page it stands for (210 by 297) so that the
+day covers are hotlinked (#32) an image fills the tile instead of reflowing the wall.
 
 ### Where a filter goes
 

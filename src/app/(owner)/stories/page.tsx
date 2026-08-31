@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Spine } from "@/components/spine";
+import { Cover } from "@/components/cover";
 import {
   listStoryWall,
   type StoryState,
@@ -18,7 +18,7 @@ import { bandName, stateWord, WALL_STATES } from "./story-state";
 // Three things are decided here and nowhere else:
 //
 //   1. **The library is looked at rather than read.** Seventy-seven rows of text became a
-//      shelf of spines, each in its Series' own tint (`@/lib/tint`). The tint is derived
+//      wall of covers, each in its Series' own tint (`@/lib/tint`). The tint is derived
 //      from the Series' identity, so it is the same on every deploy and the owner can learn
 //      it; a Story that stands in no line gets a legible tile rather than a gap.
 //   2. **The wall is split by state** — reading, the pile, read, abandoned — which is the
@@ -166,13 +166,13 @@ function Band({ state, stories }: { state: StoryState; stories: WallStory[] }) {
         <span className="h-px flex-1 bg-border" aria-hidden="true" />
       </h2>
 
-      {/* As many spines as the window holds, at the width a spine is legible at. The shelf
-          is the same object on a phone and at the desk: fewer per row, never a different
-          layout to maintain. */}
-      <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(4.75rem,1fr))] gap-2 sm:gap-3">
+      {/* As many covers as the window holds, at the width a title is legible across. The
+          wall is the same object on a phone and at the desk — fewer per row, never a
+          second layout to maintain — and two of them fit a phone held one-handed. */}
+      <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 sm:gap-4">
         {stories.map((story) => (
           <li key={story.id}>
-            <Spine
+            <Cover
               href={`/stories/${story.id}`}
               title={story.title}
               tint={tint(story.series?.id)}

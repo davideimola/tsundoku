@@ -273,7 +273,7 @@ export async function listStories(): Promise<StorySummary[]> {
 }
 
 /**
- * The line a Story stands in, as a spine wears it.
+ * The line a Story stands in, as the tile on the wall wears it.
  *
  * A Story does not have a Series — objects do (ADR-0001) — so this is derived across the
  * many-to-many: the Series of the Volumes that carry it. `null` is the ordinary answer and
@@ -281,7 +281,7 @@ export async function listStories(): Promise<StorySummary[]> {
  */
 export type WallSeries = { id: string; name: string; editionLine: string | null };
 
-/** A Story as a spine on the wall: what is drawn on the tile, and what colours it. */
+/** A Story as the wall shows it: what is drawn on the tile, and what colours it. */
 export type WallStory = {
   id: string;
   title: string;
@@ -307,7 +307,7 @@ export type StoryWallFilter = {
 // Which line a Story stands in, when it stands in more than one.
 //
 // *Fullmetal Alchemist* runs in the standard printing and in the Ultimate Deluxe Edition,
-// and a spine has one colour — so one is picked, and **the pick is total**: name, then
+// and a tile has one colour — so one is picked, and **the pick is total**: name, then
 // edition with the standard printing first, then id. That is the order `queries/series.ts`
 // reads two Series of one name in, and the id at the end is what makes it a tie-break
 // rather than a preference of the planner's. A colour that depended on which row Postgres

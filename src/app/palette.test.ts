@@ -29,7 +29,7 @@ import { SRC, sourceFiles } from "@/test/source-files";
 //      against WCAG's own thresholds, on paper and in a dark room alike.
 //   4. **No screen names a colour.** Not a hex, not an `oklch()`, not a Tailwind palette
 //      class. The tokens are the vocabulary and there is no second one — with **one stated
-//      exception**, `src/lib/tint.ts`, which is the shelf's own colour and is held by a wall
+//      exception**, `src/lib/tint.ts`, which is the library's own colour and is held by a wall
 //      of its own. See the last block of this file.
 //
 // It is arithmetic over a stylesheet, so it needs no DOM, no renderer and no browser: the
@@ -144,7 +144,7 @@ describe("both grounds are legible", () => {
       expect(on("--rule-field", "--paper")).toBeGreaterThanOrEqual(3);
     });
 
-    // The hairline, held to the threshold a tinted spine clears against the page
+    // The hairline, held to the threshold a tinted tile clears against the page
     // (`src/lib/tint.test.ts`). It matters because of the tile that has **no** tint: a
     // Story standing in no line is drawn on quiet paper, which is barely off the ground it
     // sits on, and its edge is then the only thing saying an object is there.

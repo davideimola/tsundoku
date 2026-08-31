@@ -2,7 +2,7 @@
 //
 // The palette is paper and ink and one restrained hue (`src/app/globals.css`), and it is
 // deliberately empty of an accent so that **the only colour on screen belongs to the
-// library**. This is that colour: a Series' own tint, worn by the spines the walls are laid
+// library**. This is that colour: a Series' own tint, worn by the tiles the walls are laid
 // out as.
 //
 // Three decisions, and each one is held by `./tint.test.ts`:
@@ -26,7 +26,7 @@
  * A Series' colour, on each of the two grounds.
  *
  * Two values rather than one because the grounds are not a filter over each other: on paper
- * a spine is a light tile carrying dark ink, and in a dark room it is a deep one carrying
+ * a tile is a light one carrying dark ink, and in a dark room it is a deep one carrying
  * light ink. The same hue, at the lightness its ground can hold.
  */
 export type Tint = {
