@@ -91,6 +91,7 @@ pnpm db:reset     # drop the database and apply the whole schema from scratch
 pnpm db:down      # delete the container, and its data with it
 pnpm db:psql      # a psql shell inside the container
 pnpm db:migrate   # apply pending migrations to whatever DATABASE_URL names
+pnpm db:demo      # refresh the Inbox's proposals to look at it with (--clean to remove)
 pnpm test         # vitest against a real Postgres, node environment
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # biome check (lint + format), lint:fix to fix
