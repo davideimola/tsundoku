@@ -5,9 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { findSeries, listVolumesOutsideASeries } from "@/core/queries/series";
+import {
+  findSeries,
+  listVolumesOutsideASeries,
+  whatAMergeWouldCollapse,
+} from "@/core/queries/series";
 import { requireOwner } from "@/lib/auth/owner";
-import { collect, conclude, place, recordPublished, stopCollecting } from "../actions";
+import { collect, conclude, merge, place, recordPublished, stopCollecting } from "../actions";
 import { Spines } from "../spines";
 
 // One Series, and everything the owner does to it: decide they are completing it, record
@@ -51,7 +55,8 @@ function asked(params: Asked, name: string): string | undefined {
 // opens nothing, which is the honesty every filter on every wall is held to.
 const PLACE = "place";
 const PUBLISHED = "published";
-const PANELS = [PLACE, PUBLISHED] as const;
+const MERGE = "merge";
+const PANELS = [PLACE, PUBLISHED, MERGE] as const;
 
 /** One of them, so an address cannot be built for a panel this screen does not have. */
 type Panel = (typeof PANELS)[number];
@@ -84,17 +89,25 @@ export default async function SeriesDetailPage({
   const [{ id }, asks] = await Promise.all([params, searchParams]);
   const panel = PANELS.find((one) => one === asked(asks, "panel"));
 
-  const [series, placeable] = await Promise.all([
+  const [series, placeable, collapsing] = await Promise.all([
     findSeries(id),
     // Read only where the panel that offers them is open. The objects in no Series are not on
     // this screen otherwise, and a page reading rows it will not show is the thing the filter
     // rule in `AGENTS.md` is about.
     panel === PLACE ? listVolumesOutsideASeries() : [],
+    // Two counts rather than the rows behind them, which is why this is read on every visit
+    // and not only behind the panel: whether the merge is offered at all depends on there
+    // being something to collapse, and the panel then says the same two numbers out loud.
+    whatAMergeWouldCollapse(id),
   ]);
 
   if (!series) notFound();
 
   const collecting = Boolean(series.collectingSince);
+  // Offered only where there is something to collapse. A line with no objects placed in it, or
+  // one whose objects stand for no narrative yet, is a line the gesture refuses — and a control
+  // that is only ever refused is a control that should not be drawn.
+  const mergeable = (collapsing?.narratives ?? 0) > 0;
   const refused = asked(asks, "refused");
   const news = newsFrom(asks);
   const closesTo = `/series/${series.id}`;
@@ -201,6 +214,33 @@ export default async function SeriesDetailPage({
             — holding 42 of Naruto's 72 volumes opens no project.
           </p>
         )}
+
+        {/* **The merge, offered where the line is drawn and not in the hero** (#41). It is the
+            one act on this screen that makes a *narrative*, and the two reasons it is here are
+            the same reason: it is about the sequence above it rather than about the ledger, and
+            the hero's three presses are peers of each other in a way a fourth would not have
+            been (#33 on the Collection, where four pills in a wrapping row was the symptom).
+
+            **Drawn once in a Series' life.** A line that already publishes a Story carries the
+            *Publishes* link in the hero instead, so the moment this is pressed the offer is gone
+            and the link is there — which is what keeps that row's rule true: the Series screen
+            is still a place the owner looks, and the one press that mints a narrative hands them
+            straight to the page it is managed from. */}
+        {!series.publishes && mergeable && collapsing ? (
+          <p className="mt-6 max-w-prose text-pretty text-sm text-muted-foreground">
+            These <span className="tabular-nums text-foreground">{collapsing.objects}</span> objects
+            stand for <span className="tabular-nums text-foreground">{collapsing.narratives}</span>{" "}
+            {collapsing.narratives === 1 ? "narrative" : "narratives"}, and volume seven is not a
+            thing you would give a score to.{" "}
+            <Link
+              href={panelled(series.id, MERGE)}
+              className="rounded text-foreground underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Merge them into one Story
+            </Link>
+            .
+          </p>
+        ) : null}
       </section>
 
       <section className="mt-12">
@@ -298,6 +338,66 @@ export default async function SeriesDetailPage({
         </Drawer>
       ) : null}
 
+      {/* **The gesture that undoes a split the owner never asked for** (#41). It asks for one
+          field — what the work is called — so it is a panel and not a plain press, and the field
+          arrives filled in with the line's own name, because that is the answer nine times out
+          of ten.
+
+          The two numbers lead, in the ledger's own tabular face: *eighteen narratives across
+          twenty objects become one* is the whole of what the press does, and it is the one thing
+          the owner cannot read anywhere else on the screen. Under the field, what comes with the
+          work and what does not — said before the press, the way a strike says what it takes, so
+          nothing about the shelf is a surprise afterwards. */}
+      {panel === MERGE && collapsing ? (
+        <Drawer
+          title="Merge into one Story"
+          description="A line prints one Story. This is the gesture that says so, and it is pressed once per Series."
+          refused={refused}
+          closesTo={closesTo}
+        >
+          <form action={merge} className="grid gap-5">
+            <input type="hidden" name="seriesId" value={series.id} />
+
+            <p className="text-pretty font-heading text-lg leading-snug">
+              <span className="tabular-nums">{collapsing.narratives}</span>
+              {collapsing.narratives === 1 ? " narrative across " : " narratives across "}
+              <span className="tabular-nums">{collapsing.objects}</span>
+              {collapsing.objects === 1 ? " object becomes one." : " objects become one."}
+            </p>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="merge-title" className="text-xs text-muted-foreground">
+                What the Story is called
+              </Label>
+              <Input
+                id="merge-title"
+                name="title"
+                defaultValue={series.name}
+                required
+                className="h-11 sm:h-10"
+              />
+            </div>
+
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Merge them
+            </Button>
+
+            <div className="grid gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
+              <p className="max-w-prose text-pretty">
+                Every object of the line carries that Story afterwards, and any Rating, every Reading
+                and every Credit come with it. A route or a Want naming one of these narratives
+                comes to name it instead.
+              </p>
+              <p className="max-w-prose text-pretty">
+                Nothing you own moves: the Volumes, the acquisitions and the count published are
+                exactly as they are now. Nothing is merged at all if two of these narratives are
+                judged apart — a Story has one score to give.
+              </p>
+            </div>
+          </form>
+        </Drawer>
+      ) : null}
+
       {/* **Two acts in one panel, and two forms rather than two submits.** They are one
           subject — what the publisher has done — and each posts on its own, because a second
           submit carrying its own `formAction` needs a script to send the right one and a write
@@ -360,6 +460,8 @@ function newsFrom(params: Asked): string | undefined {
   if (asked(params, "stopped")) return "No longer collecting it. Every Volume you own stays yours.";
   if (asked(params, "recorded")) return "The count of published Volumes is recorded.";
   if (asked(params, "concluded")) return "Recorded as concluded: nothing more is coming.";
+  if (asked(params, "merged"))
+    return "Merged. The line prints one Story now, and it is linked above — everything you own is where it was.";
   const placed = asked(params, "placed");
   if (placed) return `Placed as ${placed} of this Series.`;
   return undefined;
