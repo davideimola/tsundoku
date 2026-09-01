@@ -145,3 +145,62 @@ export function OpensDrawer({
     </Link>
   );
 }
+
+/**
+ * **One act, two doors** — a loud trigger with a glyph-sized second one flush against it.
+ *
+ * It exists because the Collection grew a fourth control and stopped fitting on a phone (#33).
+ * Four triggers in a wrapping row is what a screen looks like when it has stopped asking which
+ * of them are *peers*: on that hero, *Catalogue a Volume* and *From an ISBN* were never two
+ * acts — they are the same act reached by typing or by pointing a camera at the object — while
+ * the other two were a figure and a housekeeping run wearing the same pill as the screen's
+ * primary verb.
+ *
+ * So the two doors onto one act become one control, and the two that are not acts stop being
+ * buttons at all. On a phone this is full width and the segment is a 48-pixel target beside a
+ * label; at a desk it is the same shape, inline.
+ *
+ * `second.label` is the accessible name and the tooltip, because that door carries a glyph and
+ * a glyph is not a name.
+ */
+export function OpensTwoDrawers({
+  href,
+  children,
+  second,
+}: {
+  href: string;
+  children: React.ReactNode;
+  second: { href: string; label: string; glyph: React.ReactNode };
+}) {
+  const loud = "bg-primary text-primary-foreground transition-colors hover:bg-primary/90";
+
+  return (
+    <div className="inline-flex w-full overflow-hidden rounded-lg sm:w-auto">
+      <Link
+        href={href}
+        className={cn(
+          "flex h-11 flex-1 items-center justify-center px-4 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:h-10",
+          loud
+        )}
+      >
+        {children}
+      </Link>
+
+      {/* The seam, in the label's own ink at a quarter: two doors have to read as two, and a
+          gap would have let the ground through and made them two buttons again. */}
+      <span aria-hidden className="w-px shrink-0 bg-primary-foreground/25" />
+
+      <Link
+        href={second.href}
+        aria-label={second.label}
+        title={second.label}
+        className={cn(
+          "flex h-11 w-12 shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:h-10",
+          loud
+        )}
+      >
+        {second.glyph}
+      </Link>
+    </div>
+  );
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { whatFilledItIn, whereTheIsbnLeads } from "./identified.ts";
+import { THE_ISBN_FIELD } from "./panels.ts";
 
 // **A screen's own derivation, tested beside itself** — the licence `vitest.config.ts` names,
 // and the same one `./covers-found.ts` takes: data in, data out, a function this application
@@ -78,9 +79,9 @@ describe("where an ISBN the library has never seen leads", () => {
     expect(where.pathname).toBe("/collection");
     expect(where.searchParams.get("panel")).toBe("catalogue");
     expect(where.searchParams.get("isbn")).toBe(ONE_PIECE);
-    expect(where.searchParams.get("record")).toBe("One piece 100");
+    expect(where.searchParams.get("named")).toBe("One piece 100");
     expect(where.searchParams.get("publishedBy")).toBe("Star Comics");
-    expect(where.searchParams.get("from")).toBe("sbn");
+    expect(where.searchParams.get("from")).toBe("a-record");
   });
 
   it("carries no publisher where the record had none, rather than an empty field", () => {
@@ -94,7 +95,7 @@ describe("where an ISBN the library has never seen leads", () => {
     );
 
     expect(where.searchParams.has("publishedBy")).toBe(false);
-    expect(where.searchParams.get("record")).toBe("One piece 100");
+    expect(where.searchParams.get("named")).toBe("One piece 100");
   });
 
   it("opens the same form with only the ISBN where nothing is published under it", () => {
@@ -105,8 +106,8 @@ describe("where an ISBN the library has never seen leads", () => {
 
     expect(where.searchParams.get("panel")).toBe("catalogue");
     expect(where.searchParams.get("isbn")).toBe(ONE_PIECE);
-    expect(where.searchParams.has("record")).toBe(false);
-    expect(where.searchParams.get("from")).toBe("nothing");
+    expect(where.searchParams.has("named")).toBe(false);
+    expect(where.searchParams.get("from")).toBe("no-record");
   });
 
   it("says the source could not be asked, and does not call that an absent book", () => {
@@ -157,7 +158,7 @@ describe("where a barcode that is not an ISBN leads", () => {
 
 describe("what the prefilled form says about where its fields came from", () => {
   it("names the source, and asks the owner to check it against the object in their hand", () => {
-    const said = whatFilledItIn("sbn");
+    const said = whatFilledItIn("a-record");
 
     expect(said).toMatch(/SBN/);
     expect(said).toMatch(/check/i);
@@ -166,7 +167,7 @@ describe("what the prefilled form says about where its fields came from", () => 
   it("says the catalogue has nothing under this ISBN, which is not an error", () => {
     // Ordinary rather than exceptional: SBN holds legal deposit, and a volume out this month
     // may not be in it yet.
-    expect(whatFilledItIn("nothing")).toMatch(/no record/i);
+    expect(whatFilledItIn("no-record")).toMatch(/no record/i);
   });
 
   it("says the catalogue could not be asked, which is a different sentence", () => {
@@ -179,5 +180,71 @@ describe("what the prefilled form says about where its fields came from", () => 
   it("says nothing at all about a form the owner opened themselves", () => {
     expect(whatFilledItIn(undefined)).toBeNull();
     expect(whatFilledItIn("banana")).toBeNull();
+  });
+});
+
+describe("what the wall was narrowed to, on the way through a lookup", () => {
+  const NARROWED: [string, string][] = [
+    ["series", "8f6c1b2e-0000-4444-8888-aaaaaaaaaaaa"],
+    ["type", "manga"],
+  ];
+
+  it("carries the filters into the prefilled form", () => {
+    // A lookup is navigation over a shelf that is still narrowed underneath. A Server Function
+    // reads a `FormData` and has no URL, so if this is not threaded through, the answer comes
+    // back over the whole wall and the drawer closes to it.
+    const where = new URL(
+      whereTheIsbnLeads(
+        ONE_PIECE,
+        { it: "a-record", isbn: ONE_PIECE, record: { title: "One piece 100", publisher: null } },
+        NARROWED
+      ),
+      "https://tsundoku.test"
+    );
+
+    expect(where.searchParams.get("series")).toBe("8f6c1b2e-0000-4444-8888-aaaaaaaaaaaa");
+    expect(where.searchParams.get("type")).toBe("manga");
+  });
+
+  it("carries them back onto a refusal too", () => {
+    const where = new URL(
+      whereTheIsbnLeads("51299", { it: "not-an-isbn", because: "That is the price." }, NARROWED),
+      "https://tsundoku.test"
+    );
+
+    expect(where.searchParams.get("type")).toBe("manga");
+    expect(where.searchParams.get("panel")).toBe("isbn");
+  });
+
+  it("has nowhere to put them on the one destination that is not this screen", () => {
+    // A Volume's own page takes no filters, and inventing query parameters it does not read
+    // would be this screen leaving litter on somebody else's address.
+    expect(
+      whereTheIsbnLeads(
+        ONE_PIECE,
+        {
+          it: "already-catalogued",
+          isbn: ONE_PIECE,
+          volumes: [
+            {
+              id: "3f6c1b2e-1111-4444-8888-aaaaaaaaaaaa",
+              title: "One Piece 100",
+              publisher: "Star Comics",
+              inTheHouse: true,
+            },
+          ],
+        },
+        NARROWED
+      )
+    ).toBe("/collection/3f6c1b2e-1111-4444-8888-aaaaaaaaaaaa");
+  });
+});
+
+describe("the field the scanner writes into", () => {
+  it("is the id the form composes from the prefix, which is the invariant that can drift", () => {
+    // `Field` builds `${idPrefix}-${name}` in `./page.tsx`; the scanner is handed the finished
+    // id. Two files composing one string from opposite ends, and nothing else notices when they
+    // stop matching — the camera reads the barcode and writes it nowhere.
+    expect(`${THE_ISBN_FIELD.prefix}-${THE_ISBN_FIELD.name}`).toBe(THE_ISBN_FIELD.id);
   });
 });

@@ -56,8 +56,14 @@ const A_BOOKS_BARCODE = ["ean_13"] as const;
 /** Where the vendored decoder is served from. `src/app/vendored.test.ts` pins the bytes. */
 const THE_DECODER = "/decoder/zxing_reader.wasm";
 
-/** How often the frame in front of the camera is looked at. */
-const EVERY = 240;
+/**
+ * Milliseconds between looks at the frame in front of the camera — a little over four a
+ * second.
+ *
+ * Slow enough that a phone is not decoding flat out while its owner is aiming it, fast enough
+ * that the barcode is read as the hand steadies rather than after it.
+ */
+const BETWEEN_LOOKS = 240;
 
 /** The half of `BarcodeDetector` this component uses, which is one method. */
 type Detector = { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
@@ -164,7 +170,16 @@ export function ScanAnIsbn({ into }: { into: string }) {
     const found = (code: string) => {
       watching = false;
       const field = document.getElementById(into);
-      if (!(field instanceof HTMLInputElement)) return;
+
+      // **Loud, because this one cannot be seen from anywhere else.** The id is composed by
+      // `Field` in the page and handed to this component from `./panels.ts`; if the two ever
+      // stop meeting, the camera reads a barcode perfectly and writes it nowhere — and a
+      // viewfinder that has simply stopped looking is indistinguishable from a bad angle.
+      if (!(field instanceof HTMLInputElement)) {
+        setFailed(`Nowhere to put it: this panel has no field ${into}. Type the ISBN instead.`);
+        stop();
+        return;
+      }
 
       field.value = code;
       stop();
@@ -205,7 +220,7 @@ export function ScanAnIsbn({ into }: { into: string }) {
           // One unreadable frame is the normal case, not an error: the owner is moving a
           // phone over a book. The next frame is the answer.
         }
-        waiting = setTimeout(look, EVERY);
+        waiting = setTimeout(look, BETWEEN_LOOKS);
       };
 
       await look();

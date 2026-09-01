@@ -16,10 +16,12 @@ import { describe, expect, it } from "vitest";
 // ADR-0013's rule about renders is protecting.
 //
 // The cost of holding a copy is that a copy can **drift from the library that loads it**.
-// `barcode-detector` is pinned in `package.json`; the wasm is not, because a committed file has
-// no version. Bump the dependency and the ponyfill will ask for the ABI of the build it ships
-// with, be handed the one we vendored, and fail — in Safari only, on a press, in a shop, with
-// no error anywhere a test would look. So:
+// `barcode-detector` is pinned exactly in `package.json` — no caret, deliberately, because a
+// dependency whose binary we carry by hand is one whose version should move only when somebody
+// means it — and the wasm is not pinned at all, because a committed file has no version. Bump
+// the dependency and the ponyfill will ask for the ABI of the build it ships with, be handed
+// the one we vendored, and fail — in Safari only, on a press, in a shop, with no error anywhere
+// a test would look. So:
 //
 //   **the bytes we serve are the bytes the library we depend on expects, and this is the
 //   arithmetic that says so.**

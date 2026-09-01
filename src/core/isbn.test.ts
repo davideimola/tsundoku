@@ -78,6 +78,13 @@ describe("reading a 10-digit ISBN, which is what an older book prints", () => {
     expect(theIsbnItIs("880451003x")).toEqual({ read: "isbn", isbn: "880451003X" });
   });
 
+  it("takes one in the 977 group, which is Egypt and not a periodical", () => {
+    // The 977 rule below reads a *barcode* prefix, and 977 is also a registration group in
+    // the ISBN space. Read without the length, this refuses a real book — and tells its owner
+    // they are holding a magazine.
+    expect(theIsbnItIs("9770900001")).toEqual({ read: "isbn", isbn: "9770900001" });
+  });
+
   it("refuses one whose check digit does not add up", () => {
     const said = theIsbnItIs("8822632754");
 

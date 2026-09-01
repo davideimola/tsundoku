@@ -62,6 +62,10 @@ describe("the proxy's matcher", () => {
     "/.well-known/oauth-protected-resource/mcp",
     "/favicon.ico",
     "/icon.svg",
+    // The favicon's raster twin, and it has to be out here for a reason the SVG's own
+    // exclusion does not cover: Safari could not read an SVG favicon at all before 26.0, so
+    // this is *the* icon that browser sees — and gated, the tab it draws is empty.
+    "/icon1",
     "/apple-icon",
     "/manifest.webmanifest",
     "/_next/static/chunks/main.js",
@@ -81,6 +85,7 @@ describe("the proxy's matcher", () => {
     "/.well-known-ish",
     "/.well-knownish/anything",
     "/icon.svg.map",
+    "/icon10",
     "/apple-icons",
     "/manifest.webmanifest.bak",
   ])("covers %s, which only looks like an exclusion", (pathname) => {

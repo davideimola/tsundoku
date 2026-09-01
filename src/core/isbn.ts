@@ -74,9 +74,13 @@ export function theIsbnItIs(typed: string): IsbnReading {
     };
   }
 
-  // Before any length: what this barcode *is*. A monthly albo's EAN is 18 digits, an ISSN's
-  // own form is 13, and both start 977 — so the prefix is the question and the length is not.
-  if (given.startsWith("977")) {
+  // Before the *other* lengths: what this barcode is. A monthly albo's EAN is 18 digits, an
+  // ISSN's own form is 13, and both start 977.
+  //
+  // **Ten is excluded, and it is not a nicety**: 977 is also a registration group in the
+  // ISBN space — Egypt — so `9771234567` is a perfectly good ten-digit ISBN, and reading the
+  // prefix without the length would tell its owner they were holding a periodical.
+  if (given.startsWith("977") && given.length !== 10) {
     return {
       read: "not-an-isbn",
       because:

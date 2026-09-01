@@ -60,17 +60,18 @@ export const config = {
   //   - **the build output and the favicon**, which the browser fetches unprompted and
   //     **without credentials**.
   //   - **the icons and the manifest**, for exactly that last reason and no new one.
-  //     `icon.svg`, `apple-icon` and `manifest.webmanifest` are fetched by a browser and by
-  //     an operating system, and a manifest is fetched with credentials *omitted* unless the
-  //     link asks otherwise — so gated they answer `307 /signin`, and the phone silently
-  //     never offers to install the app or draws a generic tile. Nothing under them is
-  //     library data: an application's name and its logo are already on the sign-in screen.
+  //     `icon.svg`, `icon1` — the favicon's raster twin, which is the one Safari can see —
+  //     `apple-icon` and `manifest.webmanifest` are fetched by a browser and by an operating
+  //     system, and a manifest is fetched with credentials *omitted* unless the link asks
+  //     otherwise — so gated they answer `307 /signin`, and the phone silently never offers
+  //     to install the app or draws a generic tile. Nothing under them is library data: an
+  //     application's name and its logo are already on the sign-in screen.
   //
   // Every named path is anchored to a path boundary. Unanchored they would also excuse
   // anything merely *starting* with those letters — `/api/authors`, `/mcp-token`,
   // `/.well-known-ish`, `/icon.svg.map` — which is a wider hole than the reservation: the
   // exclusion is for these paths, not for these prefixes.
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|(?:api/auth|signin|mcp|\\.well-known|icon\\.svg|apple-icon|manifest\\.webmanifest)(?:$|/)).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|(?:api/auth|signin|mcp|\\.well-known|icon\\.svg|icon1|apple-icon|manifest\\.webmanifest)(?:$|/)).*)",
   ],
 };

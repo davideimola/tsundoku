@@ -86,16 +86,27 @@ colour and picks no family: it spends the tokens. `src/app/palette.test.ts` is t
 and it fails when a screen names a colour of its own or when a ground stops being legible.
 
 The mark is `src/components/mark.tsx`, drawn from one geometry that `src/app/icon.svg`
-draws again as the favicon and `src/app/apple-icon.tsx` renders again as the phone's home
-screen icon — that last one *imports* `PILE`, so it cannot drift; `src/components/mark.test.ts`
-is what stops the favicon from doing so.
+draws again as the favicon, `src/app/icon1.tsx` renders again as that favicon's raster twin and
+`src/app/apple-icon.tsx` renders again as the phone's home screen icon — the last two *import*
+`PILE`, so they cannot drift; `src/components/mark.test.ts` is what stops the drawn one from
+doing so.
+
+**The raster twin is not a nicety, and the reason is worth knowing before deleting it**: Safari
+could not read an SVG favicon at all until 26.0 (caniuse, `link-icon-svg`), so on that browser
+`icon.svg` alone is a tab with nothing in it — which is what the owner reported. Two `<link
+rel="icon">`s are offered and each browser takes the type it understands. `favicon.ico` is
+beside them for the fetchers that ask for that path and read no markup at all; it is the one
+icon in the repository that is a committed binary rather than a drawing or an import, and
+therefore the one that can go stale.
 
 **A tab, a home screen and a status bar are outside this cascade**, so they cannot be handed a
 `var()`. The four literals they need are named once in `src/app/outside-the-cascade.ts`, spent
-by `apple-icon.tsx`, `manifest.ts` and the `themeColor` in `layout.tsx`, and pinned to the
-stylesheet's own primitives by `palette.test.ts` — which is what buys that file its exception.
-All three files are excluded from the owner gate by name in `src/proxy.ts`: a phone fetches
-them without a cookie, and gated they answer `307 /signin`.
+by `apple-icon.tsx`, `icon1.tsx`, `manifest.ts` and the `themeColor` in `layout.tsx`, and
+pinned to the stylesheet's own primitives by `palette.test.ts` — which is what buys that file
+its exception. Every one of those addresses is excluded from the owner gate by name in
+`src/proxy.ts` — `favicon.ico`, `icon.svg`, `icon1`, `apple-icon`, `manifest.webmanifest` — and
+`src/proxy.matcher.test.ts` pins each: a phone and a tab fetch them without a cookie, and gated
+they answer `307 /signin`.
 
 ### Where the shelf's colour comes from
 

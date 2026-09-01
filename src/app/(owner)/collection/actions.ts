@@ -8,6 +8,7 @@ import { acquireVolume, catalogueVolume, strikeVolumes } from "@/core/verbs/coll
 import { type CoverLookupReport, type HowToLookUp, lookUpCovers } from "@/core/verbs/cover";
 import { requireOwner } from "@/lib/auth/owner";
 import { whereTheIsbnLeads } from "./identified";
+import { THE_WALLS_FILTERS } from "./panels";
 
 // The write side of the Collection screen, and a thin adapter like the page beside it
 // (ADR-0002): it reads a form, calls one verb, and says what the verb said. No SQL, no
@@ -90,11 +91,21 @@ export async function identify(form: FormData): Promise<void> {
   await requireOwner();
 
   const typed = text(form, "isbn") ?? "";
+
+  // What the owner had narrowed the wall to, carried in the form because a Server Function has
+  // no URL to read it off. It is threaded back into every destination on this screen: a lookup
+  // is navigation over a shelf that is still narrowed underneath.
+  const filters = new URLSearchParams();
+  for (const name of THE_WALLS_FILTERS) {
+    const value = text(form, name);
+    if (value) filters.set(name, value);
+  }
+
   const said = await whatIsOnThisIsbn(typed);
 
   // No `revalidatePath`: nothing was written, and the wall behind the panel is as true as it
   // was a moment ago.
-  redirect(whereTheIsbnLeads(typed, said));
+  redirect(whereTheIsbnLeads(typed, said, filters));
 }
 
 /** Record that a catalogued Volume is in the house. The Collection starts claiming it. */
