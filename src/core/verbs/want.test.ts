@@ -14,7 +14,10 @@ import { openWant, strikeWant } from "./want.ts";
 // anything being written.
 
 beforeEach(async () => {
-  await query("truncate story cascade");
+  // `path` as well as `story`, because one of the things this file asserts is that opening a
+  // Want mints **no route** — and a count over the whole table only says that if the table
+  // starts empty.
+  await query("truncate story, path cascade");
 });
 
 async function slamDunk(): Promise<string> {
@@ -94,6 +97,25 @@ describe("what ends a Want", () => {
 
     expect(await listOpenWants()).toHaveLength(1);
     expect(await theWantOnTheStory(storyId)).toMatchObject({ quiet: false });
+  });
+
+  it("falls quiet for a Reading dated today, because a date has no time of day", async () => {
+    const storyId = await slamDunk();
+    const today = new Date().toISOString().slice(0, 10);
+    await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "typed-from-the-shelf",
+      startedOn: today,
+    });
+
+    await openWant(storyId);
+
+    // The compromise `queries/want.ts` states, pinned rather than left to be discovered: a
+    // Reading that says only *today* is compared by day, so it counts as having begun after a
+    // Want opened today. Read as midnight it would be before every Want opened this morning,
+    // and the afternoon's reading would leave the Want standing on the list.
+    expect(await listOpenWants()).toEqual([]);
   });
 
   it("stands where an undated old Reading was recorded first, that same evening", async () => {

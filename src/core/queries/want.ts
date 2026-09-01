@@ -77,6 +77,11 @@ export async function listOpenWants(): Promise<OpenWant[]> {
   );
 }
 
+// An id is generated and never typed, so a malformed one is the same event as one naming
+// nothing: there is no Want to find. Said here because `where story_id = 'banana'` on a uuid
+// column raises a *syntax* error, which is a 500 rather than an answer.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** The Want standing on one Story, and whether it has fallen quiet. */
 export type WantOnAStory = {
   id: string;
@@ -98,7 +103,7 @@ export type WantOnAStory = {
  * narrative: it is a sentence the owner said about themselves, and the Story is what it names.
  */
 export async function theWantOnTheStory(storyId: string): Promise<WantOnAStory | null> {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storyId)) return null;
+  if (!UUID.test(storyId)) return null;
 
   const [want] = await query<WantOnAStory>(
     `select w.id::text as id, w.opened_at as "openedAt", ${A_READING_BEGAN_AFTER_IT} as quiet

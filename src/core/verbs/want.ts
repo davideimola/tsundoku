@@ -42,6 +42,14 @@ const NO_SUCH_STORY =
  *
  * Refused where a Want on that Story already stands, so the list cannot say *read this* twice
  * for one narrative.
+ *
+ * **One consequence is worth knowing before it is met.** The constraint is one Want per Story
+ * and a Want that has fallen quiet is still a row, so a Story wanted once and read since
+ * cannot be wanted again while that row stands: the second press is refused by a Want the
+ * owner cannot see on the list, and striking the spent one is the way back. That follows from
+ * the schema #34 wrote — quietness is a comparison and there is nothing for a partial index to
+ * be partial on — and the alternative, reopening the quiet row on a second press, is a
+ * decision nobody has written down. It is left alone here rather than invented.
  */
 export async function openWant(storyId: string): Promise<{ id: string }> {
   if (!UUID.test(storyId)) throw new Refusal("not-found", NO_SUCH_STORY);
