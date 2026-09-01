@@ -36,6 +36,13 @@
       "when": 1788212609335,
       "tag": "0004_a_cover_is_hotlinked_and_never_hosted",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788301945588,
+      "tag": "0005_a_want_is_an_open_intention_to_read",
+      "breakpoints": true
     }
   ]
 }

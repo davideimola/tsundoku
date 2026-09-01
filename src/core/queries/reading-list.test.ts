@@ -8,6 +8,7 @@ import { pinToReadingList, unpinFromReadingList } from "../verbs/reading-list.ts
 import { declareSeries, declareSeriesCollected, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
+import { openWant } from "../verbs/want.ts";
 import { openWish } from "../verbs/wish.ts";
 import { composeReadingList } from "./reading-list.ts";
 
@@ -90,6 +91,116 @@ describe("what the Reading list composes itself from", () => {
     expect((await composeReadingList()).map((entry) => entry.story?.title)).toEqual([
       "Lone Wolf and Cub",
     ]);
+  });
+});
+
+describe("what a Want puts on the list", () => {
+  it("puts the Story there with no Path and no Series involved", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+
+    await openWant(storyId);
+
+    const [entry] = await composeReadingList();
+    expect(entry.because).toBe("want");
+    expect(entry.story?.title).toBe("Slam Dunk");
+    expect(entry.path).toBeNull();
+    expect(entry.series).toBeNull();
+    expect(entry.want?.id).toBeTruthy();
+
+    // Said again as the criterion it is: wanting to read something cost a named, ordered
+    // route before this, and now it costs neither a route nor a line.
+    const [{ routes }] = await query<{ routes: string }>("select count(*) as routes from path");
+    expect(routes).toBe("0");
+  });
+
+  it("stays on the list when the Story was read years ago, and calls it nothing special", async () => {
+    const storyId = await createStory({ title: "Berserk", typeId: "manga" });
+    await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "goodreads-history",
+      startedOn: "2019-03-01",
+      endedOn: "2019-04-01",
+      outcome: "finished",
+    });
+
+    await openWant(storyId);
+
+    const [entry] = await composeReadingList();
+    expect(entry.because).toBe("want");
+    expect(entry.story?.title).toBe("Berserk");
+    // A planned reread is an ordinary entry: there is no field anywhere saying it is one,
+    // and the entry carries the same six facts every other entry does.
+    expect(Object.keys(entry).sort()).toEqual(
+      [
+        "atHand",
+        "because",
+        "medium",
+        "object",
+        "path",
+        "pinned",
+        "proposedWish",
+        "series",
+        "story",
+        "want",
+        "wishAlreadyOpen",
+      ].sort()
+    );
+  });
+
+  it("falls quiet once a Reading begins after it, and the ordinary case behaves identically", async () => {
+    const storyId = await createStory({ title: "Vagabond", typeId: "manga" });
+    await openWant(storyId);
+
+    expect(await composeReadingList()).toHaveLength(1);
+
+    await recordReading({ storyId, medium: "digital", provenanceId: "remembered" });
+
+    expect(await composeReadingList()).toEqual([]);
+  });
+
+  it("leads the list, newest Want first, ahead of the routes and the ledger", async () => {
+    const { pathId } = await angoloGiappone();
+    expect(pathId).toBeTruthy();
+    const first = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const second = await createStory({ title: "One-Punch Man", typeId: "manga" });
+
+    await openWant(first);
+    await openWant(second);
+
+    expect((await composeReadingList()).map((entry) => entry.story?.title)).toEqual([
+      "One-Punch Man",
+      "Slam Dunk",
+      "Vagabond",
+    ]);
+  });
+
+  it("follows the object the same way a route's stop does", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const volumeId = await volumeInTheHouse({
+      title: "Slam Dunk 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(volumeId, storyId);
+
+    await openWant(storyId);
+
+    const [entry] = await composeReadingList();
+    expect(entry.medium).toBe("paper");
+    expect(entry.atHand).toBe(true);
+    expect(entry.object?.title).toBe("Slam Dunk 1");
+  });
+
+  it("writes nothing by being read: the row is exactly the one the verb wrote", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    await openWant(storyId);
+
+    await composeReadingList();
+    await composeReadingList();
+
+    expect(await query("select story_id from want")).toEqual([{ story_id: storyId }]);
   });
 });
 
