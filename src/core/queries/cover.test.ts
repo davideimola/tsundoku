@@ -7,7 +7,7 @@ import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import { coverStanding } from "./cover.ts";
-import { listStoryWall } from "./story.ts";
+import { findStory, listStoryWall } from "./story.ts";
 
 // Seam 1. Two questions, and they are separate because they are asked by two different
 // screens: *how far have the covers got* is the Collection's, and *what jacket does this
@@ -145,5 +145,18 @@ describe("the jacket a Story wears on the wall", () => {
 
     const [story] = await listStoryWall();
     expect(story.cover).toBeNull();
+  });
+
+  // And the Story's own page wears the one the wall faced it with (#29). It is the same
+  // borrowing read by a second query, so it is the same fragment: a tile the owner tapped
+  // that arrived showing a different volume's jacket would be the wall lying about where it
+  // led.
+  it("is the same jacket on the Story's own page, because the borrowing is written once", async () => {
+    const story = await aStoryAcross([
+      { title: "One Piece 100", number: 100 },
+      { title: "One Piece 101", number: 101, cover: A_COVER },
+    ]);
+
+    expect((await findStory(story))?.cover).toMatchObject({ url: A_COVER });
   });
 });

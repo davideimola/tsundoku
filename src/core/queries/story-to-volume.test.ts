@@ -4,6 +4,7 @@ import { query } from "../db.ts";
 import { releaseVolume } from "../verbs/collection.ts";
 import { setRating } from "../verbs/rating.ts";
 import { recordReading } from "../verbs/reading.ts";
+import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import {
@@ -18,7 +19,7 @@ import {
 // and the owner's own numbers, because a made-up fixture would prove a shape and these
 // prove the cases.
 beforeEach(async () => {
-  await query("truncate story, volume cascade");
+  await query("truncate story, volume, series cascade");
 });
 
 describe("one Volume holding three Stories: L'uomo che ride", () => {
@@ -124,9 +125,9 @@ describe("one Story across twenty Volumes: Slam Dunk", () => {
     const volumes = await listVolumesCarryingStory(storyId);
 
     expect(volumes).toHaveLength(20);
-    // Ordered by title as text, which puts *Slam Dunk 10* between 1 and 2. The order the
-    // owner means is the position in the line, and that is a Series' fact rather than
-    // this join's — so what is asserted here is that all twenty are there.
+    // These twenty are in no line — nobody placed them — so they fall back to the title,
+    // which puts *Slam Dunk 10* between 1 and 2. What is asserted here is that all twenty
+    // are there; the shelf's own order is asserted below, where there is a line to stand in.
     expect(new Set(volumes.map((volume) => volume.title))).toEqual(
       new Set(Array.from({ length: 20 }, (_, index) => `Slam Dunk ${index + 1}`))
     );
@@ -206,6 +207,76 @@ describe("a Volume the owner released", () => {
     expect(await listVolumesCarryingStory(storyId)).toEqual([
       expect.objectContaining({ title: "Death Note 1", inTheHouse: false }),
     ]);
+  });
+});
+
+// **A Story's carriers are drawn as spines** (#29), which is what a shelf looks like seen
+// from the side — so they arrive in the order they stand in and each one says which line it
+// stands in and where. Twenty tankōbon are one row of colour with the numbers along the foot,
+// and a row that read 1, 10, 11, 2 would be a picture of nobody's shelf.
+describe("the shelf a Story's carriers stand on", () => {
+  /** *Death Note*, carried by three objects of one line, catalogued out of order. */
+  async function deathNote(): Promise<{ storyId: string; seriesId: string }> {
+    const storyId = await createStory({ title: "Death Note", typeId: "manga" });
+    const seriesId = await declareSeries({
+      name: "Death Note",
+      publisher: "Planet Manga",
+      publishedCount: 12,
+      status: "concluded",
+    });
+
+    for (const number of [10, 1, 2]) {
+      const volumeId = await volumeInTheHouse({
+        title: `Death Note ${number}`,
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      });
+      await recordVolumeCarriesStory(volumeId, storyId);
+      await placeVolumeInSeries({ volumeId, seriesId, number });
+    }
+
+    return { storyId, seriesId };
+  }
+
+  it("stands them in the publisher's order, and not in the order a title sorts in", async () => {
+    const { storyId } = await deathNote();
+
+    expect((await listVolumesCarryingStory(storyId)).map((volume) => volume.title)).toEqual([
+      "Death Note 1",
+      "Death Note 2",
+      "Death Note 10",
+    ]);
+  });
+
+  it("says which line each one stands in and where, which is its colour and its number", async () => {
+    const { storyId, seriesId } = await deathNote();
+
+    expect((await listVolumesCarryingStory(storyId))[0]).toMatchObject({
+      seriesId,
+      seriesNumber: 1,
+    });
+  });
+
+  // The ordinary answer rather than a gap, as everywhere else: an object nobody has placed in
+  // a line has no colour to wear and no number to print, and it stands after the ones that do.
+  it("leaves an object in no line without one, and stands it last", async () => {
+    const { storyId } = await deathNote();
+    const loose = await volumeInTheHouse({
+      title: "Death Note Black Edition I",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(loose, storyId);
+
+    const carriers = await listVolumesCarryingStory(storyId);
+
+    expect(carriers.at(-1)).toMatchObject({
+      title: "Death Note Black Edition I",
+      seriesId: null,
+      seriesNumber: null,
+    });
   });
 });
 

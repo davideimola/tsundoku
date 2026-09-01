@@ -79,6 +79,31 @@ export function storyDetail(story: WallStory): string {
 }
 
 /**
+ * The owner's own judgement, as a tile carries it — **and an absence reads as an absence.**
+ *
+ * A Story nobody has judged shows an em dash and says so to a screen reader; a zero would be
+ * a nine-and-a-half's opposite rather than a silence, and this library has sixty-seven
+ * Stories nobody has judged yet. It is the reason a wall of these is worth looking at rather
+ * than a picture of a bookshelf.
+ *
+ * It is here rather than beside the wall because the Story's own page draws the tile the
+ * owner tapped to reach it (#29), foot and all: two spellings of *not rated* would be the
+ * tile saying something different on either side of the tap.
+ */
+export function StoryScore({ of }: { of: number | null }) {
+  if (of === null) {
+    return (
+      <>
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">Not rated</span>
+      </>
+    );
+  }
+
+  return <>{of.toFixed(1)}</>;
+}
+
+/**
  * A Story's state, in the same mono-caps idiom the rest of the app labels things with.
  *
  * Printed plainly rather than as a pill, because it is a derived fact and not a thing

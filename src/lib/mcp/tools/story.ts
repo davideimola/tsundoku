@@ -68,7 +68,12 @@ every Rating with its prose, its scale and its Provenance.
 
 **This is where a Reading's id comes from**, which is what \`reading_finish\` and \`reading_abandon\`
 need: a Reading with no outcome is one still in progress. It is also the honest answer to *"what did I
-think of this?"*, because several Readings of one Story each keep the judgement they carried.`,
+think of this?"*, because several Readings of one Story each keep the judgement they carried.
+
+It carries what the owner's own tile shows as well: the line the objects carrying it stand in, the
+score most recently set, and the address of the jacket — which is a *reference* to somebody else's
+image and never a copy to keep (ADR-0013). A Story has no Series and no ISBN of its own; all three
+are borrowed from the Volumes that carry it.`,
   inputSchema: {
     type: "object",
     properties: {

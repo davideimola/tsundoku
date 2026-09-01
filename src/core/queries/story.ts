@@ -3,6 +3,7 @@ import "server-only";
 import { query } from "../db.ts";
 import type { RatingScale } from "../verbs/rating.ts";
 import type { Medium, Outcome } from "../verbs/reading.ts";
+import { THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN } from "./collection.ts";
 import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
 
 // What the owner and an external reader ask about a Story.
@@ -114,6 +115,78 @@ export type Story = {
   standaloneRatings: StoryRating[];
 };
 
+/**
+ * The line a Story stands in, as the tile on the wall wears it.
+ *
+ * A Story does not have a Series — objects do (ADR-0001) — so this is derived across the
+ * many-to-many: the Series of the Volumes that carry it. `null` is the ordinary answer and
+ * not a gap, because a Story read digitally or borrowed is carried by no object at all.
+ */
+export type WallSeries = { id: string; name: string; editionLine: string | null };
+
+/**
+ * The score the owner set most recently, written once.
+ *
+ * Three readers ask for it — the index an assistant reads, the wall the owner looks at, and
+ * the foot of the tile a Story's own page draws (#29) — and
+ * a second copy of these five lines would be a second answer to *what did I think of this*.
+ * The same rule `STORY_STATE` is exported under, for the same reason. It names the Story
+ * `s`, so a statement using it joins `story s`.
+ */
+const LATEST_SCORE = `
+  (select g.score::float8
+     from rating g
+    where g.story_id = s.id
+    order by g.set_at desc
+    limit 1)`;
+
+// **The two facts a Story borrows, and they are borrowed twice each.**
+//
+// A Story has no Series and no ISBN of its own, because a Story is not an object
+// (ADR-0001) — so the line it stands in and the jacket it is faced with are the *Volumes'*,
+// reached across the many-to-many. Both are read by the wall, which faces seventy-seven
+// tiles outwards, and by the Story's own page, which draws the one tile the owner tapped to
+// get there (#29). Written once for that reason: a tile that changed colour or changed
+// picture on the way in would be the wall lying about where it led.
+
+// Which line a Story stands in, when it stands in more than one.
+//
+// *Fullmetal Alchemist* runs in the standard printing and in the Ultimate Deluxe Edition,
+// and a tile has one colour — so one is picked, and **the pick is total**: name, then
+// edition with the standard printing first, then id. That is the order `queries/series.ts`
+// reads two Series of one name in, and the id at the end is what makes it a tie-break
+// rather than a preference of the planner's. A colour that depended on which row Postgres
+// reached first would be a shelf that repainted itself between two page loads.
+const THE_LINE_IT_STANDS_IN = `
+  (select jsonb_build_object('id', se.id, 'name', se.name, 'editionLine', se.edition_line)
+     from volume_story vs
+     join volume v  on v.id = vs.volume_id
+     join series se on se.id = v.series_id
+    where vs.story_id = s.id
+    order by lower(se.name), se.edition_line nulls first, se.id
+    limit 1)`;
+
+// Which of a Story's Volumes lends it a jacket, when several could.
+//
+// **A Story has no cover of its own, because a Story is not an object** (ADR-0001). *Slam
+// Dunk* is one narrative across twenty tankōbon, and the picture a shelf shows for it is the
+// first of them — which is what a bookshop does, and what the owner would point at. So the
+// borrowing is: the Volumes carrying this Story, in the order they stand on the shelf, and
+// the first one that is faced with anything.
+//
+// **The pick is total**, like the line it stands in above, and it is the order the Story's own
+// page stands those same objects up in — one fragment, in `queries/collection.ts`, because a
+// jacket picked in one order beside a shelf drawn in another would be a page disagreeing with
+// itself.
+const THE_COVER_IT_IS_FACED_OUT_WITH = `
+  (select ${THE_COVER_IT_IS_FACED_WITH}
+     from volume_story vs
+     join volume v on v.id = vs.volume_id
+    where vs.story_id = s.id
+      and (v.own_image_url is not null or v.cover_url is not null)
+    ${THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN}
+    limit 1)`;
+
 // The Rating shape, as a subquery builds it. `score` leaves as a double rather than as
 // `numeric`, which the driver would hand over as a string.
 const RATING = `
@@ -136,8 +209,13 @@ const RATING = `
 // The whole of a Story, written once. Two questions ask for it — *show me this one* and
 // *what have I read* — and they differ only in the `where`, so the shape and the
 // derivation live here rather than in each of them.
-const WHOLE_STORY = `
-  select
+//
+// The select list and the `from` are two constants rather than one because a third reader
+// arrived that wants **more** than this shape: the Story's own page draws the tile the owner
+// tapped, so it asks for the line and the jacket as well (`findStory`). Splitting the
+// statement is what lets it add two columns without the corpus an assistant recommends from
+// growing a jacket URL it has no use for.
+const STORY_COLUMNS = `
     s.id,
     s.title,
     jsonb_build_object('id', t.id, 'name', t.name) as type,
@@ -172,7 +250,16 @@ const WHOLE_STORY = `
              where g.reading_id = r.id
           )
         )
-        order by r.started_on desc nulls last, r.created_at desc
+        -- **What is open leads.** The same judgement STORY_STATE makes one screen up: an
+        -- open Reading wins over a finished one, because it is what is happening to the Story
+        -- now rather than what happened to it. It matters because the day a Reading started
+        -- is optional and routinely absent — the owner opens one from their own screen and
+        -- leaves the date empty, since that it is open is the fact — and ordering by the day
+        -- alone would drop the book in their hands under a Reading from 2019. Below it, newest
+        -- first by the day it began, and a Reading nobody recorded a day for after the ones
+        -- with one: a Goodreads import full of dateless acts must not crowd out the history
+        -- that has dates.
+        order by (r.outcome is null) desc, r.started_on desc nulls last, r.created_at desc
       )
         from reading r
         join provenance rp on rp.id = r.provenance_id
@@ -183,9 +270,14 @@ const WHOLE_STORY = `
         from rating g
         join provenance gp on gp.id = g.provenance_id
        where g.story_id = s.id and g.reading_id is null
-    ), '[]'::jsonb) as "standaloneRatings"
+    ), '[]'::jsonb) as "standaloneRatings"`;
+
+/** Where a Story is read from. Named beside the columns, because the two are one statement. */
+const A_STORY = `
   from story s
   join type t on t.id = s.type_id`;
+
+const WHOLE_STORY = `select ${STORY_COLUMNS} ${A_STORY}`;
 
 // A Story's id is generated, so nobody types one: what arrives here came from a screen or
 // from an assistant reading the library over MCP. A malformed one is the same event as an
@@ -195,10 +287,40 @@ const WHOLE_STORY = `
 // has.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function findStory(storyId: string): Promise<Story | null> {
+/**
+ * One Story, as its own page draws it: the whole of it, plus the two facts it borrows from
+ * the objects carrying it.
+ *
+ * The page is a detail screen and still wears the shelf's vocabulary — the tile the owner
+ * tapped on the wall is drawn again at its head (#29) — and a tile is a tint and a jacket.
+ * Neither is a Story's own (ADR-0001), so both come off the Volumes, by the derivations the
+ * wall reads.
+ */
+export type FoundStory = Story & {
+  /** The line the objects carrying it stand in, or `null` where none does. */
+  series: WallSeries | null;
+  /** The jacket it is faced with, borrowed off the first Volume that has one. */
+  cover: FacedWith | null;
+  /**
+   * The score at the tile's foot, which is the third thing the wall's tile carries — and the
+   * same one, off the same fragment, so the tile does not change what it says on the way in.
+   * The stack below it is the whole story of the judgements; this is what the tile can fit.
+   */
+  latestScore: number | null;
+};
+
+export async function findStory(storyId: string): Promise<FoundStory | null> {
   if (!UUID.test(storyId)) return null;
 
-  const rows = await query<Story>(`${WHOLE_STORY} where s.id = $1`, [storyId]);
+  const rows = await query<FoundStory>(
+    `select ${STORY_COLUMNS},
+            ${THE_LINE_IT_STANDS_IN} as series,
+            ${THE_COVER_IT_IS_FACED_OUT_WITH} as cover,
+            ${LATEST_SCORE} as "latestScore"
+     ${A_STORY}
+     where s.id = $1`,
+    [storyId]
+  );
 
   return rows[0] ?? null;
 }
@@ -224,21 +346,6 @@ export async function findStory(storyId: string): Promise<Story | null> {
 export async function listReadStories(): Promise<Story[]> {
   return query<Story>(`${WHOLE_STORY} where ${STORY_STATE} = 'read' order by s.title`);
 }
-
-/**
- * The score the owner set most recently, written once.
- *
- * Two lists ask for it — the index an assistant reads and the wall the owner looks at — and
- * a second copy of these five lines would be a second answer to *what did I think of this*.
- * The same rule `STORY_STATE` is exported under, for the same reason. It names the Story
- * `s`, so a statement using it joins `story s`.
- */
-const LATEST_SCORE = `
-  (select g.score::float8
-     from rating g
-    where g.story_id = s.id
-    order by g.set_at desc
-    limit 1)`;
 
 /** A Story as a list shows it: enough to choose one, and nothing more. */
 export type StorySummary = {
@@ -273,15 +380,6 @@ export async function listStories(): Promise<StorySummary[]> {
   );
 }
 
-/**
- * The line a Story stands in, as the tile on the wall wears it.
- *
- * A Story does not have a Series — objects do (ADR-0001) — so this is derived across the
- * many-to-many: the Series of the Volumes that carry it. `null` is the ordinary answer and
- * not a gap, because a Story read digitally or borrowed is carried by no object at all.
- */
-export type WallSeries = { id: string; name: string; editionLine: string | null };
-
 /** A Story as the wall shows it: what is drawn on the tile, and what colours it. */
 export type WallStory = {
   id: string;
@@ -314,23 +412,6 @@ export type StoryWallFilter = {
   typeId?: string;
 };
 
-// Which line a Story stands in, when it stands in more than one.
-//
-// *Fullmetal Alchemist* runs in the standard printing and in the Ultimate Deluxe Edition,
-// and a tile has one colour — so one is picked, and **the pick is total**: name, then
-// edition with the standard printing first, then id. That is the order `queries/series.ts`
-// reads two Series of one name in, and the id at the end is what makes it a tie-break
-// rather than a preference of the planner's. A colour that depended on which row Postgres
-// reached first would be a shelf that repainted itself between two page loads.
-const THE_LINE_IT_STANDS_IN = `
-  (select jsonb_build_object('id', se.id, 'name', se.name, 'editionLine', se.edition_line)
-     from volume_story vs
-     join volume v  on v.id = vs.volume_id
-     join series se on se.id = v.series_id
-    where vs.story_id = s.id
-    order by lower(se.name), se.edition_line nulls first, se.id
-    limit 1)`;
-
 // The state, derived once per row rather than twice.
 //
 // This wall both *reports* the state and *narrows* by it, and interpolating the expression
@@ -338,26 +419,6 @@ const THE_LINE_IT_STANDS_IN = `
 // for the one answer. Joined laterally, which is how `queries/series.ts` computes a Series'
 // missing Volumes for the three questions that read it — same shape, same reason.
 const STATE_ONCE = `cross join lateral (select ${STORY_STATE} as state) derived`;
-
-// Which of a Story's Volumes lends it a jacket, when several could.
-//
-// **A Story has no cover of its own, because a Story is not an object** (ADR-0001). *Slam
-// Dunk* is one narrative across twenty tankōbon, and the picture a shelf shows for it is the
-// first of them — which is what a bookshop does, and what the owner would point at. So the
-// borrowing is: the Volumes carrying this Story, in the order they stand on the shelf, and
-// the first one that is faced with anything.
-//
-// **The pick is total**, like the line it stands in above: the position in the Series, then
-// the title, then the object's own id. A wall whose jacket depended on which row Postgres
-// reached first would change its picture between two loads of the same page.
-const THE_COVER_IT_IS_FACED_OUT_WITH = `
-  (select ${THE_COVER_IT_IS_FACED_WITH}
-     from volume_story vs
-     join volume v on v.id = vs.volume_id
-    where vs.story_id = s.id
-      and (v.own_image_url is not null or v.cover_url is not null)
-    order by v.series_number nulls last, lower(v.title), v.id
-    limit 1)`;
 
 /**
  * The Stories as a wall shows them — narrowed, and each carrying the line it stands in.

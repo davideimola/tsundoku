@@ -3,6 +3,7 @@ import "server-only";
 import { query } from "../db.ts";
 import type { ProposedWish } from "../verbs/wish.ts";
 import { IN_THE_HOUSE } from "./collection.ts";
+import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
 import { nextUnreadOnActivePaths } from "./path.ts";
 import { listMissingVolumes, type SeriesLedger } from "./series.ts";
 import type { StoryType } from "./story.ts";
@@ -51,6 +52,19 @@ export type ReadingListObject = {
   binding: { id: string; name: string };
   /** Whether the Collection claims it right now (ADR-0007). */
   inTheHouse: boolean;
+  /**
+   * **The three facts the tile beside the entry is drawn from** (#29).
+   *
+   * The list is read as a shelf now rather than as rows, so an entry carries the same tile
+   * the walls are laid out as: the line the object stands in is what tints it, the position
+   * is the number at its foot, and the jacket is what covers the drawn one where a lookup
+   * found one. All three are the *object's* — a Story has no Series and no ISBN of its own
+   * (ADR-0001) — and all three are `null` for an object nobody has placed in a line or
+   * looked a cover up for, which is the ordinary answer and not a gap.
+   */
+  seriesId: string | null;
+  seriesNumber: number | null;
+  cover: FacedWith | null;
 };
 
 // A proposal is a `ProposedWish` from `verbs/wish.ts` and not a shape of this file's,
@@ -285,7 +299,13 @@ const CARRIER = `
     'publisher', v.publisher,
     'editionLine', v.edition_line,
     'binding', jsonb_build_object('id', b.id, 'name', b.name),
-    'inTheHouse', ${IN_THE_HOUSE}
+    'inTheHouse', ${IN_THE_HOUSE},
+    'seriesId', v.series_id,
+    'seriesNumber', v.series_number,
+    -- The jacket, by the fallback chain the core resolves once in queries/cover.ts: the
+    -- owner's own photograph over the looked-up cover, so the three walls and this list
+    -- cannot each decide it differently.
+    'cover', ${THE_COVER_IT_IS_FACED_WITH}
   ) as object,
   exists (select 1 from wish w where w.volume_id = v.id and w.closed_on is null)
     as "wishAlreadyOpen"`;

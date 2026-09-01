@@ -10,7 +10,7 @@ import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import { cn } from "@/lib/utils";
-import { bandName, stateWord, storyDetail, WALL_STATES } from "./story-state";
+import { bandName, StoryScore, stateWord, storyDetail, WALL_STATES } from "./story-state";
 
 // THE STORY WALL, and the screen where **the state stopped being a label at the end of a
 // row and became the axis of the application** (#22).
@@ -177,7 +177,7 @@ function Band({ state, stories }: { state: StoryState; stories: WallStory[] }) {
               title={story.title}
               tint={tint(story.series?.id)}
               detail={storyDetail(story)}
-              foot={<Score of={story.latestScore} />}
+              foot={<StoryScore of={story.latestScore} />}
               // Borrowed off the first Volume that carries it: a Story is a narrative and has
               // no ISBN of its own, so the jacket it wears is an object's (ADR-0001, #32).
               image={story.cover}
@@ -211,27 +211,6 @@ function emptily(typeId: string | undefined, state: StoryState | undefined, type
   // Unreachable — the caller asks only when something is narrowed — and answered rather
   // than thrown, because an empty wall is never the place to raise.
   return NOTHING_YET;
-}
-
-/**
- * The owner's own judgement, on the tile — the reason a wall of these is worth looking at
- * rather than a picture of a bookshelf.
- *
- * **An absence reads as an absence.** A Story nobody has judged shows an em dash and says
- * so to a screen reader; a zero would be a nine-and-a-half's opposite rather than a silence,
- * and this library has sixty-seven Stories nobody has judged yet.
- */
-function Score({ of }: { of: number | null }) {
-  if (of === null) {
-    return (
-      <>
-        <span aria-hidden="true">—</span>
-        <span className="sr-only">Not rated</span>
-      </>
-    );
-  }
-
-  return <>{of.toFixed(1)}</>;
 }
 
 /** One axis of the narrowing: what it is called, and the values it offers. */

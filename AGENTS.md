@@ -113,11 +113,15 @@ tile without reflowing a single wall.
 
 Two other things wear a tint, and each is a different view of the same object: the lying-down
 spine the pile is stacked from (`src/components/pile.tsx`), because a pile is read from the
-side, and the **standing** spine a Series is drawn as
-(`src/app/(owner)/series/spines.tsx`), because a shelf is. A wall is faced outwards and gets
-the cover; a Series' sequence — thirty positions with two notches taken out of them — gets
-spines, which is what makes a 72-volume ledger one screen instead of six. How a tile wears a
-tint is `worn()`/`WORN` in `src/lib/tint.ts` and never each tile's own three lines.
+side, and the **standing** spine of `src/components/spine.tsx`, because a shelf is read from
+it. A wall is faced outwards and gets the cover; a *sequence* of objects gets spines, which
+is what makes a 72-volume ledger one screen instead of six and twenty tankōbon one row
+instead of twenty. Two screens draw that one: a Series' positions
+(`src/app/(owner)/series/spines.tsx`, which keeps only what a *position* means — held,
+missing, or merely empty) and the objects carrying a Story
+(`src/app/(owner)/stories/[id]/page.tsx`, where hollow means the house does not hold it).
+How a tile wears a tint is `worn()`/`WORN` in `src/lib/tint.ts` and never each tile's own
+three lines.
 
 ### Where a cover comes from, and what may be kept of it
 
@@ -163,8 +167,15 @@ scripted-half-with-an-unscripted-twin (ADR-0010), and it is available here only 
 that. What it buys: the open drawer is linkable, it survives a refresh, and the back button
 closes it because that is what going back means.
 
+A Story's page is the second one (#29), and it says something the first could not: **an act
+that needs a field is a panel of its own, not a second submit button.** Starting a Reading,
+finishing one and giving up on one are three addresses and three plain forms, because a
+`formAction` on a second submit needs a script to send the right one — and a write that only
+works once a bundle has parsed is not a write this application has.
+
 Two rules for adding one. **Read the panel against a list**, the way every filter on a wall
-is read — `?panel=banana` opens nothing. And **carry the screen's other parameters through**:
+is read — `?panel=banana` opens nothing, and neither does a `?reading=` naming no Reading of
+this Story. And **carry the screen's other parameters through**:
 opening a drawer must not take the owner's search filters off on the way, and closing it must
 put them back. `panelled()`/`unpanelled()` on the Collection are that, and they deliberately
 drop the answer to the *last write*, so a report is not printed again over an act nobody just
@@ -178,7 +189,10 @@ handful of decisions the owner actually takes, and names each one; `find/kinds.t
 each kind of record the finder reaches is called and where enter lands on it;
 `series/positions.ts` says what each position of a Series is — held, missing, or merely empty
 — which is the one place the difference between *missing* and *not mine yet* is decided;
-`stories/story-state.tsx` and `reading-list/entry.ts` are the same thing at a smaller size. It is the screen's because
+`stories/readings.ts` says how an act of reading is worded and **which one of them is still
+open**, which is what puts *start it* or *close it* in a Story's hero and is read off
+`outcome` in one place rather than three; `stories/story-state.tsx` and
+`reading-list/entry.ts` are the same thing at a smaller size. It is the screen's because
 banding is the screen's (see the next section), and it is a *file* rather than a lump inside
 `page.tsx` because it can then be tested beside itself — which `vitest.config.ts` licenses in
 the same sentence it licenses the tint and the gate's predicate, under the same rule: data in,

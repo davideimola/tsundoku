@@ -472,3 +472,75 @@ describe("where the Reading list is stored", () => {
     ]);
   });
 });
+
+// **The list gained the shelf's vocabulary** (#29). An entry is drawn as the tile the walls
+// are laid out as, so it carries the two facts a tile is made of: the line the object stands
+// in, which is what tints it and which number it wears at the foot, and the jacket it is
+// faced with. All three are the **object's**, because a Story has no Series and no ISBN of
+// its own (ADR-0001) — and they come off the object the entry already named rather than from
+// a second pick nobody can see, which is what stops the tile from showing one edition while
+// the row names another.
+describe("what an entry's tile is drawn from", () => {
+  /** *Vagabond*, on a route, carried by an object of a Series the owner is collecting. */
+  async function carriedByAVolumeInALine(): Promise<{ seriesId: string; volumeId: string }> {
+    const { stories } = await angoloGiappone();
+    const volumeId = await volumeInTheHouse({
+      title: "Vagabond 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    const seriesId = await declareSeries({
+      name: "Vagabond",
+      publisher: "Planet Manga",
+      publishedCount: 37,
+      status: "concluded",
+    });
+    await recordVolumeCarriesStory(volumeId, stories[0]);
+    await placeVolumeInSeries({ volumeId, seriesId, number: 1 });
+
+    return { seriesId, volumeId };
+  }
+
+  it("carries the line the object stands in and the position it stands at", async () => {
+    const { seriesId } = await carriedByAVolumeInALine();
+
+    const [entry] = await composeReadingList();
+
+    expect(entry.object?.seriesId).toBe(seriesId);
+    expect(entry.object?.seriesNumber).toBe(1);
+  });
+
+  it("carries the jacket the object is faced with", async () => {
+    const { volumeId } = await carriedByAVolumeInALine();
+    await query(
+      `update volume set cover_source = 'google-books', cover_url = $2, cover_looked_up_at = now()
+        where id = $1`,
+      [volumeId, "https://books.google.com/books/content?id=njT&img=1&zoom=5"]
+    );
+
+    const [entry] = await composeReadingList();
+
+    expect(entry.object?.cover).toMatchObject({
+      url: "https://books.google.com/books/content?id=njT&img=1&zoom=5",
+    });
+  });
+
+  // The ordinary answer and not a gap, the same one the walls get: an object nobody has
+  // placed in a line has no colour to wear and no number to print, and the tile drawn for it
+  // falls back to the palette's own paper.
+  it("stands in no line and is faced with nothing where the object is in neither", async () => {
+    const { stories } = await angoloGiappone();
+    const volumeId = await volumeInTheHouse({
+      title: "Vagabond 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(volumeId, stories[0]);
+
+    const [entry] = await composeReadingList();
+
+    expect(entry.object).toMatchObject({ seriesId: null, seriesNumber: null, cover: null });
+  });
+});

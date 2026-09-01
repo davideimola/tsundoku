@@ -64,8 +64,11 @@ import { defineConfig } from "vitest/config";
 // `src/app/(owner)/inbox/decisions.ts`, which bands a few hundred waiting Inbox entries
 // into the handful of decisions the owner actually takes and names them,
 // `src/app/(owner)/find/kinds.ts`, which says what each kind of record is called and where
-// enter lands on it, and `src/app/(owner)/collection/covers-found.ts`, which turns a cover
-// run's six numbers into the clauses the owner reads.
+// enter lands on it, `src/app/(owner)/collection/covers-found.ts`, which turns a cover
+// run's six numbers into the clauses the owner reads, `src/app/(owner)/stories/readings.ts`,
+// which says how an act of reading is worded and which one of them is still open — the
+// predicate the acts on a Story's page hang off — and `src/app/(owner)/reading-list/entry.ts`,
+// which says what a composed entry is called, where its tile leads and what its foot carries.
 //
 // It is the same rule and not a wider one: data in, data out, a function
 // this application would still have if React were replaced, and never a component, a render

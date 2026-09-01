@@ -143,6 +143,65 @@ describe("rereading a Story", () => {
   });
 });
 
+// **What is open leads the stack**, and it is the same judgement `STORY_STATE` already makes
+// one screen up: an open Reading wins over a finished one, because it is what is happening to
+// the Story now. It matters because the day a Reading started is optional and routinely
+// absent — the owner opens one from their own screen and leaves the date empty, since *that
+// it is open* is the fact — and ordering by the date alone would drop the thing in their hands
+// to the bottom of the stack, under a Reading from 2019.
+describe("the order a Story's Readings are stacked in", () => {
+  it("puts the Reading that is open first, whether or not it has a day", async () => {
+    const storyId = await createStory({ title: "Vinland Saga", typeId: "manga" });
+
+    await finishReading(
+      await recordReading({
+        storyId,
+        medium: "paper",
+        startedOn: "2019-01-01",
+        provenanceId: "remembered",
+      }),
+      "2019-02-01"
+    );
+    const open = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    expect((await findStory(storyId))?.readings.map((reading) => reading.id)[0]).toBe(open);
+  });
+
+  // Below the open one, the settled Readings are newest first by the day they began, and a
+  // Reading nobody recorded a day for stands after the ones with one: a Goodreads import full
+  // of dateless acts must not crowd out the dated history.
+  it("stacks what has ended newest first, and the dateless after the dated", async () => {
+    const storyId = await createStory({ title: "Pluto", typeId: "manga" });
+
+    const dateless = await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "goodreads-history",
+    });
+    await finishReading(dateless);
+    const older = await recordReading({
+      storyId,
+      medium: "paper",
+      startedOn: "2018-03-01",
+      provenanceId: "remembered",
+    });
+    await finishReading(older, "2018-04-01");
+    const newer = await recordReading({
+      storyId,
+      medium: "paper",
+      startedOn: "2024-05-01",
+      provenanceId: "remembered",
+    });
+    await finishReading(newer, "2024-06-01");
+
+    expect((await findStory(storyId))?.readings.map((reading) => reading.id)).toEqual([
+      newer,
+      older,
+      dateless,
+    ]);
+  });
+});
+
 describe("the Stories, listed", () => {
   it("carry their Type, their state and their best-known score", async () => {
     const read = await createStory({ title: "Pluto", typeId: "manga" });
@@ -504,5 +563,58 @@ describe("the Story wall", () => {
       "Monster",
       "Zeru",
     ]);
+  });
+});
+
+// The Story's own page draws the tile it was tapped as on the wall (#29), and that tile is
+// two facts a Story does not itself carry: the line it stands in, and the jacket it is faced
+// with. Both are borrowed across the many-to-many from the Volumes carrying it — a narrative
+// is not an object and has no Series and no ISBN of its own (ADR-0001) — and both are the
+// **same** derivation the wall reads. A tile that changed colour on the way in would be a
+// different Story as far as the eye is concerned, which is the whole reason it is asserted
+// here rather than left to look right.
+describe("the Story, faced as its own page draws it", () => {
+  it("carries the line it stands in, the same one the wall tints it with", async () => {
+    const storyId = await createStory({ title: "Vinland Saga", typeId: "manga" });
+    const volumeId = await volumeInTheHouse({
+      title: "Vinland Saga 1",
+      publisher: "Star Comics",
+      binding: "tankobon",
+      language: "it",
+    });
+    const seriesId = await declareSeries({
+      name: "Vinland Saga",
+      publisher: "Star Comics",
+      publishedCount: 27,
+      status: "ongoing",
+    });
+    await recordVolumeCarriesStory(volumeId, storyId);
+    await placeVolumeInSeries({ volumeId, seriesId, number: 1 });
+
+    const [found, onTheWall] = [await findStory(storyId), await listStoryWall()];
+
+    expect(found?.series).toEqual({ id: seriesId, name: "Vinland Saga", editionLine: null });
+    expect(found?.series).toEqual(onTheWall[0].series);
+  });
+
+  // The third thing the tile carries, and the same one: the tile the owner tapped on the wall
+  // is the tile drawn at the head of the page it opens, so the number at its foot cannot be a
+  // different reading of *what did I think of this*.
+  it("carries the score at the tile's foot, the same one the wall prints", async () => {
+    const storyId = await createStory({ title: "Pluto", typeId: "manga" });
+    await setRating({ storyId, score: 6, provenanceId: "goodreads-history" });
+    await setRating({ storyId, score: 9, provenanceId: "remembered" });
+
+    expect((await findStory(storyId))?.latestScore).toBe((await listStoryWall())[0].latestScore);
+    expect((await findStory(storyId))?.latestScore).toBe(9);
+  });
+
+  // The ordinary answer rather than a gap, exactly as it is on the wall: a Story read
+  // digitally or borrowed is carried by no object at all, so there is no line to stand in and
+  // nothing to be faced with. The tile that draws it falls back to the palette's own paper.
+  it("stands in no line and is faced with nothing where no Volume carries it", async () => {
+    const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
+
+    expect(await findStory(storyId)).toMatchObject({ series: null, cover: null });
   });
 });

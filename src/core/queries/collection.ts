@@ -19,6 +19,23 @@ export const IN_THE_HOUSE = `
            where a.volume_id = v.id and a.released_on is null)`;
 
 /**
+ * **The order a run of objects stands in**, as SQL: the position in the line first, an object
+ * in no line last, then the title and the object's own id.
+ *
+ * Exported for the reason `IN_THE_HOUSE` above it is. Two questions about *one narrative's*
+ * objects ask it — which of them lends the Story its jacket (`queries/story.ts`) and which
+ * order the Story's page stands them up in (`queries/story-to-volume.ts`) — and a jacket
+ * picked in one order beside a shelf drawn in another would be a page disagreeing with
+ * itself. It is total at every level, so it cannot depend on which row Postgres reached
+ * first, and it names the Volume `v`.
+ *
+ * It is not `THE_ORDER_THE_SHELF_STANDS_IN` further down this file: that one is the whole
+ * Collection wall, grouped by Series and reaching for `se`. This is a run of objects already
+ * known to belong together.
+ */
+export const THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN = `order by v.series_number nulls last, lower(v.title), v.id`;
+
+/**
  * One Volume as the Collection shows it: everything about the object, and nothing about
  * the narrative.
  *

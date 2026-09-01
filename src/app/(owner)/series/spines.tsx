@@ -1,8 +1,6 @@
-import Link from "next/link";
-
+import { Spine } from "@/components/spine";
 import type { SeriesLedger, SeriesVolume } from "@/core/queries/series";
-import { type Tint, tint, UNWORN, WORN, worn } from "@/lib/tint";
-import { cn } from "@/lib/utils";
+import { type Tint, tint } from "@/lib/tint";
 
 import { type Position, positionsOf, standingSaid, whatTheFillMeans } from "./positions";
 
@@ -26,6 +24,11 @@ import { type Position, positionsOf, standingSaid, whatTheFillMeans } from "./po
 // It names no colour: the tint is the library's own, a function of the Series' identity, and
 // the wiring by which a tile wears one is `@/lib/tint`'s — shared with the cover and the
 // pile, so an untinted spine here cannot come to sit on a different ground than one there.
+//
+// **The drawing left this file in #29** and is `@/components/spine`, because a Story's page
+// draws the objects carrying a narrative the same way and two spines drawn from two files
+// would drift. What stays here is the only half that is a Series': what a *position* is, and
+// where one leads.
 //
 // What each position **is** — held, missing, or merely empty — is `./positions.ts`, tested
 // beside itself, because the difference between *missing* and *empty* is a claim about the
@@ -66,7 +69,7 @@ export function Spines({
       <ol className="flex flex-wrap gap-1" aria-label="The positions of this Series">
         {positions.map((position) => (
           <li key={position.number}>
-            <Spine position={position} tint={colour} />
+            <SeriesSpine position={position} tint={colour} />
           </li>
         ))}
       </ol>
@@ -88,91 +91,34 @@ export function Spines({
 }
 
 /**
- * One spine, standing.
+ * One position of the Series, as a spine.
  *
- * Narrow and tall, with the title read up the spine and the position at the foot, which is
- * where both are on the object itself. A position the house holds is a **link to the object**
- * — the drawing is a way onto the shelf as well as a picture of it — and a gap is not,
- * because there is nothing there to open.
- *
- * The two states are told apart by fill: a spine wears the Series' colour, a gap is a dashed
- * outline over the page's own ground. The sentence under the spines says which is which, and
- * every spine carries the same thing as a label, so the fill is never the only way to read
- * it.
+ * The drawing is `@/components/spine` — it stands on the Story's page too, over the objects
+ * carrying a narrative (#29) — and what is left here is the only part that is a Series':
+ * **what the position means**. A position the house holds is a link to the object, so the
+ * ledger is a way onto the shelf as well as a picture of it; a gap is not, because there is
+ * nothing there to open.
  */
-function Spine({ position, tint }: { position: Position; tint: Tint | null }) {
+function SeriesSpine({ position, tint }: { position: Position; tint: Tint | null }) {
   const held = position.standing === "held";
   // The object standing here, where the caller read the objects at all: what makes this spine
   // a way onto the shelf rather than only a picture of it.
   const leadsTo = held ? position.volume : null;
-  const said = [
-    position.volume?.title,
-    `${position.number} of the Series`,
-    standingSaid(position.standing),
-  ]
-    .filter(Boolean)
-    .join(" — ");
-
-  const shape = cn(
-    // A spine's proportions, and tall enough that a title read up it is a title rather than
-    // a hint. 44px is not on offer at this width — a row of them would be a wall — and
-    // what buys that is the same thing that buys the pile's 28px: the object is one tap
-    // away as a cover on the Collection wall, at the size a thumb wants.
-    "flex h-24 w-7 flex-col items-center justify-between overflow-hidden rounded-sm p-1 sm:h-28 sm:w-8",
-    "font-mono text-eyebrow tabular-nums",
-    held
-      ? cn("border border-border text-foreground", tint ? WORN : UNWORN)
-      : // Dashed, quiet and empty: a gap is the absence of an object and is drawn as one.
-        "border border-dashed border-foreground/30 text-muted-foreground"
-  );
-
-  const inside = (
-    <>
-      <span className="min-h-0 flex-1">
-        {position.volume ? (
-          // Read up the spine, the way it is printed on the object: bottom to top, clipped
-          // at the height of the spine rather than wrapped, since a spine has one line.
-          <span className="block h-full rotate-180 overflow-hidden font-heading text-eyebrow font-medium [text-orientation:mixed] [writing-mode:vertical-rl]">
-            {position.volume.title}
-          </span>
-        ) : null}
-      </span>
-      <span>{position.number}</span>
-    </>
-  );
-
-  if (!leadsTo) {
-    // `title` rather than a legend, as before: what a pointer gets. `role="img"` because
-    // that is what this is — a drawing of a position, whose number is inside the label —
-    // and it is what lets the label stand on an element that leads nowhere.
-    return (
-      <span
-        role="img"
-        title={said}
-        aria-label={said}
-        style={worn(held ? tint : null)}
-        className={shape}
-      >
-        {inside}
-      </span>
-    );
-  }
 
   return (
-    <Link
-      href={`/collection/${leadsTo.id}`}
-      title={said}
-      aria-label={said}
-      style={worn(tint)}
-      className={cn(
-        shape,
-        "outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        // Coming up out of the row, the way a book is taken off a shelf — and only where
-        // the owner has not asked things to stay still.
-        "motion-safe:transition-transform motion-safe:hover:-translate-y-1"
-      )}
-    >
-      {inside}
-    </Link>
+    <Spine
+      href={leadsTo ? `/collection/${leadsTo.id}` : undefined}
+      title={position.volume?.title}
+      foot={position.number}
+      tint={tint}
+      held={held}
+      detail={[
+        position.volume?.title,
+        `${position.number} of the Series`,
+        standingSaid(position.standing),
+      ]
+        .filter(Boolean)
+        .join(" — ")}
+    />
   );
 }

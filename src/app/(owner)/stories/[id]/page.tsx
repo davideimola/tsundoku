@@ -1,46 +1,108 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+import { Cover } from "@/components/cover";
+import { Drawer, OpensDrawer } from "@/components/drawer";
+import { Spine } from "@/components/spine";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { searchCollection } from "@/core/queries/collection";
+import { type CollectionVolume, searchCollection } from "@/core/queries/collection";
 import { type CreditRole, listCreditRoles } from "@/core/queries/credit";
-import type { StoryCredit, StoryRating, StoryReading } from "@/core/queries/story";
+import type { FoundStory, StoryCredit, StoryRating, StoryReading } from "@/core/queries/story";
 import { findStory } from "@/core/queries/story";
-import { listVolumesCarryingStory } from "@/core/queries/story-to-volume";
+import { type CarryingVolume, listVolumesCarryingStory } from "@/core/queries/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
+import { tint } from "@/lib/tint";
 import { credit, uncredit } from "../../credits/actions";
 import { PersonPicker } from "../../credits/picker";
-import { StoryStateLabel } from "../story-state";
-import { carryFromStory } from "./actions";
+import {
+  howItWent,
+  readingNow,
+  SCORES,
+  stillOpen,
+  theOpenReading,
+  whenItHappened,
+} from "../readings";
+import { StoryScore, StoryStateLabel, storyDetail } from "../story-state";
+import { carryFromStory, finishIt, giveUp, rate, startReading } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-// The page the whole slice exists for, and its one argument is made by the layout: the
-// Readings are a **stack, newest first, each carrying its own Rating**. A reread is
-// visibly a second Reading with a second opinion beside the first, which is precisely
-// what the spreadsheet could not hold — one cell for `Voto`, overwritten.
+// THE STORY, and **the screen where the web caught up with the assistant** (#29).
 //
-// Paper and ink, one card, one rule between Readings, and only one column — so the phone
-// gets the same page as the desk. The one thing set apart is **what the owner wrote**: a
-// Rating's prose is the serif, because their judgement is not the application talking.
+// Its one argument is made by the layout: the Readings are a **stack, newest first, each
+// carrying its own Rating**. A reread is visibly a second Reading with a second opinion
+// beside the first, which is precisely what the spreadsheet could not hold — one cell for
+// `Voto`, overwritten. The stack is the column that gets the width at a desk; the objects and
+// the people move beside it, because they are what the Story *is* rather than what happened
+// to it.
+//
+// Three things are decided here:
+//
+//   1. **A Reading that has started and not ended can be said from this screen.** It is what
+//      *reading now* is, it is why the dashboard has a top band, and until this ticket only
+//      an assistant could record one: `recordReading` had one door. Starting and closing are
+//      two acts, so they are two presses — and closing offers *finished* and *gave up*
+//      against one date, because abandoning is as much a fact as finishing.
+//   2. **The owner's own prose is set in the serif**, in the box it is typed into as much as
+//      where it is read back. What they wrote is not what the application says, and that is
+//      the whole of what the third face is for.
+//   3. **The tile the owner tapped opens the page**, in the same colour, with the same score
+//      at its foot — a detail screen in this redesign wears the shelf's vocabulary, and the
+//      objects carrying the Story are a row of spines because that is a shelf seen from the
+//      side. It carries no href: a link to the page you are standing on is a focusable no-op.
+//
+// Every form here is a plain `POST` to a Server Function and every drawer is a link to
+// `?panel=…`, so the whole screen works with nothing running in the browser (ADR-0010). A
+// thin adapter over the core (ADR-0002): no SQL, no domain logic, and no colour of its own.
 
-/** The medium and the outcome, in the words the owner uses. */
-function howItWent(reading: StoryReading): string {
-  return `${reading.medium}, ${reading.outcome ?? "still reading"}`;
+/** What the query string carries, in the shape Next hands it over. */
+type Asked = Record<string, string | string[] | undefined>;
+
+/** One value out of it, or nothing. What a write left behind on its way back here. */
+function said(params: Asked, name: string): string | undefined {
+  const value = params[name];
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }
+
+// The four panels this screen has, read against this list rather than trusted: `?panel=banana`
+// opens nothing, which is the same honesty every filter on every wall is held to.
+//
+// **Finishing and giving up are two panels rather than two buttons in one**, and the reason is
+// the criterion this whole screen is held to: a second submit carrying its own `formAction`
+// needs a script to send the right one, and a write that only works once a bundle has parsed
+// is not a write this application has. So each outcome is its own address, its own form and
+// its own Server Function, and the one field they share is asked for twice rather than shared
+// by something that would not be there.
+const START = "start";
+const FINISHED = "finished";
+const GAVE_UP = "gave-up";
+const RATE = "rate";
+const PANELS = [START, FINISHED, GAVE_UP, RATE] as const;
 
 /**
- * When it happened, with whichever half of it is known — Goodreads history often carries
- * one date, and a Reading in progress has no end yet.
+ * This screen's address with a panel open on it.
+ *
+ * There are no filters to carry through — a Story is one record and this page narrows
+ * nothing — so what a drawer's address holds is the panel and, for the judgement, **which
+ * act of reading it is about**: a Story has as many Ratings as it has Readings, so that one
+ * needs saying and the closes do not. There is at most one Reading open, and which one it is
+ * is derived rather than carried.
+ *
+ * What it deliberately drops is the answer to the last write: a refusal is about the press
+ * that produced it, and carrying it through the opening of a drawer would print it again over
+ * an act nobody just performed.
  */
-function whenItHappened(reading: StoryReading): string {
-  if (reading.startedOn && reading.endedOn) return `${reading.startedOn} → ${reading.endedOn}`;
-  if (reading.startedOn) return `from ${reading.startedOn}`;
-  if (reading.endedOn) return `until ${reading.endedOn}`;
-  return "no date recorded";
+function panelled(storyId: string, panel: string, readingId?: string): string {
+  const asking = new URLSearchParams({ panel });
+  if (readingId) asking.set("reading", readingId);
+  return `/stories/${storyId}?${asking}`;
 }
+
+// shadcn's own input look, borrowed by hand for the native pickers this screen is made of —
+// its select is a scripted component and every control here has to work with nothing running.
+const PICKER =
+  "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:h-10 md:text-sm dark:bg-input/30";
 
 /**
  * The role picker.
@@ -52,12 +114,7 @@ function whenItHappened(reading: StoryReading): string {
  */
 function RoleSelect({ id, roles }: { id: string; roles: CreditRole[] }) {
   return (
-    <select
-      id={id}
-      name="role"
-      required
-      className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 sm:w-auto md:text-sm dark:bg-input/30"
-    >
+    <select id={id} name="role" required className={PICKER}>
       {roles.map((role) => (
         <option key={role.id} value={role.id}>
           {role.name}
@@ -96,22 +153,13 @@ function Judgement({ rating }: { rating: StoryRating }) {
       {/* The serif, which on this surface means one thing and only one thing: these are the
           owner's own words, and the application's are not. */}
       {rating.prose ? (
-        <p className="mt-1 text-pretty font-serif text-prose">{rating.prose}</p>
+        <p className="mt-1 max-w-prose text-pretty font-serif text-prose">{rating.prose}</p>
       ) : null}
-      <p className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
+      <p className="mt-1 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
         {rating.provenance.name}
       </p>
     </div>
   );
-}
-
-/** What the query string carries, in the shape Next hands it over. */
-type Asked = Record<string, string | string[] | undefined>;
-
-/** One value out of it, or nothing. What a write left behind on its way back here. */
-function said(params: Asked, name: string): string | undefined {
-  const value = params[name];
-  return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }
 
 export default async function StoryPage({
@@ -142,17 +190,80 @@ export default async function StoryPage({
   const credited = said(asked, "credited");
   const uncredited = said(asked, "uncredited");
 
+  // The Reading the owner is in the middle of, which is what decides whether this page offers
+  // *start* or *close*. It is `../readings`' answer and not a comparison written here.
+  const open = theOpenReading(story.readings);
+
+  const panel = PANELS.find((one) => one === said(asked, "panel"));
+  // Which act of reading a judgement is about, read against the stack rather than trusted:
+  // a hand-edited `?reading=` naming nothing opens no panel, exactly as `?panel=banana` does.
+  const judging = story.readings.find((reading) => reading.id === said(asked, "reading"));
+  const closesTo = `/stories/${id}`;
+
   return (
-    <main className="px-5 py-10 sm:px-8 sm:py-16">
-      {/* No breadcrumb: the shell marks *Stories* while the owner is standing here. */}
-      <header>
-        <h1 className="text-pretty font-heading text-2xl leading-tight">{story.title}</h1>
-        <p className="mt-2 flex items-baseline gap-3">
-          <span className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
-            {story.type.name}
-          </span>
-          <StoryStateLabel state={story.state} />
-        </p>
+    <main className="px-5 py-8 sm:px-8 sm:py-12">
+      {/* No breadcrumb: the shell marks *Stories* while the owner is standing here. The tile
+          the wall laid this Story out as opens the page instead, in the same colour and with
+          the same score at its foot — so arriving from the wall is arriving at the thing that
+          was tapped. It carries no href, because this is the page it would lead to. */}
+      <header className="flex items-start gap-4 sm:gap-6">
+        <div className="w-20 shrink-0 sm:w-28">
+          <Cover
+            title={story.title}
+            tint={tint(story.series?.id)}
+            detail={storyDetail(story)}
+            foot={<StoryScore of={story.latestScore} />}
+            image={story.cover}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h1 className="text-pretty font-heading text-2xl leading-tight sm:text-3xl">
+            {story.title}
+          </h1>
+          <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+              {story.type.name}
+            </span>
+            <StoryStateLabel state={story.state} />
+          </p>
+          {story.series ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              <Link
+                href={`/series/${story.series.id}`}
+                className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {[story.series.name, story.series.editionLine].filter(Boolean).join(" ")}
+              </Link>
+            </p>
+          ) : null}
+
+          {/* **The act this screen is opened to perform**, and which one it is follows from
+              the Readings rather than from a choice: a Story with something open is one the
+              owner is holding, and the only thing to say about it is how it ended. */}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {open ? (
+              <>
+                <OpensDrawer href={panelled(id, FINISHED)} emphasis="loud">
+                  I finished it
+                </OpensDrawer>
+                <OpensDrawer href={panelled(id, GAVE_UP)}>I gave up on it</OpensDrawer>
+                <span className="text-sm text-muted-foreground">{readingNow(open)}</span>
+              </>
+            ) : (
+              <>
+                <OpensDrawer href={panelled(id, START)} emphasis="loud">
+                  Start reading it
+                </OpensDrawer>
+                {story.readings.length > 0 ? (
+                  <span className="text-sm text-muted-foreground">
+                    Again — nothing below is replaced.
+                  </span>
+                ) : null}
+              </>
+            )}
+          </div>
+        </div>
       </header>
 
       {refused ? (
@@ -174,244 +285,510 @@ export default async function StoryPage({
         </p>
       ) : null}
 
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle>Credits</CardTitle>
-          <CardDescription className="text-pretty">
-            Who wrote it and who drew it. One person can hold both roles, and the two are routinely
-            different people — <em>One-Punch Man</em> is written by ONE and drawn by Yusuke Murata.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {story.credits.length === 0 ? (
-            <p className="text-pretty text-sm text-muted-foreground">
-              Nobody is credited on this Story yet. Neither sheet had a column for it, so every
-              Credit here was typed on purpose.
-            </p>
-          ) : (
-            /* Laid out as a comic's indicia is: the role on the left, the name against it.
-               A definition list, because that is what it is — and it stacks to one column
-               on a phone without the roles stopping being labels. */
-            <dl className="-my-1">
-              {story.credits.map((held) => (
-                <div
-                  key={held.id}
-                  className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 border-t border-border py-2.5 first:border-t-0"
-                >
-                  <dt className="basis-full font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground sm:basis-24">
-                    {held.role.name}
-                  </dt>
-                  <dd className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
-                    <Link
-                      href={`/credits/${held.person.id}`}
-                      className="truncate underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+      {/* The stack takes the width at a desk and the rest stands beside it, because what
+          happened to a Story is the thing this page is for; on a phone the two columns are
+          one and the order is the same. */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
+        <div className="grid gap-6">
+          <Readings story={story} />
+
+          {story.standaloneRatings.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Ratings with no Reading</CardTitle>
+                <CardDescription className="text-pretty">
+                  A judgement of this Story that points at no particular act of reading — a score
+                  that arrived from a sheet, most often. The Provenance says how far it can be
+                  trusted.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="-my-1">
+                  {story.standaloneRatings.map((rating) => (
+                    <li key={rating.id} className="border-t border-border py-2 first:border-t-0">
+                      <Judgement rating={rating} />
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+
+        <div className="grid gap-6">
+          <Carriers storyId={story.id} carriedBy={carriedBy} offerable={offerable} />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Credits</CardTitle>
+              <CardDescription className="text-pretty">
+                Who wrote it and who drew it. One person can hold both roles, and the two are
+                routinely different people — <em>One-Punch Man</em> is written by ONE and drawn by
+                Yusuke Murata.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {story.credits.length === 0 ? (
+                <p className="text-pretty text-sm text-muted-foreground">
+                  Nobody is credited on this Story yet. Neither sheet had a column for it, so every
+                  Credit here was typed on purpose.
+                </p>
+              ) : (
+                /* Laid out as a comic's indicia is: the role on the left, the name against it.
+                   A definition list, because that is what it is — and it stacks to one column
+                   on a phone without the roles stopping being labels. */
+                <dl className="-my-1">
+                  {story.credits.map((held) => (
+                    <div
+                      key={held.id}
+                      className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 border-t border-border py-2.5 first:border-t-0"
                     >
-                      {held.person.name}
-                    </Link>
-                    <Uncredit storyId={story.id} held={held} />
-                  </dd>
+                      <dt className="basis-full font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground sm:basis-24">
+                        {held.role.name}
+                      </dt>
+                      <dd className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+                        <Link
+                          href={`/credits/${held.person.id}`}
+                          className="truncate underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {held.person.name}
+                        </Link>
+                        <Uncredit storyId={story.id} held={held} />
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+
+              {/* A name and a role, and nothing else to fill in: a person the library has not
+                  met is named by crediting them, because the owner is reading a cover rather
+                  than keeping a register of people.
+
+                  The field suggests the people who already exist as it is typed into, and that
+                  is the whole of what the script here does: a second spelling of a name is a
+                  second person forever (ADR-0012), and this form is where the owner would make
+                  one. It stays a plain `POST` with the name in it, so a name typed in full is
+                  credited whether the suggestions arrived or not (ADR-0010). */}
+              <form action={credit} className="mt-6 grid gap-3 border-t border-border pt-4">
+                <input type="hidden" name="storyId" value={story.id} />
+                <PersonPicker />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="credit-role" className="text-xs text-muted-foreground">
+                    Role
+                  </Label>
+                  <RoleSelect id="credit-role" roles={roles} />
                 </div>
-              ))}
-            </dl>
-          )}
+                <Button type="submit" className="h-11 w-full sm:h-10">
+                  Credit them
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-          {/* A name and a role, and nothing else to fill in: a person the library has not
-              met is named by crediting them, because the owner is reading a cover rather
-              than keeping a register of people.
+          <p className="text-pretty text-xs leading-relaxed text-muted-foreground">
+            The judgement is of the Story and never of an object: a Volume carries an Edition note
+            instead, and this page has no place to put one.
+          </p>
+        </div>
+      </div>
 
-              The field suggests the people who already exist as it is typed into, and that
-              is the whole of what the script here does: a second spelling of a name is a
-              second person forever (ADR-0012), and this form is where the owner would make
-              one. It stays a plain `POST` with the name in it, so a name typed in full is
-              credited whether the suggestions arrived or not (ADR-0010). */}
-          <form
-            action={credit}
-            className="mt-6 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto_auto] sm:items-end"
-          >
-            <input type="hidden" name="storyId" value={story.id} />
-            <PersonPicker />
-            <div className="grid gap-1.5">
-              <Label htmlFor="credit-role" className="text-xs text-muted-foreground">
-                Role
-              </Label>
-              <RoleSelect id="credit-role" roles={roles} />
-            </div>
-            <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto sm:px-6">
-              Credit them
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Readings</CardTitle>
-          <CardDescription className="text-pretty">
-            One act of reading each, newest first, with the Rating it carried. Nothing here is ever
-            overwritten: reading it again adds a Reading, and the opinion from last time stays
-            beside the new one.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {story.readings.length === 0 ? (
-            <p className="text-pretty text-sm text-muted-foreground">
-              No Reading yet, which is the whole of why this Story reads{" "}
-              <span className="font-mono text-xs uppercase tracking-[0.18em]">to read</span>.
-            </p>
-          ) : (
-            <ol className="-my-1">
-              {story.readings.map((record) => (
-                <li key={record.id} className="border-t border-border py-3.5 first:border-t-0">
-                  <p className="flex flex-wrap items-baseline justify-between gap-x-4">
-                    <span className="font-mono text-xs tabular-nums">{whenItHappened(record)}</span>
-                    <span className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
-                      {howItWent(record)}
-                    </span>
-                  </p>
-                  <p className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
-                    {record.provenance.name}
-                  </p>
-                  {record.rating ? (
-                    <Judgement rating={record.rating} />
-                  ) : (
-                    <p className="mt-2 text-sm text-muted-foreground">No Rating on this Reading.</p>
-                  )}
-                </li>
-              ))}
-            </ol>
-          )}
-        </CardContent>
-      </Card>
-
-      {story.standaloneRatings.length > 0 ? (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Ratings with no Reading</CardTitle>
-            <CardDescription className="text-pretty">
-              A judgement of this Story that points at no particular act of reading — a score that
-              arrived from a sheet, most often. The Provenance says how far it can be trusted.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="-my-1">
-              {story.standaloneRatings.map((rating) => (
-                <li key={rating.id} className="border-t border-border py-2 first:border-t-0">
-                  <Judgement rating={rating} />
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {/* The other half of ADR-0001, read from the narrative end. Twenty objects would be
-          twenty rows and a scroll; as a wrapped set they are one shape the eye takes in at
-          once, which is the whole claim — *Slam Dunk* is one thing read and rated, and twenty
-          things bought. The Binding rides along on each, because it is what tells two
-          editions of one Story apart. */}
-      {refused ? (
-        <p
-          role="alert"
-          className="mt-6 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+      {/* **Opening a Reading, and saying nothing about how it ends.** That absence is the
+          record: a Reading with no outcome is what makes this Story read *reading*, here and
+          on the dashboard, until the owner comes back and closes it. */}
+      {panel === START ? (
+        <Drawer
+          title="Start reading it"
+          description="No outcome, so this Story reads as reading from now. Close it when it is over — or do not, and it stays open, which is also the truth."
+          closesTo={closesTo}
         >
-          {refused}
-        </p>
-      ) : null}
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Volumes carrying it</CardTitle>
-          <CardDescription className="text-pretty">
-            The objects this narrative arrived on. One Story spans as many as it spans, and the
-            judgement above is not multiplied by them: it was the story that was good or bad.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {carriedBy.length === 0 ? (
-            <p className="text-pretty text-sm text-muted-foreground">
-              No Volume carries this Story, and that is an ordinary answer rather than a gap: read
-              digitally, borrowed, or known only from Goodreads history. Being read and being owned
-              are unrelated facts.
-            </p>
-          ) : (
-            <>
-              <ul className="flex flex-wrap gap-2">
-                {carriedBy.map((volume) => (
-                  <li key={volume.id}>
-                    <Link
-                      href={`/collection/${volume.id}`}
-                      className="flex items-baseline gap-2 rounded-lg px-2.5 py-1.5 ring-1 ring-border outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span className={volume.inTheHouse ? undefined : "text-muted-foreground"}>
-                        {volume.title}
-                      </span>
-                      <Badge variant="outline" className="shrink-0 text-[0.65rem]">
-                        {volume.binding.name}
-                      </Badge>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-4 text-pretty text-xs leading-relaxed text-muted-foreground">
-                {carriedBy.length} {carriedBy.length === 1 ? "Volume" : "Volumes"}. A greyed title
-                is one the house does not hold — catalogued, or let go — and what it carried is
-                still true. What the owner thinks of any of them as an object is an Edition note, on
-                its own page, and it is not a score.
-              </p>
-            </>
-          )}
-
-          {/* The same fact the object's own page writes, recorded from this end because a
-              Story spanning twenty objects would otherwise be twenty visits. Take it back on
-              the object's page: a Volume carries Stories, so the correction belongs there. */}
-          <form
-            action={carryFromStory}
-            className="mt-6 grid gap-3 border-t border-border pt-5 sm:grid-cols-[1fr_auto] sm:items-end"
-          >
+          <form action={startReading} className="grid gap-4">
             <input type="hidden" name="storyId" value={story.id} />
+
             <div className="grid gap-1.5">
-              <Label htmlFor="carry-volume" className="text-xs text-muted-foreground">
-                Another Volume carrying it
+              <Label htmlFor="reading-medium" className="text-xs text-muted-foreground">
+                On paper or digital
               </Label>
+              {/* Two options written out, where the Type and the Binding pickers read theirs
+                  from the database: a medium is a check constraint and not a vocabulary that
+                  grows (`core/verbs/reading.ts` says so at the type), so a third value would
+                  be a change to the model rather than an insert. The verb still refuses
+                  anything else in its own prose — this list is not what enforces it. */}
               <select
-                id="carry-volume"
-                name="volumeId"
+                id="reading-medium"
+                name="medium"
                 required
-                disabled={offerable.length === 0}
-                defaultValue=""
-                className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:h-10 md:text-sm dark:bg-input/30"
+                defaultValue="paper"
+                className={PICKER}
               >
-                <option value="" disabled>
-                  {offerable.length === 0
-                    ? "Every Volume in the house already carries it"
-                    : "Choose a Volume"}
-                </option>
-                {offerable.map((volume) => (
+                <option value="paper">Paper</option>
+                <option value="digital">Digital</option>
+              </select>
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="reading-volume" className="text-xs text-muted-foreground">
+                Through which object
+              </Label>
+              <select id="reading-volume" name="volumeId" defaultValue="" className={PICKER}>
+                <option value="">No object — digital, borrowed, or not recorded</option>
+                {carriedBy.map((volume) => (
                   <option key={volume.id} value={volume.id}>
                     {volume.title} — {volume.binding.name}
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-muted-foreground">
+                Only the objects carrying this Story are offered, and none is the ordinary answer. A
+                digital Reading went through no object at all: an owned ebook is not a thing this
+                library has.
+              </p>
             </div>
-            <Button
-              type="submit"
-              disabled={offerable.length === 0}
-              className="h-11 w-full sm:h-10 sm:w-auto sm:px-6"
-            >
-              Record it
-            </Button>
-            <p className="text-xs text-muted-foreground sm:col-span-2">
-              Only Volumes in the house are offered. Record the object in the Collection first if it
-              is not there — buying and reading are separate facts.
-            </p>
-          </form>
-        </CardContent>
-      </Card>
 
-      <p className="mt-6 text-pretty text-xs leading-relaxed text-muted-foreground">
-        The judgement is of the Story and never of an object: a Volume carries an Edition note
-        instead, and this page has no place to put one.
-      </p>
+            <div className="grid gap-1.5">
+              <Label htmlFor="reading-started" className="text-xs text-muted-foreground">
+                Started on
+              </Label>
+              <input id="reading-started" name="startedOn" type="date" className={PICKER} />
+              <p className="text-xs text-muted-foreground">
+                Leave it empty where the day does not matter — that it is open is the fact.
+              </p>
+            </div>
+
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Start reading it
+            </Button>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {/* **Closing it, and the two ways it ends.** Abandoning is a fact worth recording
+          rather than a failure to finish — it is evidence about taste, and a recommender
+          should weigh it — so it is offered beside finishing and not hidden behind it. */}
+      {panel === FINISHED && open ? (
+        <CloseTheReading
+          storyId={story.id}
+          reading={open}
+          closesTo={closesTo}
+          act={finishIt}
+          title="I finished it"
+          label="Finished"
+        />
+      ) : null}
+      {panel === GAVE_UP && open ? (
+        <CloseTheReading
+          storyId={story.id}
+          reading={open}
+          closesTo={closesTo}
+          act={giveUp}
+          title="I gave up on it"
+          label="Gave up"
+        />
+      ) : null}
+
+      {/* **The judgement, attached to the act of reading it came out of.** That attachment is
+          the whole of why a reread does not overwrite anything: two Readings carry two
+          Ratings, and both are on the page. */}
+      {panel === RATE && judging ? (
+        <Drawer
+          title={judging.rating ? "Say it again" : "What I thought of it"}
+          description={
+            judging.rating
+              ? "One Rating per act of reading, so this replaces what is written under that Reading. A second opinion belongs to a second Reading."
+              : "Of the Story and never of the object — it was the story that was good or bad. The prose is the point: a score alone cannot tell liked it from liked it for the art."
+          }
+          closesTo={closesTo}
+        >
+          <form action={rate} className="grid gap-4">
+            <input type="hidden" name="storyId" value={story.id} />
+            <input type="hidden" name="readingId" value={judging.id} />
+
+            <p className="text-pretty text-sm text-muted-foreground">
+              {howItWent(judging)} · {whenItHappened(judging)}
+            </p>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="rating-score" className="text-xs text-muted-foreground">
+                Out of 10
+              </Label>
+              {/* The scale as a picker rather than a number field: it moves in half points,
+                  and the keyboard a phone offers for a number gives a comma where this wants
+                  a dot (`src/core/money.ts` is the other half of that story). */}
+              <select
+                id="rating-score"
+                name="score"
+                required
+                defaultValue={judging.rating?.score ?? ""}
+                className={PICKER}
+              >
+                <option value="" disabled>
+                  Choose a score
+                </option>
+                {SCORES.map((score) => (
+                  <option key={score} value={score}>
+                    {score.toFixed(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="rating-prose" className="text-xs text-muted-foreground">
+                What I thought
+              </Label>
+              {/* Set in the serif in the box it is typed into as much as where it is read
+                  back: what the owner writes is theirs on both sides of the press. */}
+              <textarea
+                id="rating-prose"
+                name="prose"
+                rows={6}
+                defaultValue={judging.rating?.prose ?? ""}
+                placeholder="The art carries it. I would not have finished it for the story alone."
+                className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 font-serif text-base leading-relaxed outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
+              />
+              <p className="text-xs text-muted-foreground">
+                This is what feeds a recommendation. A score alone is a rank; the words are the
+                evidence.
+              </p>
+            </div>
+
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              {judging.rating ? "Say it again" : "Record it"}
+            </Button>
+          </form>
+        </Drawer>
+      ) : null}
     </main>
+  );
+}
+
+/**
+ * The stack: one act of reading each, newest first, with the Rating it carried.
+ *
+ * **Nothing here is ever overwritten**, which is the argument the whole page is built to
+ * make. Reading it again adds a Reading, and the opinion from last time stays beside the new
+ * one — the `Voto` cell held one number and this holds every judgement the owner ever gave.
+ */
+function Readings({ story }: { story: FoundStory }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Readings</CardTitle>
+        <CardDescription className="text-pretty">
+          One act of reading each, newest first, with the Rating it carried. Nothing here is ever
+          overwritten: reading it again adds a Reading, and the opinion from last time stays beside
+          the new one.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {story.readings.length === 0 ? (
+          <p className="text-pretty text-sm text-muted-foreground">
+            No Reading yet, which is the whole of why this Story reads{" "}
+            <span className="font-mono text-xs uppercase tracking-eyebrow">to read</span>. Starting
+            one is the button at the top, and it needs no ending.
+          </p>
+        ) : (
+          <ol className="-my-1">
+            {story.readings.map((record) => (
+              <li key={record.id} className="border-t border-border py-3.5 first:border-t-0">
+                <p className="flex flex-wrap items-baseline justify-between gap-x-4">
+                  <span className="font-mono text-xs tabular-nums">{whenItHappened(record)}</span>
+                  <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                    {howItWent(record)}
+                  </span>
+                </p>
+                <p className="mt-1 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                  {record.provenance.name}
+                </p>
+
+                {record.rating ? (
+                  <Judgement rating={record.rating} />
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">No Rating on this Reading.</p>
+                )}
+
+                {/* The judgement is opened from the Reading it will belong to, because that
+                    attachment is what a reread's second opinion is made of. An open Reading
+                    can be rated too: the owner is two hundred pages in and knows. */}
+                <p className="mt-2">
+                  <Link
+                    href={panelled(story.id, RATE, record.id)}
+                    className="font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {record.rating ? "Say it again" : "Rate it"}
+                  </Link>
+                  {stillOpen(record) ? (
+                    <span className="ml-3 text-xs text-muted-foreground">Still open.</span>
+                  ) : null}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * The objects carrying the narrative, as **a row of spines** — the other half of ADR-0001,
+ * read from the narrative end (#29).
+ *
+ * Twenty objects would be twenty rows and a scroll. Standing them up is one stretch of the
+ * Series' own colour with the numbers along the foot, which is the same picture a Series' own
+ * ledger draws and the same one the owner sees on the shelf. A spine the house does not hold
+ * is hollow, and what it carried is still true — read, or let go, or never owned.
+ */
+function Carriers({
+  storyId,
+  carriedBy,
+  offerable,
+}: {
+  storyId: string;
+  carriedBy: CarryingVolume[];
+  offerable: CollectionVolume[];
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Volumes carrying it</CardTitle>
+        <CardDescription className="text-pretty">
+          The objects this narrative arrived on. One Story spans as many as it spans, and the
+          judgement beside it is not multiplied by them: it was the story that was good or bad.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {carriedBy.length === 0 ? (
+          <p className="text-pretty text-sm text-muted-foreground">
+            No Volume carries this Story, and that is an ordinary answer rather than a gap: read
+            digitally, borrowed, or known only from Goodreads history. Being read and being owned
+            are unrelated facts.
+          </p>
+        ) : (
+          <>
+            <ol className="flex flex-wrap gap-1" aria-label="The objects carrying this Story">
+              {carriedBy.map((volume) => (
+                <li key={volume.id}>
+                  <Spine
+                    href={`/collection/${volume.id}`}
+                    title={volume.title}
+                    // No position to print for an object nobody placed in a line, and an
+                    // absence is drawn as one rather than as a glyph standing in for a
+                    // number. What it is, is in the label the spine carries.
+                    foot={volume.seriesNumber ?? "—"}
+                    tint={tint(volume.seriesId)}
+                    held={volume.inTheHouse}
+                    detail={[
+                      volume.title,
+                      volume.binding.name,
+                      volume.inTheHouse ? "on the shelf" : "not on the shelf",
+                    ].join(" — ")}
+                  />
+                </li>
+              ))}
+            </ol>
+            <p className="mt-3 text-pretty text-xs leading-relaxed text-muted-foreground">
+              {carriedBy.length} {carriedBy.length === 1 ? "Volume" : "Volumes"}, standing in the
+              publisher&apos;s order. A hollow spine is one the house does not hold — catalogued, or
+              let go — and what it carried is still true. What the owner thinks of any of them as an
+              object is an Edition note, on its own page, and it is not a score.
+            </p>
+          </>
+        )}
+
+        {/* The same fact the object's own page writes, recorded from this end because a
+            Story spanning twenty objects would otherwise be twenty visits. Take it back on
+            the object's page: a Volume carries Stories, so the correction belongs there. */}
+        <form action={carryFromStory} className="mt-6 grid gap-3 border-t border-border pt-5">
+          <input type="hidden" name="storyId" value={storyId} />
+          <div className="grid gap-1.5">
+            <Label htmlFor="carry-volume" className="text-xs text-muted-foreground">
+              Another Volume carrying it
+            </Label>
+            <select
+              id="carry-volume"
+              name="volumeId"
+              required
+              disabled={offerable.length === 0}
+              defaultValue=""
+              className={PICKER}
+            >
+              <option value="" disabled>
+                {offerable.length === 0
+                  ? "Every Volume in the house already carries it"
+                  : "Choose a Volume"}
+              </option>
+              {offerable.map((volume) => (
+                <option key={volume.id} value={volume.id}>
+                  {volume.title} — {volume.binding.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="submit" disabled={offerable.length === 0} className="h-11 w-full sm:h-10">
+            Record it
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Only Volumes in the house are offered. Record the object in the Collection first if it
+            is not there — buying and reading are separate facts.
+          </p>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * The end of a Reading, in whichever of the two ways it ended.
+ *
+ * One component and two panels: the day and the sentence are the same, and only the verb and
+ * the word differ. Written once because *finished* and *gave up* are the same act with
+ * different evidence in it — and rendered as two addresses because each carries its own plain
+ * form, which is what makes both work with nothing running in the browser.
+ */
+function CloseTheReading({
+  storyId,
+  reading,
+  closesTo,
+  act,
+  title,
+  label,
+}: {
+  storyId: string;
+  reading: StoryReading;
+  closesTo: string;
+  act: (form: FormData) => Promise<void>;
+  title: string;
+  label: string;
+}) {
+  return (
+    <Drawer
+      title={title}
+      description="Reading it again later is a new Reading, never an edit of this one — which is what keeps this time's judgement beside the next one's."
+      closesTo={closesTo}
+    >
+      <form action={act} className="grid gap-4">
+        <input type="hidden" name="storyId" value={storyId} />
+        <input type="hidden" name="readingId" value={reading.id} />
+
+        <p className="text-pretty text-sm text-muted-foreground">
+          {howItWent(reading)} · {whenItHappened(reading)}
+        </p>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="reading-ended" className="text-xs text-muted-foreground">
+            Ended on
+          </Label>
+          <input id="reading-ended" name="endedOn" type="date" className={PICKER} />
+          <p className="text-xs text-muted-foreground">
+            Leave it empty where the day is gone. A Reading that started on a recorded day and ended
+            on none keeps the half it has.
+          </p>
+        </div>
+
+        <Button type="submit" className="h-11 w-full sm:h-10">
+          {label}
+        </Button>
+      </form>
+    </Drawer>
   );
 }

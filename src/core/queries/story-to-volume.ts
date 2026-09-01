@@ -1,7 +1,7 @@
 import "server-only";
 
 import { query } from "../db.ts";
-import { IN_THE_HOUSE } from "./collection.ts";
+import { IN_THE_HOUSE, THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN } from "./collection.ts";
 
 // The many-to-many, read from both ends (ADR-0001). One stored fact, two questions:
 //
@@ -39,6 +39,16 @@ export type CarryingVolume = {
   binding: { id: string; name: string };
   language: string;
   /**
+   * **The line it stands in, and where** — which is the colour the spine wears and the number
+   * along its foot (#29).
+   *
+   * Both `null` for an object nobody has placed in a line, which is ordinary rather than a
+   * gap: a one-off hardback carries a Story as truly as a numbered tankōbon does, and it
+   * stands at the end of the row in the page's own paper.
+   */
+  seriesId: string | null;
+  seriesNumber: number | null;
+  /**
    * Whether the Collection claims it right now. A Volume the house does not hold still
    * carries what it held — the Reading made through it is still true — so it is answered
    * with rather than hidden, and marked.
@@ -67,12 +77,19 @@ const CARRIED_STORY = `
   )`;
 
 /**
- * Which Volumes carry this Story, by title.
+ * Which Volumes carry this Story, **in the order they stand on the shelf**.
  *
  * The twenty-in-one case read from the narrative: *Slam Dunk* answers with twenty objects
- * and is rated once. Ordered by title as text, which puts *Slam Dunk 10* between 1 and 2 —
- * the order the owner means is the position in the publisher's line, and that is a Series'
- * fact rather than this join's.
+ * and is rated once.
+ *
+ * The order was by title until #29, with a note here saying that the order the owner means
+ * is the position in the publisher's line and that it was a Series' fact rather than this
+ * join's. It is still a Series' fact — it is read off `volume`, which is where a position is
+ * stored — but the caller now *draws* these as a row of spines, and a shelf that read 1, 10,
+ * 11, 2 would be a picture of nobody's shelf. So it is
+ * `THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN` — the same fragment the jacket a Story wears is
+ * picked with (`queries/story.ts`), because the picture and the pick must not disagree. An
+ * object in no line stands after the ones that are in one.
  *
  * A Story with no Volume at all answers with nothing, and that is the ordinary case rather
  * than a gap: being read and being owned are unrelated facts (ADR-0001).
@@ -85,12 +102,14 @@ export async function listVolumesCarryingStory(storyId: string): Promise<Carryin
             v.edition_line as "editionLine",
             jsonb_build_object('id', b.id, 'name', b.name) as binding,
             v.language,
+            v.series_id as "seriesId",
+            v.series_number as "seriesNumber",
             ${IN_THE_HOUSE} as "inTheHouse"
        from volume_story vs
        join volume  v on v.id = vs.volume_id
        join binding b on b.id = v.binding_id
       where vs.story_id = $1
-      order by lower(v.title), v.id`,
+      ${THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN}`,
     [storyId]
   );
 }

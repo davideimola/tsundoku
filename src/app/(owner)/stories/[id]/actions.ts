@@ -2,40 +2,164 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { FIRST_HAND } from "@/core/queries/provenance";
 import { isRefusal } from "@/core/refusal";
+import { setRating } from "@/core/verbs/rating";
+import { abandonReading, finishReading, type Medium, recordReading } from "@/core/verbs/reading";
 import { recordVolumeCarriesStory } from "@/core/verbs/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
 
-// The one write on a Story's page, and it exists because of *Slam Dunk*: one Story carried by
-// twenty objects. It is the same fact the Volume's page writes and the same verb — recorded
-// from the end the owner happens to be standing at, because twenty visits to twenty Volume
-// pages is not a thing anybody does.
+// The writes on a Story's page, and **#29 is where the web stopped being a read-only view of
+// the thing it exists to record**. The assistant could already say *I've started the Batman
+// omnibus* over MCP and the owner could not say it from their own screen: `recordReading`,
+// `finishReading`, `abandonReading` and `setRating` were four verbs with one door.
 //
-// Taking the fact back stays on the Volume's page. A Volume carries Stories, so removing one
-// from an object is a statement about that object, and one screen owning the correction is
-// how the owner knows where to look for it.
+// Four acts, and the shape of them is the model's rather than a form's:
 //
-// A thin adapter (ADR-0002): one form field, one verb, and the verb's own prose carried back
-// in the URL. It calls `requireOwner()` itself, because a layout does not run for a Server
-// Function (`src/app/gated.test.ts`).
+//   - **Opening a Reading is one act and closing it is another.** A Reading that has started
+//     and not ended is what *reading now* is — it is why the dashboard has a top band — so
+//     the owner says *I have started this* and says *I finished it* later, and neither
+//     pretends to be an edit of the other.
+//   - **Nothing is ever overwritten.** Reading it again is a new Reading, which is what keeps
+//     last time's judgement beside this one's. `finishReading` refuses a Reading that has
+//     already ended, in its own prose, and this door does not soften that.
+//   - **A Rating belongs to an act of reading.** It is posted with the Reading it came out of,
+//     so a reread's score sits beside the first one instead of over it. Saying it again about
+//     the *same* Reading is an edit of that one judgement — the only write on this page that
+//     replaces something the owner wrote, which is why the form arrives filled in with what
+//     it is about to replace.
+//   - **The Provenance is the core's**, and it is `FIRST_HAND`: the owner typing it here is
+//     the same first-hand evidence as the owner telling an assistant, so there is no picker
+//     and no slug written by this door (`core/queries/provenance.ts` says why).
+//
+// Thin adapters (ADR-0002): read a form, call one verb, carry back what the verb said. Each
+// calls `requireOwner()` itself, because a layout does not run for a Server Function
+// (`src/app/gated.test.ts`).
 
-/** Record that a Volume carries this Story. */
-export async function carryFromStory(form: FormData): Promise<void> {
-  await requireOwner();
+/** What a form's field held, or nothing where it was left empty. */
+function text(form: FormData, field: string): string | null {
+  const value = form.get(field);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
 
-  const storyId = String(form.get("storyId") ?? "").trim();
-  const volumeId = String(form.get("volumeId") ?? "").trim();
-
-  let said = new URLSearchParams({ carried: "1" });
+/**
+ * Run one verb and land back on the Story, with the drawer that posted it closed.
+ *
+ * **Only a refusal is said in words**, as on every screen here: what worked is already on the
+ * page that comes back — the Reading is in the stack, the score is under it — and a banner
+ * announcing it would be the screen talking about itself. Closing the drawer is what the
+ * plain address does, since a drawer's open state is the URL (`@/components/drawer`).
+ *
+ * Anything that is not a refusal is a bug rather than an answer and stays unhandled.
+ */
+async function saying(storyId: string, work: () => Promise<unknown>): Promise<never> {
+  let said: URLSearchParams | undefined;
 
   try {
-    await recordVolumeCarriesStory(volumeId, storyId);
+    await work();
   } catch (error) {
-    // Anything that is not a refusal is a bug rather than an answer, and stays unhandled.
     if (!isRefusal(error)) throw error;
     said = new URLSearchParams({ refused: error.message });
   }
 
   revalidatePath(`/stories/${storyId}`);
-  redirect(`/stories/${storyId}?${said}`);
+  redirect(said ? `/stories/${storyId}?${said}` : `/stories/${storyId}`);
+}
+
+/**
+ * **Start reading it, and do not say how it ends** — the act #29 exists for.
+ *
+ * No outcome, so the Story reads `reading` from this moment: the state is derived from the
+ * Readings on every request and stored nowhere, so nothing else has to be told. The day is
+ * optional the way *came home* is on the Collection, because the fact does not depend on it.
+ */
+export async function startReading(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  await saying(storyId, () =>
+    recordReading({
+      storyId,
+      // The verb refuses a medium that is not one of its two, in prose the owner reads, so
+      // nothing here filters the vocabulary — that would be a second place the model lives.
+      medium: (text(form, "medium") ?? "") as Medium,
+      // Absent is ordinary and required on digital: an owned ebook is not a thing this model
+      // has, so a digital Reading went through no object.
+      volumeId: text(form, "volumeId"),
+      startedOn: text(form, "startedOn"),
+      provenanceId: FIRST_HAND,
+    })
+  );
+}
+
+/** The owner finished it. Refused on a Reading that has already ended — that is a reread. */
+export async function finishIt(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  await saying(storyId, () => finishReading(text(form, "readingId") ?? "", text(form, "endedOn")));
+}
+
+/**
+ * The owner gave up on it, which is as much a fact as finishing and is evidence about taste.
+ *
+ * The same form as finishing, posted by the other button: one day, two outcomes, and no way
+ * to say both.
+ */
+export async function giveUp(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  await saying(storyId, () => abandonReading(text(form, "readingId") ?? "", text(form, "endedOn")));
+}
+
+/**
+ * What the owner thought of it, attached to the act of reading it came out of.
+ *
+ * The score arrives from a picker of the nineteen half points rather than from a number
+ * field: the owner's keyboard offers a comma where this scale wants a dot, and a score is the
+ * one value in this library nobody would want guessed at. Nothing chosen at all is
+ * `Number.NaN` and not zero — `Number(null)` is `0`, which the scale would read as a
+ * judgement rather than as a silence, and it is exactly the confusion an absent score is not
+ * allowed to make anywhere else in this application.
+ */
+export async function rate(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  await saying(storyId, () =>
+    setRating({
+      storyId,
+      readingId: text(form, "readingId"),
+      score: Number(text(form, "score") ?? Number.NaN),
+      prose: text(form, "prose"),
+      provenanceId: FIRST_HAND,
+    })
+  );
+}
+
+/**
+ * Record that a Volume carries this Story.
+ *
+ * It exists because of *Slam Dunk*: one Story carried by twenty objects. It is the same fact
+ * the Volume's page writes and the same verb — recorded from the end the owner happens to be
+ * standing at, because twenty visits to twenty Volume pages is not a thing anybody does.
+ *
+ * Taking the fact back stays on the Volume's page. A Volume carries Stories, so removing one
+ * from an object is a statement about that object, and one screen owning the correction is
+ * how the owner knows where to look for it.
+ */
+export async function carryFromStory(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+  const volumeId = text(form, "volumeId") ?? "";
+
+  await saying(storyId, () => recordVolumeCarriesStory(volumeId, storyId));
 }
