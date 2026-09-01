@@ -10,15 +10,18 @@ import {
   declareSeries,
   declareSeriesCollected,
   placeVolumeInSeries,
+  recordSeriesNoLongerPublishesStory,
+  recordSeriesPublishesStory,
   recordVolumesPublished,
   stopCollectingSeries,
 } from "./series.ts";
+import { createStory } from "./story.ts";
 
 // Seam 1. What is asserted here is the ledger's write side: that a Series can be declared,
 // that **collecting it is a separate act nothing else performs**, and that every way of
 // getting it wrong comes back as prose rather than as a SQLSTATE.
 beforeEach(async () => {
-  await query("truncate table series, volume cascade");
+  await query("truncate table series, volume, story cascade");
 });
 
 /** The refusal a call produced, or a failure saying it produced none. */
@@ -498,5 +501,244 @@ describe("amending a Series", () => {
     expect((await refusalFrom(() => amendSeries("banana", { publishedCount: 31 }))).code).toBe(
       "not-found"
     );
+  });
+});
+
+// THE ARROW BETWEEN THE SERIES AND THE NARRATIVE (#39).
+//
+// One fact, and the whole of what a Series and a Story say to each other: *this Series prints
+// that Story*. What is asserted here is that it is **many Series to one Story**, that taking
+// it back leaves the ledger exactly as it was, and that it never becomes a judgement — a
+// Series answers *what am I missing* and a Story answers *was it any good*, and the arrow
+// does not blur them (ADR-0001).
+
+/** *Slam Dunk*, as one Story rather than as twenty numbered rows. */
+async function slamDunk(): Promise<string> {
+  return createStory({ title: "Slam Dunk", typeId: "manga" });
+}
+
+/** The ledger's own numbers, read back as the owner would see them on the screen. */
+async function ledgerOf(seriesId: string) {
+  const [row] = await query<{
+    name: string;
+    published_count: number;
+    status: string;
+    collecting_since: Date | null;
+    story_id: string | null;
+  }>("select name, published_count, status, collecting_since, story_id from series where id = $1", [
+    seriesId,
+  ]);
+  return row;
+}
+
+describe("saying which Story a Series publishes", () => {
+  it("records the Story it prints", async () => {
+    const series = await blackEdition();
+    const story = await createStory({ title: "Death Note", typeId: "manga" });
+
+    await recordSeriesPublishesStory(series, story);
+
+    expect((await ledgerOf(series)).story_id).toBe(story);
+  });
+
+  it("takes one Story for two Series, because two editions are one narrative", async () => {
+    const story = await slamDunk();
+    const tankobon = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    const deluxe = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      editionLine: "Deluxe",
+      publishedCount: 10,
+      status: "concluded",
+    });
+
+    await recordSeriesPublishesStory(tankobon, story);
+    await recordSeriesPublishesStory(deluxe, story);
+
+    expect((await ledgerOf(tankobon)).story_id).toBe(story);
+    expect((await ledgerOf(deluxe)).story_id).toBe(story);
+  });
+
+  it("said again with another Story, moves the arrow rather than refusing the correction", async () => {
+    const series = await blackEdition();
+    const wrong = await slamDunk();
+    const right = await createStory({ title: "Death Note", typeId: "manga" });
+
+    await recordSeriesPublishesStory(series, wrong);
+    await recordSeriesPublishesStory(series, right);
+
+    expect((await ledgerOf(series)).story_id).toBe(right);
+  });
+
+  it("leaves the ledger a ledger: nothing it counts moves, and it says nothing about quality", async () => {
+    const series = await blackEdition();
+    await declareSeriesCollected(series);
+    const before = await ledgerOf(series);
+
+    await recordSeriesPublishesStory(series, await slamDunk());
+
+    const after = await ledgerOf(series);
+    expect({ ...after, story_id: null }).toEqual({ ...before, story_id: null });
+    const [judgements] = await query<{ count: string }>("select count(*) from rating");
+    expect(judgements.count).toBe("0");
+  });
+
+  it("refuses a Series nobody declared and a Story the library does not hold", async () => {
+    const series = await blackEdition();
+    const story = await slamDunk();
+
+    expect(
+      (
+        await refusalFrom(() =>
+          recordSeriesPublishesStory("11111111-1111-1111-1111-111111111111", story)
+        )
+      ).message
+    ).toBe("No Series has that id.");
+    expect(
+      (
+        await refusalFrom(() =>
+          recordSeriesPublishesStory(series, "11111111-1111-1111-1111-111111111111")
+        )
+      ).message
+    ).toBe("That Story is not in the library yet.");
+    expect((await refusalFrom(() => recordSeriesPublishesStory("banana", story))).code).toBe(
+      "not-found"
+    );
+  });
+});
+
+describe("taking the arrow back", () => {
+  it("leaves the Series naming no Story, and everything else standing", async () => {
+    const series = await blackEdition();
+    await declareSeriesCollected(series);
+    const story = await slamDunk();
+    await recordSeriesPublishesStory(series, story);
+
+    await recordSeriesNoLongerPublishesStory(series);
+
+    expect((await ledgerOf(series)).story_id).toBeNull();
+    const [stories] = await query<{ count: string }>("select count(*) from story");
+    expect(stories.count).toBe("1");
+  });
+
+  it("refuses a Series that publishes nothing, rather than passing silently", async () => {
+    const series = await blackEdition();
+
+    const refusal = await refusalFrom(() => recordSeriesNoLongerPublishesStory(series));
+
+    expect(refusal.code).toBe("not-found");
+    expect(refusal.message).toBe("That Series publishes no Story.");
+  });
+});
+
+describe("a Volume joining a Series that names a Story", () => {
+  /** The Series, the Story it prints, and one object waiting to be placed in it. */
+  async function seriesNaming(story: string | null) {
+    const series = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    if (story) await recordSeriesPublishesStory(series, story);
+    const volume = await volumeInTheHouse({
+      title: "Slam Dunk 21",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    return { series, volume };
+  }
+
+  it("attaches to the Story already there rather than minting a twenty-first narrative", async () => {
+    const story = await slamDunk();
+    const { series, volume } = await seriesNaming(story);
+
+    await placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 21 });
+
+    const carried = await query<{ story_id: string }>(
+      "select story_id from volume_story where volume_id = $1",
+      [volume]
+    );
+    expect(carried).toEqual([{ story_id: story }]);
+    const [stories] = await query<{ count: string }>("select count(*) from story");
+    expect(stories.count).toBe("1");
+  });
+
+  it("says the same fact once, however often the object is moved along the Series", async () => {
+    const story = await slamDunk();
+    const { series, volume } = await seriesNaming(story);
+
+    await placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 21 });
+    await placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 20 });
+
+    const carried = await query<{ story_id: string }>(
+      "select story_id from volume_story where volume_id = $1",
+      [volume]
+    );
+    expect(carried).toEqual([{ story_id: story }]);
+  });
+
+  it("moving the object to another Series attaches the second Story and leaves the first standing", async () => {
+    const first = await slamDunk();
+    const second = await createStory({ title: "Vagabond", typeId: "manga" });
+    const { series: slam, volume } = await seriesNaming(first);
+    const vagabond = await declareSeries({
+      name: "Vagabond",
+      publisher: "Planet Manga",
+      publishedCount: 37,
+      status: "concluded",
+    });
+    await recordSeriesPublishesStory(vagabond, second);
+
+    await placeVolumeInSeries({ volumeId: volume, seriesId: slam, number: 21 });
+    await placeVolumeInSeries({ volumeId: volume, seriesId: vagabond, number: 1 });
+
+    // Both, deliberately: a placement adds and never deletes, because the link it would
+    // delete is one the owner may have written by hand and the schema cannot tell the two
+    // apart. Taking one off is `recordVolumeNoLongerCarriesStory`, which is the owner saying
+    // so.
+    const carried = await query<{ story_id: string }>(
+      "select story_id from volume_story where volume_id = $1 order by story_id",
+      [volume]
+    );
+    expect(carried.map((one) => one.story_id).sort()).toEqual([first, second].sort());
+  });
+
+  it("leaves a Series that names no Story exactly as it was: the object carries nothing", async () => {
+    const { series, volume } = await seriesNaming(null);
+
+    await placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 21 });
+
+    const carried = await query("select story_id from volume_story where volume_id = $1", [volume]);
+    expect(carried).toEqual([]);
+    const [stories] = await query<{ count: string }>("select count(*) from story");
+    expect(stories.count).toBe("0");
+  });
+
+  it("attaches nothing when the placement is refused", async () => {
+    const story = await slamDunk();
+    const series = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    await recordSeriesPublishesStory(series, story);
+    const { id } = await catalogueVolume({
+      title: "Slam Dunk 21",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+
+    await refusalFrom(() => placeVolumeInSeries({ volumeId: id, seriesId: series, number: 21 }));
+
+    expect(await query("select story_id from volume_story where volume_id = $1", [id])).toEqual([]);
   });
 });

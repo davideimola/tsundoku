@@ -27,6 +27,7 @@ export const storyRelations = relations(story, ({one, many}) => ({
 	credits: many(credit),
 	volumeStories: many(volumeStory),
 	pathItems: many(pathItem),
+	series: many(series),
 }));
 
 export const provenanceRelations = relations(provenance, ({many}) => ({
@@ -80,9 +81,13 @@ export const bindingRelations = relations(binding, ({many}) => ({
 	volumes: many(volume),
 }));
 
-export const seriesRelations = relations(series, ({many}) => ({
+export const seriesRelations = relations(series, ({one, many}) => ({
 	volumes: many(volume),
 	readingListPins: many(readingListPin),
+	story: one(story, {
+		fields: [series.storyId],
+		references: [story.id]
+	}),
 }));
 
 export const creditRelations = relations(credit, ({one}) => ({
