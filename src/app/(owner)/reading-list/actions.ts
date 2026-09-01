@@ -8,6 +8,7 @@ import {
   pinToReadingList,
   unpinFromReadingList,
 } from "@/core/verbs/reading-list";
+import { strikeWant } from "@/core/verbs/want";
 import { openWish } from "@/core/verbs/wish";
 import { requireOwner } from "@/lib/auth/owner";
 
@@ -15,12 +16,16 @@ import { requireOwner } from "@/lib/auth/owner";
 // (ADR-0002): each function reads a form, calls one verb, and carries back what the verb
 // said.
 //
-// **Three verbs, and the third one is the interesting one.** The list composes itself, so
+// **Four verbs, and the third one is the interesting one.** The list composes itself, so
 // there is nothing on it to edit: pinning and unpinning are the owner's order over a list
 // they do not maintain. `wishFor` is the one place this screen writes something that costs
 // money, and it exists precisely so that the *list* does not: the entry carries a proposal
 // built by the query, the screen renders it as a form, and a Wish is opened when the owner
 // submits it and never before (user story 28). Rendering the whole list writes nothing.
+//
+// The fourth is `unwant`, and it is a *strike* rather than a close (`core/verbs/want.ts`). A
+// Want the owner has not acted on is still true and nothing here retires it — it falls quiet
+// on its own once a Reading begins after it. This is the row that was a slip, taken back.
 //
 // The answer travels back in the URL rather than in React state, like every screen here: a
 // plain form and a redirect work with no JavaScript running at all.
@@ -102,4 +107,18 @@ export async function wishFor(form: FormData): Promise<void> {
       }),
     new URLSearchParams({ wished: text(form, "title") ?? "" })
   );
+}
+
+/**
+ * Strike a Want: the owner did not mean to say it, and the row goes.
+ *
+ * **Not a way to tick one off**, which is why the press does not read like one. A Want ends by
+ * itself when a Reading begins after it, so the only thing left for a button to do about one is
+ * take back a sentence that was a slip — the wrong Story picked out of a list. The Story, its
+ * Readings and its Rating are untouched by it.
+ */
+export async function unwant(form: FormData): Promise<void> {
+  await requireOwner();
+
+  await saying(() => strikeWant(text(form, "wantId") ?? ""));
 }

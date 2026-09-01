@@ -8,6 +8,7 @@ import { setRating } from "@/core/verbs/rating";
 import { abandonReading, finishReading, type Medium, recordReading } from "@/core/verbs/reading";
 import { strikeStories } from "@/core/verbs/story";
 import { recordVolumeCarriesStory } from "@/core/verbs/story-to-volume";
+import { openWant, strikeWant } from "@/core/verbs/want";
 import { requireOwner } from "@/lib/auth/owner";
 import { STRIKE } from "../panels";
 
@@ -204,4 +205,34 @@ export async function strikeIt(form: FormData): Promise<void> {
 
   revalidatePath("/stories");
   redirect(`/stories?${new URLSearchParams({ struck: "1" })}`);
+}
+
+/**
+ * **Say it out loud: I want to read this** — and nothing else follows from it (#35).
+ *
+ * No Path is minted, no order is decided and no Volume is implied. That is the whole reason
+ * this press exists: saying it used to cost a named, ordered route that could not be
+ * undefined, for something that was never a route.
+ *
+ * There is no press that undoes it by *closing* it. A Want falls quiet by itself once a
+ * Reading begins after it was opened, which is what makes a planned reread ordinary.
+ */
+export async function wantIt(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  await saying(storyId, () => openWant(storyId));
+}
+
+/**
+ * Take a Want back: it was a slip, and the row goes.
+ *
+ * A **strike** rather than a close (`core/verbs/want.ts`), and the label says so. The Story,
+ * its Readings and its Rating are untouched.
+ */
+export async function unwant(form: FormData): Promise<void> {
+  await requireOwner();
+
+  await saying(text(form, "storyId") ?? "", () => strikeWant(text(form, "wantId") ?? ""));
 }

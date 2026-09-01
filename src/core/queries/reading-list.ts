@@ -125,8 +125,8 @@ export type ReadingListEntry = {
   } | null;
   /**
    * The Story to read. Filled in on a Want and on a Path entry, and null on a Series entry,
-   * which names an **object** and not a narrative: what story a Volume carries is a separate fact (ADR-0001), and the ledger
-   * does not claim to know it.
+   * which names an **object** and not a narrative: what story a Volume carries is a separate
+   * fact (ADR-0001), and the ledger does not claim to know it.
    */
   story: { id: string; title: string; type: StoryType } | null;
   /**

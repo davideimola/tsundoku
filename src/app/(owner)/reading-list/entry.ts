@@ -13,8 +13,8 @@ import type { ReadingListEntry } from "@/core/queries/reading-list";
 /**
  * What to call the thing to read.
  *
- * A Path entry names a Story. A Series entry names an **object**, because a Series is a
- * publisher's line of objects and what story a Volume carries is a separate fact
+ * A Want and a Path entry both name a Story. A Series entry names an **object**, because a
+ * Series is a publisher's line of objects and what story a Volume carries is a separate fact
  * (ADR-0001) — so where the library has not catalogued that object, the honest name for it
  * is the Series and the number, which is also exactly what the owner would look for in a
  * shop.
@@ -36,17 +36,17 @@ export function entryStanding(entry: ReadingListEntry): string {
   return entry.wishAlreadyOpen ? "paper · already on the shopping list" : "paper · buy it first";
 }
 
-/** An entry's source is its identity: one per active Path, one per Series being collected. */
+/** An entry's source is its identity: one per Want, one per active Path, one per Series being collected. */
 export function entryKey(entry: ReadingListEntry): string {
-  return `${entry.because}:${entry.path?.id ?? entry.series?.id}`;
+  return `${entry.because}:${entry.want?.id ?? entry.path?.id ?? entry.series?.id}`;
 }
 
 /**
  * Where the tile beside an entry leads — **to the thing the entry is about**, which is not
  * the same record for the two sources.
  *
- * A Path entry is about a *narrative* the owner means to read, so it opens the Story. A
- * Series entry is about an *object* they do not have yet (ADR-0001), so it opens the object
+ * A Want and a Path entry are about a *narrative* the owner means to read, so they open the
+ * Story. A Series entry is about an *object* they do not have yet (ADR-0001), so it opens the object
  * where the library knows one and the line's own ledger where it does not — which is the
  * screen that says what is missing, and the honest destination for a position nobody has
  * catalogued.
@@ -61,9 +61,9 @@ export function entryLeadsTo(entry: ReadingListEntry): string | undefined {
 /**
  * **The line an entry takes its colour from**, or nothing where it stands in none.
  *
- * The two sources reach it differently and that is the whole reason it is written down: a
- * Series entry *is* about a line and names it directly, and a Path entry is about a narrative
- * that has no line of its own (ADR-0001) — so its colour is borrowed from the object carrying
+ * The sources reach it differently and that is the whole reason it is written down: a
+ * Series entry *is* about a line and names it directly, and a Want or a Path entry is about a
+ * narrative that has no line of its own (ADR-0001) — so its colour is borrowed from the object carrying
  * it, exactly as the Story wall borrows one. An entry with neither is drawn on the palette's
  * own paper, which is the ordinary case for something read digitally.
  */

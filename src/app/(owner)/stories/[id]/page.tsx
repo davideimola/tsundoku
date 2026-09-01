@@ -11,6 +11,7 @@ import { type CreditRole, listCreditRoles } from "@/core/queries/credit";
 import type { FoundStory, StoryCredit, StoryRating, StoryReading } from "@/core/queries/story";
 import { findStory } from "@/core/queries/story";
 import { type CarryingVolume, listVolumesCarryingStory } from "@/core/queries/story-to-volume";
+import { theWantOnTheStory } from "@/core/queries/want";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import { credit, uncredit } from "../../credits/actions";
@@ -25,7 +26,16 @@ import {
   whenItHappened,
 } from "../readings";
 import { StoryScore, StoryStateLabel, storyDetail } from "../story-state";
-import { carryFromStory, finishIt, giveUp, rate, startReading, strikeIt } from "./actions";
+import {
+  carryFromStory,
+  finishIt,
+  giveUp,
+  rate,
+  startReading,
+  strikeIt,
+  unwant,
+  wantIt,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -176,10 +186,14 @@ export default async function StoryPage({
   await requireOwner();
 
   const { id } = await params;
-  const [story, roles, carriedBy, owned, asked] = await Promise.all([
+  const [story, roles, carriedBy, want, owned, asked] = await Promise.all([
     findStory(id),
     listCreditRoles(),
     listVolumesCarryingStory(id),
+    // Its own question rather than a field on the Story: a Want is not a fact about a
+    // narrative, it is a sentence the owner said about themselves and the Story is what it
+    // names (`core/queries/want.ts`).
+    theWantOnTheStory(id),
     // The Collection, because a Volume carrying this Story is an object the owner has: they
     // are choosing from their own shelf, and an id is never typed.
     searchCollection({}),
@@ -265,6 +279,49 @@ export default async function StoryPage({
                   </span>
                 ) : null}
               </>
+            )}
+          </div>
+
+          {/* **The lesser half of the same sentence**, and it is deliberately quiet: *not
+              tonight, but soon* is a smaller act than starting, so it sits under the loud one
+              in the eyebrow's register rather than beside it as a second button competing for
+              the press. A press that asks for nothing is a plain form and not a panel.
+
+              What it says back is the whole of what a Want is. There is no *unwant*: a Want
+              falls quiet on its own once a Reading begins after it was opened, so a quiet one
+              says which side of the Reading it stands on, and the only press against either is
+              taking back a sentence that was a slip. */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {want ? (
+              <>
+                <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                  {want.quiet ? "Wanted, and read since" : "On the Reading list"}
+                </span>
+                <form action={unwant}>
+                  <input type="hidden" name="storyId" value={id} />
+                  <input type="hidden" name="wantId" value={want.id} />
+                  <Button
+                    type="submit"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    I did not mean that
+                  </Button>
+                </form>
+              </>
+            ) : (
+              <form action={wantIt}>
+                <input type="hidden" name="storyId" value={id} />
+                <Button
+                  type="submit"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  I want to read it
+                </Button>
+              </form>
             )}
           </div>
         </div>
