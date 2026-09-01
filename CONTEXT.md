@@ -94,6 +94,12 @@ went through, one carrying an **Edition note**, one a **Wish** names — and the
 ended go with it (ADR-0014). A **Story** is struck from the library: refused on one an object in
 the house **carries**, one a **Reading** went through, one carrying a **Rating**, one a **Path**
 names as a stop — and the **Credits** go with it while the **people** they name stay (ADR-0015).
+A **Path** is struck from the library too, and **nothing refuses it** — a route asserts nothing
+about the world, it is only an order the owner decided (ADR-0016). Its stops and the **Declared
+constraints** on it go with it; every **Story**, **Reading** and **Rating** it named stays.
+Striking a route is not putting one aside: aside says *not now* and keeps the order, striking
+says *this was never a route*.
+
 _Avoid_: delete and remove — both read as *take this off the shelf*, which is releasing, and
 the whole point is that these are two different acts. Also, of a Story: unpublish, archive — a
 struck record is gone, not put away.

@@ -18,8 +18,14 @@ import {
   rename,
   restateIntent,
   setActive,
+  strike,
 } from "../actions";
-import { NAMING_A_ROUTE, SAYING_WHAT_A_ROUTE_IS_FOR, THE_PANELS_ON_A_ROUTE } from "../acts";
+import {
+  NAMING_A_ROUTE,
+  SAYING_WHAT_A_ROUTE_IS_FOR,
+  STRIKING_A_ROUTE,
+  THE_PANELS_ON_A_ROUTE,
+} from "../acts";
 import { DeclaredConstraints } from "../constraints";
 import { type Run, theRunsOnOffer, theWholeRunPress } from "./candidates";
 
@@ -336,6 +342,28 @@ export default async function PathPage({
               The Reading list composes itself from the active routes only. A route put aside keeps
               its order, so taking it up again costs nothing.
             </p>
+
+            {/* **The two acts stand together because the difference between them is the thing
+                the owner has to read.** Putting a route aside is *not now* and keeps the order;
+                striking it is *this was never a route* and keeps nothing — and a route minted
+                only to get something into the Reading list is the second, not the first. Set one
+                under the other, a hairline apart, the pair says that without a paragraph
+                explaining it.
+
+                Quiet, and a press away from a drawer rather than a button: it is the last thing
+                in this column for the reason the Story's is the last thing on its page. */}
+            <div className="mt-6 border-t border-border pt-4">
+              <p className="max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
+                If this was never a route — a name minted to get something read, and not an order
+                you decided — the library can stop knowing it. Every Story on it stays, with
+                everything you read, judged and catalogued about them.
+              </p>
+              <div className="mt-3">
+                <OpensDrawer href={`${back}?panel=${STRIKING_A_ROUTE}`}>
+                  Strike this route
+                </OpensDrawer>
+              </div>
+            </div>
           </section>
         </aside>
       </div>
@@ -395,6 +423,62 @@ export default async function PathPage({
             <p className="text-xs text-muted-foreground">
               Emptying it removes the words; the route is untouched.
             </p>
+          </form>
+        </Drawer>
+      ) : null}
+      {/* **The one panel here whose form has no field in it**, and the shape the Story's
+          strike already has: nothing to type, so the whole of the act is the press, and the
+          panel exists so that it takes two deliberate taps and so that what goes with the route
+          is read before the second one.
+
+          Nothing refuses this — a Path claims nothing about the world, so there is no rail to
+          meet (ADR-0016). That is exactly why the
+          sentence below has to say what stays: the owner's only safety here is knowing that
+          striking a route is a judgement withdrawn and never history lost. */}
+      {panel === STRIKING_A_ROUTE ? (
+        <Drawer
+          title="Strike this route"
+          description="For a route that was never one — a name minted to get a title into the Reading list. Not for a route you have walked or paused: putting it aside keeps the order for when you come back."
+          refused={refused}
+          closesTo={back}
+        >
+          <form action={strike} className="grid gap-4">
+            <input type="hidden" name="pathId" value={path.id} />
+
+            <p className="text-pretty text-sm text-muted-foreground">
+              The library stops knowing <em>{path.name}</em>
+              {path.stops.length > 0 ? (
+                <>
+                  , the {path.stops.length === 1 ? "one stop" : `${path.stops.length} stops`} on it
+                </>
+              ) : null}
+              {path.constraints.length > 0 ? (
+                <>
+                  {" "}
+                  and the{" "}
+                  {path.constraints.length === 1
+                    ? "sentence"
+                    : `${path.constraints.length} sentences`}{" "}
+                  declared on it
+                </>
+              ) : null}
+              . Those are the route's own records, and they say nothing once the route is gone — a
+              Reading list pin on this route goes with them.
+            </p>
+
+            <p className="text-pretty text-sm text-muted-foreground">
+              Every Story it named stays where it was, and so does every Reading, every score and
+              every object in your catalogue. Withdrawing an order destroys no history.
+            </p>
+
+            <div>
+              <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
+                Strike this route
+              </Button>
+              <p className="mt-2 text-pretty text-xs text-muted-foreground">
+                There is no undo. You land back on the routes.
+              </p>
+            </div>
           </form>
         </Drawer>
       ) : null}

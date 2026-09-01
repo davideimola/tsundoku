@@ -161,6 +161,61 @@ async function setActive(pathId: string, active: boolean): Promise<void> {
   if (changed.length === 0) throw new Refusal("not-found", "That Path is not in the library.");
 }
 
+/**
+ * **Strike a Path from the library: it stops knowing the route.** Its stops and the
+ * constraints declared on it go with it, and nothing else moves.
+ *
+ * This is striking reaching a third record (ADR-0016, extending ADR-0014 and ADR-0015), and it
+ * is **the widening the shape those two fixed did not have**: a Volume's strike is refused on
+ * four things and a
+ * Story's on four more, because each of those rows *asserts something about the world* — an
+ * object was in the house, an event happened in the owner's life — and unmaking one of them
+ * would be losing history rather than correcting a mistake. **A Path asserts
+ * nothing.** It is an order the owner decided, and a decision can be withdrawn by the person
+ * who made it. So there is no rail here, and nothing refuses.
+ *
+ * What forced it is a route that was never one. The Reading list composed itself from active
+ * Paths and Series alone, so *I want to read this* had no door but minting a named, uniquely
+ * indexed route — and the owner minted *Slam Dunk* and hand-copied four of its twenty volumes
+ * into it. Now that a **Want** is a fact of its own, that Path is a workaround with a name
+ * holding a name nothing else can use, and `deactivatePath` would only hide it.
+ *
+ * **Putting a route aside is a different act and stays one.** Inactive says *not now*, and the
+ * order survives so the owner never makes it twice; this says *this was never a route*, and
+ * the order goes because there was none to keep.
+ *
+ * **The Stories, the Readings and the Ratings are untouched**, and that is the whole of the
+ * safety. A stop is the route's record of a Story rather than the Story, so what cascades is
+ * `path_item`, the constraints declared on this route, and any Reading list pin naming it —
+ * every one of them a fact *about the route*, and worthless once the route is gone.
+ *
+ * **The owner's act, never the assistant's**, for the reason ADR-0014 gave and ADR-0015
+ * repeated: nothing on the MCP surface deletes rows to tidy up after itself.
+ *
+ * Returns the name the route held, which is the one thing about it worth saying afterwards.
+ */
+export async function strikePath(pathId: string): Promise<string> {
+  known(pathId, "Path");
+
+  // One statement, and the schema does the rest: every reference to a Path is
+  // `on delete cascade`, so the stops, the constraints declared on it and any pin naming it
+  // follow it out without this verb naming them one by one. Nothing here has to be cleared
+  // first — a Reading, a Rating and a Story do not reference a route at all, which is the
+  // structural version of "they are left standing".
+  const struck = await query<{ name: string }>("delete from path where id = $1 returning name", [
+    pathId,
+  ]);
+
+  const [gone] = struck;
+  if (!gone) throw new Refusal("not-found", "That Path is not in the library.");
+
+  // The name, because the screen that presses this is the one being unmade: what lands on
+  // `/paths` has to say *which* route went, and the only honest source for that is the row
+  // that was deleted. A name carried through the form would be the browser telling the
+  // application what it just did.
+  return gone.name;
+}
+
 function stopProse(constraint: string | undefined): string {
   if (constraint === "path_item_is_one_stop") return "That Story is already on this Path.";
   if (constraint === "path_item_path_exists") return "That Path is not in the library.";
