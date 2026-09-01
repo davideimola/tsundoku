@@ -45,7 +45,7 @@ second copy or a better edition is a real intention.`,
       },
       target_price: {
         type: "string",
-        description: `What it should cost, with a dot and no currency: 15.00. Leave it out while the
+        description: `What it should cost, with no currency: 15.00. A comma is taken too. Leave it out while the
 owner is only watching for it.`,
       },
       price_found: {

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import { priceAsTyped } from "../money.ts";
 import { Refusal, refusing } from "../refusal.ts";
 
 /**
@@ -25,14 +26,6 @@ export type ProposedWish = {
   shop?: string | null;
 };
 
-// A price arrives as text and becomes `numeric` on the way in, so `12,90` raises a
-// *syntax* error rather than an integrity violation — and `refusing` deliberately does not
-// launder a syntax error into an answer, because it is usually our bug. The shape is
-// therefore checked here, and the owner reads prose rather than meeting a 500 with their
-// whole entry gone. Same reasoning, same regex as `collection.ts`; deliberately not shared,
-// because the shared thing would be a `utils.ts` and each verb owns what it refuses.
-const AMOUNT = /^[0-9]+([.][0-9]{1,2})?$/;
-
 // A Volume's id is generated, so the owner never types one: what arrives here came from a
 // picker or from an assistant reading the library over MCP. A malformed id is the same
 // event as an unknown one — there is nothing to want — and saying so here keeps it from
@@ -45,25 +38,6 @@ const NO_SUCH_VOLUME =
 // The picker's three labels, in one place: the prose the owner reads is the same whether
 // the value never was one of the three or the database was the one to say so.
 const NOT_A_PRIORITY = "A priority is 1 (next), 2 (soon) or 3 (someday).";
-
-/**
- * A price on its way into `numeric`, or null where there is none.
- *
- * A blank is *not* a price: a door that hands the core an empty box — a form field nobody
- * filled, an assistant sending `""` for a number it does not know — means the number is
- * unknown, and `""` reaching a `numeric` column raises a syntax error rather than an
- * integrity violation, which `refusing` deliberately never launders into an answer. So it
- * would leave the caller with a 500 for the one input the owner is likeliest to send.
- */
-function amount(price: string | null | undefined): string | null {
-  if (price === null || price === undefined) return null;
-  const written = price.trim();
-  if (written === "") return null;
-  if (!AMOUNT.test(written)) {
-    throw new Refusal("invalid", "A price is written with a dot and no currency: 15.00.");
-  }
-  return written;
-}
 
 /**
  * Open a Wish: the owner means to acquire this Volume, and it joins the shopping list.
@@ -85,8 +59,8 @@ export async function openWish(wish: ProposedWish): Promise<{ id: string }> {
   if (!Number.isInteger(wish.priority)) {
     throw new Refusal("invalid", NOT_A_PRIORITY);
   }
-  const targetPrice = amount(wish.targetPrice);
-  const priceFound = amount(wish.priceFound);
+  const targetPrice = priceAsTyped(wish.targetPrice);
+  const priceFound = priceAsTyped(wish.priceFound);
 
   const rows = await refusing(
     () =>

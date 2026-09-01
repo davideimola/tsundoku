@@ -121,16 +121,20 @@ describe("opening a Wish", () => {
     });
   });
 
-  // The same two values Postgres parses rather than checks — see `collection.ts`. A comma
-  // reaches the driver as a syntax error, which is deliberately never laundered into an
-  // answer, so the owner would meet a 500 with their whole entry gone.
-  it("refuses a target price written with a comma, as an Italian keyboard offers first", async () => {
+  // The same value Postgres parses rather than checks — see `collection.ts` and
+  // `../money.ts`. A comma is what the phone's number pad offers, so it is taken and turned
+  // into the dot the column wants; anything that is not a price at all is still a refusal,
+  // because a syntax error is never laundered into an answer.
+  it("takes a target price written with a comma, and stores the number", async () => {
+    await openWish({ volumeId: await aVolume(), priority: 1, targetPrice: "15,00" });
+
+    expect(await listOpenWishes()).toMatchObject([{ targetPrice: "15.00" }]);
+  });
+
+  it("still refuses a target price that is not a price", async () => {
     await expect(
-      openWish({ volumeId: await aVolume(), priority: 1, targetPrice: "15,00" })
-    ).rejects.toMatchObject({
-      code: "invalid",
-      message: "A price is written with a dot and no currency: 15.00.",
-    });
+      openWish({ volumeId: await aVolume(), priority: 1, targetPrice: "quindici euro" })
+    ).rejects.toMatchObject({ code: "invalid" });
   });
 
   it("takes a blank price as no price, rather than sending an empty box to Postgres", async () => {
@@ -142,10 +146,10 @@ describe("opening a Wish", () => {
     expect(await listOpenWishes()).toMatchObject([{ targetPrice: null, priceFound: null }]);
   });
 
-  it("refuses a price found written with a comma", async () => {
-    await expect(
-      openWish({ volumeId: await aVolume(), priority: 1, priceFound: "12,90" })
-    ).rejects.toMatchObject({ code: "invalid" });
+  it("takes a price found written with a comma too, because both boxes are on the same phone", async () => {
+    await openWish({ volumeId: await aVolume(), priority: 1, priceFound: "12,90" });
+
+    expect(await listOpenWishes()).toMatchObject([{ priceFound: "12.90" }]);
   });
 });
 

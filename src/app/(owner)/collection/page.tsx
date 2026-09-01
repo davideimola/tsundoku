@@ -20,7 +20,7 @@ import { coverStanding } from "@/core/queries/cover";
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { acquire, catalogue, findCovers, findCoversAgain } from "./actions";
+import { acquire, catalogue, findCovers, findCoversAgain, strike } from "./actions";
 import {
   howFarTheCoversHaveGot,
   readCoverReport,
@@ -58,10 +58,17 @@ import {
 //      this screen exists for.
 //
 // **The screen keeps its two registers, and the difference between them is the point**
-// (ADR-0007). The wall is what is in the house. Under it, in a dashed frame, is the other
-// half of the catalogue — objects the library knows and the owner does not have — and the
-// answer the owner is in a shop for is which of the two a title is in. Tiles against rows
-// is a louder way of saying it than two lists ever were.
+// (ADR-0007). The wall is what is in the house; the other half of the catalogue — objects the
+// library knows and the owner does not have — is behind *Not in the house* in the hero, with
+// its count on the button.
+//
+// **That used to be a dashed frame under the wall, and moving it is a correction.** The
+// argument for putting the two side by side was that *tiles against rows is a louder way of
+// saying it than two lists ever were* — and it was right about the registers and wrong about
+// the geometry: at ninety-six tiles the second register began below two screenfuls of the
+// first, so the juxtaposition was only ever seen by somebody who scrolled the whole wall, and
+// nobody does that in a shop. A figure in the hero says *nineteen objects you do not have* on
+// arrival, which is the thing the frame was for, and one tap opens the list to work in.
 //
 // A thin adapter over the core, like every page here (ADR-0002): it calls queries, lays out
 // the answer, and holds no SQL, no rule about what a Volume may be, and no colour of its
@@ -79,9 +86,14 @@ function asked(params: Asked, name: string): string | undefined {
 // The two panels this screen has, named rather than typed out at four call sites, and read
 // against this pair rather than trusted: `?panel=banana` opens nothing, which is the same
 // honesty every filter on this wall is held to.
+// The id the tick boxes on the catalogued rows point their `form` attribute at. Named once,
+// because a typo here is a checkbox that submits nothing and says nothing about it.
+const STRIKE = "strike-the-ticked";
+
 const COVERS = "covers";
 const CATALOGUE = "catalogue";
-const PANELS = [COVERS, CATALOGUE] as const;
+const ELSEWHERE = "elsewhere";
+const PANELS = [COVERS, CATALOGUE, ELSEWHERE] as const;
 
 /**
  * This screen's address with a panel open on it, and **with every filter still on**.
@@ -169,6 +181,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   const catalogued = asked(params, "catalogued");
   const acquired = asked(params, "acquired");
   const lookedUp = readCoverReport((name) => asked(params, name));
+  const struck = asked(params, "struck");
   const panel = PANELS.find((one) => one === asked(params, "panel"));
 
   return (
@@ -189,6 +202,20 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* **The second register, as a figure rather than a frame at the foot of the wall.**
+              The other half of the catalogue used to sit under ninety-six tiles, which meant
+              the juxtaposition the screen was designed around — the shelf against what is not
+              on it — was only ever visible to somebody who scrolled the whole wall. Nobody
+              does that in a shop. So it is a number in the hero that opens into the list: the
+              same two registers, one of them now legible at a glance and one tap deep. */}
+          {elsewhere.length > 0 ? (
+            <OpensDrawer href={panelled(params, ELSEWHERE)}>
+              Not in the house
+              <span className="font-mono tabular-nums text-muted-foreground">
+                {elsewhere.length}
+              </span>
+            </OpensDrawer>
+          ) : null}
           <OpensDrawer href={panelled(params, COVERS)}>Covers</OpensDrawer>
           <OpensDrawer href={panelled(params, CATALOGUE)} emphasis="loud">
             Catalogue a Volume
@@ -296,6 +323,13 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           {acquired} is in the Collection.
         </p>
       ) : null}
+      {struck ? (
+        <p role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm">
+          {struck === "1"
+            ? "1 Volume struck from the catalogue. The library does not know it any more."
+            : `${struck} Volumes struck from the catalogue. The library does not know them any more.`}
+        </p>
+      ) : null}
       {lookedUp ? (
         <div role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm">
           {/* Every clause the run earned, and none it did not. A run that did nothing gets
@@ -354,27 +388,66 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </ul>
       )}
 
-      {elsewhere.length > 0 ? (
-        <section className="mt-12">
-          <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-            Known, not in the house
-          </h2>
-          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-            {elsewhere.length} {elsewhere.length === 1 ? "Volume" : "Volumes"} the library knows and
-            the Collection does not claim: catalogued to be wanted, or had once and let go. Say one
-            is in the house when it arrives, and it joins the wall above.
-          </p>
+      {panel === ELSEWHERE && elsewhere.length > 0 ? (
+        <Drawer
+          title="Known, not in the house"
+          description="The other half of the catalogue: objects the library knows and the Collection does not claim."
+          closesTo={unpanelled(params)}
+        >
+          <div className="group/strike">
+            <p className="text-pretty text-sm text-muted-foreground">
+              {elsewhere.length} {elsewhere.length === 1 ? "Volume" : "Volumes"} catalogued to be
+              wanted, or had once and let go. Say one is in the house when it arrives, and it joins
+              the wall. Tick any that were never real — a duplicate proposed and approved in a hurry
+              — and strike them: the library stops knowing them, and any acquisition that ended goes
+              too. Striking is refused on anything you read, judged or wished for, and on anything
+              in the house; one that stands refuses the whole tick and says which.
+            </p>
 
-          {/* Rows in a dashed frame rather than tiles on the wall, because that is the
-              difference the screen is about: these are an outline of the shelf instead of
-              the shelf. Nothing here has a colour to wear — a tint is a Series', and what
-              is drawn in it is what is standing there. */}
-          <ul className="mt-4 rounded-xl border border-dashed border-border px-4">
-            {elsewhere.map((volume) => (
-              <CataloguedRow key={volume.id} volume={volume} />
-            ))}
-          </ul>
-        </section>
+            {/* Rows rather than tiles, because that is the difference the screen is about:
+                these are an outline of the shelf instead of the shelf. Nothing here has a
+                colour to wear — a tint is a Series', and what is drawn in it is what is
+                standing there. */}
+            <ul className="mt-4 rounded-xl border border-dashed border-border px-4 [counter-reset:ticked]">
+              {elsewhere.map((volume) => (
+                <CataloguedRow key={volume.id} volume={volume} />
+              ))}
+            </ul>
+
+            {/* **Striking, and it lives over the list rather than on each object's page** —
+                because this is the list the mess is *in*. An assistant filed ten duplicates,
+                the owner approved them in one gesture, and undoing that one object at a time
+                is ten navigations to fix somebody else's minute of work.
+
+                It is safe over a list because of what the list *is*: nothing in the house is
+                here. The verb refuses the rest — a Reading through it, an Edition note, a
+                Wish — and refuses the whole selection rather than part of it, naming the one
+                that stands.
+
+                **It counts itself, and nothing is running in the browser.** The `<ul>` resets
+                a CSS counter, every row holding a ticked box increments it, and the number
+                below reads the total — so a destructive act says how many it is about to take
+                while the owner is still ticking. On a bulk delete that is not decoration; it
+                is the one thing to know before pressing, and the alternative was a client
+                component on the screen ADR-0010 exists for. The bar is not there at all until
+                something is ticked, and it sticks to the foot of the drawer, because nineteen
+                rows are longer than a phone. */}
+            <form
+              id={STRIKE}
+              action={strike}
+              className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 hidden border-t border-border bg-background/95 px-5 py-4 backdrop-blur group-has-[input:checked]/strike:block"
+            >
+              {/* The bar is the height of its button and nothing more. What striking refuses
+                  is in the paragraph above the list, where it is read *before* anything is
+                  ticked; repeating it here would spend a third of a phone on a caveat the
+                  owner has already gone past. */}
+              <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
+                Strike <span className="font-mono tabular-nums after:[content:counter(ticked)]" />{" "}
+                from the catalogue
+              </Button>
+            </form>
+          </div>
+        </Drawer>
       ) : null}
 
       {panel === COVERS ? (
@@ -594,8 +667,37 @@ function CataloguedRow({ volume }: { volume: CataloguedVolumeOutsideTheCollectio
   const under = [volume.publisher, volume.editionLine].filter(Boolean).join(" · ");
 
   return (
-    <li className="border-t border-dashed border-border first:border-t-0">
-      <details className="group">
+    <li className="flex items-start gap-3 border-t border-dashed border-border first:border-t-0 has-[:checked]:[counter-increment:ticked]">
+      {/* **Ticked by the owner, never on arrival** — the opposite of the Inbox's boxes, and
+          the difference is what the gesture does. There the selection approves proposals and
+          arriving ticked is what makes forty of them one act; here it strikes records, and a
+          screen that arrived with everything ticked would be one mis-tap from a catalogue.
+
+          `form` rather than nesting: the row already holds the *acquire* form, HTML has no
+          nested forms, and this attribute is how a control belongs to a form somewhere else
+          on the page. Plain HTML, so it submits with nothing running (ADR-0010). It sits
+          outside the `<summary>` because a checkbox inside one toggles the disclosure. */}
+      {/* **A strip rather than a box.** The control is 16px and the thumb is not, so the
+          `<label>` around it is the target: full row height, the width of a fingertip, and
+          the box centred in it. Nothing else on this screen is drawn under 44px and this was
+          the one place that forgot — over a list where the owner taps twenty in a row.
+
+          `form` rather than nesting: the row already holds the *acquire* form, HTML has no
+          nested forms, and this attribute is how a control belongs to a form elsewhere on the
+          page. Plain HTML, so it submits with nothing running (ADR-0010). It sits outside the
+          `<summary>` because a checkbox inside one toggles the disclosure. */}
+      <label className="-ml-2 flex w-11 shrink-0 cursor-pointer items-start justify-center self-stretch pt-3.5 outline-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
+        <input
+          type="checkbox"
+          form={STRIKE}
+          name="strikeId"
+          value={volume.id}
+          aria-label={`Strike ${volume.title}, ${under}, from the catalogue`}
+          className="size-4 accent-foreground"
+        />
+      </label>
+
+      <details className="group min-w-0 flex-1">
         <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 py-3 marker:hidden">
           <span className="min-w-0">
             <span className="block truncate font-medium text-muted-foreground">{volume.title}</span>
@@ -664,7 +766,10 @@ function Field({
       <Label htmlFor={fieldId} className="text-xs text-muted-foreground">
         {label}
       </Label>
-      <Input id={fieldId} name={name} className="h-10" {...props} />
+      {/* 44px under a thumb, and the desk's own 40px from `sm` up. Every control the owner
+          reaches for one-handed in a shop is drawn at this height; a field that was not was
+          the one place this screen forgot where it is used. */}
+      <Input id={fieldId} name={name} className="h-11 sm:h-10" {...props} />
     </div>
   );
 }

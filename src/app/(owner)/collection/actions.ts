@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
-import { acquireVolume, catalogueVolume } from "@/core/verbs/collection";
+import { acquireVolume, catalogueVolume, strikeVolumes } from "@/core/verbs/collection";
 import { type CoverLookupReport, type HowToLookUp, lookUpCovers } from "@/core/verbs/cover";
 import { requireOwner } from "@/lib/auth/owner";
 
@@ -149,6 +149,46 @@ async function reportingWhatWasFound(how: HowToLookUp): Promise<void> {
       stillDue: String(report.stillDue),
     })}`
   );
+}
+
+/**
+ * Strike the ticked Volumes from the catalogue: the library stops knowing them.
+ *
+ * **Not a release, and the difference is the whole of it.** Releasing says an object left the
+ * house and keeps every record of it, because those are facts about the owner's past
+ * (ADR-0007). Striking says the record was a mistake — a duplicate an assistant proposed and
+ * the owner approved in a bulk of forty — and a row that never stood for anything has no past
+ * to keep.
+ *
+ * **Bulk, because a mess arrives by the dozen**, and whole-or-nothing, because half a
+ * clean-up leaves the owner working out which half. The verb refuses the gesture if any one
+ * of the selection has the owner's own life on it and names the one that stands; that prose
+ * is carried back here the way every refusal is.
+ */
+export async function strike(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const ticked = form
+    .getAll("strikeId")
+    .filter((value): value is string => typeof value === "string");
+
+  // **Back to the list, open, either way.** Clean-up is repeated — a mess arrives by the
+  // dozen and the owner works through it — so closing the drawer on them after each pass
+  // would cost a tap to reopen every time. A refusal has to come back here for a stronger
+  // reason: it names the one object that stands, and that sentence is only useful next to
+  // the tick it is about. (Acquiring, in the same drawer, does the opposite and closes: the
+  // object joined the wall, and seeing it there is the answer.)
+  let struck: number;
+  try {
+    struck = await strikeVolumes(ticked);
+  } catch (error) {
+    if (!isRefusal(error)) throw error;
+    revalidatePath("/collection");
+    redirect(`/collection?${new URLSearchParams({ panel: "elsewhere", refused: error.message })}`);
+  }
+
+  revalidatePath("/collection");
+  redirect(`/collection?${new URLSearchParams({ panel: "elsewhere", struck: String(struck) })}`);
 }
 
 // **Releasing a Volume is not here, and that is the wall becoming a wall** (#23). It used to

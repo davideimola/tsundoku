@@ -8,6 +8,7 @@ test seam cover both surfaces, and it is the rule to break last.
 src/core/
 ├── db.ts            the pool, and the only file that knows what a pool is
 ├── covers.ts        the cover sources, and the only file that knows what a fetch is
+├── money.ts         what a price is, as the owner types it — comma or dot
 ├── queries/         one file per question the app answers
 │   └── type.ts
 └── verbs/           one file per area of writing — see verbs/README.md

@@ -122,7 +122,8 @@ depend on the day.`,
       },
       price_paid: {
         type: "string",
-        description: `What was paid for *this* acquisition, with a dot and no currency: 24.90. Leave
+        description: `What was paid for *this* acquisition, with no currency: 24.90. A comma is taken too, since
+that is what the owner's phone offers. Leave
 it out for a gift or where the receipt is gone.`,
       },
     },

@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { listCataloguedOutsideTheCollection, searchCollection } from "../queries/collection.ts";
+import { isRefusal } from "../refusal.ts";
 import {
   acquireVolume,
   amendVolume,
   type CataloguedVolume,
   catalogueVolume,
   releaseVolume,
+  strikeVolumes,
 } from "./collection.ts";
+import { writeEditionNote } from "./edition-note.ts";
+import { recordReading } from "./reading.ts";
+import { createStory } from "./story.ts";
+import { openWish } from "./wish.ts";
 
 // Seam 1: the verbs and the query surface against a real Postgres. What is asserted is
 // what the owner can see afterwards — the Collection — rather than the row that was
@@ -170,16 +177,28 @@ describe("what the model refuses about an object", () => {
 
 // The two values Postgres parses rather than checks. A wrong shape reaches the driver as
 // a syntax error, which is not an integrity violation and is deliberately never laundered
-// into an answer — so if these ever stop being refusals, the owner meets a 500 with their
+// into an answer — so if these ever stop being handled here, the owner meets a 500 with their
 // whole entry gone, which is the failure this pair exists to prevent. They are on the
 // acquisition now, because that is where a price and a day are facts (ADR-0007).
 describe("what the owner is most likely to mistype", () => {
-  it("refuses a price written with a comma, as an Italian keyboard offers first", async () => {
+  // **This used to be a refusal, and reversing it is the point.** The numeric keyboard on an
+  // Italian phone offers a comma and no dot, and the Collection is the screen used one-handed
+  // in a shop — so refusing the only separator that keyboard has was the app calling the
+  // owner wrong for typing what they were given. What a price *looks like* is `../money.ts`
+  // now; this asserts it reaches the acquisition as a number Postgres took.
+  it("takes a price written with a comma, which is what the phone's number pad offers", async () => {
     const { id } = await catalogueVolume(aTankobon());
 
-    await expect(acquireVolume({ volumeId: id, pricePaid: "6,50" })).rejects.toMatchObject({
+    await acquireVolume({ volumeId: id, pricePaid: "6,50" });
+
+    expect(await searchCollection({})).toMatchObject([{ pricePaid: "6.50" }]);
+  });
+
+  it("still refuses a price that is not one, rather than meeting a syntax error", async () => {
+    const { id } = await catalogueVolume(aTankobon());
+
+    await expect(acquireVolume({ volumeId: id, pricePaid: "€6,50" })).rejects.toMatchObject({
       code: "invalid",
-      message: "A price is written with a dot and no currency: 6.50.",
     });
   });
 
@@ -263,5 +282,123 @@ describe("amending a Volume", () => {
       name: "Refusal",
       code: "not-found",
     });
+  });
+});
+
+// **Striking a Volume from the catalogue**, and the whole of what makes it not the delete
+// ADR-0007 refuses: releasing is about the world, striking is about the record.
+//
+// It exists because an assistant filed duplicates the owner approved in bulk and noticed a
+// day later — *Slam Dunk 5* to *9*, catalogued twice, under an edition line never bought.
+// What keeps it safe is not a confirmation dialog, it is the four refusals below: an object
+// with any of the owner's own life on it is not a mistaken record, and no duplicate has any.
+describe("striking a Volume from the catalogue", () => {
+  async function aCatalogued(title = "Slam Dunk 5"): Promise<string> {
+    const { id } = await catalogueVolume({ ...aTankobon(), title });
+    return id;
+  }
+
+  it("takes a mistaken record out of the catalogue entirely", async () => {
+    const duplicate = await aCatalogued();
+
+    expect(await strikeVolumes([duplicate])).toBe(1);
+    expect(await listCataloguedOutsideTheCollection()).toEqual([]);
+  });
+
+  it("strikes the whole selection in one gesture, because a mess arrives by the dozen", async () => {
+    const five = await aCatalogued("Slam Dunk 5");
+    const six = await aCatalogued("Slam Dunk 6");
+    const keep = await aCatalogued("Slam Dunk 7");
+
+    expect(await strikeVolumes([five, six])).toBe(2);
+    expect(await listCataloguedOutsideTheCollection()).toMatchObject([{ id: keep }]);
+  });
+
+  it("takes an acquisition that ended with it, which is the deliberate half", async () => {
+    // A duplicate's purchase history is as fictional as the duplicate. This is why the line
+    // is the *open* acquisition rather than any acquisition at all.
+    const duplicate = await aCatalogued();
+    await acquireVolume({ volumeId: duplicate, pricePaid: "6.50" });
+    await releaseVolume(duplicate);
+
+    expect(await strikeVolumes([duplicate])).toBe(1);
+    expect(await query("select * from acquisition where volume_id = $1", [duplicate])).toEqual([]);
+  });
+
+  // The rail that makes a bulk control over the catalogue safe at all.
+  it("refuses an object that is in the house, and says to release it first", async () => {
+    const onTheShelf = await volumeInTheHouse(aTankobon());
+
+    await expect(strikeVolumes([onTheShelf])).rejects.toSatisfy(
+      (error: unknown) =>
+        isRefusal(error) && error.code === "not-allowed" && error.message.includes("Release it")
+    );
+  });
+
+  it("refuses one a Reading went through, because that is an event in the owner's life", async () => {
+    const read = await volumeInTheHouse(aTankobon());
+    const story = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    await recordReading({
+      storyId: story,
+      medium: "paper",
+      volumeId: read,
+      provenanceId: "typed-from-the-shelf",
+    });
+    await releaseVolume(read);
+
+    await expect(strikeVolumes([read])).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.message.includes("Reading")
+    );
+  });
+
+  it("refuses one the owner wrote an Edition note about", async () => {
+    const judged = await aCatalogued();
+    await writeEditionNote(judged, "The paper is thin but the price is right.");
+
+    await expect(strikeVolumes([judged])).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.message.includes("Edition note")
+    );
+  });
+
+  it("refuses one a Wish names, and says to close the Wish first", async () => {
+    const wanted = await aCatalogued();
+    await openWish({ volumeId: wanted, priority: 1 });
+
+    await expect(strikeVolumes([wanted])).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.message.includes("Wish")
+    );
+  });
+
+  // Half a clean-up is worse than none: the owner would have to work out which half.
+  it("strikes nothing at all when one of the selection stands", async () => {
+    const duplicate = await aCatalogued("Slam Dunk 5");
+    const onTheShelf = await volumeInTheHouse({ ...aTankobon(), title: "Slam Dunk 6" });
+
+    await expect(strikeVolumes([duplicate, onTheShelf])).rejects.toSatisfy(isRefusal);
+    expect(await listCataloguedOutsideTheCollection()).toMatchObject([{ id: duplicate }]);
+  });
+
+  it("names the one that stands, so the owner knows which to untick", async () => {
+    const onTheShelf = await volumeInTheHouse({ ...aTankobon(), title: "Berserk Deluxe 3" });
+
+    await expect(strikeVolumes([onTheShelf])).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.message.startsWith("Berserk Deluxe 3 stays:")
+    );
+  });
+
+  it("refuses an empty selection rather than reporting nothing done", async () => {
+    await expect(strikeVolumes([])).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.code === "invalid"
+    );
+    await expect(strikeVolumes(["banana"])).rejects.toSatisfy(isRefusal);
+  });
+
+  it("refuses an id no Volume has, rather than striking the rest of the selection", async () => {
+    const duplicate = await aCatalogued();
+
+    await expect(
+      strikeVolumes([duplicate, "00000000-0000-4000-8000-000000000000"])
+    ).rejects.toSatisfy((error: unknown) => isRefusal(error) && error.code === "not-found");
+    expect(await listCataloguedOutsideTheCollection()).toMatchObject([{ id: duplicate }]);
   });
 });

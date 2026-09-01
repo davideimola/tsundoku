@@ -1,8 +1,9 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import { priceAsTyped } from "../money.ts";
 import { Refusal, refusing } from "../refusal.ts";
-import type { Executor } from "../transaction.ts";
+import { type Executor, transaction } from "../transaction.ts";
 
 // Writing the catalogue and writing the Collection are **two acts**, and this file is
 // where they came apart (ADR-0007).
@@ -35,13 +36,13 @@ export type CataloguedVolume = {
   isbn?: string | null;
 };
 
-// The two values Postgres *parses* rather than checks, and therefore the two the database
-// cannot refuse politely: a price and a day arrive as text and become `numeric` and `date`
-// on the way in, and `6,50` or `11/03/2024` raises a syntax error rather than an integrity
-// violation. `refusing` deliberately does not launder a syntax error into an answer — it is
-// usually our bug — so the shape is checked here instead, and the owner reads prose rather
-// than meeting a 500 with their whole entry gone.
-const AMOUNT = /^[0-9]+([.][0-9]{1,2})?$/;
+// A day is the other value Postgres *parses* rather than checks, and therefore the other one
+// the database cannot refuse politely: it arrives as text and becomes `date` on the way in,
+// and `11/03/2024` raises a syntax error rather than an integrity violation. `refusing`
+// deliberately does not launder a syntax error into an answer — it is usually our bug — so
+// the shape is checked here, and the owner reads prose rather than meeting a 500 with their
+// whole entry gone. A price is the same problem and is `../money.ts`, because *which
+// separator a keyboard offers* is a fact about the owner rather than about this area.
 const DAY = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
 
 // A Volume's id is generated, so the owner never types one: what arrives here came from
@@ -252,9 +253,7 @@ export async function acquireVolume(acquisition: MadeAcquisition): Promise<void>
   if (!UUID.test(acquisition.volumeId)) {
     throw new Refusal("not-found", NO_SUCH_VOLUME);
   }
-  if (acquisition.pricePaid && !AMOUNT.test(acquisition.pricePaid)) {
-    throw new Refusal("invalid", "A price is written with a dot and no currency: 6.50.");
-  }
+  const pricePaid = priceAsTyped(acquisition.pricePaid);
   if (acquisition.acquiredOn && !DAY.test(acquisition.acquiredOn)) {
     throw new Refusal("invalid", "A purchase date is a day, written 2024-03-11.");
   }
@@ -264,7 +263,7 @@ export async function acquireVolume(acquisition: MadeAcquisition): Promise<void>
       query(`insert into acquisition (volume_id, acquired_on, price_paid) values ($1, $2, $3)`, [
         acquisition.volumeId,
         acquisition.acquiredOn ?? null,
-        acquisition.pricePaid ?? null,
+        pricePaid,
       ]),
     (constraint) => {
       switch (constraint) {
@@ -339,4 +338,103 @@ export async function releaseVolume(volumeId: string): Promise<void> {
         : "That Volume is catalogued and has never been in the house."
     );
   }
+}
+
+// STRIKING A VOLUME FROM THE CATALOGUE, and why this is not the delete ADR-0007 refuses.
+//
+// **Releasing is about the world; striking is about the record.** `releaseVolume` says the
+// object left the house and keeps everything, because a Reading made through it and the note
+// written about it are facts about the owner's past that a delete would take with them. That
+// rule protects an object that *was real*. It has nothing to say about a row that never
+// stood for anything — a duplicate an assistant proposed, the owner approved in a bulk of
+// forty, and noticed a day later, twice, in two editions (#32's aftermath: *Slam Dunk 5* to
+// *9* catalogued a second time under a Shinsōban line that was never bought).
+//
+// So the act exists, and what makes it safe is what it **refuses** rather than a confirmation
+// dialog. A struck Volume must be a record with nothing of the owner's own hanging off it:
+//
+//   in the house      an object on a shelf. Release it first, and then think again — this
+//                     is the rail that makes a bulk control over the catalogue safe at all
+//   a Reading         an event in the owner's life names this object. The strongest signal
+//                     the thing was real, and no duplicate ever has one
+//   an Edition note   prose the owner wrote about this object as an object
+//   a Wish            an intention they recorded against this exact Volume
+//
+// What it does take with it is said out loud before it is done: the acquisitions that have
+// **ended**, and the record of which Stories the object carried. The first is the deliberate
+// half — a duplicate's purchase history is as fictional as the duplicate — and it is why the
+// open acquisition is the line rather than any acquisition at all.
+//
+// **The owner's act, never the assistant's.** There is no MCP tool for this and there must
+// not be one: the party that files a hallucinated duplicate is exactly the party that should
+// not be able to delete rows to tidy up after itself (ADR-0005).
+
+/** Why one Volume in a selection could not be struck, in the owner's words. */
+type WhyItStands = { title: string; because: string };
+
+/**
+ * Strike Volumes from the catalogue: the library stops knowing them.
+ *
+ * **The selection lands whole or not at all**, like the Inbox's approval and for the same
+ * reason: a mess arrives by the dozen, and half a clean-up is worse than none — the owner
+ * would have to work out which half. So one refused object refuses the gesture and names
+ * itself, and nothing has moved when the screen comes back.
+ *
+ * Returns how many were struck. An empty selection is refused rather than passing quietly:
+ * a button that reported *0 struck* would be a button the owner could not tell from a broken
+ * one.
+ */
+export async function strikeVolumes(volumeIds: readonly string[]): Promise<number> {
+  const asked = volumeIds.filter((id) => UUID.test(id));
+  if (asked.length === 0) {
+    throw new Refusal("invalid", "Tick the Volumes to strike from the catalogue first.");
+  }
+
+  return transaction(async (run) => {
+    // One statement for the whole selection: what stands in the way of each id, read in the
+    // same transaction that is about to delete them, so nothing can be acquired or read
+    // between the check and the act.
+    const standing = await run<WhyItStands & { id: string }>(
+      `select v.id,
+              v.title,
+              case
+                when exists (select 1 from acquisition a
+                              where a.volume_id = v.id and a.released_on is null)
+                  then 'it is in the house. Release it first — the catalogue is not where an object on a shelf is removed.'
+                when exists (select 1 from reading r where r.volume_id = v.id)
+                  then 'a Reading went through it. That is an event in your life, and it names this object.'
+                when exists (select 1 from edition_note n where n.volume_id = v.id)
+                  then 'you wrote an Edition note about it.'
+                when exists (select 1 from wish w where w.volume_id = v.id)
+                  then 'a Wish names it. Close the Wish first.'
+              end as because
+         from volume v
+        where v.id = any($1::uuid[])`,
+      [asked]
+    );
+
+    if (standing.length !== asked.length) {
+      throw new Refusal("not-found", "One of those is not a Volume the library knows.");
+    }
+
+    const held = standing.find((one) => one.because !== null);
+    if (held) {
+      throw new Refusal("not-allowed", `${held.title} stays: ${held.because} Nothing was struck.`);
+    }
+
+    // The acquisitions that ended go first, because the foreign key refuses the Volume
+    // while any of them stands — and that refusal is the schema saying what this verb had
+    // to decide out loud: an acquisition is history, and striking says the history was
+    // fiction. The Edition note and the Stories it carried follow the Volume by cascade,
+    // and a Reading through it cannot exist, because one would have refused the gesture.
+    await run(`delete from acquisition where volume_id = any($1::uuid[])`, [asked]);
+
+    const struck = await refusing(
+      () =>
+        run<{ id: string }>(`delete from volume where id = any($1::uuid[]) returning id`, [asked]),
+      () => "Those Volumes could not be struck from the catalogue."
+    );
+
+    return struck.length;
+  });
 }

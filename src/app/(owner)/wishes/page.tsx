@@ -194,8 +194,8 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
                 Open it
               </Button>
               <p className="mt-2 text-xs text-muted-foreground">
-                A price is written with a dot — <code className="font-mono">12.90</code>. Leave both
-                empty while you are only watching for it.
+                A price takes a dot or a comma — <code className="font-mono">12,90</code>. Leave
+                both empty while you are only watching for it.
               </p>
             </div>
           </form>
