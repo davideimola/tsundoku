@@ -28,6 +28,7 @@ export const storyRelations = relations(story, ({one, many}) => ({
 	volumeStories: many(volumeStory),
 	pathItems: many(pathItem),
 	series: many(series),
+	readingListPins: many(readingListPin),
 }));
 
 export const provenanceRelations = relations(provenance, ({many}) => ({
@@ -122,7 +123,6 @@ export const declaredConstraintRelations = relations(declaredConstraint, ({one})
 
 export const pathRelations = relations(path, ({many}) => ({
 	declaredConstraints: many(declaredConstraint),
-	readingListPins: many(readingListPin),
 	pathItems: many(pathItem),
 }));
 
@@ -134,9 +134,9 @@ export const wishRelations = relations(wish, ({one}) => ({
 }));
 
 export const readingListPinRelations = relations(readingListPin, ({one}) => ({
-	path: one(path, {
-		fields: [readingListPin.pathId],
-		references: [path.id]
+	story: one(story, {
+		fields: [readingListPin.storyId],
+		references: [story.id]
 	}),
 	series: one(series, {
 		fields: [readingListPin.seriesId],
