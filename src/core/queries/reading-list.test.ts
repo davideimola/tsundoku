@@ -10,15 +10,33 @@ import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import { openWant } from "../verbs/want.ts";
 import { openWish } from "../verbs/wish.ts";
-import { composeReadingList } from "./reading-list.ts";
+import { composeReadingList, type ReadingListEntry } from "./reading-list.ts";
 
 // Seam 1, and **the product** (#1). Everything asserted in this file is a derivation with
-// no row behind it: the list, its order, the medium each entry is intended in, and the
-// Wish an entry needing an object proposes without opening.
+// no row behind it: the two halves of the list, their order, the reasons each row carries,
+// the medium each entry is intended in, and the Wish an entry needing an object proposes
+// without opening.
 
 beforeEach(async () => {
   await query("truncate path, series, story, volume cascade");
 });
+
+/** The reserve, which is where everything composes before the owner has decided anything. */
+async function reserve(): Promise<ReadingListEntry[]> {
+  return (await composeReadingList()).reserve;
+}
+
+/** What a row is called, which for a Story is its title and for a line its position. */
+function called(entry: ReadingListEntry): string {
+  return (
+    entry.story?.title ?? `${entry.reasons[0]?.series?.name} ${entry.reasons[0]?.series?.position}`
+  );
+}
+
+/** Which sources put a row on the list, in the order they were composed. */
+function why(entry: ReadingListEntry): string[] {
+  return entry.reasons.map((reason) => reason.because);
+}
 
 /** *Angolo Giappone*, in the order the owner put it in. */
 async function angoloGiappone(): Promise<{ pathId: string; stories: string[] }> {
@@ -37,39 +55,47 @@ async function angoloGiappone(): Promise<{ pathId: string; stories: string[] }> 
 }
 
 describe("what the Reading list composes itself from", () => {
-  it("offers the next unread Story of an active Path, and moves on when that one is read", async () => {
-    const { stories } = await angoloGiappone();
+  it("offers every unread stop of an active Path, in the owner's order", async () => {
+    await angoloGiappone();
 
-    expect((await composeReadingList()).map((entry) => entry.story?.title)).toEqual(["Vagabond"]);
+    // Not one stop but the queue behind it: what stands second cannot be pinned before
+    // the owner can see it, and *three Marvel stories and then a DC one* is exactly that
+    // (#40).
+    expect((await reserve()).map(called)).toEqual(["Vagabond", "Lone Wolf and Cub"]);
+  });
+
+  it("drops a stop the owner has read, and the rest of the route closes up", async () => {
+    const { stories } = await angoloGiappone();
 
     await finishReading(
       await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
       "2024-02-02"
     );
 
-    expect((await composeReadingList()).map((entry) => entry.story?.title)).toEqual([
-      "Lone Wolf and Cub",
-    ]);
+    expect((await reserve()).map(called)).toEqual(["Lone Wolf and Cub"]);
   });
 
-  it("says which route an entry extends, and what the owner said that route is for", async () => {
+  it("says which route an entry stands on, what that route is for, and where on it", async () => {
     await angoloGiappone();
 
-    const [entry] = await composeReadingList();
+    const [first, second] = await reserve();
 
-    expect(entry.because).toBe("path");
-    expect(entry.path?.name).toBe("Angolo Giappone");
-    expect(entry.path?.intent).toBe(
+    expect(why(first)).toEqual(["path"]);
+    expect(first.reasons[0].path?.name).toBe("Angolo Giappone");
+    expect(first.reasons[0].path?.intent).toBe(
       "privilegiare titoli davvero coerenti con samurai e cultura giapponese"
     );
-    expect(entry.series).toBeNull();
+    // Where on the route, counted over what is still to read: one is what comes next.
+    expect(first.reasons[0].path?.place).toBe(1);
+    expect(second.reasons[0].path?.place).toBe(2);
+    expect(first.reasons[0].series).toBeNull();
   });
 
   it("drops a route the owner put aside, and one they have walked to the end", async () => {
     const { pathId, stories } = await angoloGiappone();
 
     await deactivatePath(pathId);
-    expect(await composeReadingList()).toEqual([]);
+    expect(await reserve()).toEqual([]);
 
     // Walked out rather than put aside: every stop read, and the route contributes
     // nothing for a different reason and with the same answer.
@@ -80,7 +106,7 @@ describe("what the Reading list composes itself from", () => {
       "2024-02-02"
     );
 
-    expect(await composeReadingList()).toEqual([]);
+    expect(await reserve()).toEqual([]);
   });
 
   it("skips a Story the owner is in the middle of rather than telling them to start it", async () => {
@@ -88,9 +114,58 @@ describe("what the Reading list composes itself from", () => {
 
     await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" });
 
-    expect((await composeReadingList()).map((entry) => entry.story?.title)).toEqual([
-      "Lone Wolf and Cub",
+    expect((await reserve()).map(called)).toEqual(["Lone Wolf and Cub"]);
+  });
+});
+
+describe("one Story is one row, however many reasons put it there", () => {
+  it("names all three where it is wanted and stands on two routes", async () => {
+    const storyId = await createStory({ title: "Batman: Anno Uno", typeId: "comic" });
+    const marvel = await definePath({ name: "Marvel" });
+    const dc = await definePath({ name: "DC" });
+    await placeStoriesOnPath(marvel, [storyId]);
+    await placeStoriesOnPath(dc, [storyId]);
+    await openWant(storyId);
+
+    const rows = await reserve();
+
+    // One row and not three: the same answer written three times is not three answers.
+    expect(rows).toHaveLength(1);
+    expect(why(rows[0])).toEqual(["want", "path", "path"]);
+    expect(rows[0].reasons.map((reason) => reason.path?.name ?? null)).toEqual([
+      null,
+      "DC",
+      "Marvel",
     ]);
+    expect(rows[0].reasons[0].want?.id).toBeTruthy();
+  });
+
+  it("enters the list where its first reason put it: the Want, ahead of the routes", async () => {
+    const { stories } = await angoloGiappone();
+    // The route's *second* stop, wanted as well. It leads, because a Want is the last thing
+    // the owner said.
+    await openWant(stories[1]);
+
+    expect((await reserve()).map(called)).toEqual(["Lone Wolf and Cub", "Vagabond"]);
+    expect(why((await reserve())[0])).toEqual(["want", "path"]);
+  });
+
+  it("is one row per Series position, which merges with no narrative", async () => {
+    const seriesId = await declareSeries({
+      name: "Death Note",
+      publisher: "Panini",
+      publishedCount: 2,
+      status: "concluded",
+    });
+    await declareSeriesCollected(seriesId);
+    const storyId = await createStory({ title: "Death Note", typeId: "manga" });
+    await openWant(storyId);
+
+    // A Series names an object and a Want names a narrative (ADR-0001), so these are two
+    // rows even where the owner would say one word for both.
+    const rows = await reserve();
+    expect(rows).toHaveLength(2);
+    expect(rows.map(why)).toEqual([["want"], ["series"]]);
   });
 });
 
@@ -100,12 +175,13 @@ describe("what a Want puts on the list", () => {
 
     await openWant(storyId);
 
-    const [entry] = await composeReadingList();
-    expect(entry.because).toBe("want");
+    const [entry] = await reserve();
+    expect(why(entry)).toEqual(["want"]);
     expect(entry.story?.title).toBe("Slam Dunk");
-    expect(entry.path).toBeNull();
-    expect(entry.series).toBeNull();
-    expect(entry.want?.id).toBeTruthy();
+    expect(entry.subject).toEqual({ kind: "story", id: storyId });
+    expect(entry.reasons[0].path).toBeNull();
+    expect(entry.reasons[0].series).toBeNull();
+    expect(entry.reasons[0].want?.id).toBeTruthy();
 
     // Said again as the criterion it is: wanting to read something cost a named, ordered
     // route before this, and now it costs neither a route nor a line.
@@ -126,23 +202,20 @@ describe("what a Want puts on the list", () => {
 
     await openWant(storyId);
 
-    const [entry] = await composeReadingList();
-    expect(entry.because).toBe("want");
+    const [entry] = await reserve();
+    expect(why(entry)).toEqual(["want"]);
     expect(entry.story?.title).toBe("Berserk");
     // A planned reread is an ordinary entry: there is no field anywhere saying it is one,
-    // and the entry carries the same six facts every other entry does.
+    // and the entry carries the same facts every other entry does.
     expect(Object.keys(entry).sort()).toEqual(
       [
         "atHand",
-        "because",
         "medium",
         "object",
-        "path",
-        "pinned",
         "proposedWish",
-        "series",
+        "reasons",
         "story",
-        "want",
+        "subject",
         "wishAlreadyOpen",
       ].sort()
     );
@@ -152,14 +225,14 @@ describe("what a Want puts on the list", () => {
     const storyId = await createStory({ title: "Vagabond", typeId: "manga" });
     await openWant(storyId);
 
-    expect(await composeReadingList()).toHaveLength(1);
+    expect(await reserve()).toHaveLength(1);
 
     await recordReading({ storyId, medium: "digital", provenanceId: "remembered" });
 
-    expect(await composeReadingList()).toEqual([]);
+    expect(await reserve()).toEqual([]);
   });
 
-  it("leads the list, newest Want first, ahead of the routes and the ledger", async () => {
+  it("leads the reserve, newest Want first, ahead of the routes and the ledger", async () => {
     const { pathId } = await angoloGiappone();
     expect(pathId).toBeTruthy();
     const first = await createStory({ title: "Slam Dunk", typeId: "manga" });
@@ -168,10 +241,11 @@ describe("what a Want puts on the list", () => {
     await openWant(first);
     await openWant(second);
 
-    expect((await composeReadingList()).map((entry) => entry.story?.title)).toEqual([
+    expect((await reserve()).map(called)).toEqual([
       "One-Punch Man",
       "Slam Dunk",
       "Vagabond",
+      "Lone Wolf and Cub",
     ]);
   });
 
@@ -187,7 +261,7 @@ describe("what a Want puts on the list", () => {
 
     await openWant(storyId);
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
     expect(entry.medium).toBe("paper");
     expect(entry.atHand).toBe(true);
     expect(entry.object?.title).toBe("Slam Dunk 1");
@@ -208,7 +282,7 @@ describe("the intended medium each entry carries", () => {
   it("is digital where no object carries the Story: nothing to buy, start it tonight", async () => {
     await angoloGiappone();
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
     expect(entry.medium).toBe("digital");
     expect(entry.atHand).toBe(true);
@@ -225,7 +299,7 @@ describe("the intended medium each entry carries", () => {
     });
     await recordVolumeCarriesStory(volumeId, stories[0]);
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
     expect(entry.medium).toBe("paper");
     expect(entry.atHand).toBe(true);
@@ -244,7 +318,7 @@ describe("the intended medium each entry carries", () => {
     });
     await recordVolumeCarriesStory(id, stories[0]);
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
     expect(entry.medium).toBe("paper");
     expect(entry.atHand).toBe(false);
@@ -268,7 +342,7 @@ describe("the intended medium each entry carries", () => {
     await recordVolumeCarriesStory(wanted.id, stories[0]);
     await recordVolumeCarriesStory(held, stories[0]);
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
     // The owner can start it tonight, and an entry that offered to buy the deluxe while
     // the tankōbon sat on the shelf would be the shopping list talking over the Reading list.
@@ -287,7 +361,7 @@ describe("the intended medium each entry carries", () => {
     await recordVolumeCarriesStory(volumeId, stories[0]);
     await releaseVolume(volumeId);
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
     expect(entry.atHand).toBe(false);
     expect(entry.object?.inTheHouse).toBe(false);
@@ -311,7 +385,7 @@ describe("an entry that needs a Volume the owner does not own", () => {
   it("proposes a Wish naming that Volume", async () => {
     const { volumeId } = await toBuy();
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
     expect(entry.proposedWish).toEqual({ volumeId, priority: 2 });
   });
@@ -319,9 +393,9 @@ describe("an entry that needs a Volume the owner does not own", () => {
   it("proposes it and does not open it: reading the whole list leaves no Wish behind", async () => {
     await toBuy();
 
-    const list = await composeReadingList();
+    const { head, reserve: rest } = await composeReadingList();
     // Walked, entry by entry, the way a screen renders it and an assistant reads it.
-    for (const entry of list) expect(entry.proposedWish ?? entry.object).toBeTruthy();
+    for (const entry of [...head, ...rest]) expect(entry.reasons.length).toBeGreaterThan(0);
 
     const [{ wishes }] = await query<{ wishes: string }>("select count(*) as wishes from wish");
     expect(wishes).toBe("0");
@@ -332,7 +406,7 @@ describe("an entry that needs a Volume the owner does not own", () => {
 
     await openWish({ volumeId, priority: 1 });
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
     expect(entry.wishAlreadyOpen).toBe(true);
     expect(entry.proposedWish).toBeNull();
     // Still to be bought. Meaning to buy it is not having it.
@@ -349,7 +423,7 @@ describe("an entry that needs a Volume the owner does not own", () => {
     });
     await recordVolumeCarriesStory(volumeId, stories[0]);
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
     expect(entry.proposedWish).toBeNull();
   });
 });
@@ -380,10 +454,10 @@ describe("what the Series being collected contribute", () => {
   it("offers the first position the house has none of", async () => {
     const { seriesId } = await blackEdition();
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
-    expect(entry.because).toBe("series");
-    expect(entry.series).toEqual({
+    expect(why(entry)).toEqual(["series"]);
+    expect(entry.reasons[0].series).toEqual({
       id: seriesId,
       name: "Death Note",
       publisher: "Panini",
@@ -391,15 +465,17 @@ describe("what the Series being collected contribute", () => {
       position: 2,
       publishedCount: 6,
     });
+    // The subject is the position and not the line: what is pinned is one object to buy.
+    expect(entry.subject).toEqual({ kind: "series", id: seriesId, position: 2 });
     // A Series is a line of objects and says nothing about the narrative (ADR-0001).
     expect(entry.story).toBeNull();
-    expect(entry.path).toBeNull();
+    expect(entry.reasons[0].path).toBeNull();
   });
 
   it("is paper and has to be bought, whatever the library knows of the object", async () => {
     await blackEdition();
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
     expect(entry.medium).toBe("paper");
     expect(entry.atHand).toBe(false);
@@ -421,9 +497,9 @@ describe("what the Series being collected contribute", () => {
     await placeVolumeInSeries({ volumeId: second, seriesId, number: 2 });
     await releaseVolume(second);
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
-    expect(entry.series?.position).toBe(2);
+    expect(entry.reasons[0].series?.position).toBe(2);
     expect(entry.object?.title).toBe("Death Note Black Edition II");
     expect(entry.proposedWish).toEqual({ volumeId: second, priority: 2 });
   });
@@ -444,7 +520,7 @@ describe("what the Series being collected contribute", () => {
     await placeVolumeInSeries({ volumeId, seriesId, number: 1 });
 
     // Holding 1 of 72 opens no project, so nothing is missing from it (CONTEXT.md).
-    expect(await composeReadingList()).toEqual([]);
+    expect(await reserve()).toEqual([]);
   });
 
   it("says nothing about a Series being collected with nothing missing", async () => {
@@ -463,53 +539,93 @@ describe("what the Series being collected contribute", () => {
     await placeVolumeInSeries({ volumeId, seriesId, number: 1 });
     await declareSeriesCollected(seriesId);
 
-    expect(await composeReadingList()).toEqual([]);
+    expect(await reserve()).toEqual([]);
   });
 
   it("comes after the routes, which are what the owner chose to read", async () => {
     await angoloGiappone();
     await blackEdition();
 
-    expect((await composeReadingList()).map((entry) => entry.because)).toEqual(["path", "series"]);
+    expect((await reserve()).map(why)).toEqual([["path"], ["path"], ["series"]]);
   });
 });
 
-describe("the order the owner imposes with a pin", () => {
-  it("brings a pinned source to the front, and the most recent pin leads", async () => {
-    const recupero = await definePath({ name: "Recupero Batman" });
-    await placeStoriesOnPath(recupero, [
-      await createStory({ title: "Batman: Anno Uno", typeId: "comic" }),
-    ]);
-    const technical = await definePath({ name: "Technical Leadership" });
-    await placeStoriesOnPath(technical, [
-      await createStory({ title: "The Manager's Path", typeId: "non-fiction" }),
-    ]);
+// **The head and the reserve** (#40). The list stops being one flat answer: a short head the
+// owner pinned, in the order they pinned it, and a reserve that composes itself and is
+// deliberately unordered. The pin is the whole of what separates them.
+describe("the head the owner pinned", () => {
+  it("holds the pinned rows and the reserve holds the rest, with nothing in both", async () => {
+    const { stories } = await angoloGiappone();
 
-    // Composed, the routes come back by name: Recupero Batman, then Technical Leadership.
-    expect((await composeReadingList()).map((entry) => entry.path?.name)).toEqual([
-      "Recupero Batman",
-      "Technical Leadership",
-    ]);
+    await pinToReadingList({ kind: "story", id: stories[1] });
 
-    await pinToReadingList({ kind: "path", id: technical });
-
-    expect((await composeReadingList()).map((entry) => entry.path?.name)).toEqual([
-      "Technical Leadership",
-      "Recupero Batman",
-    ]);
-
-    // Pinning is saying *this next*, so the newer pin leads the older one.
-    await pinToReadingList({ kind: "path", id: recupero });
-
-    const pinned = await composeReadingList();
-    expect(pinned.map((entry) => entry.path?.name)).toEqual([
-      "Recupero Batman",
-      "Technical Leadership",
-    ]);
-    expect(pinned.map((entry) => entry.pinned)).toEqual([true, true]);
+    const { head, reserve: rest } = await composeReadingList();
+    expect(head.map(called)).toEqual(["Lone Wolf and Cub"]);
+    expect(rest.map(called)).toEqual(["Vagabond"]);
   });
 
-  it("puts a Series ahead of the routes when that is what the owner pinned", async () => {
+  it("reads newest pin first, because a pin is the most recent decision", async () => {
+    const first = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const second = await createStory({ title: "Berserk", typeId: "manga" });
+    await openWant(first);
+    await openWant(second);
+
+    await pinToReadingList({ kind: "story", id: first });
+    await pinToReadingList({ kind: "story", id: second });
+
+    expect((await composeReadingList()).head.map(called)).toEqual(["Berserk", "Slam Dunk"]);
+  });
+
+  it("takes the second and third stop of one route, in pin order", async () => {
+    // The sentence this whole slice exists for: three Marvel stories, and then a DC one.
+    const marvel = await definePath({ name: "Marvel" });
+    const stops = [
+      await createStory({ title: "Daredevil: Born Again", typeId: "comic" }),
+      await createStory({ title: "Ultimate Spider-Man", typeId: "comic" }),
+      await createStory({ title: "Civil War", typeId: "comic" }),
+    ];
+    await placeStoriesOnPath(marvel, stops);
+    const dc = await definePath({ name: "DC" });
+    const batman = await createStory({ title: "Batman: Anno Uno", typeId: "comic" });
+    await placeStoriesOnPath(dc, [batman]);
+
+    await pinToReadingList({ kind: "story", id: stops[0] });
+    await pinToReadingList({ kind: "story", id: stops[1] });
+    await pinToReadingList({ kind: "story", id: stops[2] });
+    await pinToReadingList({ kind: "story", id: batman });
+
+    // Pinned in reading order, so the head reads back newest first. What matters is that
+    // three stops of one route stand in it at once, which a pin on the *route* could never
+    // have said.
+    const { head, reserve: rest } = await composeReadingList();
+    expect(head.map(called)).toEqual([
+      "Batman: Anno Uno",
+      "Civil War",
+      "Ultimate Spider-Man",
+      "Daredevil: Born Again",
+    ]);
+    expect(rest).toEqual([]);
+  });
+
+  it("has no cap: a head of twenty is the owner's to prune", async () => {
+    const path = await definePath({ name: "Everything" });
+    const stops = [];
+    for (let n = 1; n <= 20; n++) {
+      stops.push(
+        await createStory({ title: `Story ${String(n).padStart(2, "0")}`, typeId: "comic" })
+      );
+    }
+    await placeStoriesOnPath(path, stops);
+    for (const storyId of stops) await pinToReadingList({ kind: "story", id: storyId });
+
+    // Twenty decisions look wrong on a screen, and the library refuses none of them: a cap
+    // here would be an opinion nobody asked it for.
+    const { head, reserve: rest } = await composeReadingList();
+    expect(head).toHaveLength(20);
+    expect(rest).toEqual([]);
+  });
+
+  it("takes a Series position, which is the shopping half of the same list", async () => {
     await angoloGiappone();
     const seriesId = await declareSeries({
       name: "Death Note",
@@ -519,45 +635,54 @@ describe("the order the owner imposes with a pin", () => {
     });
     await declareSeriesCollected(seriesId);
 
-    await pinToReadingList({ kind: "series", id: seriesId });
+    await pinToReadingList({ kind: "series", id: seriesId, position: 1 });
 
-    expect((await composeReadingList()).map((entry) => entry.because)).toEqual(["series", "path"]);
+    const { head } = await composeReadingList();
+    expect(head.map(why)).toEqual([["series"]]);
+    expect(head[0].subject).toEqual({ kind: "series", id: seriesId, position: 1 });
   });
 
   it("gives the entry back its composed place when the pin is lifted", async () => {
-    await angoloGiappone();
-    const seriesId = await declareSeries({
-      name: "Death Note",
-      publisher: "Panini",
-      publishedCount: 2,
-      status: "concluded",
-    });
-    await declareSeriesCollected(seriesId);
+    const { stories } = await angoloGiappone();
 
-    await pinToReadingList({ kind: "series", id: seriesId });
-    await unpinFromReadingList({ kind: "series", id: seriesId });
+    await pinToReadingList({ kind: "story", id: stories[1] });
+    await unpinFromReadingList({ kind: "story", id: stories[1] });
 
-    expect((await composeReadingList()).map((entry) => entry.because)).toEqual(["path", "series"]);
+    const { head, reserve: rest } = await composeReadingList();
+    expect(head).toEqual([]);
+    expect(rest.map(called)).toEqual(["Vagabond", "Lone Wolf and Cub"]);
   });
 
-  it("introduces nothing: a pin on a route put aside contributes no entry at all", async () => {
-    const { pathId } = await angoloGiappone();
+  it("introduces nothing: a pin on a Story no source names contributes no entry at all", async () => {
+    const { pathId, stories } = await angoloGiappone();
 
-    await pinToReadingList({ kind: "path", id: pathId });
+    await pinToReadingList({ kind: "story", id: stories[0] });
     await deactivatePath(pathId);
 
     // The pin is still stored, and the list is still composed. A pin is an order and
     // never an entry, so there is nothing here for it to bring to the front.
-    expect(await composeReadingList()).toEqual([]);
+    expect(await composeReadingList()).toEqual({ head: [], reserve: [] });
     const [{ stored }] = await query<{ stored: string }>(
       "select count(*) as stored from reading_list_pin"
     );
     expect(stored).toBe("1");
   });
+
+  it("carries every reason the pinned row has, exactly as the reserve would", async () => {
+    const storyId = await createStory({ title: "Batman: Anno Uno", typeId: "comic" });
+    const dc = await definePath({ name: "DC" });
+    await placeStoriesOnPath(dc, [storyId]);
+    await openWant(storyId);
+
+    await pinToReadingList({ kind: "story", id: storyId });
+
+    const { head } = await composeReadingList();
+    expect(why(head[0])).toEqual(["want", "path"]);
+  });
 });
 
 describe("where the Reading list is stored", () => {
-  it("is nowhere: the only table this slice added holds pins, and holds nothing else", async () => {
+  it("is nowhere: the only table this area added holds pins, and holds nothing else", async () => {
     // The criterion, as a query. A `reading_list` table of entries is the failure mode
     // this whole slice is shaped to avoid, and its absence is worth asserting rather than
     // trusting: the `Prossimo` column of the spreadsheet is exactly such a table, kept by
@@ -575,9 +700,10 @@ describe("where the Reading list is stored", () => {
         order by column_name`
     );
     expect(columns.map((column) => column.column_name)).toEqual([
-      "path_id",
       "pinned_at",
       "series_id",
+      "series_position",
+      "story_id",
     ]);
   });
 });
@@ -614,7 +740,7 @@ describe("what an entry's tile is drawn from", () => {
   it("carries the line the object stands in and the position it stands at", async () => {
     const { seriesId } = await carriedByAVolumeInALine();
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
     expect(entry.object?.seriesId).toBe(seriesId);
     expect(entry.object?.seriesNumber).toBe(1);
@@ -628,7 +754,7 @@ describe("what an entry's tile is drawn from", () => {
       [volumeId, "https://books.google.com/books/content?id=njT&img=1&zoom=5"]
     );
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
     expect(entry.object?.cover).toMatchObject({
       url: "https://books.google.com/books/content?id=njT&img=1&zoom=5",
@@ -648,7 +774,7 @@ describe("what an entry's tile is drawn from", () => {
     });
     await recordVolumeCarriesStory(volumeId, stories[0]);
 
-    const [entry] = await composeReadingList();
+    const [entry] = await reserve();
 
     expect(entry.object).toMatchObject({ seriesId: null, seriesNumber: null, cover: null });
   });

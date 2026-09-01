@@ -240,6 +240,49 @@ export async function nextUnreadOnActivePaths(): Promise<PathAhead[]> {
   );
 }
 
+/** A Path and everything still ahead on it, in the owner's order. */
+export type PathQueue = {
+  path: { id: string; name: string; intent: string | null };
+  /** Every stop still to read, in the owner's order. The first of them is what comes next. */
+  ahead: PathStop[];
+};
+
+/**
+ * **The queue behind every active Path**: not the next stop of each route, but all of them.
+ *
+ * The Reading list's reserve composes from this (#40, user story 11), and the difference
+ * between it and `nextUnreadOnActivePaths` above is the whole reason it exists. A route that
+ * contributes one stop is a route the owner can only pin *whole* — pinning Marvel pins
+ * whatever Marvel is offering — so *three Marvel stories and then a DC one* was unsayable
+ * however the pin was stored. Seeing what stands behind the next stop is what makes it
+ * sayable, and it is the same derivation with the `limit 1` taken off.
+ *
+ * `nextUnreadOnActivePaths` is not this function's first element and must not become it:
+ * that one is what an assistant asks for when it wants the routes and nothing else, and it
+ * is one row per Path over the wire rather than a route's whole tail.
+ *
+ * A Path that is exhausted or put aside is **absent**, exactly as it is there: a route with
+ * nothing unread left has nothing to contribute, and the owner put the inactive ones aside
+ * themselves.
+ */
+export async function theQueueOnActivePaths(): Promise<PathQueue[]> {
+  return query<PathQueue>(
+    `select
+       jsonb_build_object('id', p.id, 'name', p.name, 'intent', p.intent) as path,
+       queue.ahead
+     from path p
+     cross join lateral (
+       select jsonb_agg(${STOP} order by i.position) as ahead
+         from path_item i
+         join story s on s.id = i.story_id
+         join type t on t.id = s.type_id
+        where i.path_id = p.id and ${STORY_STATE} = 'to-read'
+     ) queue
+    where p.active and queue.ahead is not null
+    order by lower(p.name)`
+  );
+}
+
 /**
  * Every constraint the owner has declared, the global ones first and then route by route.
  *
