@@ -559,7 +559,13 @@ type NarrativeOfTheLine = {
   elsewhere: boolean;
   /** Whether it carries a judgement of its own, of which the work can keep one. */
   judged: boolean;
+  /** Whether a pass through it counted Instalments, which are this narrative's units. */
+  counted: boolean;
 };
+
+/** The rule two judged narratives break, in one place because two callers say it. */
+const JUDGED_APART =
+  "are judged apart, and a Story has one score to give. Merging would lose one of them. Nothing was merged.";
 
 /**
  * Merge the Volumes of a Series into one Story: the twenty tankōbon of *Slam Dunk* become one
@@ -586,8 +592,9 @@ type NarrativeOfTheLine = {
  *
  * Refused on a line that already publishes a Story — that is what makes this once per line —
  * on one with no objects in it or whose objects carry no narrative, on one carrying a narrative
- * an object outside the Series carries too, and on one where two narratives are judged apart,
- * since a work has one score to give.
+ * an object outside the Series carries too, on one where two narratives are judged apart, since
+ * a Story has one score to give, and on one where a pass counted its way through a narrative in
+ * that narrative's own units, since those units are what the collapse replaces.
  */
 export async function mergeSeriesIntoOneStory(
   seriesId: string,
@@ -641,7 +648,9 @@ export async function mergeSeriesIntoOneStory(
                        where other.story_id = s.id
                          and ov.series_id is distinct from $1) as elsewhere,
               exists (select 1 from rating g
-                       where g.story_id = s.id and g.reading_id is null) as judged
+                       where g.story_id = s.id and g.reading_id is null) as judged,
+              exists (select 1 from reading r
+                       where r.story_id = s.id and r.at_instalment is not null) as counted
          from story s
         where exists (select 1
                         from volume_story vs
@@ -679,9 +688,22 @@ export async function mergeSeriesIntoOneStory(
     const judged = narratives.filter((one) => one.judged);
     if (judged.length > 1) {
       const [one, two] = judged;
+      throw new Refusal("not-allowed", `${one.title} and ${two.title} ${JUDGED_APART}`);
+    }
+
+    // **A pass that counted its way through one of these narratives is the other thing a
+    // collapse would quietly change**, and it is refused rather than carried. `at_instalment`
+    // is *seven of twenty* in the units of the Story it names, so a pass at one of a
+    // five-part narrative becomes a pass at one of the line the moment the narrative under it
+    // is replaced — the number survives and its meaning does not, which is the one way this
+    // gesture could write a wrong fact rather than move a true one. Renumbering it onto the
+    // line is a rule nobody has written down (the volume's position is a guess, and an
+    // omnibus has no single one), so it is refused and named instead of invented.
+    const counted = narratives.find((one) => one.counted);
+    if (counted) {
       throw new Refusal(
         "not-allowed",
-        `${one.title} and ${two.title} are judged apart, and a Story has one score to give. Merging would lose one of them. Nothing was merged.`
+        `A pass through ${counted.title} recorded how far it got, and that number counts parts of ${counted.title} rather than parts of the line. Merging would change what it means. Nothing was merged.`
       );
     }
 
@@ -727,9 +749,9 @@ export async function mergeSeriesIntoOneStory(
       (constraint) => {
         switch (constraint) {
           case "reading_at_instalment_is_within_the_work":
-            return "A pass through one of these narratives got further than this line goes. Record what the publisher has done first, so the Story is as long as what you have read of it. Nothing was merged.";
+            return "A pass through one of these narratives got further than this line goes. Nothing was merged.";
           case "rating_is_one_per_story_and_reading":
-            return "Two of these narratives are judged apart, and a Story has one score to give. Nothing was merged.";
+            return `Two of these narratives ${JUDGED_APART}`;
           default:
             return "What you have read of this line could not be carried onto one Story.";
         }

@@ -104,10 +104,13 @@ export default async function SeriesDetailPage({
   if (!series) notFound();
 
   const collecting = Boolean(series.collectingSince);
-  // Offered only where there is something to collapse. A line with no objects placed in it, or
-  // one whose objects stand for no narrative yet, is a line the gesture refuses — and a control
-  // that is only ever refused is a control that should not be drawn.
-  const mergeable = (collapsing?.narratives ?? 0) > 0;
+  // **The merge, read as an act this screen has rather than as a parameter it was handed**
+  // (AGENTS.md, on reading a panel against the acts a screen offers). One predicate, spent by
+  // the offer *and* by its panel: a line that already publishes a Story has been merged, and one
+  // whose objects stand for no narrative is a line the gesture refuses — so `?panel=merge`
+  // typed at either stands nothing, exactly as a release form cannot be stood over an object
+  // the house does not hold.
+  const merging = !series.publishes && (collapsing?.narratives ?? 0) > 0 ? collapsing : null;
   const refused = asked(asks, "refused");
   const news = newsFrom(asks);
   const closesTo = `/series/${series.id}`;
@@ -226,12 +229,11 @@ export default async function SeriesDetailPage({
             and the link is there — which is what keeps that row's rule true: the Series screen
             is still a place the owner looks, and the one press that mints a narrative hands them
             straight to the page it is managed from. */}
-        {!series.publishes && mergeable && collapsing ? (
+        {merging ? (
           <p className="mt-6 max-w-prose text-pretty text-sm text-muted-foreground">
-            These <span className="tabular-nums text-foreground">{collapsing.objects}</span> objects
-            stand for <span className="tabular-nums text-foreground">{collapsing.narratives}</span>{" "}
-            {collapsing.narratives === 1 ? "narrative" : "narratives"}, and volume seven is not a
-            thing you would give a score to.{" "}
+            These <span className="text-foreground">{objects(merging.objects)}</span> stand for{" "}
+            <span className="text-foreground">{narratives(merging.narratives)}</span>, and volume
+            seven is not a thing you would give a score to.{" "}
             <Link
               href={panelled(series.id, MERGE)}
               className="rounded text-foreground underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
@@ -348,7 +350,7 @@ export default async function SeriesDetailPage({
           the owner cannot read anywhere else on the screen. Under the field, what comes with the
           work and what does not — said before the press, the way a strike says what it takes, so
           nothing about the shelf is a surprise afterwards. */}
-      {panel === MERGE && collapsing ? (
+      {panel === MERGE && merging ? (
         <Drawer
           title="Merge into one Story"
           description="A line prints one Story. This is the gesture that says so, and it is pressed once per Series."
@@ -359,10 +361,8 @@ export default async function SeriesDetailPage({
             <input type="hidden" name="seriesId" value={series.id} />
 
             <p className="text-pretty font-heading text-lg leading-snug">
-              <span className="tabular-nums">{collapsing.narratives}</span>
-              {collapsing.narratives === 1 ? " narrative across " : " narratives across "}
-              <span className="tabular-nums">{collapsing.objects}</span>
-              {collapsing.objects === 1 ? " object becomes one." : " objects become one."}
+              {narratives(merging.narratives)} across {objects(merging.objects)}{" "}
+              {merging.objects === 1 ? "becomes" : "become"} one.
             </p>
 
             <div className="grid gap-1.5">
@@ -384,9 +384,9 @@ export default async function SeriesDetailPage({
 
             <div className="grid gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
               <p className="max-w-prose text-pretty">
-                Every object of the line carries that Story afterwards, and any Rating, every Reading
-                and every Credit come with it. A route or a Want naming one of these narratives
-                comes to name it instead.
+                Every object of the line carries that Story afterwards, and any Rating, every
+                Reading and every Credit come with it. A route or a Want naming one of these
+                narratives comes to name it instead.
               </p>
               <p className="max-w-prose text-pretty">
                 Nothing you own moves: the Volumes, the acquisitions and the count published are
@@ -451,6 +451,21 @@ export default async function SeriesDetailPage({
       ) : null}
     </main>
   );
+}
+
+/**
+ * *14 narratives*, *one narrative* — and the same for the objects carrying them.
+ *
+ * Written once because the two numbers are said twice: in the offer under the line, and in the
+ * panel it opens. A screen that counted them in each place would be a screen that could come to
+ * call the same fact two things.
+ */
+function narratives(count: number): string {
+  return `${count} ${count === 1 ? "narrative" : "narratives"}`;
+}
+
+function objects(count: number): string {
+  return `${count} ${count === 1 ? "object" : "objects"}`;
 }
 
 /** What just happened, in the interface's own words. */

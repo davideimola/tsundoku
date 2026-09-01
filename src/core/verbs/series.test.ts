@@ -20,7 +20,7 @@ import {
   recordVolumesPublished,
   stopCollectingSeries,
 } from "./series.ts";
-import { createStory, createStoryCarriedBy } from "./story.ts";
+import { createStory, createStoryCarriedBy, declareInstalments } from "./story.ts";
 import { recordVolumeCarriesStory } from "./story-to-volume.ts";
 import { openWant } from "./want.ts";
 
@@ -1015,6 +1015,46 @@ describe("merging a Series into one Story", () => {
     const [count] = await query<{ count: string }>("select count(*) from story");
     expect(count.count).toBe("3");
     expect((await ledgerOf(series)).story_id).toBeNull();
+  });
+
+  it("refuses when a pass counted its way through one of the narratives", async () => {
+    const { series, narratives } = await aLineOfTankobon(2);
+    // The narrative under volume one is itself serialized, and a pass got to part three of it.
+    // Three of *that* is not three of the line, so the collapse would change what the number
+    // means rather than move it.
+    await declareInstalments(narratives[0], 5);
+    await recordReading({
+      storyId: narratives[0],
+      medium: "paper",
+      provenanceId: "remembered",
+      atInstalment: 3,
+    });
+
+    const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series));
+
+    expect(refusal.code).toBe("not-allowed");
+    expect(refusal.message).toMatch(/recorded how far it got/i);
+    expect(refusal.message).toMatch(/Nothing was merged/);
+    const [count] = await query<{ count: string }>("select count(*) from story");
+    expect(count.count).toBe("2");
+    expect((await ledgerOf(series)).story_id).toBeNull();
+  });
+
+  it("carries a pass that counted nothing, which is every ordinary pass", async () => {
+    const { series, narratives } = await aLineOfTankobon(2);
+    await recordReading({
+      storyId: narratives[0],
+      medium: "paper",
+      provenanceId: "remembered",
+      outcome: "finished",
+    });
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const [row] = await query<{ story_id: string; at_instalment: number | null }>(
+      "select story_id, at_instalment from reading"
+    );
+    expect(row).toEqual({ story_id: work, at_instalment: null });
   });
 
   it("refuses a narrative another line's object carries too, which is not this line's to collapse", async () => {
