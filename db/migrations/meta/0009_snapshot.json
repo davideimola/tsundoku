@@ -1,6 +1,6 @@
 {
   "id": "6e8de565-a0c2-44a5-bbd3-dc3b5bf471f2",
-  "prevId": "bf227ced-68a7-4347-b231-dfdadc446e43",
+  "prevId": "2ea8260d-36cb-4613-b127-0f291e6f3e30",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1126,6 +1126,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "at_instalment": {
+          "name": "at_instalment",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1224,6 +1230,10 @@
         "reading_did_not_end_before_it_started": {
           "name": "reading_did_not_end_before_it_started",
           "value": "(started_on IS NULL) OR (ended_on IS NULL) OR (ended_on >= started_on)"
+        },
+        "reading_at_instalment_is_positive": {
+          "name": "reading_at_instalment_is_positive",
+          "value": "(at_instalment IS NULL) OR (at_instalment > 0)"
         }
       },
       "isRLSEnabled": false
@@ -1484,6 +1494,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "instalments": {
+          "name": "instalments",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1525,6 +1541,10 @@
         "story_title_is_not_blank": {
           "name": "story_title_is_not_blank",
           "value": "(title = btrim(title)) AND (title <> ''::text)"
+        },
+        "story_instalments_are_positive": {
+          "name": "story_instalments_are_positive",
+          "value": "(instalments IS NULL) OR (instalments > 0)"
         }
       },
       "isRLSEnabled": false
@@ -1794,6 +1814,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "covers_from": {
+          "name": "covers_from",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "covers_to": {
+          "name": "covers_to",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1851,6 +1883,90 @@
         }
       },
       "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "volume_story_covers_a_whole_range": {
+          "name": "volume_story_covers_a_whole_range",
+          "value": "(covers_from IS NULL) = (covers_to IS NULL)"
+        },
+        "volume_story_cover_does_not_invert": {
+          "name": "volume_story_cover_does_not_invert",
+          "value": "(covers_from IS NULL) OR (covers_to >= covers_from)"
+        },
+        "volume_story_cover_starts_at_one": {
+          "name": "volume_story_cover_starts_at_one",
+          "value": "(covers_from IS NULL) OR (covers_from > 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.want": {
+      "name": "want",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "want_newest_first": {
+          "name": "want_newest_first",
+          "columns": [
+            {
+              "expression": "opened_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "want_story_exists": {
+          "name": "want_story_exists",
+          "tableFrom": "want",
+          "tableTo": "story",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "want_one_open_per_story": {
+          "name": "want_one_open_per_story",
+          "nullsNotDistinct": false,
+          "columns": [
+            "story_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
