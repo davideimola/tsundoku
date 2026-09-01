@@ -96,6 +96,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const NO_SUCH_STORY = "No Story has that id.";
 
+// The same sentence `story-to-volume.ts` refuses with, said again rather than imported: this
+// is the prose of a different act, and the day one of the two changes it must not drag the
+// other's wording along with it.
+const NO_SUCH_VOLUME = "That Volume is not in the library.";
+
 /**
  * What an approved Amendment writes onto a Story: the fields it names, and nothing else.
  *
@@ -183,6 +188,19 @@ export async function amendStory(
 // the party that files a hallucinated Story is exactly the party that must not be able to
 // delete rows to tidy up after itself (ADR-0005, and ADR-0014 said it first).
 
+// **The two branches that are the owner's own life**, and they are a fragment rather than
+// two copies of the same prose because two readers ask about them: striking a Story, and
+// splitting the object that stands for one. The two spend it in different company — striking
+// asks four things and a split asks these two alone — and neither may come to answer *may
+// this record be unmade* differently from the other.
+//
+// It names the Story `s`, so a `case` spending it joins `story s`.
+const WHAT_THE_OWNER_HAS_LIVED_WITH = `
+    when exists (select 1 from reading r where r.story_id = s.id)
+      then 'a Reading went through it. That is an event in your life, and it names this narrative.'
+    when exists (select 1 from rating g where g.story_id = s.id)
+      then 'you judged it. A score is the one record that is only ever about the narrative itself.'`;
+
 /**
  * **Why one Story stands, as SQL** — the whole safety of striking, in four branches, and the
  * prose the owner reads when one of them is true.
@@ -207,10 +225,7 @@ export const WHY_A_STORY_STANDS = `
                    join acquisition a on a.volume_id = vs.volume_id and a.released_on is null
                   where vs.story_id = s.id)
       then 'an object in the house carries it. Say that object no longer carries it first — the library is not where a narrative on a shelf is unmade.'
-    when exists (select 1 from reading r where r.story_id = s.id)
-      then 'a Reading went through it. That is an event in your life, and it names this narrative.'
-    when exists (select 1 from rating g where g.story_id = s.id)
-      then 'you judged it. A score is the one record that is only ever about the narrative itself.'
+    ${WHAT_THE_OWNER_HAS_LIVED_WITH}
     when exists (select 1 from path_item i where i.story_id = s.id)
       then 'a Path names it as a stop. Take it off the Path first.'
   end`;
@@ -275,4 +290,176 @@ export async function strikeStories(storyIds: readonly string[]): Promise<number
 
     return struck.length;
   });
+}
+
+// SPLITTING AN OBJECT INTO THE STORIES IT HOLDS, which is the second of the two gestures that
+// carry the exceptions to *one Volume, one Story* — and the one this library has exactly one
+// case of: *Batman: L'uomo che ride* holds three tales the owner scores apart.
+//
+// **It is a gesture and not a question asked at cataloguing time.** The rule for what a Story
+// is has one sentence — *a Story is what you would give a score to* — and the whole point of
+// having a rule is that nobody is asked to apply it while entering things. So an object stands
+// for one narrative by default, and the day the owner opens it and finds three, they say the
+// three titles once. The Type is not asked either: three tales inside one comic are comics,
+// and the narrative being replaced already says which Type that is. A tale that turns out to
+// be something else is `amendStory` afterwards, which is one Story's own correction rather
+// than a field on a gesture about an object.
+//
+// **What makes it safe is Striking's posture asked about a narrative** (ADR-0015): the Story
+// the object stood for is dropped only while nothing the owner has *lived with* has attached
+// to it — no Reading, no Rating — and it refuses otherwise, naming which of the two it is. The
+// four questions striking asks are not all askable here: *an object in the house carries it*
+// is true by construction, since the object doing the splitting is one.
+//
+// Two things go with the dropped narrative, and they are said out loud rather than discovered:
+// the **Credits** go and the people they named stay, which is striking's own clause and its
+// reason (ADR-0012, a Person is not owned by the Credit that first named them); and a **Path**
+// stop naming it goes too.
+//
+// **That second one is a conflict with ADR-0015 and it is left standing deliberately.**
+// Striking refuses a Story a Path names as a stop — it is the fourth of its four — and this
+// gesture does not, because the decision behind it says the auto-made Story is dropped while
+// nothing has attached to it, *no Reading, no Rating*, and names no third thing. Refusing on a
+// route would be a rule nobody wrote, and cascading it away quietly would be one too. So it
+// cascades, it is tested by name below, the panel says so before the press, and the ADR is
+// where the answer belongs the day the owner gives one.
+//
+// **Not a tool, and it cannot become one**: it creates Stories, so an assistant may only
+// propose them and the door for that is the Inbox (ADR-0005).
+
+/** What has attached to the narrative an object stands for, in the owner's words. */
+const WHAT_HAS_ATTACHED_TO_A_STORY = `case ${WHAT_THE_OWNER_HAS_LIVED_WITH} end`;
+
+/** One narrative this object carries, and what stands in the way of unmaking it. */
+type CarriedNarrative = {
+  id: string;
+  title: string;
+  typeId: string;
+  /** Whether another object carries it too, which makes it not this one's to unmake. */
+  elsewhere: boolean;
+  /** Why the owner has lived with it, or `null` where nothing has attached. */
+  because: string | null;
+};
+
+/**
+ * Split an object into the several Stories it holds: *L'uomo che ride* becomes *Gotham Noir*,
+ * *L'uomo che ride* and *Uomo di legno*, each carried by this same object and each judged on
+ * its own. Returns the new Stories' ids, in the order they were named.
+ *
+ * **One gesture, and therefore one transaction** (`./README.md`): the narratives are created,
+ * this object is recorded as carrying each of them, and the one it stood for is dropped —
+ * together or not at all. Half of it landing would be an object holding four narratives, three
+ * of them new and one of them the thing they replace.
+ *
+ * Each new Story takes the Type of the narrative being replaced, so a split asks for titles
+ * and nothing else. They are ordinary Stories from the moment they exist: a Rating, a Reading,
+ * a Credit and a Path stop all attach to each one separately, which is the whole reason the
+ * owner split the object.
+ *
+ * **Nothing about the object changes.** The Volume, its acquisitions and its place in a Series
+ * are untouched — a split changes what the owner judges and never what they own.
+ *
+ * Refused where the narrative being replaced is one the owner has lived with — a Reading went
+ * through it, or they judged it — and where it is not this object's to unmake, because other
+ * objects carry it too. Refused on fewer than two titles, since an object standing for one
+ * narrative is not split.
+ */
+export async function splitVolumeIntoStories(
+  volumeId: string,
+  titles: readonly string[]
+): Promise<string[]> {
+  if (!UUID.test(volumeId)) throw new Refusal("not-found", NO_SUCH_VOLUME);
+
+  // A form with more boxes than the owner needed is the ordinary case, so an empty one is
+  // not a title they left blank — it is a title they did not have.
+  const named = titles.map((title) => title.trim()).filter((title) => title !== "");
+  if (named.length < 2) {
+    throw new Refusal(
+      "invalid",
+      "A split names at least two Stories: an object standing for one narrative is not split."
+    );
+  }
+
+  return transaction(async (run) => {
+    const [object] = await run<{ id: string }>("select id from volume where id = $1", [volumeId]);
+    if (!object) throw new Refusal("not-found", NO_SUCH_VOLUME);
+
+    // Read in the same transaction that is about to write, so nothing can be read, judged or
+    // recorded into this object between the check and the act.
+    const carried = await run<CarriedNarrative>(
+      `select s.id,
+              s.title,
+              s.type_id as "typeId",
+              exists (select 1
+                        from volume_story elsewhere
+                       where elsewhere.story_id = s.id
+                         and elsewhere.volume_id <> vs.volume_id) as elsewhere,
+              ${WHAT_HAS_ATTACHED_TO_A_STORY} as because
+         from volume_story vs
+         join story s on s.id = vs.story_id
+        where vs.volume_id = $1
+        order by lower(s.title), s.id`,
+      [volumeId]
+    );
+
+    const standing = whatThisObjectStandsFor(carried);
+    if (standing.because) {
+      throw new Refusal(
+        "not-allowed",
+        `${standing.title} stays: ${standing.because} Nothing was split.`
+      );
+    }
+
+    const created: string[] = [];
+    for (const title of named) {
+      const storyId = await createStory({ title, typeId: standing.typeId }, run);
+      await recordVolumeCarriesStory(volumeId, storyId, run);
+      created.push(storyId);
+    }
+
+    // Last, and it takes the Credits, the carrying link and any Path stop with it: every
+    // reference to a Story cascades, and the two that would matter refused the gesture above.
+    // Wrapped like every other statement that can be refused, so a reference the schema stops
+    // cascading one day reaches the owner as a sentence rather than as a 500 (`./README.md`).
+    await refusing(
+      () => run("delete from story where id = $1", [standing.id]),
+      () => `${standing.title} could not be replaced by what this object holds.`
+    );
+
+    return created;
+  });
+}
+
+/**
+ * The one narrative this object stands for, or the refusal that says why there is not one.
+ *
+ * Three ways there is no such thing, and each is a different sentence: an object nobody has
+ * said anything about yet, an object standing for a work that runs across others — twenty
+ * tankōbon of one *Slam Dunk*, which is not this volume's to unmake — and an object that has
+ * already been split.
+ */
+function whatThisObjectStandsFor(carried: readonly CarriedNarrative[]): CarriedNarrative {
+  const own = carried.filter((narrative) => !narrative.elsewhere);
+  const [first] = own;
+  if (first && own.length === 1) return first;
+
+  const [any] = carried;
+  if (!any) {
+    throw new Refusal(
+      "not-allowed",
+      "This object stands for no narrative yet, so there is nothing to split. Record what is inside it first."
+    );
+  }
+
+  if (own.length === 0) {
+    throw new Refusal(
+      "not-allowed",
+      `${any.title} is not this object's alone — other objects carry it too, and a work running across a line is not one volume's to unmake. Say this object no longer carries it, then record what is inside it.`
+    );
+  }
+
+  throw new Refusal(
+    "not-allowed",
+    `This object already holds ${own.length} narratives of its own. A split replaces the one narrative an object stands for, and there is more than one here.`
+  );
 }

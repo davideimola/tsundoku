@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
+import { findVolume, listAcquisitions } from "../queries/collection.ts";
 import { findStory, listStories, listStoriesNothingHasHappenedTo } from "../queries/story.ts";
 import { listStoriesInVolume } from "../queries/story-to-volume.ts";
 import { isRefusal } from "../refusal.ts";
@@ -9,14 +10,23 @@ import { creditStory } from "./credit.ts";
 import { definePath, placeStoriesOnPath } from "./path.ts";
 import { setRating } from "./rating.ts";
 import { recordReading } from "./reading.ts";
-import { amendStory, createStory, createStoryCarriedBy, strikeStories } from "./story.ts";
+import { declareSeries, placeVolumeInSeries } from "./series.ts";
+import {
+  amendStory,
+  createStory,
+  createStoryCarriedBy,
+  splitVolumeIntoStories,
+  strikeStories,
+} from "./story.ts";
 import { recordVolumeCarriesStory } from "./story-to-volume.ts";
 
 // `path` joins the truncate for the Stories that are struck: a route is the fourth thing
 // that can stand in the way of one, and a Path left behind by one test is a stop nobody
-// placed in the next.
+// placed in the next. `series` joins it for the split, which asserts that an object's place
+// in a line is untouched — and a line is unique per edition, so one left behind would refuse
+// the next test's own.
 beforeEach(async () => {
-  await query("truncate story, volume, path cascade");
+  await query("truncate story, volume, path, series cascade");
 });
 
 describe("creating a Story", () => {
@@ -389,5 +399,218 @@ describe("the Stories nothing has happened to", () => {
       original,
       duplicate,
     ]);
+  });
+});
+
+// **Splitting an object into the Stories it holds** — the *Batman: L'uomo che ride* case, and
+// the one this gesture was invented for. The default is one Volume, one Story; an object that
+// turns out to hold three tales the owner would score apart says so here, once, and the
+// narrative it stood for is dropped in the same act.
+//
+// The refusals are the whole of it, and they are Striking's own posture asked about a
+// narrative the object stands for: a Reading or a Rating is something the owner has lived
+// with, and a split that took either with it would be a delete of their past wearing a
+// tidier name (ADR-0015).
+describe("splitting an object into the Stories it holds", () => {
+  const NO_SUCH_ID = "00000000-0000-4000-8000-000000000000";
+
+  /** The object, standing for the one narrative the default made of it. */
+  async function lUomoCheRide(): Promise<{ volumeId: string; storyId: string }> {
+    const volumeId = await volumeInTheHouse({
+      title: "Batman: L'uomo che ride",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+    const storyId = await createStoryCarriedBy(
+      { title: "Batman: L'uomo che ride", typeId: "comic" },
+      volumeId
+    );
+    return { volumeId, storyId };
+  }
+
+  const THE_THREE = ["Gotham Noir", "L'uomo che ride", "Uomo di legno"];
+
+  it("splits the object into the several narratives in one gesture", async () => {
+    const { volumeId } = await lUomoCheRide();
+
+    const created = await splitVolumeIntoStories(volumeId, THE_THREE);
+
+    expect(created).toHaveLength(3);
+    expect((await listStoriesInVolume(volumeId)).map((story) => story.title)).toEqual([
+      "Gotham Noir",
+      "L'uomo che ride",
+      "Uomo di legno",
+    ]);
+  });
+
+  it("gives each of them the Type the object's narrative had, so nothing is asked", async () => {
+    const { volumeId } = await lUomoCheRide();
+
+    await splitVolumeIntoStories(volumeId, THE_THREE);
+
+    expect((await listStoriesInVolume(volumeId)).map((story) => story.type.id)).toEqual([
+      "comic",
+      "comic",
+      "comic",
+    ]);
+  });
+
+  it("drops the narrative the object stood for, because nothing had attached to it", async () => {
+    const { volumeId, storyId } = await lUomoCheRide();
+
+    await splitVolumeIntoStories(volumeId, THE_THREE);
+
+    expect(await findStory(storyId)).toBeNull();
+  });
+
+  // What a split changes is what the owner judges, and never what they own.
+  it("leaves the Volume, its acquisition and its place in a Series exactly as they were", async () => {
+    const seriesId = await declareSeries({
+      name: "Batman",
+      publisher: "Panini Comics",
+      publishedCount: 12,
+      status: "ongoing",
+    });
+    const { volumeId } = await lUomoCheRide();
+    await placeVolumeInSeries({ volumeId, seriesId, number: 3 });
+
+    const before = await findVolume(volumeId);
+    const history = await listAcquisitions(volumeId);
+
+    await splitVolumeIntoStories(volumeId, THE_THREE);
+
+    expect(await findVolume(volumeId)).toEqual(before);
+    expect(await listAcquisitions(volumeId)).toEqual(history);
+  });
+
+  it("leaves three narratives each of which carries its own judgement", async () => {
+    const { volumeId } = await lUomoCheRide();
+
+    const [noir, ride, legno] = await splitVolumeIntoStories(volumeId, THE_THREE);
+    await setRating({ storyId: noir ?? "", score: 8, provenanceId: "remembered" });
+    await setRating({ storyId: ride ?? "", score: 9.5, provenanceId: "remembered" });
+
+    expect((await listStoriesInVolume(volumeId)).map((story) => story.latestScore)).toEqual([
+      8,
+      9.5,
+      null,
+    ]);
+    expect(await findStory(legno ?? "")).toMatchObject({ title: "Uomo di legno" });
+  });
+
+  it("refuses once a Reading has gone through the narrative, and splits nothing", async () => {
+    const { volumeId, storyId } = await lUomoCheRide();
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    await expect(splitVolumeIntoStories(volumeId, THE_THREE)).rejects.toSatisfy(
+      (error: unknown) =>
+        isRefusal(error) && error.code === "not-allowed" && error.message.includes("a Reading")
+    );
+
+    expect((await listStoriesInVolume(volumeId)).map((story) => story.id)).toEqual([storyId]);
+  });
+
+  it("refuses once the owner has judged it, and splits nothing", async () => {
+    const { volumeId, storyId } = await lUomoCheRide();
+    await setRating({ storyId, score: 9, provenanceId: "remembered" });
+
+    await expect(splitVolumeIntoStories(volumeId, THE_THREE)).rejects.toSatisfy(
+      (error: unknown) =>
+        isRefusal(error) && error.code === "not-allowed" && error.message.includes("judged")
+    );
+
+    expect((await listStoriesInVolume(volumeId)).map((story) => story.id)).toEqual([storyId]);
+    expect(await findStory(storyId)).toMatchObject({ title: "Batman: L'uomo che ride" });
+  });
+
+  // A narrative running across twenty objects is not this one's to unmake, and the refusal
+  // says what to do instead rather than only saying no.
+  it("refuses a narrative other objects carry too", async () => {
+    const { volumeId, storyId } = await lUomoCheRide();
+    const second = await volumeInTheHouse({
+      title: "Batman: L'uomo che ride, ristampa",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(second, storyId);
+
+    await expect(splitVolumeIntoStories(volumeId, THE_THREE)).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.message.includes("other objects carry it too")
+    );
+  });
+
+  it("refuses an object that stands for no narrative yet", async () => {
+    const { id: volumeId } = await catalogueVolume({
+      title: "Hulk Rosso",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+
+    await expect(splitVolumeIntoStories(volumeId, THE_THREE)).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.code === "not-allowed"
+    );
+  });
+
+  it("refuses an object that already holds several of its own", async () => {
+    const { volumeId } = await lUomoCheRide();
+    await createStoryCarriedBy({ title: "Uomo di legno", typeId: "comic" }, volumeId);
+
+    await expect(splitVolumeIntoStories(volumeId, THE_THREE)).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.code === "not-allowed"
+    );
+  });
+
+  it("refuses a split into one, because an object standing for one narrative is not split", async () => {
+    const { volumeId } = await lUomoCheRide();
+
+    await expect(splitVolumeIntoStories(volumeId, ["Gotham Noir", "   "])).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.code === "invalid"
+    );
+  });
+
+  it("refuses an object that is not in the library, and a malformed id is the same event", async () => {
+    await expect(splitVolumeIntoStories(NO_SUCH_ID, THE_THREE)).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.code === "not-found"
+    );
+    await expect(splitVolumeIntoStories("banana", THE_THREE)).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.code === "not-found"
+    );
+    expect(await listStories()).toEqual([]);
+  });
+
+  // **The edge this gesture leaves open, pinned rather than left silent.** Striking refuses a
+  // Story a Path names as a stop (ADR-0015); a split does not, because the decision behind it
+  // names a Reading and a Rating and nothing else. So the stop goes with the narrative it
+  // named, the route keeps its other stops, and this test is where that is written down until
+  // the owner says which of the two acts is right.
+  it("takes a Path stop naming the dropped narrative with it, and leaves the route standing", async () => {
+    const { volumeId, storyId } = await lUomoCheRide();
+    const elsewhere = await createStory({ title: "Batman: Anno Uno", typeId: "comic" });
+    const path = await definePath({ name: "Recupero Batman" });
+    await placeStoriesOnPath(path, [storyId, elsewhere]);
+
+    await splitVolumeIntoStories(volumeId, THE_THREE);
+
+    expect(await query("select story_id from path_item where path_id = $1", [path])).toEqual([
+      { story_id: elsewhere },
+    ]);
+  });
+
+  // Striking's own clause, and it holds here for its reason: a Person is not owned by the
+  // Credit that first named them (ADR-0012).
+  it("takes the Credits on the dropped narrative and leaves the people standing", async () => {
+    const { volumeId, storyId } = await lUomoCheRide();
+    await creditStory({ storyId, person: "Ed Brubaker", roleId: "writer" });
+
+    const [noir] = await splitVolumeIntoStories(volumeId, THE_THREE);
+    await creditStory({ storyId: noir ?? "", person: "Ed Brubaker", roleId: "writer" });
+
+    expect(await query("select 1 from credit where story_id = $1", [storyId])).toEqual([]);
+    expect(await findStory(noir ?? "")).toMatchObject({
+      credits: [{ person: { name: "Ed Brubaker" } }],
+    });
   });
 });

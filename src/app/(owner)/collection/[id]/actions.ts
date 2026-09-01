@@ -6,7 +6,7 @@ import { isRefusal } from "@/core/refusal";
 import { acquireVolume, amendVolume, releaseVolume } from "@/core/verbs/collection";
 import { dropOwnCover, forgetTheCover, lookUpCoverFor, setOwnCover } from "@/core/verbs/cover";
 import { eraseEditionNote, writeEditionNote } from "@/core/verbs/edition-note";
-import { createStoryCarriedBy } from "@/core/verbs/story";
+import { createStoryCarriedBy, splitVolumeIntoStories } from "@/core/verbs/story";
 import {
   recordVolumeCarriesStory,
   recordVolumeNoLongerCarriesStory,
@@ -113,6 +113,36 @@ export async function recordStory(form: FormData): Promise<void> {
       );
     },
     "story"
+  );
+}
+
+/**
+ * Split this object into the several Stories it holds (#38).
+ *
+ * **One field, and it is a contents page.** The titles arrive as lines of one box rather than
+ * as a row of inputs somebody has to add to: a form that grows needs a script, a fixed row of
+ * five boxes is four of them empty on the ordinary case, and what the owner is reading off the
+ * back of the object is a list of lines. Blank ones are lines they did not need, and the verb
+ * drops them — so a box with room for five holds three titles without saying anything about
+ * the two.
+ *
+ * It comes back to this object, with the panel reopened on a refusal like every other write
+ * here: the sentence is about the titles that were just typed, and the three narratives the
+ * split makes are read back in the list on the page behind it.
+ */
+export async function split(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+  const titles = (text(form, "titles") ?? "").split("\n");
+
+  return saying(
+    volumeId,
+    new URLSearchParams({ split: "1" }),
+    async () => {
+      await splitVolumeIntoStories(volumeId, titles);
+    },
+    "split"
   );
 }
 

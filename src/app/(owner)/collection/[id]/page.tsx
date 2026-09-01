@@ -28,6 +28,7 @@ import {
   recordStory,
   release,
   removeOwnImage,
+  split,
   stopCarrying,
   useOwnImage,
   writeNote,
@@ -39,6 +40,7 @@ import {
   THE_STORY_ACT,
   theActsOnTheObject,
   theEditionNoteAct,
+  theSplitAct,
   timesSaid,
   whatTheHouseSays,
   whatTheLookupSaid,
@@ -91,6 +93,17 @@ import {
 // volume is stating both facts at once. It replaced the sentence *record the Story first if it
 // is not in the list*, which described a trip to another screen and back — and that trip is
 // where the second narrative of a volume stopped being recorded at all.
+//
+// **And where the default was wrong about an object, it is corrected from beside the list that
+// says so** (#38). One Volume, one Story is right for nearly everything on these shelves and
+// wrong for *Batman: L'uomo che ride*, which holds three tales the owner scores apart. The
+// press under the list opens a box with one title per line — a contents page, typed as one —
+// and the narrative the object stood for is replaced by the three in a single act. It is the
+// only act on this screen the page decides whether to *offer*: an object with nothing in it
+// has nothing to split, and one already holding several has been split. Everything else the
+// gesture refuses is the verb's own prose, read in the panel beside the titles that were typed,
+// because a Reading or a Rating is a sentence the owner needs rather than a control they never
+// see.
 //
 // **The Edition note sits beside them, and says in its own words that it is not one of those
 // numbers.** Two judgements, in two places, in two registers — a column of digits, and prose
@@ -165,6 +178,10 @@ export default async function VolumePage({
   // an act like the rest and is only opened from somewhere else: beside the prose it replaces.
   const acts = theActsOnTheObject(volume);
   const noting = theEditionNoteAct(note);
+  // **The one act this screen decides whether to offer** (`./standing.ts`): an object standing
+  // for exactly one narrative is the state a split is *from*. `null` where there is nothing to
+  // split or nothing single to replace, and the lookup below then opens no panel for it.
+  const splitting = theSplitAct(carried);
 
   // **The act being performed, read against the ones this object has** rather than trusted:
   // `?panel=banana` opens nothing, and neither does a panel naming an act this object does not
@@ -172,7 +189,9 @@ export default async function VolumePage({
   // itself and not just its name, because a panel's title is the label of the press that
   // opened it and nothing on this page recomputes that sentence.
   const asking = asked(said, "panel");
-  const acting = [...acts, noting, THE_STORY_ACT].find((act) => act.panel === asking);
+  const acting = [...acts, noting, THE_STORY_ACT, ...(splitting ? [splitting] : [])].find(
+    (act) => act.panel === asking
+  );
   const closesTo = `/collection/${volume.id}`;
 
   return (
@@ -381,6 +400,24 @@ export default async function VolumePage({
                 ))}
               </ul>
             )}
+
+            {/* **The gesture the default is wrong about, offered from beside the list that is
+                wrong** (#38). One Volume, one Story is right for nearly every object here and
+                wrong for *L'uomo che ride*, which holds three tales scored apart — and the
+                only way to say so used to end at a strike, which is refused on a narrative an
+                object in the house carries. It is a link and not a press, because what it does
+                is open a form. */}
+            {splitting ? (
+              <p className="mt-5 max-w-prose text-pretty text-sm text-muted-foreground">
+                Three tales in one book, judged apart?{" "}
+                <Link
+                  href={panelled(volume.id, splitting.panel)}
+                  className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {splitting.label}.
+                </Link>
+              </p>
+            ) : null}
 
             {/* **A picker under the list it changes, and deliberately not a panel.** A drawer
                 is for a form the owner *opened*; this one is a correction made while reading
@@ -598,6 +635,62 @@ export default async function VolumePage({
               A volume holding an arc and a back-up story from somewhere else is two narratives: say
               the second one from here too, and each carries its own score. Nothing about this says
               you have read either — that is a Reading, on the Story&apos;s own page.
+            </p>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {/* **A contents page, typed as one** (#38). The box is the signature of this panel and
+          the reason it is not a row of five fields: what the owner is reading off the back of
+          the object is a list of lines, a form that grows needs a script (ADR-0010), and five
+          boxes would be four of them empty on the ordinary case. The narrative the object
+          stands for is on the first line already, because in this library the object's own
+          title is usually one of the tales inside it. */}
+      {acting?.panel === "split" && splitting && carried[0] ? (
+        <Drawer
+          title={acting.label}
+          refused={refused}
+          description="One object, several narratives, each read and judged on its own. It changes what you judge and never what you own."
+          closesTo={closesTo}
+        >
+          <form action={split} className="grid gap-4">
+            <input type="hidden" name="volumeId" value={volume.id} />
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="split-titles" className="text-xs text-muted-foreground">
+                One title per line
+              </Label>
+              <textarea
+                id="split-titles"
+                name="titles"
+                rows={5}
+                required
+                defaultValue={carried[0].title}
+                placeholder={"Gotham Noir\nL'uomo che ride\nUomo di legno"}
+                className={`${PICKER} h-auto py-2.5 leading-7`}
+              />
+              <p className="text-xs text-muted-foreground">
+                Each becomes a {carried[0].type.name} of its own, like the narrative it replaces. A
+                line left empty is a title you did not need.
+              </p>
+            </div>
+
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Split it
+            </Button>
+
+            {/* Said before the press rather than discovered after it. The object does not
+                move: the acquisition, the Series position and the ISBN are all facts about the
+                thing, and a split is about the narratives. What does go is said too — a
+                Reading or a Rating refuses the whole gesture in the verb's own words, and the
+                Credits on the replaced narrative go with it while the people stay
+                (ADR-0012). */}
+            <p className="max-w-prose text-xs text-muted-foreground">
+              <span className="font-heading text-foreground">{carried[0].title}</span> stops being a
+              narrative of its own. The Credits on it go with it — the people they name stay — and
+              so does any Path that names it as a stop. Nothing about the object changes: it is in
+              the house, in its line and at its position exactly as it is now. If you have read it
+              or judged it, this is refused and nothing is split.
             </p>
           </form>
         </Drawer>
