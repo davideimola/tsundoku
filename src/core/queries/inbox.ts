@@ -95,7 +95,8 @@ const STANDING = `
                'language', volume.language, 'isbn', volume.isbn)
         from volume where volume.id = entry.subject_id)
     when 'story' then (
-      select jsonb_build_object('title', story.title, 'typeId', story.type_id)
+      select jsonb_build_object('title', story.title, 'typeId', story.type_id,
+                                'instalments', story.instalments)
         from story where story.id = entry.subject_id)
     when 'series' then (
       select jsonb_build_object(

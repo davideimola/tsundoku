@@ -13,6 +13,7 @@ export const reading = pgTable("reading", {
 	provenanceId: text("provenance_id").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	volumeId: uuid("volume_id"),
+	atInstalment: integer("at_instalment"),
 }, (table) => [
 	index("reading_by_story").using("btree", table.storyId.asc().nullsLast(), table.startedOn.desc().nullsLast()),
 	foreignKey({
@@ -36,6 +37,7 @@ export const reading = pgTable("reading", {
 	check("reading_outcome_is_finished_or_abandoned", sql`(outcome IS NULL) OR (outcome = ANY (ARRAY['finished'::text, 'abandoned'::text]))`),
 	check("reading_unconcluded_has_not_ended", sql`(outcome IS NOT NULL) OR (ended_on IS NULL)`),
 	check("reading_did_not_end_before_it_started", sql`(started_on IS NULL) OR (ended_on IS NULL) OR (ended_on >= started_on)`),
+	check("reading_at_instalment_is_positive", sql`(at_instalment IS NULL) OR (at_instalment > 0)`),
 ]);
 
 export const type = pgTable("type", {
@@ -55,6 +57,7 @@ export const story = pgTable("story", {
 	title: text().notNull(),
 	typeId: text("type_id").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	instalments: integer(),
 }, (table) => [
 	index("story_by_type").using("btree", table.typeId.asc().nullsLast()),
 	foreignKey({
@@ -63,6 +66,7 @@ export const story = pgTable("story", {
 			name: "story_type_exists"
 		}),
 	check("story_title_is_not_blank", sql`(title = btrim(title)) AND (title <> ''::text)`),
+	check("story_instalments_are_positive", sql`(instalments IS NULL) OR (instalments > 0)`),
 ]);
 
 export const provenance = pgTable("provenance", {
@@ -369,6 +373,8 @@ export const volumeStory = pgTable("volume_story", {
 	volumeId: uuid("volume_id").notNull(),
 	storyId: uuid("story_id").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	coversFrom: integer("covers_from"),
+	coversTo: integer("covers_to"),
 }, (table) => [
 	index("volume_story_by_story").using("btree", table.storyId.asc().nullsLast()),
 	foreignKey({
@@ -382,6 +388,9 @@ export const volumeStory = pgTable("volume_story", {
 			name: "volume_story_story_exists"
 		}).onDelete("cascade"),
 	primaryKey({ columns: [table.volumeId, table.storyId], name: "volume_story_is_said_once"}),
+	check("volume_story_covers_a_whole_range", sql`(covers_from IS NULL) = (covers_to IS NULL)`),
+	check("volume_story_cover_does_not_invert", sql`(covers_from IS NULL) OR (covers_to >= covers_from)`),
+	check("volume_story_cover_starts_at_one", sql`(covers_from IS NULL) OR (covers_from > 0)`),
 ]);
 
 export const pathItem = pgTable("path_item", {

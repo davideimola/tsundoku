@@ -241,7 +241,9 @@ describe("the fields an entry names", () => {
       standing: null,
     });
 
-    expect(proposedFields(entry)).toEqual(["title", "typeId"]);
+    // Instalments among them since #37: a Story that turns out to be serialized is one the
+    // owner says twenty about while approving it, rather than one they come back to.
+    expect(proposedFields(entry)).toEqual(["title", "typeId", "instalments"]);
   });
 });
 

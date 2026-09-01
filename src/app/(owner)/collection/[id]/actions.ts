@@ -9,6 +9,7 @@ import { eraseEditionNote, writeEditionNote } from "@/core/verbs/edition-note";
 import { createStoryCarriedBy, splitVolumeIntoStories } from "@/core/verbs/story";
 import {
   recordVolumeCarriesStory,
+  recordVolumeCoversInstalments,
   recordVolumeNoLongerCarriesStory,
 } from "@/core/verbs/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
@@ -74,6 +75,38 @@ export async function carry(form: FormData): Promise<void> {
 
   return saying(volumeId, new URLSearchParams({ carried: "1" }), () =>
     recordVolumeCarriesStory(volumeId, storyId)
+  );
+}
+
+/**
+ * Say which **Instalments** of a Story are inside this object (#37).
+ *
+ * The case is the omnibus: one object collecting thirty-five parts of a work. Where a line
+ * prints one part per Volume, which is every manga on these shelves, the range follows the
+ * object's position in its Series and this is never pressed — so both boxes empty is a real
+ * answer and means *follow the line* rather than *nothing*.
+ *
+ * It is a correction made while reading the list above it rather than a form the owner
+ * opened, so it is not a panel, and its refusal is read on the page beside the list.
+ */
+export async function coverInstalments(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+  const storyId = text(form, "storyId") ?? "";
+  const from = text(form, "coversFrom");
+  const to = text(form, "coversTo");
+
+  return saying(volumeId, new URLSearchParams({ covered: "1" }), () =>
+    recordVolumeCoversInstalments(
+      volumeId,
+      storyId,
+      // Both empty hands the answer back to the line. One empty is half a range, and the
+      // verb refuses it in its own prose rather than this door guessing at the other end.
+      from === null && to === null
+        ? null
+        : { from: Number(from ?? Number.NaN), to: Number(to ?? Number.NaN) }
+    )
   );
 }
 

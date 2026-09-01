@@ -21,6 +21,12 @@ export type NewStory = {
   title: string;
   /** A Type's slug — `manga`, `novel`. A data row, never an enum in code (ADR-0006). */
   typeId: string;
+  /**
+   * How many **Instalments** the work has, where it was serialized. Absent is the ordinary
+   * case and asks nothing: the owner is never asked *is this serialized* while cataloguing,
+   * and `declareInstalments` is where the answer is given later (#37).
+   */
+  instalments?: number | null;
 };
 
 /**
@@ -37,8 +43,8 @@ export async function createStory(story: NewStory, run: Executor = query): Promi
   const rows = await refusing(
     () =>
       run<{ id: string }>(
-        "insert into story (title, type_id) values (btrim($1), $2) returning id",
-        [story.title, story.typeId]
+        "insert into story (title, type_id, instalments) values (btrim($1), $2, $3) returning id",
+        [story.title, story.typeId, story.instalments ?? null]
       ),
     (constraint) => whyStoryRefused(constraint, "That Story could not be added.")
   );
@@ -82,10 +88,74 @@ export async function createStoryCarriedBy(story: NewStory, volumeId: string): P
   });
 }
 
+// SAYING A STORY IS SERIALIZED, and it is the only number a narrative carries.
+//
+// An **Instalment** is one numbered part of a Story that was serialized — *Slam Dunk*'s
+// twenty, *Ultimate Spider-Man*'s hundred and sixty — and it belongs to the narrative and
+// never to a printing. That is the whole of its usefulness: *thirty-five of a hundred and
+// sixty* stays true however the owner read them, where *one of three omnibus* is a fact
+// about a shelf and says nothing about the work.
+//
+// **It is optional and it costs nothing where it is not wanted.** A Story that declares none
+// is an ordinary Story, nothing asks for one at cataloguing time, and where a line prints one
+// part per Volume the numbering follows the volumes — so the count is typed once per work, or
+// never (`CONTEXT.md`).
+
+/** The prose for a count that is not a number of parts. */
+const NOT_A_COUNT_OF_PARTS =
+  "A serialized Story has one Instalment or more. Say none at all where it has parts nobody numbers.";
+
+/**
+ * Say how many Instalments this Story has, or take the numbering back off it with `null`.
+ *
+ * It changes nothing else: what a work is and what was done with it are unrelated facts
+ * (ADR-0001), so no Reading, no Rating and no Volume follows from it. What it *is* refused by
+ * is the other end of the same rule — a work cannot be made shorter than what a pass has
+ * already read of it, or than what an object already covers of it, and Postgres says so
+ * rather than this file (see the migration's `the_work_still_holds_what_was_read`).
+ *
+ * **The owner's act, and the Inbox is the door an assistant reaches it through**: an invented
+ * count is permanent, silent and wrong in a way nobody reads back, which is ADR-0011's risk
+ * exactly. So it is proposed as an Amendment and `amendStory` is what an approval calls.
+ */
+export async function declareInstalments(
+  storyId: string,
+  instalments: number | null
+): Promise<void> {
+  if (!UUID.test(storyId)) throw new Refusal("not-found", NO_SUCH_STORY);
+  // The same guard the id gets, for the same reason: six and a half parts is a *syntax*
+  // error on an integer column rather than an integrity violation, and it would reach a door
+  // as a 500 instead of as a sentence. A count of parts is a whole number or it is nothing.
+  if (instalments !== null && !Number.isInteger(instalments)) {
+    throw new Refusal("invalid", NOT_A_COUNT_OF_PARTS);
+  }
+
+  const changed = await refusing(
+    () =>
+      query<{ id: string }>("update story set instalments = $2 where id = $1 returning id", [
+        storyId,
+        instalments,
+      ]),
+    (constraint) => whyStoryRefused(constraint, "That Story could not be serialized.")
+  );
+
+  if (changed.length === 0) throw new Refusal("not-found", NO_SUCH_STORY);
+}
+
 /** The prose for every constraint the `story` table can refuse a write with. */
 function whyStoryRefused(constraint: string | undefined, otherwise: string): string {
   if (constraint === "story_title_is_not_blank") return "A Story needs a title.";
   if (constraint === "story_type_exists") return "That is not a Type this library knows.";
+  if (constraint === "story_instalments_are_positive") return NOT_A_COUNT_OF_PARTS;
+  // The two the migration's trigger raises, and the reason it is a trigger: a check
+  // constraint cannot read the Readings or the objects, and a work that has been read to
+  // instalment seven is not a work of five.
+  if (constraint === "story_instalments_still_hold_what_was_read") {
+    return "A pass through this Story has got further than that. It cannot be shorter than what you have read of it.";
+  }
+  if (constraint === "story_instalments_still_hold_what_is_covered") {
+    return "An object carrying this Story covers further than that. Correct what it covers first.";
+  }
   return otherwise;
 }
 
@@ -112,6 +182,15 @@ export type StoryAmendment = {
   title?: string | null;
   /** A Type's slug — `manga`, `novel`. A data row, never an enum in code (ADR-0006). */
   typeId?: string | null;
+  /**
+   * How many Instalments the work has, where it was serialized.
+   *
+   * **This is the door an assistant proposes a count through** (ADR-0005): an invented
+   * number is permanent, silent and wrong in a way nobody notices, so it waits in the Inbox
+   * rather than being written. `null` leaves what stands there, like every other field here
+   * — taking the numbering off a Story is the owner's own verb, `declareInstalments`.
+   */
+  instalments?: number | null;
 };
 
 /**
@@ -135,6 +214,16 @@ export async function amendStory(
   if (!Object.values(amendment).some((value) => value !== null && value !== undefined)) {
     throw new Refusal("invalid", "An amendment changes at least one field of the Story.");
   }
+  // A count of parts is a whole number or it is nothing — the same guard `declareInstalments`
+  // makes, because an assistant's *twenty and a half* would reach the driver as a syntax
+  // error on an integer column rather than as a sentence the owner can read.
+  if (
+    amendment.instalments !== null &&
+    amendment.instalments !== undefined &&
+    !Number.isInteger(amendment.instalments)
+  ) {
+    throw new Refusal("invalid", NOT_A_COUNT_OF_PARTS);
+  }
 
   // `coalesce` rather than a `set` clause assembled from whichever fields arrived: the
   // fields are a closed list written here, and *leave it standing* is the same sentence in
@@ -143,11 +232,12 @@ export async function amendStory(
     () =>
       run<{ id: string }>(
         `update story
-            set title   = coalesce($2, title),
-                type_id = coalesce($3, type_id)
+            set title       = coalesce($2, title),
+                type_id     = coalesce($3, type_id),
+                instalments = coalesce($4, instalments)
           where id = $1
           returning id`,
-        [storyId, amendment.title ?? null, amendment.typeId ?? null]
+        [storyId, amendment.title ?? null, amendment.typeId ?? null, amendment.instalments ?? null]
       ),
     (constraint) => whyStoryRefused(constraint, "That Story could not be amended.")
   );

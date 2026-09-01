@@ -126,6 +126,7 @@ export const PROPOSAL_FIELDS = [
   "isbn",
   "publishedCount",
   "status",
+  "instalments",
 ] as const;
 
 /** One of them. */
@@ -159,7 +160,7 @@ export type InboxCorrections = Partial<Record<ProposalField, string | number | n
  * assistant what it may propose.
  */
 export const AMENDABLE_FIELDS: Record<ProposedEntity, readonly ProposalField[]> = {
-  story: ["title", "typeId"],
+  story: ["title", "typeId", "instalments"],
   volume: ["title", "publisher", "editionLine", "binding", "language", "isbn"],
   series: ["name", "publisher", "editionLine", "publishedCount", "status"],
 };
@@ -615,12 +616,20 @@ async function amend(
   run: Executor
 ): Promise<void> {
   switch (proposes) {
-    case "story":
+    case "story": {
+      const instalments = optional(said, "instalments");
       return amendStory(
         subjectId,
-        { title: optional(said, "title"), typeId: optional(said, "typeId") },
+        {
+          title: optional(said, "title"),
+          typeId: optional(said, "typeId"),
+          // `Number` rather than a check of its own: a count that is not a whole number of
+          // parts is refused by `amendStory` in the prose it already writes.
+          instalments: instalments === null ? null : Number(instalments),
+        },
         run
       );
+    }
     case "volume":
       return amendVolume(
         subjectId,
@@ -660,14 +669,19 @@ async function create(
   run: Executor
 ): Promise<string> {
   switch (proposes) {
-    case "story":
+    case "story": {
+      const instalments = optional(said, "instalments");
       return createStory(
         {
           title: needed(said, "title", NEEDED.story.title),
           typeId: needed(said, "typeId", NEEDED.story.typeId),
+          // Optional and ordinarily absent: a Story that declares no Instalments is the
+          // ordinary Story, and the owner chooses the count on approval where there is one.
+          instalments: instalments === null ? null : Number(instalments),
         },
         run
       );
+    }
     case "volume": {
       const { id } = await catalogueVolume(
         {

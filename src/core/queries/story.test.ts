@@ -87,9 +87,13 @@ describe("a Story's state, derived from its Readings", () => {
       "select column_name from information_schema.columns where table_name = 'story'"
     );
 
+    // `instalments` is here and is not a crack in that: it says how long the work is, which
+    // is a fact about the narrative and true whether anybody has read it or not. **How far a
+    // pass got is on the pass**, which is what keeps the ban on a progress field honest.
     expect(columns.map((column) => column.column_name).sort()).toEqual([
       "created_at",
       "id",
+      "instalments",
       "title",
       "type_id",
     ]);
@@ -289,6 +293,10 @@ describe("what the owner has read", () => {
         title: "Pluto",
         type: { id: "manga", name: "Manga" },
         state: "read",
+        // Not serialized, which is the ordinary Story: no count, and therefore no fraction
+        // to be at (#37).
+        instalments: null,
+        howFarItGot: null,
         credits: [
           {
             id: expect.any(String),
@@ -301,6 +309,7 @@ describe("what the owner has read", () => {
             id: reading,
             medium: "paper",
             outcome: "finished",
+            atInstalment: null,
             startedOn: "2024-01-02",
             endedOn: "2024-02-02",
             provenance: {

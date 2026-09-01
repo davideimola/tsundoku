@@ -16,13 +16,16 @@ import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import { credit, uncredit } from "../../credits/actions";
 import { PersonPicker } from "../../credits/picker";
-import { STRIKE } from "../panels";
+import { REACHED, SERIALIZE, STRIKE } from "../panels";
 import {
+  howFarItGot,
   howItWent,
+  instalments,
   readingNow,
   SCORES,
   stillOpen,
   theOpenReading,
+  whatItCovers,
   whenItHappened,
 } from "../readings";
 import { StoryScore, StoryStateLabel, storyDetail } from "../story-state";
@@ -31,6 +34,8 @@ import {
   finishIt,
   giveUp,
   rate,
+  sayWhereIGotTo,
+  serialize,
   startReading,
   strikeIt,
   unwant,
@@ -89,10 +94,12 @@ const START = "start";
 const FINISHED = "finished";
 const GAVE_UP = "gave-up";
 const RATE = "rate";
-// The fifth is `STRIKE`, and it is the one panel name on this screen that lives in
-// `../panels.ts`: the refusal it can produce comes back through `./actions.ts`, so two files
-// spell it (ADR-0015). The other four are this page's alone.
-const PANELS = [START, FINISHED, GAVE_UP, RATE, STRIKE] as const;
+// **The two #37 adds are in `../panels.ts`**, with `STRIKE` and for its reason: each is
+// spelled here and again in `./actions.ts`, which reopens the drawer to print what Postgres
+// refused inside it. They are two panels rather than two buttons in one for the reason
+// finishing and giving up are — each asks for a field of its own.
+// `STRIKE` is the third of them (ADR-0015). The four that are this page's alone are above.
+const PANELS = [START, FINISHED, GAVE_UP, RATE, SERIALIZE, REACHED, STRIKE] as const;
 
 /**
  * This screen's address with a panel open on it.
@@ -244,6 +251,14 @@ export default async function StoryPage({
               {story.type.name}
             </span>
             <StoryStateLabel state={story.state} />
+            {/* **The fraction is the run's own unit**, tabular so that 7 of 20 and 12 of 20
+                read as places in one book rather than as two different numbers. It is drawn
+                only where the work says it has parts, which is the minority of Stories. */}
+            {story.howFarItGot ? (
+              <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                {howFarItGot(story.howFarItGot)}
+              </span>
+            ) : null}
           </p>
           {story.series ? (
             <p className="mt-2 text-sm text-muted-foreground">
@@ -266,6 +281,9 @@ export default async function StoryPage({
                   I finished it
                 </OpensDrawer>
                 <OpensDrawer href={panelled(id, GAVE_UP)}>I gave up on it</OpensDrawer>
+                {story.instalments === null ? null : (
+                  <OpensDrawer href={panelled(id, REACHED, open.id)}>Where I am in it</OpensDrawer>
+                )}
                 <span className="text-sm text-muted-foreground">{readingNow(open)}</span>
               </>
             ) : (
@@ -378,6 +396,8 @@ export default async function StoryPage({
 
         <div className="grid gap-6">
           <Carriers storyId={story.id} carriedBy={carriedBy} offerable={offerable} />
+
+          <Instalments story={story} />
 
           <Card>
             <CardHeader>
@@ -643,6 +663,95 @@ export default async function StoryPage({
         </Drawer>
       ) : null}
 
+      {/* **Saying the work has parts, which is asked nowhere else and of almost nothing.**
+          The count is the narrative's and never a printing's, so it is on this page and not on
+          any of the objects: an omnibus and a tankōbon carrying the same work carry the same
+          twenty. */}
+      {panel === SERIALIZE ? (
+        <Drawer
+          title={story.instalments === null ? "Say how many parts it has" : "Correct the count"}
+          description="One numbered part of a serialized work — Slam Dunk's twenty. It belongs to the narrative and never to a printing, so it stays true however you read them. Leave it empty for a Story nobody numbers, which is most of them."
+          refused={refused}
+          closesTo={closesTo}
+        >
+          <form action={serialize} className="grid gap-4">
+            <input type="hidden" name="storyId" value={story.id} />
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="story-instalments" className="text-xs text-muted-foreground">
+                How many Instalments
+              </Label>
+              <input
+                id="story-instalments"
+                name="instalments"
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                defaultValue={story.instalments ?? ""}
+                placeholder="20"
+                className={PICKER}
+              />
+              <p className="text-xs text-muted-foreground">
+                Empty takes the numbering off again. It is refused while a pass has read further
+                than the number you give.
+              </p>
+            </div>
+
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              {story.instalments === null ? "Say it" : "Correct it"}
+            </Button>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {/* **Where a pass got to, on the pass and never on the Story.** How far you are is a
+          fact about an act of reading, which is what makes a reread start again at nothing
+          without this one forgetting where it reached. */}
+      {panel === REACHED && judging && story.instalments !== null ? (
+        <Drawer
+          title="Where I got to"
+          description="The last Instalment this pass finished. Reading it again later starts again at nothing, and this pass keeps the number it ended on."
+          refused={refused}
+          closesTo={closesTo}
+        >
+          <form action={sayWhereIGotTo} className="grid gap-4">
+            <input type="hidden" name="storyId" value={story.id} />
+            <input type="hidden" name="readingId" value={judging.id} />
+
+            <p className="text-pretty text-sm text-muted-foreground">
+              {howItWent(judging)} · {whenItHappened(judging)}
+            </p>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="reading-at" className="text-xs text-muted-foreground">
+                Last Instalment finished, out of {story.instalments}
+              </Label>
+              <input
+                id="reading-at"
+                name="atInstalment"
+                type="number"
+                min={1}
+                max={story.instalments}
+                step={1}
+                inputMode="numeric"
+                defaultValue={judging.atInstalment ?? ""}
+                placeholder="7"
+                className={PICKER}
+              />
+              <p className="text-xs text-muted-foreground">
+                Empty stops counting. Nothing else follows from it — a pass at the last Instalment
+                is still open until you close it.
+              </p>
+            </div>
+
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Record it
+            </Button>
+          </form>
+        </Drawer>
+      ) : null}
+
       {/* **The one panel here whose form has no field in it.** There is nothing to type: the
           whole of the act is the press, and the panel exists so that the press takes two
           deliberate taps and so that what the strike takes with it is read before the second
@@ -725,8 +834,19 @@ function Readings({ story }: { story: FoundStory }) {
                     {howItWent(record)}
                   </span>
                 </p>
-                <p className="mt-1 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-                  {record.provenance.name}
+                <p className="mt-1 flex flex-wrap items-baseline gap-x-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                  <span>{record.provenance.name}</span>
+                  {/* Where *this* pass got, which is not where the owner is now: a run given
+                      up at nine in 2019 says so under itself, and the hero says where the
+                      pass in hand is. */}
+                  {record.atInstalment === null || story.instalments === null ? null : (
+                    <span className="tabular-nums normal-case tracking-normal">
+                      {howFarItGot({
+                        atInstalment: record.atInstalment,
+                        instalments: story.instalments,
+                      })}
+                    </span>
+                  )}
                 </p>
 
                 {record.rating ? (
@@ -745,6 +865,17 @@ function Readings({ story }: { story: FoundStory }) {
                   >
                     {record.rating ? "Say it again" : "Rate it"}
                   </Link>
+                  {/* Where this pass got, said from the pass it is about — the same shape the
+                      judgement is opened in, and for the same reason: both belong to one act
+                      of reading rather than to the Story. */}
+                  {story.instalments === null ? null : (
+                    <Link
+                      href={panelled(story.id, REACHED, record.id)}
+                      className="ml-3 font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {record.atInstalment === null ? "Say where I got to" : "Move it on"}
+                    </Link>
+                  )}
                   {stillOpen(record) ? (
                     <span className="ml-3 text-xs text-muted-foreground">Still open.</span>
                   ) : null}
@@ -753,6 +884,52 @@ function Readings({ story }: { story: FoundStory }) {
             ))}
           </ol>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * How long the work is, and where the owner is in it.
+ *
+ * **The count is the narrative's and never a printing's** — which is why it is on this page
+ * and on none of the objects. It is optional and it costs nothing where it is not wanted, so
+ * a Story that declares none says so in one line and offers the act rather than showing an
+ * empty field nobody asked for.
+ */
+function Instalments({ story }: { story: FoundStory }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Instalments</CardTitle>
+        <CardDescription className="text-pretty">
+          One numbered part of a serialized work. It belongs to the narrative rather than to any
+          printing, so <em>seven of twenty</em> stays true whether you read them as tankōbon, in an
+          omnibus, or half in each.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {story.instalments === null ? (
+          <p className="text-pretty text-sm text-muted-foreground">
+            Nobody has numbered this one, which is the ordinary answer: most Stories are read whole
+            and asked nothing.
+          </p>
+        ) : (
+          <p className="flex flex-wrap items-baseline gap-x-3">
+            <span className="font-mono text-sm tabular-nums">{instalments(story.instalments)}</span>
+            {story.howFarItGot ? (
+              <span className="text-sm text-muted-foreground">
+                You are at {howFarItGot(story.howFarItGot)}.
+              </span>
+            ) : null}
+          </p>
+        )}
+
+        <p className="mt-4">
+          <OpensDrawer href={panelled(story.id, SERIALIZE)}>
+            {story.instalments === null ? "Say how many parts it has" : "Correct the count"}
+          </OpensDrawer>
+        </p>
       </CardContent>
     </Card>
   );
@@ -809,8 +986,13 @@ function Carriers({
                     detail={[
                       volume.title,
                       volume.binding.name,
+                      // What of the work is inside this object, where the work is numbered:
+                      // an omnibus says *Instalments 1–35* and a tankōbon says the one it is.
+                      volume.covers ? whatItCovers(volume.covers) : null,
                       volume.inTheHouse ? "on the shelf" : "not on the shelf",
-                    ].join(" — ")}
+                    ]
+                      .filter(Boolean)
+                      .join(" — ")}
                   />
                 </li>
               ))}

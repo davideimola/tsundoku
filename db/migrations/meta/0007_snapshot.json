@@ -1,0 +1,1994 @@
+{
+  "id": "2ea8260d-36cb-4613-b127-0f291e6f3e30",
+  "prevId": "bf227ced-68a7-4347-b231-dfdadc446e43",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.acquisition": {
+      "name": "acquisition",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "volume_id": {
+          "name": "volume_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "acquired_on": {
+          "name": "acquired_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "released_on": {
+          "name": "released_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_paid": {
+          "name": "price_paid",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "acquisition_by_volume": {
+          "name": "acquisition_by_volume",
+          "columns": [
+            {
+              "expression": "volume_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "released_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "acquisition_one_open_per_volume": {
+          "name": "acquisition_one_open_per_volume",
+          "columns": [
+            {
+              "expression": "volume_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "(released_on IS NULL)",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "acquisition_volume_exists": {
+          "name": "acquisition_volume_exists",
+          "tableFrom": "acquisition",
+          "tableTo": "volume",
+          "columnsFrom": [
+            "volume_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "acquisition_price_paid_is_not_negative": {
+          "name": "acquisition_price_paid_is_not_negative",
+          "value": "(price_paid IS NULL) OR (price_paid >= (0)::numeric)"
+        },
+        "acquisition_release_follows_acquisition": {
+          "name": "acquisition_release_follows_acquisition",
+          "value": "(released_on IS NULL) OR (acquired_on IS NULL) OR (released_on >= acquired_on)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.binding": {
+      "name": "binding",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_order": {
+          "name": "display_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "binding_name_key": {
+          "name": "binding_name_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        },
+        "binding_display_order_key": {
+          "name": "binding_display_order_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "display_order"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "binding_id_is_a_slug": {
+          "name": "binding_id_is_a_slug",
+          "value": "id ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text"
+        },
+        "binding_name_is_not_blank": {
+          "name": "binding_name_is_not_blank",
+          "value": "(name = btrim(name)) AND (name <> ''::text)"
+        },
+        "binding_display_order_is_positive": {
+          "name": "binding_display_order_is_positive",
+          "value": "display_order > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.credit": {
+      "name": "credit",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role_id": {
+          "name": "role_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "credit_by_person": {
+          "name": "credit_by_person",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_by_story": {
+          "name": "credit_by_story",
+          "columns": [
+            {
+              "expression": "story_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "credit_story_exists": {
+          "name": "credit_story_exists",
+          "tableFrom": "credit",
+          "tableTo": "story",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "credit_person_exists": {
+          "name": "credit_person_exists",
+          "tableFrom": "credit",
+          "tableTo": "person",
+          "columnsFrom": [
+            "person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "credit_role_exists": {
+          "name": "credit_role_exists",
+          "tableFrom": "credit",
+          "tableTo": "credit_role",
+          "columnsFrom": [
+            "role_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "credit_is_one_role_per_person_per_story": {
+          "name": "credit_is_one_role_per_person_per_story",
+          "nullsNotDistinct": false,
+          "columns": [
+            "story_id",
+            "person_id",
+            "role_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.credit_role": {
+      "name": "credit_role",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_order": {
+          "name": "display_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "credit_role_name_key": {
+          "name": "credit_role_name_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        },
+        "credit_role_display_order_key": {
+          "name": "credit_role_display_order_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "display_order"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "credit_role_id_is_a_slug": {
+          "name": "credit_role_id_is_a_slug",
+          "value": "id ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text"
+        },
+        "credit_role_name_is_not_blank": {
+          "name": "credit_role_name_is_not_blank",
+          "value": "(name = btrim(name)) AND (name <> ''::text)"
+        },
+        "credit_role_display_order_is_positive": {
+          "name": "credit_role_display_order_is_positive",
+          "value": "display_order > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.declared_constraint": {
+      "name": "declared_constraint",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "path_id": {
+          "name": "path_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prose": {
+          "name": "prose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "declared_at": {
+          "name": "declared_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "declared_constraint_by_path": {
+          "name": "declared_constraint_by_path",
+          "columns": [
+            {
+              "expression": "path_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "declared_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "declared_constraint_path_exists": {
+          "name": "declared_constraint_path_exists",
+          "tableFrom": "declared_constraint",
+          "tableTo": "path",
+          "columnsFrom": [
+            "path_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "declared_constraint_prose_is_not_blank": {
+          "name": "declared_constraint_prose_is_not_blank",
+          "value": "(prose = btrim(prose)) AND (prose <> ''::text)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.edition_note": {
+      "name": "edition_note",
+      "schema": "",
+      "columns": {
+        "volume_id": {
+          "name": "volume_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "written_at": {
+          "name": "written_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "edition_note_volume_exists": {
+          "name": "edition_note_volume_exists",
+          "tableFrom": "edition_note",
+          "tableTo": "volume",
+          "columnsFrom": [
+            "volume_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "edition_note_is_not_blank": {
+          "name": "edition_note_is_not_blank",
+          "value": "(note = btrim(note)) AND (note <> ''::text)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.inbox_entry": {
+      "name": "inbox_entry",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "reported": {
+          "name": "reported",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "act": {
+          "name": "act",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'create'"
+        },
+        "proposes": {
+          "name": "proposes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_id": {
+          "name": "subject_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "proposed_at": {
+          "name": "proposed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_id": {
+          "name": "created_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "inbox_entry_reported_is_not_blank": {
+          "name": "inbox_entry_reported_is_not_blank",
+          "value": "(reported = btrim(reported)) AND (reported <> ''::text)"
+        },
+        "inbox_entry_reference_is_not_blank": {
+          "name": "inbox_entry_reference_is_not_blank",
+          "value": "(reference = btrim(reference)) AND (reference <> ''::text)"
+        },
+        "inbox_entry_act_is_create_or_amend": {
+          "name": "inbox_entry_act_is_create_or_amend",
+          "value": "act = ANY (ARRAY['create'::text, 'amend'::text])"
+        },
+        "inbox_entry_proposes_a_story_volume_or_series": {
+          "name": "inbox_entry_proposes_a_story_volume_or_series",
+          "value": "proposes = ANY (ARRAY['story'::text, 'volume'::text, 'series'::text])"
+        },
+        "inbox_entry_details_is_a_document": {
+          "name": "inbox_entry_details_is_a_document",
+          "value": "jsonb_typeof(details) = 'object'::text"
+        },
+        "inbox_entry_outcome_is_approved_or_rejected": {
+          "name": "inbox_entry_outcome_is_approved_or_rejected",
+          "value": "(outcome IS NULL) OR (outcome = ANY (ARRAY['approved'::text, 'rejected'::text]))"
+        },
+        "inbox_entry_is_decided_once": {
+          "name": "inbox_entry_is_decided_once",
+          "value": "(decided_at IS NULL) = (outcome IS NULL)"
+        },
+        "inbox_entry_an_amendment_names_what_it_amends": {
+          "name": "inbox_entry_an_amendment_names_what_it_amends",
+          "value": "(subject_id IS NOT NULL) = (act = 'amend'::text)"
+        },
+        "inbox_entry_approved_creation_names_what_it_created": {
+          "name": "inbox_entry_approved_creation_names_what_it_created",
+          "value": "(created_id IS NOT NULL) = ((act = 'create'::text) AND (NOT (outcome IS DISTINCT FROM 'approved'::text)))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.path": {
+      "name": "path",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "intent": {
+          "name": "intent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "path_name_names_one_route": {
+          "name": "path_name_names_one_route",
+          "columns": [
+            {
+              "expression": "lower(name)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "path_name_is_not_blank": {
+          "name": "path_name_is_not_blank",
+          "value": "(name = btrim(name)) AND (name <> ''::text)"
+        },
+        "path_intent_is_not_blank": {
+          "name": "path_intent_is_not_blank",
+          "value": "(intent IS NULL) OR (btrim(intent) <> ''::text)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.path_item": {
+      "name": "path_item",
+      "schema": "",
+      "columns": {
+        "path_id": {
+          "name": "path_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "path_item_in_order": {
+          "name": "path_item_in_order",
+          "columns": [
+            {
+              "expression": "path_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "path_item_path_exists": {
+          "name": "path_item_path_exists",
+          "tableFrom": "path_item",
+          "tableTo": "path",
+          "columnsFrom": [
+            "path_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "path_item_story_exists": {
+          "name": "path_item_story_exists",
+          "tableFrom": "path_item",
+          "tableTo": "story",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "path_item_is_one_stop": {
+          "name": "path_item_is_one_stop",
+          "columns": [
+            "path_id",
+            "story_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "path_item_position_is_one_place": {
+          "name": "path_item_position_is_one_place",
+          "nullsNotDistinct": false,
+          "columns": [
+            "path_id",
+            "position"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "path_item_position_is_positive": {
+          "name": "path_item_position_is_positive",
+          "value": "\"position\" > (0)::numeric"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.person": {
+      "name": "person",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "person_is_named_once": {
+          "name": "person_is_named_once",
+          "columns": [
+            {
+              "expression": "lower(name)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "person_name_is_not_blank": {
+          "name": "person_name_is_not_blank",
+          "value": "(name = btrim(name)) AND (name <> ''::text)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.provenance": {
+      "name": "provenance",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_order": {
+          "name": "display_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "provenance_name_key": {
+          "name": "provenance_name_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        },
+        "provenance_display_order_key": {
+          "name": "provenance_display_order_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "display_order"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "provenance_id_is_a_slug": {
+          "name": "provenance_id_is_a_slug",
+          "value": "id ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text"
+        },
+        "provenance_name_is_not_blank": {
+          "name": "provenance_name_is_not_blank",
+          "value": "(name = btrim(name)) AND (name <> ''::text)"
+        },
+        "provenance_description_is_not_blank": {
+          "name": "provenance_description_is_not_blank",
+          "value": "(description = btrim(description)) AND (description <> ''::text)"
+        },
+        "provenance_display_order_is_positive": {
+          "name": "provenance_display_order_is_positive",
+          "value": "display_order > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.rating": {
+      "name": "rating",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reading_id": {
+          "name": "reading_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "score": {
+          "name": "score",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prose": {
+          "name": "prose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provenance_id": {
+          "name": "provenance_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "set_at": {
+          "name": "set_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "scale": {
+          "name": "scale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "rating_by_story": {
+          "name": "rating_by_story",
+          "columns": [
+            {
+              "expression": "story_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "set_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "rating_story_exists": {
+          "name": "rating_story_exists",
+          "tableFrom": "rating",
+          "tableTo": "story",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "rating_provenance_exists": {
+          "name": "rating_provenance_exists",
+          "tableFrom": "rating",
+          "tableTo": "provenance",
+          "columnsFrom": [
+            "provenance_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "rating_belongs_to_the_read_story": {
+          "name": "rating_belongs_to_the_read_story",
+          "tableFrom": "rating",
+          "tableTo": "reading",
+          "columnsFrom": [
+            "story_id",
+            "reading_id"
+          ],
+          "columnsTo": [
+            "id",
+            "story_id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "rating_is_one_per_story_and_reading": {
+          "name": "rating_is_one_per_story_and_reading",
+          "nullsNotDistinct": true,
+          "columns": [
+            "story_id",
+            "reading_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "rating_score_is_one_to_ten": {
+          "name": "rating_score_is_one_to_ten",
+          "value": "(score >= (1)::numeric) AND (score <= (10)::numeric)"
+        },
+        "rating_score_is_in_half_points": {
+          "name": "rating_score_is_in_half_points",
+          "value": "(score * (2)::numeric) = trunc((score * (2)::numeric))"
+        },
+        "rating_prose_is_not_blank": {
+          "name": "rating_prose_is_not_blank",
+          "value": "(prose IS NULL) OR (btrim(prose) <> ''::text)"
+        },
+        "rating_scale_is_coarse_or_half_points": {
+          "name": "rating_scale_is_coarse_or_half_points",
+          "value": "scale = ANY (ARRAY['coarse'::text, 'half-points'::text])"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.reading": {
+      "name": "reading",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "medium": {
+          "name": "medium",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_on": {
+          "name": "started_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ended_on": {
+          "name": "ended_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provenance_id": {
+          "name": "provenance_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "volume_id": {
+          "name": "volume_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "at_instalment": {
+          "name": "at_instalment",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "reading_by_story": {
+          "name": "reading_by_story",
+          "columns": [
+            {
+              "expression": "story_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_on",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reading_story_exists": {
+          "name": "reading_story_exists",
+          "tableFrom": "reading",
+          "tableTo": "story",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "reading_provenance_exists": {
+          "name": "reading_provenance_exists",
+          "tableFrom": "reading",
+          "tableTo": "provenance",
+          "columnsFrom": [
+            "provenance_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "reading_volume_exists": {
+          "name": "reading_volume_exists",
+          "tableFrom": "reading",
+          "tableTo": "volume",
+          "columnsFrom": [
+            "volume_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "reading_id_and_story": {
+          "name": "reading_id_and_story",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "story_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "reading_digital_went_through_no_volume": {
+          "name": "reading_digital_went_through_no_volume",
+          "value": "(volume_id IS NULL) OR (medium = 'paper'::text)"
+        },
+        "reading_medium_is_paper_or_digital": {
+          "name": "reading_medium_is_paper_or_digital",
+          "value": "medium = ANY (ARRAY['paper'::text, 'digital'::text])"
+        },
+        "reading_outcome_is_finished_or_abandoned": {
+          "name": "reading_outcome_is_finished_or_abandoned",
+          "value": "(outcome IS NULL) OR (outcome = ANY (ARRAY['finished'::text, 'abandoned'::text]))"
+        },
+        "reading_unconcluded_has_not_ended": {
+          "name": "reading_unconcluded_has_not_ended",
+          "value": "(outcome IS NOT NULL) OR (ended_on IS NULL)"
+        },
+        "reading_did_not_end_before_it_started": {
+          "name": "reading_did_not_end_before_it_started",
+          "value": "(started_on IS NULL) OR (ended_on IS NULL) OR (ended_on >= started_on)"
+        },
+        "reading_at_instalment_is_positive": {
+          "name": "reading_at_instalment_is_positive",
+          "value": "(at_instalment IS NULL) OR (at_instalment > 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.reading_list_pin": {
+      "name": "reading_list_pin",
+      "schema": "",
+      "columns": {
+        "path_id": {
+          "name": "path_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "series_id": {
+          "name": "series_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pinned_at": {
+          "name": "pinned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "reading_list_pin_one_per_path": {
+          "name": "reading_list_pin_one_per_path",
+          "columns": [
+            {
+              "expression": "path_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "(path_id IS NOT NULL)",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reading_list_pin_one_per_series": {
+          "name": "reading_list_pin_one_per_series",
+          "columns": [
+            {
+              "expression": "series_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "(series_id IS NOT NULL)",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reading_list_pin_path_exists": {
+          "name": "reading_list_pin_path_exists",
+          "tableFrom": "reading_list_pin",
+          "tableTo": "path",
+          "columnsFrom": [
+            "path_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "reading_list_pin_series_exists": {
+          "name": "reading_list_pin_series_exists",
+          "tableFrom": "reading_list_pin",
+          "tableTo": "series",
+          "columnsFrom": [
+            "series_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "reading_list_pin_has_one_subject": {
+          "name": "reading_list_pin_has_one_subject",
+          "value": "(path_id IS NULL) <> (series_id IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.series": {
+      "name": "series",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "publisher": {
+          "name": "publisher",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edition_line": {
+          "name": "edition_line",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "published_count": {
+          "name": "published_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "collecting_since": {
+          "name": "collecting_since",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "series_is_one_per_edition_line": {
+          "name": "series_is_one_per_edition_line",
+          "nullsNotDistinct": true,
+          "columns": [
+            "name",
+            "publisher",
+            "edition_line"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "series_name_is_not_blank": {
+          "name": "series_name_is_not_blank",
+          "value": "(name = btrim(name)) AND (name <> ''::text)"
+        },
+        "series_publisher_is_not_blank": {
+          "name": "series_publisher_is_not_blank",
+          "value": "(publisher = btrim(publisher)) AND (publisher <> ''::text)"
+        },
+        "series_edition_line_is_not_blank": {
+          "name": "series_edition_line_is_not_blank",
+          "value": "(edition_line IS NULL) OR ((edition_line = btrim(edition_line)) AND (edition_line <> ''::text))"
+        },
+        "series_published_count_is_not_negative": {
+          "name": "series_published_count_is_not_negative",
+          "value": "published_count >= 0"
+        },
+        "series_status_is_ongoing_or_concluded": {
+          "name": "series_status_is_ongoing_or_concluded",
+          "value": "status = ANY (ARRAY['ongoing'::text, 'concluded'::text])"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.story": {
+      "name": "story",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type_id": {
+          "name": "type_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "instalments": {
+          "name": "instalments",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "story_by_type": {
+          "name": "story_by_type",
+          "columns": [
+            {
+              "expression": "type_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "story_type_exists": {
+          "name": "story_type_exists",
+          "tableFrom": "story",
+          "tableTo": "type",
+          "columnsFrom": [
+            "type_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "story_title_is_not_blank": {
+          "name": "story_title_is_not_blank",
+          "value": "(title = btrim(title)) AND (title <> ''::text)"
+        },
+        "story_instalments_are_positive": {
+          "name": "story_instalments_are_positive",
+          "value": "(instalments IS NULL) OR (instalments > 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.type": {
+      "name": "type",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_order": {
+          "name": "display_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "type_name_key": {
+          "name": "type_name_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        },
+        "type_display_order_key": {
+          "name": "type_display_order_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "display_order"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "type_id_is_a_slug": {
+          "name": "type_id_is_a_slug",
+          "value": "id ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text"
+        },
+        "type_name_is_not_blank": {
+          "name": "type_name_is_not_blank",
+          "value": "(name = btrim(name)) AND (name <> ''::text)"
+        },
+        "type_display_order_is_positive": {
+          "name": "type_display_order_is_positive",
+          "value": "display_order > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.volume": {
+      "name": "volume",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "publisher": {
+          "name": "publisher",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edition_line": {
+          "name": "edition_line",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "binding_id": {
+          "name": "binding_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "isbn": {
+          "name": "isbn",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "series_id": {
+          "name": "series_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "series_number": {
+          "name": "series_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_source": {
+          "name": "cover_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_reference": {
+          "name": "cover_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_url": {
+          "name": "cover_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_info_url": {
+          "name": "cover_info_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_looked_up_at": {
+          "name": "cover_looked_up_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "own_image_url": {
+          "name": "own_image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "volume_binding_id_fkey": {
+          "name": "volume_binding_id_fkey",
+          "tableFrom": "volume",
+          "tableTo": "binding",
+          "columnsFrom": [
+            "binding_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "volume_series_exists": {
+          "name": "volume_series_exists",
+          "tableFrom": "volume",
+          "tableTo": "series",
+          "columnsFrom": [
+            "series_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "volume_title_is_not_blank": {
+          "name": "volume_title_is_not_blank",
+          "value": "(title = btrim(title)) AND (title <> ''::text)"
+        },
+        "volume_publisher_is_not_blank": {
+          "name": "volume_publisher_is_not_blank",
+          "value": "(publisher = btrim(publisher)) AND (publisher <> ''::text)"
+        },
+        "volume_edition_line_is_not_blank": {
+          "name": "volume_edition_line_is_not_blank",
+          "value": "(edition_line IS NULL) OR ((edition_line = btrim(edition_line)) AND (edition_line <> ''::text))"
+        },
+        "volume_language_is_a_code": {
+          "name": "volume_language_is_a_code",
+          "value": "language ~ '^[a-z]{2,3}(-[a-z0-9]+)*$'::text"
+        },
+        "volume_isbn_is_ten_or_thirteen_characters": {
+          "name": "volume_isbn_is_ten_or_thirteen_characters",
+          "value": "(isbn IS NULL) OR (isbn ~ '^[0-9]{9}[0-9Xx]$|^[0-9]{13}$'::text)"
+        },
+        "volume_in_a_series_has_a_number": {
+          "name": "volume_in_a_series_has_a_number",
+          "value": "(series_id IS NULL) = (series_number IS NULL)"
+        },
+        "volume_series_number_is_positive": {
+          "name": "volume_series_number_is_positive",
+          "value": "(series_number IS NULL) OR (series_number > 0)"
+        },
+        "volume_cover_is_a_source_and_a_url_together": {
+          "name": "volume_cover_is_a_source_and_a_url_together",
+          "value": "(cover_source IS NULL) = (cover_url IS NULL)"
+        },
+        "volume_cover_source_is_one_this_app_looks_up": {
+          "name": "volume_cover_source_is_one_this_app_looks_up",
+          "value": "(cover_source IS NULL) OR (cover_source = ANY (ARRAY['google-books'::text, 'open-library'::text]))"
+        },
+        "volume_cover_is_hotlinked_and_never_hosted": {
+          "name": "volume_cover_is_hotlinked_and_never_hosted",
+          "value": "(cover_url IS NULL) OR (cover_url ~ '^https://((bks[0-9]+\\.)?books\\.google\\.com|covers\\.openlibrary\\.org)/'::text)"
+        },
+        "volume_cover_was_looked_up": {
+          "name": "volume_cover_was_looked_up",
+          "value": "(cover_url IS NULL) OR (cover_looked_up_at IS NOT NULL)"
+        },
+        "volume_cover_reference_and_link_come_with_a_cover": {
+          "name": "volume_cover_reference_and_link_come_with_a_cover",
+          "value": "(cover_url IS NOT NULL) OR ((cover_reference IS NULL) AND (cover_info_url IS NULL))"
+        },
+        "volume_own_image_is_the_owners_own": {
+          "name": "volume_own_image_is_the_owners_own",
+          "value": "(own_image_url IS NULL) OR ((own_image_url ~ '^https://[^ ]+$'::text) AND (own_image_url !~ '^https://((bks[0-9]+\\.)?books\\.google\\.com|covers\\.openlibrary\\.org)/'::text))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.volume_story": {
+      "name": "volume_story",
+      "schema": "",
+      "columns": {
+        "volume_id": {
+          "name": "volume_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "story_id": {
+          "name": "story_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "covers_from": {
+          "name": "covers_from",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "covers_to": {
+          "name": "covers_to",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "volume_story_by_story": {
+          "name": "volume_story_by_story",
+          "columns": [
+            {
+              "expression": "story_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "volume_story_volume_exists": {
+          "name": "volume_story_volume_exists",
+          "tableFrom": "volume_story",
+          "tableTo": "volume",
+          "columnsFrom": [
+            "volume_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "volume_story_story_exists": {
+          "name": "volume_story_story_exists",
+          "tableFrom": "volume_story",
+          "tableTo": "story",
+          "columnsFrom": [
+            "story_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "volume_story_is_said_once": {
+          "name": "volume_story_is_said_once",
+          "columns": [
+            "volume_id",
+            "story_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "volume_story_covers_a_whole_range": {
+          "name": "volume_story_covers_a_whole_range",
+          "value": "(covers_from IS NULL) = (covers_to IS NULL)"
+        },
+        "volume_story_cover_does_not_invert": {
+          "name": "volume_story_cover_does_not_invert",
+          "value": "(covers_from IS NULL) OR (covers_to >= covers_from)"
+        },
+        "volume_story_cover_starts_at_one": {
+          "name": "volume_story_cover_starts_at_one",
+          "value": "(covers_from IS NULL) OR (covers_from > 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.wish": {
+      "name": "wish",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "volume_id": {
+          "name": "volume_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "priority": {
+          "name": "priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_price": {
+          "name": "target_price",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_found": {
+          "name": "price_found",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shop": {
+          "name": "shop",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opened_on": {
+          "name": "opened_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_DATE"
+        },
+        "closed_on": {
+          "name": "closed_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "wish_one_open_per_volume": {
+          "name": "wish_one_open_per_volume",
+          "columns": [
+            {
+              "expression": "volume_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "(closed_on IS NULL)",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "wish_volume_id_fkey": {
+          "name": "wish_volume_id_fkey",
+          "tableFrom": "wish",
+          "tableTo": "volume",
+          "columnsFrom": [
+            "volume_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "wish_priority_is_one_to_three": {
+          "name": "wish_priority_is_one_to_three",
+          "value": "(priority >= 1) AND (priority <= 3)"
+        },
+        "wish_target_price_is_not_negative": {
+          "name": "wish_target_price_is_not_negative",
+          "value": "(target_price IS NULL) OR (target_price >= (0)::numeric)"
+        },
+        "wish_price_found_is_not_negative": {
+          "name": "wish_price_found_is_not_negative",
+          "value": "(price_found IS NULL) OR (price_found >= (0)::numeric)"
+        },
+        "wish_shop_is_not_blank": {
+          "name": "wish_shop_is_not_blank",
+          "value": "(shop IS NULL) OR ((shop = btrim(shop)) AND (shop <> ''::text))"
+        },
+        "wish_close_follows_open": {
+          "name": "wish_close_follows_open",
+          "value": "(closed_on IS NULL) OR (closed_on >= opened_on)"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

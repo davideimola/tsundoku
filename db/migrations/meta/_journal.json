@@ -45,6 +45,13 @@
       "breakpoints": true
     },
     {
+      "idx": 7,
+      "version": "7",
+      "when": 1788302023935,
+      "tag": "0007_a_story_is_serialized_and_a_pass_says_how_far",
+      "breakpoints": true
+    },
+    {
       "idx": 9,
       "version": "7",
       "when": 1788388403156,

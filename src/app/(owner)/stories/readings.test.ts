@@ -3,11 +3,15 @@ import { describe, expect, it } from "vitest";
 import type { StoryReading } from "@/core/queries/story";
 
 import {
+  howFarItGot,
   howItWent,
+  howTheRangeIsKept,
+  instalments,
   readingNow,
   SCORES,
   stillOpen,
   theOpenReading,
+  whatItCovers,
   whenItHappened,
 } from "./readings";
 
@@ -28,6 +32,7 @@ function reading(said: Partial<StoryReading> = {}): StoryReading {
     id: "a-reading",
     medium: "paper",
     outcome: "finished",
+    atInstalment: null,
     startedOn: null,
     endedOn: null,
     provenance: { id: "remembered", name: "Remembered" },
@@ -125,5 +130,66 @@ describe("the scores the picker offers", () => {
     expect(SCORES).toHaveLength(19);
     expect(SCORES).toContain(8.5);
     expect(SCORES).not.toContain(0);
+  });
+});
+
+// *Seven of twenty*: the words a serialized run is read in. The two numbers are the core's
+// and the fraction is the screen's, which is the same split every other function here is on.
+describe("how far a pass got", () => {
+  it("is a fraction in the work's own units", () => {
+    expect(howFarItGot({ atInstalment: 7, instalments: 20 })).toBe("7 of 20");
+  });
+
+  it("says nought rather than nothing where the pass has finished none", () => {
+    expect(howFarItGot({ atInstalment: 0, instalments: 20 })).toBe("0 of 20");
+  });
+});
+
+describe("the count of Instalments", () => {
+  it("carries the noun, so a number on a page of objects is not read as volumes", () => {
+    expect(instalments(20)).toBe("20 Instalments");
+  });
+
+  it("says one of them in the singular", () => {
+    expect(instalments(1)).toBe("1 Instalment");
+  });
+});
+
+// What one object holds of a work, said the same way at both ends of the many-to-many.
+describe("what a Volume covers of a Story", () => {
+  it("says one part in the singular, because a tankōbon is not a range", () => {
+    expect(whatItCovers({ from: 7, to: 7, written: false })).toBe("Instalment 7");
+  });
+
+  it("says a range as a span, which is the omnibus it exists for", () => {
+    expect(whatItCovers({ from: 1, to: 35, written: true })).toBe("Instalments 1–35");
+  });
+});
+
+describe("where a covered range came from", () => {
+  const slamDunk = {
+    id: "s",
+    title: "Slam Dunk",
+    type: { id: "manga", name: "Manga" },
+    latestScore: null,
+    instalments: 20,
+  };
+
+  it("offers to hand a written range back to the line", () => {
+    expect(howTheRangeIsKept({ ...slamDunk, covers: { from: 1, to: 12, written: true } })).toBe(
+      "Of 20. Empty both to follow this object's place in its line again."
+    );
+  });
+
+  it("says what the line is supplying while the boxes stand empty", () => {
+    expect(howTheRangeIsKept({ ...slamDunk, covers: { from: 7, to: 7, written: false } })).toBe(
+      "Empty, so it follows this object's place in its line: Instalment 7 of 20."
+    );
+  });
+
+  it("says there is nothing to follow where the object stands in no line", () => {
+    expect(howTheRangeIsKept({ ...slamDunk, covers: null })).toBe(
+      "Of 20. Empty until you say so, and this object stands in no line to follow."
+    );
   });
 });
