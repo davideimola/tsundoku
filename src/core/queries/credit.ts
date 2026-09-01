@@ -1,6 +1,14 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import type { FacedWith } from "./cover.ts";
+import {
+  STORY_STATE,
+  type StoryState,
+  THE_COVER_IT_IS_FACED_OUT_WITH,
+  THE_LINE_IT_STANDS_IN,
+  type WallSeries,
+} from "./story.ts";
 
 // What the owner and an external reader ask about the people the library credits.
 //
@@ -91,7 +99,16 @@ export async function listCreditedPeople(): Promise<CreditedPerson[]> {
   );
 }
 
-/** A Story as the people screen shows it: enough to recognise it, and nothing more. */
+/**
+ * A Story as a person's body of work shows it — **which is a tile on a wall now** (#31),
+ * so what it carries is what the tile is drawn from.
+ *
+ * The three facts beyond the title are the Story wall's own, read here through the same
+ * fragments (`queries/story.ts`): the state, derived from the Readings and stored nowhere;
+ * the line it stands in, for the colour; and the jacket, where an object carrying it has
+ * one. A Story is the same tile wherever it is drawn, and that is what makes a wall of
+ * somebody's work recognisable to an owner who has learnt their shelf.
+ */
 export type CreditedStory = {
   id: string;
   title: string;
@@ -101,12 +118,34 @@ export type CreditedStory = {
   readingCount: number;
   /** The score the owner set most recently, or `null` if they set none. */
   latestScore: number | null;
+  /**
+   * Where the owner is with it — `to-read`, `reading`, `read`, `abandoned` — derived from
+   * the Readings on this request like everywhere else.
+   *
+   * It is **finer than the split below and does not replace it**: `read` and `notRead`
+   * answer *what have I read by them*, and this says which of the four a Story in either
+   * list actually is, which is what the tile prints under itself.
+   */
+  state: StoryState;
+  /** The line an object carrying it stands in, or `null` where none does. */
+  series: WallSeries | null;
+  /** The jacket an object carrying it is faced with, or `null` — the drawn tile. */
+  cover: FacedWith | null;
 };
 
 /** One person, split by whether the owner has actually read the thing. */
 export type PersonCredits = {
   id: string;
   name: string;
+  /**
+   * Every role they hold **anywhere in the library**, in the order a comic is credited in.
+   *
+   * It is here because a person's body of work is read split by role (#31), and the bands
+   * cannot be read off the Stories: somebody who drew one book and wrote another would be
+   * banded in whichever order the titles fell. This is their own vocabulary, and it is the
+   * same list `listCreditedPeople` puts under a name.
+   */
+  roles: CreditRole[];
   /**
    * The Stories credited to them that went through at least one Reading — *everything
    * read by this Credit*, which is the question the screen exists for.
@@ -136,7 +175,10 @@ const CREDITED_STORY = `
                       from rating g
                      where g.story_id = s.id
                      order by g.set_at desc
-                     limit 1)
+                     limit 1),
+    'state', ${STORY_STATE},
+    'series', ${THE_LINE_IT_STANDS_IN},
+    'cover', ${THE_COVER_IT_IS_FACED_OUT_WITH}
   )`;
 
 // The two lists, which differ by one word. `whetherRead` is `exists` for what went
@@ -179,6 +221,7 @@ export async function findCreditedPerson(personId: string): Promise<PersonCredit
     `select
        p.id,
        p.name,
+       ${ROLES_HELD} as roles,
        ${CREDITED_STORIES("exists")} as read,
        ${CREDITED_STORIES("not exists")} as "notRead"
      from person p

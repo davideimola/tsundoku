@@ -70,9 +70,15 @@ import { defineConfig } from "vitest/config";
 // predicate the acts on a Story's page hang off — `src/app/(owner)/series/positions.ts`, which
 // says what each position of a Series is and so where the difference between *missing* and
 // *not mine yet* is decided, `src/app/(owner)/collection/[id]/standing.ts`, which says where
-// the owner stands with one object and therefore which acts its page offers, and
+// the owner stands with one object and therefore which acts its page offers,
 // `src/app/(owner)/reading-list/entry.ts`,
-// which says what a composed entry is called, where its tile leads and what its foot carries.
+// which says what a composed entry is called, where its tile leads and what its foot carries,
+// `src/app/(owner)/wishes/shopping.ts`, which says the three steps a shopping list is bought
+// in — the Reading list's picker offers the same three words — and holds the banding to the
+// Wish's own rule that nothing silently disappears from what the owner meant to buy, and
+// `src/app/(owner)/credits/body-of-work.ts`, which cuts everything a person is credited on
+// along the role they held on it, over an answer the core hands over split by whether it was
+// read.
 //
 // It is the same rule and not a wider one: data in, data out, a function
 // this application would still have if React were replaced, and never a component, a render

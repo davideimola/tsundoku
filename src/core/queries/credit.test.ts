@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { creditStory } from "../verbs/credit.ts";
 import { setRating } from "../verbs/rating.ts";
 import { abandonReading, finishReading, recordReading } from "../verbs/reading.ts";
+import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
+import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import {
   findCreditedPerson,
   listCreditedPeople,
@@ -12,7 +15,7 @@ import {
 } from "./credit.ts";
 
 beforeEach(async () => {
-  await query("truncate story, person cascade");
+  await query("truncate story, person, volume, series cascade");
 });
 
 describe("the roles a Credit can be held in", () => {
@@ -110,6 +113,11 @@ describe("everything read by one Credit", () => {
     expect(await findCreditedPerson(personId)).toEqual({
       id: personId,
       name: "Jeph Loeb",
+      // Every role they hold anywhere, which is what the body of work is split by (#31):
+      // a band per role, in the order a comic is credited in, and it cannot be read off
+      // the Stories — somebody who drew one thing and wrote another would be banded in
+      // whichever order the titles happened to fall.
+      roles: [{ id: "writer", name: "Writer" }],
       // By title, for the reason `listStories` is by title: the list answers *what have
       // I read by him* by being readable, and any other order is an opinion the screen
       // did not ask for.
@@ -121,6 +129,9 @@ describe("everything read by one Credit", () => {
           roles: [{ id: "writer", name: "Writer" }],
           readingCount: 1,
           latestScore: 8,
+          state: "read",
+          series: null,
+          cover: null,
         },
         {
           id: noir,
@@ -129,6 +140,12 @@ describe("everything read by one Credit", () => {
           roles: [{ id: "writer", name: "Writer" }],
           readingCount: 1,
           latestScore: null,
+          // Opened and given up on, which is still something read *by* him — and the
+          // state is what says which of the two it was, on the tile the body of work is
+          // laid out as (#31).
+          state: "abandoned",
+          series: null,
+          cover: null,
         },
       ],
       notRead: [
@@ -139,8 +156,52 @@ describe("everything read by one Credit", () => {
           roles: [{ id: "writer", name: "Writer" }],
           readingCount: 0,
           latestScore: null,
+          state: "to-read",
+          series: null,
+          cover: null,
         },
       ],
+    });
+  });
+
+  // **A person's body of work is a wall now** (#31), so what each Story carries is what a
+  // tile is drawn from: the line it stands in, for the colour, and the jacket, where an
+  // object carrying it has one. Both are borrowed off the Volumes, because a Story is a
+  // narrative and has neither of its own (ADR-0001) — and both are resolved by the same
+  // fragments the Story wall reads, so one Story is the same tile on either screen.
+  it("carries the line and the jacket, borrowed off the object carrying it", async () => {
+    const akira = await createStory({ title: "Akira", typeId: "manga" });
+    const { personId } = await creditStory({
+      storyId: akira,
+      person: "Katsuhiro Ōtomo",
+      roleId: "writer",
+    });
+
+    const volumeId = await volumeInTheHouse({
+      title: "Akira 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    const seriesId = await declareSeries({
+      name: "Akira",
+      publisher: "Planet Manga",
+      publishedCount: 6,
+      status: "concluded",
+    });
+    await placeVolumeInSeries({ volumeId, seriesId, number: 1 });
+    await recordVolumeCarriesStory(volumeId, akira);
+    await query(
+      `update volume set cover_source = 'google-books', cover_url = $2, cover_looked_up_at = now()
+        where id = $1`,
+      [volumeId, "https://books.google.com/books/content?id=njT&img=1&zoom=5"]
+    );
+
+    const person = await findCreditedPerson(personId);
+
+    expect(person?.notRead[0]?.series).toMatchObject({ id: seriesId, name: "Akira" });
+    expect(person?.notRead[0]?.cover).toMatchObject({
+      url: "https://books.google.com/books/content?id=njT&img=1&zoom=5",
     });
   });
 

@@ -18,6 +18,7 @@ import {
   withdrawConstraint,
 } from "@/core/verbs/path";
 import { requireOwner } from "@/lib/auth/owner";
+import { DEFINING_A_PATH, NAMING_A_ROUTE, SAYING_WHAT_A_ROUTE_IS_FOR } from "./acts";
 
 // The write side of the Paths screens, and a thin adapter like the pages beside it
 // (ADR-0002): each function reads a form, calls one verb, and carries back what the verb
@@ -58,11 +59,18 @@ function back(form: FormData): string {
  *
  * Anything that is not a refusal is a bug rather than an answer and stays unhandled: it
  * becomes a 500, and nobody dresses a broken query up as advice to the owner.
+ *
+ * `reopens` is the panel the form was standing in, and it is used **only on a refusal** (#31,
+ * the shape `../series/actions.ts` already has). A write that worked is answered by the route
+ * behind the panel, so the panel closes; a refusal is a sentence about what was typed, and it
+ * is only useful beside the field it is about — a name and three lines of intent lost behind
+ * a closed drawer is the owner typing them twice. An act with no panel behind it passes
+ * nothing and comes back to the screen either way.
  */
 async function saying(
   form: FormData,
   work: () => Promise<unknown>,
-  said?: URLSearchParams
+  { said, reopens }: { said?: URLSearchParams; reopens?: string } = {}
 ): Promise<never> {
   let answer = said;
 
@@ -71,6 +79,7 @@ async function saying(
   } catch (error) {
     if (!isRefusal(error)) throw error;
     answer = new URLSearchParams({ refused: error.message });
+    if (reopens) answer.set("panel", reopens);
   }
 
   const screen = back(form);
@@ -83,25 +92,28 @@ export async function define(form: FormData): Promise<void> {
   await requireOwner();
 
   const name = text(form, "name") ?? "";
-  await saying(
-    form,
-    () => definePath({ name, intent: text(form, "intent") }),
-    new URLSearchParams({ defined: name })
-  );
+  await saying(form, () => definePath({ name, intent: text(form, "intent") }), {
+    said: new URLSearchParams({ defined: name }),
+    reopens: DEFINING_A_PATH,
+  });
 }
 
 /** Call a Path something else. */
 export async function rename(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(form, () => renamePath(text(form, "pathId") ?? "", text(form, "name") ?? ""));
+  await saying(form, () => renamePath(text(form, "pathId") ?? "", text(form, "name") ?? ""), {
+    reopens: NAMING_A_ROUTE,
+  });
 }
 
 /** Say what a Path is for, replacing what it said before. */
 export async function restateIntent(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(form, () => restatePathIntent(text(form, "pathId") ?? "", text(form, "intent")));
+  await saying(form, () => restatePathIntent(text(form, "pathId") ?? "", text(form, "intent")), {
+    reopens: SAYING_WHAT_A_ROUTE_IS_FOR,
+  });
 }
 
 /** Take a Path up again, or put it aside. The route survives either way. */

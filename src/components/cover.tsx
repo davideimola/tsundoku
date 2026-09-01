@@ -117,8 +117,15 @@ export function Cover({
             than ellipsised on one line: *La storia della mia vita - Spider-Man* is four
             lines here and a single truncated word in a spine. Set in the chrome's own
             grotesque at its normal width — the width axis is for the headings, and a tile
-            this narrow needs the letterforms it has rather than tighter ones. */}
-        <span className="line-clamp-5 text-balance text-center font-heading text-sm font-medium leading-snug">
+            this narrow needs the letterforms it has rather than tighter ones.
+
+            Held to the height of the tile as well as to five lines, because the two are not
+            the same limit: five lines of this face are taller than a 4rem tile (#31 stood
+            nineteen of them beside a shopping list), and a centred block taller than what
+            holds it loses as much off the top as off the bottom — *Batman di Jeph Loeb e Tim
+            Sale* drawn as *di Jeph Loeb e Ti…*. Clipped at the foot, a title still starts
+            with the word the owner is looking for. */}
+        <span className="line-clamp-5 max-h-full overflow-hidden text-balance text-center font-heading text-sm font-medium leading-snug">
           {title}
         </span>
       </span>

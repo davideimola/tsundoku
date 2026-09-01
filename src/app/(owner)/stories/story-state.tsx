@@ -114,7 +114,7 @@ export function StoryStateLabel({ state }: { state: StoryState }) {
 
   return (
     <span
-      className={`font-mono text-[0.7rem] uppercase tracking-[0.18em] ${shown.emphasis}`}
+      className={`font-mono text-eyebrow uppercase tracking-eyebrow ${shown.emphasis}`}
       // The derivation is the product, so the screen says so where there is room to.
       title="Derived from this Story's Readings, and stored nowhere"
     >

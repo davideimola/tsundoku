@@ -6,6 +6,10 @@ import { composeReadingList, type ReadingListEntry } from "@/core/queries/readin
 import type { PinnedSource } from "@/core/verbs/reading-list";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
+// The three steps a shopping list is read in, from the screen that bands by them: this
+// picker offered its own copy of the three words, which is a second answer waiting to
+// happen (#31).
+import { PRIORITIES } from "../wishes/shopping";
 import { pin, unpin, wishFor } from "./actions";
 import {
   entryDetail,
@@ -51,13 +55,6 @@ export const dynamic = "force-dynamic";
 // by hand — its select is a scripted component and this screen runs nothing.
 const PICKER =
   "h-11 rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30";
-
-/** The three steps a shopping list is read in, as the Wishes screen names them. */
-const PRIORITIES = [
-  { value: 1, name: "Next" },
-  { value: 2, name: "Soon" },
-  { value: 3, name: "Someday" },
-] as const;
 
 type Asked = Record<string, string | string[] | undefined>;
 
@@ -125,7 +122,7 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
         </div>
       ) : (
         <>
-          <p className="mt-8 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="mt-8 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
             {entries.length} {entries.length === 1 ? "entry" : "entries"} · {tonight} I could start
             tonight
           </p>

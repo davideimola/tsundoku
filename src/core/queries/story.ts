@@ -140,14 +140,21 @@ const LATEST_SCORE = `
     order by g.set_at desc
     limit 1)`;
 
-// **The two facts a Story borrows, and they are borrowed twice each.**
+// **The two facts a Story borrows, and they are borrowed three times each now.**
 //
 // A Story has no Series and no ISBN of its own, because a Story is not an object
 // (ADR-0001) — so the line it stands in and the jacket it is faced with are the *Volumes'*,
 // reached across the many-to-many. Both are read by the wall, which faces seventy-seven
-// tiles outwards, and by the Story's own page, which draws the one tile the owner tapped to
-// get there (#29). Written once for that reason: a tile that changed colour or changed
-// picture on the way in would be the wall lying about where it led.
+// tiles outwards, by the Story's own page, which draws the one tile the owner tapped to
+// get there (#29), and by a person's body of work, which is a wall of the same tiles split
+// by the role they held on each (`queries/credit.ts`, #31). Written once for that reason: a
+// tile that changed colour or changed picture on the way in would be the wall lying about
+// where it led.
+//
+// Exported for the third reader rather than copied into it, under the rule `STORY_STATE` is
+// exported under: there is one right place for the pick, and a second copy of it is a second
+// answer to *which jacket does this narrative wear*. Both fragments name the Story `s`, so a
+// statement spending one joins `story s`.
 
 // Which line a Story stands in, when it stands in more than one.
 //
@@ -157,7 +164,7 @@ const LATEST_SCORE = `
 // reads two Series of one name in, and the id at the end is what makes it a tie-break
 // rather than a preference of the planner's. A colour that depended on which row Postgres
 // reached first would be a shelf that repainted itself between two page loads.
-const THE_LINE_IT_STANDS_IN = `
+export const THE_LINE_IT_STANDS_IN = `
   (select jsonb_build_object('id', se.id, 'name', se.name, 'editionLine', se.edition_line)
      from volume_story vs
      join volume v  on v.id = vs.volume_id
@@ -178,7 +185,7 @@ const THE_LINE_IT_STANDS_IN = `
 // page stands those same objects up in — one fragment, in `queries/collection.ts`, because a
 // jacket picked in one order beside a shelf drawn in another would be a page disagreeing with
 // itself.
-const THE_COVER_IT_IS_FACED_OUT_WITH = `
+export const THE_COVER_IT_IS_FACED_OUT_WITH = `
   (select ${THE_COVER_IT_IS_FACED_WITH}
      from volume_story vs
      join volume v on v.id = vs.volume_id

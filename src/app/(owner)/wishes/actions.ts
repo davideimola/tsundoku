@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
 import { closeWish, openWish } from "@/core/verbs/wish";
 import { requireOwner } from "@/lib/auth/owner";
+import { OPENING_A_WISH } from "./shopping";
 
 // The write side of the shopping list, and a thin adapter like the page beside it
 // (ADR-0002): it reads a form, calls one verb, and says what the verb said. No SQL, no
@@ -19,6 +20,11 @@ import { requireOwner } from "@/lib/auth/owner";
 // The answer travels back in the URL, like the Collection's: a plain form and a redirect
 // work with no JavaScript running at all, which is what a screen used in a shop on the
 // shop's signal needs.
+//
+// **And a refused Wish comes back with its panel open** (#31, `@/components/drawer`): the
+// form is in a drawer now, the sentence the verb wrote is about what was typed into it, and
+// a banner printed on the page behind a panel is a refusal the owner cannot read. Closing a
+// Wish is a press on the card and answers on the page, which is where the press was.
 
 /** What a form's field held, or nothing where the owner left it empty. */
 function text(form: FormData, field: string): string | null {
@@ -52,7 +58,8 @@ export async function open(form: FormData): Promise<void> {
     // Anything that is not a refusal is a bug rather than an answer, and stays unhandled:
     // it becomes a 500 and nobody dresses it up as advice.
     if (!isRefusal(error)) throw error;
-    said = new URLSearchParams({ refused: error.message });
+    // Back into the panel it was typed in, with the prose beside the fields.
+    said = new URLSearchParams({ panel: OPENING_A_WISH, refused: error.message });
   }
 
   revalidatePath("/wishes");

@@ -58,6 +58,12 @@ describe("opening a Wish", () => {
           binding: { id: "tankobon", name: "Tankōbon" },
           language: "it",
           isbn: null,
+          // What the tile beside the row is drawn from (#31). An object standing in no
+          // line has no colour to wear and no number to print, and one nobody has looked
+          // a cover up for is the drawn tile — which is the normal case here.
+          seriesId: null,
+          seriesNumber: null,
+          cover: null,
         },
       },
     ]);

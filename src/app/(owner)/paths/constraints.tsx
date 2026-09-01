@@ -8,9 +8,15 @@ import { declare, withdraw } from "./actions";
 // They are set apart from everything else on the page, and quoted rather than listed as
 // data, because of what they are: **instructions to the external advisor** and not notes
 // to self (ADR-0002). Nothing in this application acts on them — no count is enforced, no
-// warning is shown when the pile grows — so printing them as if they were settings the app
-// obeys would be a lie the screen told. What the screen can say honestly is *this is what
-// the recommender is told*, and that is what it says.
+// warning is shown when the pile grows, no route is refused for breaking one — so printing
+// them as if they were settings the app obeys would be a lie the screen told. What the
+// screen can say honestly is *this is what the recommender is told*, and that is what it
+// says, in as many words (#31): **read by the assistant, enforced by nobody.**
+//
+// The form under them is deliberately not a panel. A drawer is for a form the owner
+// *opened*; this is a sentence added to the list it is read in, which is the same case as
+// the picker under a route (#30's rule), and a door in front of it would be a door in front
+// of a door.
 
 export function DeclaredConstraints({
   constraints,
@@ -30,12 +36,14 @@ export function DeclaredConstraints({
 }) {
   return (
     <section className="mt-10">
-      <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+      <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
         What I have said about {scope}
       </h2>
       <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-        Read by the assistant that recommends, as instructions rather than as notes. Nothing here is
-        enforced by this app — it is repeated to whoever is asked what to read next.
+        Instructions to whoever is asked what to read next, in my own words.{" "}
+        <strong className="font-medium">This application enforces none of them</strong> — nothing
+        here is counted, checked or warned about, and no Story is refused for breaking one. They are
+        repeated to the advisor and that is all they do.
       </p>
 
       {constraints.length === 0 ? null : (
@@ -65,10 +73,10 @@ export function DeclaredConstraints({
         </ul>
       )}
 
-      <form action={declare} className="mt-4 flex flex-col gap-2 sm:flex-row">
+      <form action={declare} className="mt-4 grid gap-2">
         {pathId ? <input type="hidden" name="pathId" value={pathId} /> : null}
         <input type="hidden" name="back" value={back} />
-        <label className="flex-1">
+        <label>
           <span className="sr-only">A constraint, in your own words</span>
           {/* A textarea rather than an input: these are sentences, and one that has to be
               typed into a slot the width of a name gets shortened until it stops being one. */}
@@ -80,7 +88,7 @@ export function DeclaredConstraints({
             className="w-full rounded-lg border border-input bg-transparent px-3 py-2 font-serif text-base leading-relaxed outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
           />
         </label>
-        <Button type="submit" variant="outline" className="h-11 sm:h-auto sm:self-start sm:px-5">
+        <Button type="submit" variant="outline" className="h-11 justify-self-start sm:h-10 sm:px-5">
           Say it
         </Button>
       </form>

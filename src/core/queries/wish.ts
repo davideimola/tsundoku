@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "../db.ts";
 import { IN_THE_HOUSE } from "./collection.ts";
+import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
 
 /**
  * One open Wish, as a shopping list shows it: what to buy, how much it should cost, how
@@ -41,6 +42,24 @@ export type OpenWish = {
     binding: { id: string; name: string };
     language: string;
     isbn: string | null;
+    /**
+     * The line the object stands in and where it stands in it, or `null` for an object
+     * that stands in none.
+     *
+     * **What the tile beside the row is drawn from** (#31): a shopping list is read
+     * standing in front of a shelf, so the object is shown the way the walls show one — the
+     * Series' own tint and the number at the foot — and a Wish that could not say which
+     * line it was in would be a row of text, which is the format the spreadsheet already
+     * had.
+     */
+    seriesId: string | null;
+    seriesNumber: number | null;
+    /**
+     * The jacket the object is faced with, resolved by the core rather than by the screen
+     * (`THE_COVER_IT_IS_FACED_WITH`), or `null` — which is still the normal case and is the
+     * drawn tile (ADR-0013).
+     */
+    cover: FacedWith | null;
   };
   /**
    * Whether the Volume this Wish names is in the Collection right now.
@@ -85,7 +104,10 @@ export async function listOpenWishes(): Promise<OpenWish[]> {
               'editionLine', v.edition_line,
               'binding', jsonb_build_object('id', b.id, 'name', b.name),
               'language', v.language,
-              'isbn', v.isbn
+              'isbn', v.isbn,
+              'seriesId', v.series_id,
+              'seriesNumber', v.series_number,
+              'cover', ${THE_COVER_IT_IS_FACED_WITH}
             )                    as volume,
             ${IN_THE_HOUSE} as "inCollection"
        from wish w

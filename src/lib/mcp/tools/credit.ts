@@ -88,6 +88,13 @@ many Readings it has, and \`latestScore\`, the score the owner set most recently
 Volume: the object was not the thing that was good or bad. For the prose the owner wrote alongside a
 score, and the Provenance of both, read \`stories_read\`.
 
+Each also carries \`state\` — \`to-read\`, \`reading\`, \`read\`, \`abandoned\` — which is finer than the
+split above and does not replace it: everything in \`read\` was opened, and the state says which of
+the four that opening led to. \`roles\` at the top level is every role they hold **anywhere**, which
+is what the owner's own screen bands their work by. \`series\` and \`cover\` are what a tile is drawn
+from and nothing to act on — a cover is a reference to an image on somebody else's domain, never
+bytes to fetch.
+
 The \`person_id\` comes from \`credit_people\`. Answers \`null\` where no such person exists, which is
 an answer and not a failure.`,
   inputSchema: {

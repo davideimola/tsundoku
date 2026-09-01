@@ -109,7 +109,11 @@ threshold on both grounds, which is what buys the exception the palette wall sta
 The tile that wears it is `src/components/cover.tsx`, and it is **the cover rather than a
 placeholder for one**: a drawn tile is the normal case and an image is the exception. It is
 shaped like the page it stands for (210 by 297), which is what let #32 hotlink an image into the
-tile without reflowing a single wall.
+tile without reflowing a single wall. A drawn title is held to the height of the tile as well as
+to five lines, because the two are not the same limit — five lines are taller than a 4rem tile,
+and a centred block taller than what holds it loses as much off the *top* as off the bottom
+(#31). It is drawn small beside a row on three screens now — the Reading list, the shopping
+list, and a person's body of work, which is a wall of these split by the role they held.
 
 Two other things wear a tint, and each is a different view of the same object: the lying-down
 spine the pile is stacked from (`src/components/pile.tsx`), because a pile is read from the
@@ -183,6 +187,15 @@ is a panel** — the Edition note is prose in the serif with *Rewrite the Editio
 it, the way a Rating's prose is read back on the Story, because what was written is the record
 and the box is the act.
 
+The last three screens are the rest of it (#31), and they add one clause rather than a rule:
+**the record is on the page and the panel is only the act**, which the Volume's Edition note
+said and a Path's intent says again — the owner's own words are read in the serif under the
+route's name, and *Say what it is for* is a drawer beside them. Its sibling clause is the one
+the Wishes screen is the case for: **what is folded away is not there.** That shopping list
+kept its four numbers behind a disclosure, and the tap that opened one was taken standing in a
+shop with a book in the other hand, so everything that decides a purchase is on the card now
+and a Wish with no price says so in words rather than showing a row of dashes.
+
 Three rules for adding one. **Read the panel against a list**, the way every filter on a wall
 is read — `?panel=banana` opens nothing, and neither does a `?reading=` naming no Reading of
 this Story. Better still, read it against **the acts the screen has**: `theActsOnTheObject`
@@ -212,6 +225,14 @@ open**, which is what puts *start it* or *close it* in a Story's hero and is rea
 stands with one object — in the house, catalogued, or acquired and let go — and therefore
 **which acts its page offers**, which is where an object that left the house is offered
 acquiring it *again* rather than releasing something the house does not have;
+`wishes/shopping.ts` says the three steps a shopping list is bought in — the Reading list's
+picker offers the same three words — and bands the list out of the priorities that are
+*there* rather than by filtering a fixed three, so **a Wish cannot be on the list and on no
+band of it**, which is that area's own rule about nothing disappearing silently;
+`credits/body-of-work.ts` cuts everything a person is credited on along the role they held on
+it, over an answer the core hands over split by whether it was read — and a Story they held
+two roles on stands in **both** bands, because that is the pair of facts the word *Credit*
+exists to keep apart;
 `stories/story-state.tsx` and `reading-list/entry.ts` are the same thing at a smaller size. It
 is the screen's because banding is the screen's (see the next section), and it is a *file*
 rather than a lump inside `page.tsx` because it can then be tested beside itself — which

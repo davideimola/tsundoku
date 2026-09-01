@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { catalogueVolume, releaseVolume } from "../verbs/collection.ts";
+import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { openWish } from "../verbs/wish.ts";
 import { listOpenWishes, listVolumesToWishFor } from "./wish.ts";
 
@@ -9,7 +10,7 @@ import { listOpenWishes, listVolumesToWishFor } from "./wish.ts";
 // list's own behaviour — what opens it, what ends it — is asserted beside the verbs; here
 // what matters is which Volumes a Wish may name, and what a reader is told about each one.
 beforeEach(async () => {
-  await query("truncate volume cascade");
+  await query("truncate volume, series cascade");
 });
 
 async function aVolume(title: string, binding = "tankobon"): Promise<string> {
@@ -100,5 +101,74 @@ describe("the shopping list", () => {
       "Vagabond 1",
       "Vagabond 2",
     ]);
+  });
+});
+
+// **What a shopping list has to show of an object is what a shop shows of it** (#31): the
+// list is read standing in front of a shelf, and a row of text is the format the
+// spreadsheet already had. So a Wish carries the jacket and the line the object stands in,
+// which is what the tile beside it is drawn from — the same tile, in the same colour, as
+// the walls the owner learns their shelf by.
+describe("the object a Wish is read by", () => {
+  // An object the owner had, let go, and means to buy again — which is where a wished-for
+  // Volume comes to stand in a line at all: a position of a Series is filled by what is on
+  // the shelf (`placeVolumeInSeries`), so something catalogued and never owned stands in
+  // none and is the drawn tile below.
+  async function wishedFor(): Promise<{ volumeId: string; seriesId: string }> {
+    const volumeId = await aVolume("Vagabond 12");
+    const seriesId = await declareSeries({
+      name: "Vagabond",
+      publisher: "Planet Manga",
+      publishedCount: 37,
+      status: "concluded",
+    });
+    await placeVolumeInSeries({ volumeId, seriesId, number: 12 });
+    await releaseVolume(volumeId);
+    await openWish({ volumeId, priority: 1 });
+
+    return { volumeId, seriesId };
+  }
+
+  it("carries the line the object stands in and the position it stands at", async () => {
+    const { seriesId } = await wishedFor();
+
+    const [wish] = await listOpenWishes();
+
+    expect(wish.volume.seriesId).toBe(seriesId);
+    expect(wish.volume.seriesNumber).toBe(12);
+  });
+
+  it("carries the jacket the object is faced with", async () => {
+    const { volumeId } = await wishedFor();
+    await query(
+      `update volume set cover_source = 'google-books', cover_url = $2, cover_looked_up_at = now()
+        where id = $1`,
+      [volumeId, "https://books.google.com/books/content?id=njT&img=1&zoom=5"]
+    );
+
+    const [wish] = await listOpenWishes();
+
+    expect(wish.volume.cover).toMatchObject({
+      url: "https://books.google.com/books/content?id=njT&img=1&zoom=5",
+    });
+  });
+
+  // The ordinary answer and not a gap, the same one every wall gets: an object standing in
+  // no line has no colour to wear and no number to print, and the tile drawn for it is the
+  // library's own paper.
+  it("says so plainly where the object stands in no line and wears no jacket", async () => {
+    const { id } = await catalogueVolume({
+      title: "Akira",
+      publisher: "Planet Manga",
+      binding: "omnibus",
+      language: "it",
+    });
+    await openWish({ volumeId: id, priority: 3 });
+
+    const [wish] = await listOpenWishes();
+
+    expect(wish.volume.seriesId).toBeNull();
+    expect(wish.volume.seriesNumber).toBeNull();
+    expect(wish.volume.cover).toBeNull();
   });
 });

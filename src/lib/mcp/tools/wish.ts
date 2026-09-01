@@ -111,7 +111,13 @@ cost, what it costs and where.
 
 It is a shopping list rather than a wish-shaped diary: what is here is what the owner means to buy.
 An open Wish says nothing about whether they have read the Story the object carries, and a Volume
-already in the house can still be wanted — a better edition, or a second copy.`,
+already in the house can still be wanted — a better edition, or a second copy.
+
+The Volume also carries what the owner's own screen draws it as: the line it stands in (\`seriesId\`,
+\`seriesNumber\`) where it stands in one, and \`cover\`, a **reference** to an image on somebody else's
+domain. Neither is anything to act on — do not fetch the cover, and do not read a missing line as a
+gap in the catalogue: a position of a Series is filled by what is on the shelf, so most of what is
+wanted stands in none.`,
   inputSchema: { type: "object", properties: {}, additionalProperties: false },
   readOnly: true,
   async run() {
