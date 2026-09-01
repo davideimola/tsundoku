@@ -209,33 +209,69 @@ export type PathAhead = {
 };
 
 /**
- * **What comes next on every active Path**, one entry each, in one statement.
+ * **What comes next on every active Path**, one entry each.
  *
- * The Reading list (#11) composes itself from exactly this (user story 22): the entries
+ * This is what an assistant asks for when it wants the routes and nothing else (user story
+ * 22): one Story per route, over the wire, rather than a route's whole tail. The entries
  * come back in the owner's order of routes, and a Path is simply **absent when it is
  * exhausted** — there is no entry with a `null` next to filter out, because a route with
  * nothing unread left has nothing to contribute. Inactive Paths are absent for the same
  * reason: the owner put them aside.
+ *
+ * It is the first stop of `stillAheadOnActivePaths` below rather than a statement of its
+ * own (#40). The two asked the same question in two nearly identical statements while this
+ * one carried a `limit 1`, and *what is still to read on a route* is a question with one
+ * answer: a second copy of it would be a second answer, and this one is short enough — a
+ * route is ten stops, not ten thousand — that reading the tail to name its head costs
+ * nothing worth keeping a second derivation for.
  */
 export async function nextUnreadOnActivePaths(): Promise<PathAhead[]> {
-  // A lateral join rather than the subquery plus a `is not null`: an exhausted route
-  // produces no row on this side, so "absent when exhausted" is the join's own doing and
-  // not a filter somebody has to remember to write.
-  return query<PathAhead>(
+  const routes = await stillAheadOnActivePaths();
+
+  // Every route here has something ahead of it — that is what makes it present — so the
+  // first stop is there and the filter is a type-level one rather than a case.
+  return routes.flatMap((route) =>
+    route.ahead[0] ? [{ path: route.path, next: route.ahead[0] }] : []
+  );
+}
+
+/** A Path and everything still ahead on it, in the owner's order. */
+export type PathStillAhead = {
+  path: { id: string; name: string; intent: string | null };
+  /** Every stop still to read, in the owner's order. The first of them is what comes next. */
+  ahead: PathStop[];
+};
+
+/**
+ * **Everything still ahead on every active Path**: not the next stop of each route, but all
+ * of them, in one statement.
+ *
+ * The Reading list's reserve composes from this (#40, user story 11), and what it adds to
+ * *the next stop of each route* is the whole reason it exists. A route that contributes one
+ * stop is a route the owner can only pin *whole* — pinning Marvel pins whatever Marvel is
+ * offering — so *three Marvel stories and then a DC one* was unsayable however the pin was
+ * stored. Seeing what stands behind the next stop is what makes it sayable.
+ *
+ * A Path that is exhausted or put aside is **absent**: a route with nothing unread left has
+ * nothing to contribute, and the owner put the inactive ones aside themselves.
+ */
+export async function stillAheadOnActivePaths(): Promise<PathStillAhead[]> {
+  // A lateral join rather than an aggregate in the select list plus a `is not null` filter
+  // on it: a route with nothing ahead produces `null` here and the `where` drops it, so
+  // "absent when exhausted" is one clause and not a case every caller repeats.
+  return query<PathStillAhead>(
     `select
        jsonb_build_object('id', p.id, 'name', p.name, 'intent', p.intent) as path,
-       ahead.stop as next
+       route.ahead
      from path p
      cross join lateral (
-       select ${STOP} as stop
+       select jsonb_agg(${STOP} order by i.position) as ahead
          from path_item i
          join story s on s.id = i.story_id
          join type t on t.id = s.type_id
         where i.path_id = p.id and ${STORY_STATE} = 'to-read'
-        order by i.position
-        limit 1
-     ) ahead
-    where p.active
+     ) route
+    where p.active and route.ahead is not null
     order by lower(p.name)`
   );
 }

@@ -1,10 +1,11 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import type { PinnedSubject } from "../verbs/reading-list.ts";
 import type { ProposedWish } from "../verbs/wish.ts";
 import { IN_THE_HOUSE } from "./collection.ts";
 import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
-import { nextUnreadOnActivePaths } from "./path.ts";
+import { type PathStop, stillAheadOnActivePaths } from "./path.ts";
 import { listMissingVolumes, type SeriesLedger } from "./series.ts";
 import type { StoryType } from "./story.ts";
 import { listOpenWants } from "./want.ts";
@@ -14,10 +15,18 @@ import { listOpenWants } from "./want.ts";
 // This is the file the whole application is for (#1). The spreadsheet keeps a `Prossimo`
 // column per route that the owner recomputes by hand every time they finish something, and
 // three of its dashboard tiles read `#ERROR!`; here the list is composed on the way out of
-// two derivations that are themselves derivations, and there is nowhere an entry could be
-// stored stale. The only thing stored is a **pin**, which is the owner's disagreement with
-// the order and cannot invent an entry — see
-// `db/migrations/0011_01_a_pin_is_the_only_stored_thing_in_the_reading_list.sql`.
+// derivations that are themselves derivations, and there is nowhere an entry could be
+// stored stale. The only thing stored is a **pin**, which is the owner's own order and
+// cannot invent an entry — see
+// `db/migrations/0010_a_pin_names_the_thing_to_read.sql`.
+//
+// **It is two halves rather than one list** (#40, CONTEXT.md). The **head** is what the
+// owner pinned, in the order they pinned it: it is short because every row in it is a
+// decision, and it is the only place an order means anything. The **reserve** is everything
+// else, and it is deliberately unordered — sorted by a rule nobody maintains, the newest
+// Want first, then the routes, then the ledger — because a long list somebody has to keep in
+// order is a list that goes stale. The moment an order starts to matter is the moment the
+// owner is already deciding, and that is the pin.
 //
 // It composes from three sources and nothing else (CONTEXT.md):
 //
@@ -25,25 +34,24 @@ import { listOpenWants } from "./want.ts";
 //     saying *I want to read this*, which used to cost a named, ordered route and now costs
 //     one row (#35). A Want that has fallen quiet is absent from it, and it fell quiet by
 //     comparison rather than by anything being written;
-//   - **the next unread Story of every active Path**, which is `nextUnreadOnActivePaths`
-//     from `queries/path.ts` — one entry per route, and a route that is exhausted or put
-//     aside is simply absent from it rather than present with nothing in it;
+//   - **everything still ahead on every active Path**, which is `stillAheadOnActivePaths` from
+//     `queries/path.ts` — every stop still to read, in the owner's order, and not merely the
+//     next one. That is what makes *three Marvel stories and then a DC one* expressible at
+//     all: what stands behind the next stop has to be visible before it can be pinned (#40).
+//     A route that is exhausted or put aside is simply absent;
 //   - **the next missing Volume of every Series being collected**, which is
 //     `listMissingVolumes` from `queries/series.ts` — and *being collected* is the owner's
 //     deliberate decision, never derived from what is on the shelf.
 //
-// **One thing this file does not yet do, said out loud rather than left to be noticed.**
-// CONTEXT.md has it that one Story is one row however many reasons put it there — wanted and
-// on two routes is one entry saying all three. That dedup, and the head/reserve split the
-// Reading list is meant to become, belong to the slice that changes what a **pin** names (a
-// pin still names a Path or a Series here, which is why a Want entry carries none). Until
-// then a Story that is both wanted and next on a route composes twice, once for each reason,
-// and both rows are true.
+// **One Story is one row, however many reasons put it there.** Wanted, and on two routes, is
+// one entry naming all three — because the same answer written three times is not three
+// answers. The row is keyed by the thing to read, which is also what a pin names, so an entry
+// and the owner's order over it agree about what they are talking about.
 //
-// None of the three is re-derived here. This file asks those three questions, asks one more
-// about the objects the answers need, and lays them side by side; the judgement in it is what
-// an entry *means* — what medium it is intended in, whether the owner can start it tonight,
-// and what it would take to buy.
+// None of the three sources is re-derived here. This file asks those three questions, asks
+// one more about the objects the answers need, and lays them side by side; the judgement in
+// it is what an entry *means* — what medium it is intended in, whether the owner can start it
+// tonight, and what it would take to buy.
 
 /**
  * Paper or digital, and here it is **derived rather than recorded**.
@@ -85,48 +93,77 @@ export type ReadingListObject = {
 // not call the verb. Buying stays a decision (user story 28), so nothing here writes, and
 // what the screen or the assistant does with the value is hand it to `openWish` — or not.
 
+/** The route an entry stands on, and where on it this stop is. */
+export type ReadingListRoute = {
+  id: string;
+  name: string;
+  intent: string | null;
+  /**
+   * Where this stop stands among the route's **unread** stops, counted from one. `1` is what
+   * comes next on it; anything higher stands behind that, and is there to be pinned.
+   */
+  place: number;
+};
+
+/** The line an entry would be bought from, and which position of it. */
+export type ReadingListLine = {
+  id: string;
+  name: string;
+  publisher: string;
+  editionLine: string | null;
+  /** The first position of the Series the house has none of. */
+  position: number;
+  /** How many are out, as the owner last recorded it. */
+  publishedCount: number;
+};
+
 /**
- * One entry of the Reading list: something to read, why it is on the list, and what it
- * would take to start it.
+ * **One reason an entry is on the list**, and a row carries every reason it has.
  *
  * Flat rather than a union of three shapes, because both doors read it — a screen lays it
  * out and an assistant reads it over MCP — and one shape with stated null halves is legible
- * to both where a discriminated union would need each of them to branch first. `because` says
- * which half is filled.
+ * to both where a discriminated union would need each of them to branch first. `because`
+ * says which half is filled.
  */
-export type ReadingListEntry = {
-  /** Which of the three sources put it here. */
+export type ReadingListReason = {
+  /** Which of the three sources this reason is. */
   because: "want" | "path" | "series";
   /**
-   * The Want that put it here, and when the owner said it. Null on a Path or Series entry.
+   * The Want, and when the owner said it. Null on a route's or a line's reason.
    *
    * It carries no priority, no order and no name, because a Want has none: the whole of it is
    * *I want to read this Story*, and where it sits on the list is the list's business.
    */
   want: { id: string; openedAt: string } | null;
+  /** The route this stop is on, with the owner's own words about it. Null otherwise. */
+  path: ReadingListRoute | null;
+  /** The Series this object would complete, and which position of it is next. Null otherwise. */
+  series: ReadingListLine | null;
+};
+
+/**
+ * One entry of the Reading list: something to read, every reason it is there, and what it
+ * would take to start it.
+ *
+ * **One row per thing to read**, which is what `subject` names — a Story, or a position of a
+ * Series. A Story wanted and standing on two routes is one entry with three `reasons`, and
+ * never three entries saying the same thing differently.
+ */
+export type ReadingListEntry = {
   /**
-   * The route this stop is on, with the owner's own words about it. Null on a Want or a
-   * Series entry.
+   * The thing to read, in the pin's own vocabulary: what a pin on this entry would name.
+   *
+   * It is the entry's identity as well as the pin's subject, and deliberately one value
+   * rather than two: a screen keying its rows one way while the verb it posts to names them
+   * another is how a press comes to pin the row above.
    */
-  path: { id: string; name: string; intent: string | null } | null;
+  subject: PinnedSubject;
+  /** Every reason this entry is here, in the order they were composed. Never empty. */
+  reasons: ReadingListReason[];
   /**
-   * The Series this object would complete, and which position of it is next. Null on a Want
-   * or a Path entry.
-   */
-  series: {
-    id: string;
-    name: string;
-    publisher: string;
-    editionLine: string | null;
-    /** The first position of the Series the house has none of. */
-    position: number;
-    /** How many are out, as the owner last recorded it. */
-    publishedCount: number;
-  } | null;
-  /**
-   * The Story to read. Filled in on a Want and on a Path entry, and null on a Series entry,
-   * which names an **object** and not a narrative: what story a Volume carries is a separate
-   * fact (ADR-0001), and the ledger does not claim to know it.
+   * The Story to read. Filled in wherever a Want or a route put the entry here, and null on
+   * a Series entry, which names an **object** and not a narrative: what story a Volume
+   * carries is a separate fact (ADR-0001), and the ledger does not claim to know it.
    */
   story: { id: string; title: string; type: StoryType } | null;
   /**
@@ -166,112 +203,199 @@ export type ReadingListEntry = {
   proposedWish: ProposedWish | null;
   /** Whether the owner already means to buy the object. Nothing to propose, and no problem. */
   wishAlreadyOpen: boolean;
-  /** Whether the owner pinned this entry's source. Pinned entries lead the list. */
-  pinned: boolean;
 };
 
 /**
- * **The Reading list.** What to read next, composed from what the owner wants to read, the
- * routes they are walking and the Series they are collecting, in the order they should read
- * it in.
+ * **The Reading list**: a head the owner decided, and a reserve that decided itself.
  *
- * The order is: **pinned first, most recently pinned leading** — pinning is the act of
- * saying *this next*, so the newest one is the newest decision — and then the Wants newest
- * first, then the Path entries in the owner's order of routes, and then the Series entries by
- * name. That sequence is a rule nobody maintains rather than a ranking (CONTEXT.md): a Want
- * is the owner's most recent unacted word, a route is a judgement they made about what to
- * read, and a Series is a ledger of what a publisher has printed.
+ * Two lists rather than one flagged list, because they are answers to two different
+ * questions and an assistant reading them has to be able to tell them apart: the head is
+ * *what the owner said to read next*, and the reserve is *what merely composed*.
+ */
+export type ReadingList = {
+  /**
+   * What the owner pinned, in pin order, newest pin leading — a pin is the act of saying
+   * *this next*, so the most recent decision is the one they see first.
+   *
+   * **There is no cap on it.** A head of twenty is the owner having pinned twenty things: it
+   * looks wrong on the screen, and pruning it is theirs to do rather than the library's to
+   * refuse.
+   */
+  head: ReadingListEntry[];
+  /**
+   * Everything else, in an order nobody maintains: the newest Want first, then the routes in
+   * the owner's order of routes and each route's stops in its own order, then the Series by
+   * name.
+   *
+   * **Do not read a place in it as a ranking.** It is deliberately unordered, and the moment
+   * an order matters the owner pins the row, which moves it to the head.
+   */
+  reserve: ReadingListEntry[];
+};
+
+/**
+ * **The Reading list.** What to read next: the head the owner pinned, and the reserve that
+ * composed itself from what they want to read, the routes they are walking and the Series
+ * they are collecting.
  *
  * **It writes nothing.** An entry that needs an object the owner does not own carries a
  * `proposedWish` built out of what it would say, and `openWish` is not called: the owner
  * (or an assistant, on their word) opens it. Walking the whole list leaves the `wish` table
  * exactly as it was.
  */
-export async function composeReadingList(): Promise<ReadingListEntry[]> {
+export async function composeReadingList(): Promise<ReadingList> {
   // The three sources and the pins, read together. Four statements rather than one: the
   // three derivations already exist, tested, in `queries/want.ts`, `queries/path.ts` and
   // `queries/series.ts` (#35, #9, #7), and re-deriving any of them here to save a round trip
   // would be keeping a second answer to a question that has one.
-  const [wanted, ahead, incomplete, pins] = await Promise.all([
+  const [wanted, routes, incomplete, pins] = await Promise.all([
     listOpenWants(),
-    nextUnreadOnActivePaths(),
+    stillAheadOnActivePaths(),
     listMissingVolumes(),
-    pinnedSources(),
+    pinnedSubjects(),
   ]);
 
-  // The objects the three halves need, asked for in one statement each rather than per entry.
-  // Both narrative sources reach the same question, so they ask it together.
+  // **One row per thing to read, and the order they arrive in is the reserve's order.** A
+  // Map keeps insertion order, so the rule nobody maintains — newest Want, then the routes,
+  // then the ledger — is the order the three loops below run in and is written nowhere else.
+  const rows = new Map<string, Row>();
+
+  // **The Wants lead**, newest first, because a Want is the last thing the owner said and
+  // has not acted on. Nothing else about one is an order: it has no priority and no place.
+  for (const want of wanted) {
+    row(rows, { kind: "story", id: want.story.id }, want.story).reasons.push(
+      reason({ because: "want", want: { id: want.id, openedAt: want.openedAt } })
+    );
+  }
+
+  // Then the routes, in the owner's order of routes, and each route's stops in its own
+  // order — **all of them and not only the next**, so what stands behind the next stop is
+  // there to be pinned.
+  for (const route of routes) {
+    route.ahead.forEach((stop: PathStop, ahead: number) => {
+      row(
+        rows,
+        { kind: "story", id: stop.storyId },
+        {
+          id: stop.storyId,
+          title: stop.title,
+          type: stop.type,
+        }
+      ).reasons.push(reason({ because: "path", path: { ...route.path, place: ahead + 1 } }));
+    });
+  }
+
+  // Then the ledger, which is the shopping half: a position of a line rather than a
+  // narrative, so it merges with nothing and stands on its own.
+  for (const ledger of incomplete) {
+    // `listMissingVolumes` answers only with Series that have a gap, so there is a position
+    // here and the fallback is unreachable rather than a default.
+    const position = ledger.nextMissing ?? 0;
+    row(rows, { kind: "series", id: ledger.id, position }, null).reasons.push(
+      reason({
+        because: "series",
+        series: {
+          id: ledger.id,
+          name: ledger.name,
+          publisher: ledger.publisher,
+          editionLine: ledger.editionLine,
+          position,
+          publishedCount: ledger.publishedCount,
+        },
+      })
+    );
+  }
+
+  // The objects the rows need, asked for in one statement each rather than per entry. Every
+  // narrative row reaches the same question whatever put it there, so they ask it together.
+  const drafts = [...rows.values()];
   const [carriers, positions] = await Promise.all([
-    objectsCarrying([
-      ...wanted.map((want) => want.story.id),
-      ...ahead.map((stop) => stop.next.storyId),
-    ]),
+    objectsCarrying(drafts.flatMap((draft) => (draft.story ? [draft.story.id] : []))),
     objectsAtPositions(incomplete),
   ]);
 
-  const entries: ReadingListEntry[] = [
-    // **The Wants lead**, newest first, because a Want is the last thing the owner said and
-    // has not acted on. Nothing else about one is an order: it has no priority and no place,
-    // and the moment its place starts to matter the owner is already deciding — which is the
-    // pin.
-    ...wanted.map((want) => ({
-      because: "want" as const,
-      want: { id: want.id, openedAt: want.openedAt },
-      path: null,
-      series: null,
-      story: want.story,
-      // The same judgement a Path entry makes, and deliberately the same call: a Story with
-      // no object is one the owner reads without one, whichever source named it.
-      ...through(carriers.get(want.story.id), mediumOf(carriers.get(want.story.id))),
-      // A pin names a Path or a Series today, and a Want is neither. Nothing to look up.
-      pinned: false,
-    })),
-    ...ahead.map((stop) => ({
-      because: "path" as const,
-      want: null,
-      path: stop.path,
-      series: null,
-      story: { id: stop.next.storyId, title: stop.next.title, type: stop.next.type },
-      // **The medium follows the object**: paper where one carries the Story, digital
-      // where none does. A Story with no Volume is one the owner reads without an object,
-      // which is the ordinary digital case in this model (CONTEXT.md).
-      ...through(carriers.get(stop.next.storyId), mediumOf(carriers.get(stop.next.storyId))),
-      pinned: pins.has(stop.path.id),
-    })),
-    ...incomplete.map((ledger) => ({
-      because: "series" as const,
-      want: null,
-      path: null,
-      series: {
-        id: ledger.id,
-        name: ledger.name,
-        publisher: ledger.publisher,
-        editionLine: ledger.editionLine,
-        // `listMissingVolumes` answers only with Series that have a gap, so there is a
-        // position here and the fallback is unreachable rather than a default.
-        position: ledger.nextMissing ?? 0,
-        publishedCount: ledger.publishedCount,
-      },
-      story: null,
-      // **Paper regardless**, and it is the one place the medium does not follow the
-      // object: a Series is a publisher's line of *objects*, so its next stop is a thing
-      // to buy even when the library has not catalogued it and there is nothing to
-      // propose. Digital would be a claim about a file this model does not hold.
-      ...through(positions.get(at(ledger.id, ledger.nextMissing ?? 0)), "paper"),
-      pinned: pins.has(ledger.id),
-    })),
-  ];
+  const entries = new Map<string, ReadingListEntry>();
+  for (const draft of drafts) {
+    // **The medium follows the object** on a narrative row: paper where one carries the
+    // Story, digital where none does, which is the ordinary shape of a Story read digitally
+    // or borrowed. A Series row is **paper regardless**, and it is the one place the medium
+    // does not follow the object: a Series is a publisher's line of *objects*, so its next
+    // position is a thing to buy even where the library has catalogued nothing and there is
+    // nothing to propose. Digital would be a claim about a file this model does not hold.
+    const carrier =
+      draft.subject.kind === "story"
+        ? carriers.get(draft.subject.id)
+        : positions.get(at(draft.subject.id, draft.subject.position));
 
-  // Pinned first and the newest pin leading; everything else keeps the order it arrived
-  // in, which is the owner's order of routes and then the Series by name. A stable sort,
-  // so the unpinned part is untouched rather than re-decided here.
-  return entries.sort((one, other) => place(one, pins) - place(other, pins));
+    entries.set(theKeyOf(draft.subject), {
+      subject: draft.subject,
+      reasons: draft.reasons,
+      story: draft.story,
+      ...through(carrier, draft.subject.kind === "story" ? mediumOf(carrier) : "paper"),
+    });
+  }
+
+  const pinned = new Set(pins.map(theKeyOf));
+
+  return {
+    // **The head is the pins, in pin order.** A pin cannot introduce an entry, so a pin on
+    // something no source names any more — a Story since read, a line the owner stopped
+    // collecting — contributes nothing and simply waits.
+    head: pins.flatMap((subject) => {
+      const entry = entries.get(theKeyOf(subject));
+      return entry ? [entry] : [];
+    }),
+    // **The reserve is everything else**, in the order it composed, and nothing sorts it
+    // further.
+    reserve: [...entries].flatMap(([id, entry]) => (pinned.has(id) ? [] : [entry])),
+  };
 }
 
-/** Where an entry sits in the pinned part of the list, or after all of it. */
-function place(entry: ReadingListEntry, pins: Map<string, number>): number {
-  const subject = entry.path?.id ?? entry.series?.id ?? "";
-  return pins.get(subject) ?? pins.size;
+/**
+ * One reason, with the two halves it does not fill said out loud.
+ *
+ * The nulls are stated rather than left off because the shape is what both doors read: an
+ * assistant asking `reason.series` of a Want gets `null` and not `undefined`, which is the
+ * difference between *there is none* and *this answer has been trimmed*.
+ */
+function reason(
+  said: Partial<ReadingListReason> & Pick<ReadingListReason, "because">
+): ReadingListReason {
+  return { want: null, path: null, series: null, ...said };
+}
+
+/** A row being built: what it is about, and the reasons gathered for it so far. */
+type Row = {
+  subject: PinnedSubject;
+  story: { id: string; title: string; type: StoryType } | null;
+  reasons: ReadingListReason[];
+};
+
+/** The row for this thing to read, made on first mention and found on every one after. */
+function row(
+  rows: Map<string, Row>,
+  subject: PinnedSubject,
+  story: { id: string; title: string; type: StoryType } | null
+): Row {
+  const found = rows.get(theKeyOf(subject));
+  if (found) return found;
+
+  const made: Row = { subject, story, reasons: [] };
+  rows.set(theKeyOf(subject), made);
+  return made;
+}
+
+/**
+ * **One entry's identity, which is its subject written down** — and the core's rather than a
+ * screen's, because both doors key rows by it and the verb they post to names the same thing.
+ *
+ * A screen keying its rows one way while the pin it posts names them another is how a press
+ * comes to pin the row above, so there is one encoding and it is here.
+ */
+export function theKeyOf(subject: PinnedSubject): string {
+  return subject.kind === "story"
+    ? `story:${subject.id}`
+    : `series:${subject.id}#${subject.position}`;
 }
 
 /** An object the library knows about, and whether the owner already means to buy it. */
@@ -281,7 +405,7 @@ type Carrier = { object: ReadingListObject; wishAlreadyOpen: boolean };
  * The medium an entry going through this object — or through none — is intended in.
  *
  * **Both call sites say the medium out loud** rather than letting this be a default, because
- * the two sources answer it differently on purpose and a default would hide the one that
+ * the two halves answer it differently on purpose and a default would hide the one that
  * overrides: a Series entry is `paper` even where nothing is catalogued, since a Series is a
  * publisher's line of objects.
  */
@@ -305,7 +429,7 @@ const PROPOSED_PRIORITY = 2;
  * intended in, whether it can be started tonight, and the Wish it proposes.
  *
  * **The whole judgement of this file is these six lines.** Written once because the two
- * sources reach it by different routes and must not answer it differently: a Story with no
+ * halves reach it by different routes and must not answer it differently: a Story with no
  * object and a Series position with no object are not the same event, but an object on the
  * shelf means the same thing whichever put it there.
  */
@@ -370,8 +494,8 @@ const BEST_CARRIER = `order by (${IN_THE_HOUSE}) desc, b.display_order, lower(v.
  * entry digital.
  */
 async function objectsCarrying(storyIds: string[]): Promise<Map<string, Carrier>> {
-  // One Story can be asked about twice — wanted *and* next on a route — and the answer is
-  // the same object either way, so the question is asked once.
+  // One Story can be asked about twice — wanted *and* standing on a route — and the answer
+  // is the same object either way, so the question is asked once.
   const asked = [...new Set(storyIds)];
   if (asked.length === 0) return new Map();
 
@@ -395,15 +519,34 @@ async function objectsCarrying(storyIds: string[]): Promise<Map<string, Carrier>
   return new Map(rows.map((row) => [row.storyId, row]));
 }
 
-/** The Paths and Series the owner has pinned, most recently pinned first. */
-async function pinnedSources(): Promise<Map<string, number>> {
-  const rows = await query<{ subject: string }>(
-    `select coalesce(path_id, series_id)::text as subject
+/**
+ * What the owner pinned, most recently pinned first, in the pin's own vocabulary.
+ *
+ * The head is exactly this, in exactly this order — a pin is the act of saying *this next*,
+ * so the newest one leads.
+ */
+async function pinnedSubjects(): Promise<PinnedSubject[]> {
+  const rows = await query<{
+    storyId: string | null;
+    seriesId: string | null;
+    position: number | null;
+  }>(
+    `select story_id::text as "storyId", series_id::text as "seriesId", series_position as position
        from reading_list_pin
-      order by pinned_at desc, subject`
+      order by pinned_at desc, coalesce(story_id, series_id), series_position`
   );
 
-  return new Map(rows.map((row, place) => [row.subject, place]));
+  // Every row is one subject or the other and the schema is what says so, which is why
+  // neither branch invents a value for the half it did not get: a row that were somehow
+  // neither is not a pin on anything, and it contributes no entry rather than a pin on the
+  // empty string.
+  return rows.flatMap<PinnedSubject>((row) => {
+    if (row.storyId) return [{ kind: "story", id: row.storyId }];
+    if (row.seriesId && row.position !== null) {
+      return [{ kind: "series", id: row.seriesId, position: row.position }];
+    }
+    return [];
+  });
 }
 
 /** One Series' position, as the key of the map below. */

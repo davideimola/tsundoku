@@ -4,11 +4,16 @@ import type { McpTool } from "../tool.ts";
 // The Reading list area: **what to read next**, which is the question this whole app was
 // built to make askable from outside (ADR-0002, user story 22).
 //
-// One tool, because there is one question. The answer already carries the Path each entry
-// extends and that Path's intent, so *what comes next per Path* is in this answer and not a
+// One tool, because there is one question. The answer already carries the routes each entry
+// stands on and their intent, so *what comes next per Path* is in this answer and not a
 // second tool; `path_next_on_active_paths` is the same derivation without the objects, the
-// Series half and the owner's pins, and an assistant that wants the raw routes can still
-// ask for it.
+// Series half and the owner's own order, and an assistant that wants the raw routes can
+// still ask for it.
+//
+// **It answers with two lists and not one** (#40), because the two are different kinds of
+// answer: the head is what the owner *decided*, and the reserve is what merely composed. An
+// assistant that flattened them would be reporting a decision and a coincidence in the same
+// voice.
 //
 // Nothing here writes, and that is not a coincidence of this file: the query proposes a
 // Wish as a value and never opens one, so there is nothing an assistant could call through
@@ -22,20 +27,26 @@ const next: McpTool = {
 This is the closest thing here to an answer to *"what should I read next"*, and it is the one tool
 to reach for when that is the question.
 
-It composes from three sources and nothing else. \`because: "want"\` is **an open Want** — the owner
-having said *I want to read this Story*, which belongs to no route and carries no order; it falls
-quiet by itself once a Reading begins after it, so what is here is still wanted. \`because: "path"\`
-is **the next unread Story of an active Path** — an ordered route the owner chose, crossing types and publishers freely — and it
-carries that Path and the \`intent\` they wrote for it, so a suggestion can say which route it
-extends. \`because: "series"\` is **the next position of a Series they have decided to collect** that
-the house has none of; it names an object and no Story, because what narrative a Volume carries is a
-separate fact the ledger does not claim to know.
+**It answers with two lists, and the difference between them is the most useful thing in it.**
+\`head\` is what the owner **pinned**, in pin order, newest pin leading — every row in it is a
+decision they took, and it is the only place an order means anything. \`reserve\` is everything
+else: it composes itself and is **deliberately unordered**, sorted by a rule nobody maintains (the
+newest Want first, then the routes, then the Series), so **do not read a place in it as a
+preference**. Say what the owner decided apart from what merely composed.
 
-**Order is meaning here, and only at the front.** \`pinned\` entries lead, most recently pinned
-first: a pin is the owner overruling the composed order, and it is the strongest signal in this
-answer. Everything after them is composed rather than ranked — the Wants newest first, then the Path
-entries in the owner's order of routes, then the Series — so do not read a place in that tail as a
-preference.
+Every entry carries \`reasons\`, and **one Story is one row however many reasons put it there**: a
+Story that is wanted *and* stands on two routes is one entry naming all three, never three entries.
+\`because: "want"\` is **an open Want** — the owner having said *I want to read this Story*, which
+belongs to no route and carries no order; it falls quiet by itself once a Reading begins after it,
+so what is here is still wanted. \`because: "path"\` is **a stop on an active Path** — an ordered
+route the owner chose, crossing types and publishers freely — carrying that route, the \`intent\`
+they wrote for it, and \`place\`, which is where the stop stands among what is still to read on it:
+\`1\` is what comes next, and anything higher stands behind it. \`because: "series"\` is
+**the next position of a Series they have decided to collect** that the house has none of; it names
+an object and no Story, because what narrative a Volume carries is a separate fact the ledger does
+not claim to know.
+
+\`subject\` is the thing to read — a Story, or a position of a Series — and it is what a pin names.
 
 \`medium\` is the **intended** medium and it is derived, never recorded. \`paper\` means an object is
 involved; \`digital\` means none is, because an owned ebook is not something this library models — so
@@ -52,13 +63,14 @@ nothing wrong.
 
 Two absences to read correctly. A \`paper\` entry with **no \`object\`** is one whose Volume the
 library has not catalogued — a Series position nobody recorded — so there is nothing to wish for and
-naming the object is the owner's act, or an Inbox proposal, never this list's. And an **empty list**
-means every active route is walked out and every Series being collected is complete: a real answer,
-not missing data. Read \`path_constraints\` before turning any of this into a recommendation.`,
+naming the object is the owner's act, or an Inbox proposal, never this list's. And **both lists
+empty** means every active route is walked out, nothing is wanted and every Series being collected
+is complete: a real answer, not missing data. Read \`path_constraints\` before turning any of this
+into a recommendation.`,
   inputSchema: { type: "object", properties: {}, additionalProperties: false },
   readOnly: true,
   async run() {
-    return { entries: await composeReadingList() };
+    return composeReadingList();
   },
 };
 

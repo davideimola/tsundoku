@@ -3,11 +3,11 @@ import { Cover } from "@/components/cover";
 import { Pile } from "@/components/pile";
 import { countWaitingInboxEntries } from "@/core/queries/inbox";
 import { type Covered, libraryInFigures, thePile, unrecorded, whole } from "@/core/queries/library";
-import { composeReadingList, type ReadingListEntry } from "@/core/queries/reading-list";
+import { composeReadingList, type ReadingListEntry, theKeyOf } from "@/core/queries/reading-list";
 import { listStoryWall } from "@/core/queries/story";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { entryKey, entryStanding, entryTitle } from "./reading-list/entry";
+import { entryStanding, entryTitle } from "./reading-list/entry";
 import { storyDetail } from "./stories/story-state";
 
 // THE DASHBOARD. For eleven slices this page listed the five Types, which is what a walking
@@ -70,11 +70,17 @@ export default async function Home() {
   ]);
 
   // **Sliced here, and this is not the narrowing the walls forbid.** The Reading list has no
-  // rows to read: it is composed, and its *order* is the answer it gives — pinned first, then
-  // the owner's routes, then the Series ledger — so which three come first is not knowable
-  // until the whole thing has been composed. The band prints the total beside them, which
-  // would need the whole list anyway.
-  const next = entries.slice(0, NEXT_UP);
+  // rows to read: it is composed, and its *order* is the answer it gives — the head the owner
+  // pinned, in pin order, and then the reserve, which is in no order at all — so which three
+  // come first is not knowable until the whole thing has been composed. The band prints the
+  // total beside them, which would need the whole list anyway.
+  //
+  // The two halves are read in order and then sliced, which is the honest reading of them
+  // here: what the owner decided leads, and the rest of the tile is whatever composed. The
+  // *list* is where the difference between the halves is drawn (#40); a tile of three rows is
+  // not the place to draw it.
+  const composed = [...entries.head, ...entries.reserve];
+  const next = composed.slice(0, NEXT_UP);
 
   return (
     <main className="px-5 pb-16 sm:px-8">
@@ -121,14 +127,14 @@ export default async function Home() {
         <div className="grid gap-9 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <Block
             label="What to read next"
-            count={entries.length}
+            count={composed.length}
             more={
-              entries.length > next.length
+              composed.length > next.length
                 ? { href: "/reading-list", word: "All of it" }
                 : undefined
             }
           >
-            {entries.length === 0 ? (
+            {composed.length === 0 ? (
               <Invitation>
                 Nothing composed — every route is walked to the end and every Series I am collecting
                 is complete, or there is nothing to compose from yet.{" "}
@@ -144,7 +150,7 @@ export default async function Home() {
             ) : (
               <ol>
                 {next.map((entry, place) => (
-                  <NextEntry key={entryKey(entry)} entry={entry} place={place + 1} />
+                  <NextEntry key={theKeyOf(entry.subject)} entry={entry} place={place + 1} />
                 ))}
               </ol>
             )}

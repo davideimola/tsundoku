@@ -19,6 +19,7 @@ import {
   listStoriesNotOnPath,
   nextUnreadOnActivePaths,
   nextUnreadOnPath,
+  stillAheadOnActivePaths,
 } from "./path.ts";
 
 // Seam 1, the read side. This is the surface both doors read — the screen and, once #4
@@ -245,6 +246,50 @@ describe("what comes next on every active Path", () => {
 
     const [ahead] = await nextUnreadOnActivePaths();
     expect(ahead.next.type).toEqual({ id: "non-fiction", name: "Non-fiction" });
+  });
+});
+
+describe("everything still ahead on every active Path", () => {
+  it("is every stop still to read, in the owner's order and not just the next one", async () => {
+    const { stories } = await angoloGiappone();
+    await finishReading(
+      await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
+      "2024-02-02"
+    );
+
+    const [route] = await stillAheadOnActivePaths();
+
+    // What stands behind the next stop has to be visible before the owner can pin it,
+    // which is what the Reading list's head is for (#40).
+    expect(route.path.name).toBe("Angolo Giappone");
+    expect(titles(route.ahead)).toEqual(["Lone Wolf and Cub", "Musashi"]);
+  });
+
+  it("keeps the routes in the owner's order of routes", async () => {
+    await angoloGiappone();
+    const batman = await definePath({ name: "Recupero Batman" });
+    await placeStoriesOnPath(batman, [
+      await createStory({ title: "Batman: Anno Uno", typeId: "comic" }),
+    ]);
+
+    expect((await stillAheadOnActivePaths()).map((route) => route.path.name)).toEqual([
+      "Angolo Giappone",
+      "Recupero Batman",
+    ]);
+  });
+
+  it("leaves out a route put aside and one walked to the end, as its neighbour does", async () => {
+    const { pathId, stories } = await angoloGiappone();
+    await deactivatePath(pathId);
+
+    const walked = await definePath({ name: "Recupero Batman" });
+    await placeStoriesOnPath(walked, [stories[0]]);
+    await finishReading(
+      await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
+      "2024-02-02"
+    );
+
+    expect(await stillAheadOnActivePaths()).toEqual([]);
   });
 });
 

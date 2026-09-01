@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
 import {
-  type PinnedSource,
+  type PinnedSubject,
   pinToReadingList,
   unpinFromReadingList,
 } from "@/core/verbs/reading-list";
@@ -38,12 +38,19 @@ function text(form: FormData, field: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** A pin is on a Path or on a Series, and the row says which. */
-function subject(form: FormData): PinnedSource {
-  return {
-    kind: text(form, "kind") === "series" ? "series" : "path",
-    id: text(form, "id") ?? "",
-  };
+/**
+ * A pin is on a Story or on a position of a Series, and the row says which.
+ *
+ * The position arrives as text like everything else in a form, and `Number` is where it
+ * stops being text: anything that is not a whole number from one is refused by the verb with
+ * prose, exactly as a Volume that is not there is.
+ */
+function subject(form: FormData): PinnedSubject {
+  const id = text(form, "id") ?? "";
+
+  return text(form, "kind") === "series"
+    ? { kind: "series", id, position: Number(text(form, "position")) }
+    : { kind: "story", id };
 }
 
 /**
@@ -71,14 +78,14 @@ async function saying(work: () => Promise<unknown>, said?: URLSearchParams): Pro
   redirect(answer ? `/reading-list?${answer}` : "/reading-list");
 }
 
-/** Pin an entry: whatever this route or this Series is offering, read it next. */
+/** Pin an entry: this is what I read next, and it leads the list until I unpin it. */
 export async function pin(form: FormData): Promise<void> {
   await requireOwner();
 
   await saying(() => pinToReadingList(subject(form)));
 }
 
-/** Unpin it: the entry goes back to where the list composed it. */
+/** Unpin it: the entry leaves the head and goes back to where the list composed it. */
 export async function unpin(form: FormData): Promise<void> {
   await requireOwner();
 

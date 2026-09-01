@@ -314,9 +314,11 @@ came back into bands is the screen's, and that is the whole of the distinction.
 like — an unknown value narrows to nothing in the core, and is shown as no filter at all.
 
 **One stated exception, and it is about composition rather than narrowing.** The Reading list
-is not rows in a table: `composeReadingList` builds it out of two derivations and then *orders*
-it, and the order is the answer it gives. So the dashboard takes its first three entries with a
-`slice` — the first three are not knowable until the whole list has been composed, and the band
+is not rows in a table: `composeReadingList` builds it out of three derivations, keys one row
+per thing to read, and then splits it into the **head** the owner pinned, in pin order, and the
+unordered **reserve** — and that split is the answer it gives. So the dashboard reads the two
+halves in order and takes the first three entries with a `slice` — the first three are not
+knowable until the whole list has been composed, and the band
 prints the total beside them, which needs all of it anyway. The rule's purpose is that a screen
 must not read seventy-seven rows to show four; a composed answer has no such rows to leave
 unread.

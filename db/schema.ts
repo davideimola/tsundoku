@@ -307,23 +307,26 @@ export const wish = pgTable("wish", {
 ]);
 
 export const readingListPin = pgTable("reading_list_pin", {
-	pathId: uuid("path_id"),
+	storyId: uuid("story_id"),
 	seriesId: uuid("series_id"),
+	seriesPosition: integer("series_position"),
 	pinnedAt: timestamp("pinned_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	uniqueIndex("reading_list_pin_one_per_path").using("btree", table.pathId.asc().nullsLast()).where(sql`(path_id IS NOT NULL)`),
-	uniqueIndex("reading_list_pin_one_per_series").using("btree", table.seriesId.asc().nullsLast()).where(sql`(series_id IS NOT NULL)`),
+	uniqueIndex("reading_list_pin_one_per_story").using("btree", table.storyId.asc().nullsLast()).where(sql`(story_id IS NOT NULL)`),
+	uniqueIndex("reading_list_pin_one_per_series_position").using("btree", table.seriesId.asc().nullsLast(), table.seriesPosition.asc().nullsLast()).where(sql`(series_id IS NOT NULL)`),
 	foreignKey({
-			columns: [table.pathId],
-			foreignColumns: [path.id],
-			name: "reading_list_pin_path_exists"
+			columns: [table.storyId],
+			foreignColumns: [story.id],
+			name: "reading_list_pin_story_exists"
 		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.seriesId],
 			foreignColumns: [series.id],
 			name: "reading_list_pin_series_exists"
 		}).onDelete("cascade"),
-	check("reading_list_pin_has_one_subject", sql`(path_id IS NULL) <> (series_id IS NULL)`),
+	check("reading_list_pin_has_one_subject", sql`(story_id IS NULL) <> (series_id IS NULL)`),
+	check("reading_list_pin_a_series_pin_names_a_position", sql`(series_id IS NULL) = (series_position IS NULL)`),
+	check("reading_list_pin_a_position_is_a_place_in_the_line", sql`(series_position IS NULL) OR (series_position >= 1)`),
 ]);
 
 export const inboxEntry = pgTable("inbox_entry", {
