@@ -67,10 +67,12 @@ export function timesSaid(times: number): string {
 /**
  * What a single lookup answered, in the owner's words.
  *
- * **Four answers and not two, and the third is the one this exists for.** A source that could
- * not be asked — a rate limit, a timeout, an error page — said nothing about the book, and
- * nothing was written down. Reading that as *there is no cover* is precisely the mistake that
- * produced a false 0% in the research this is built on, and the owner is owed the difference.
+ * **Four answers and not two, and two of them are why this is a function.** A source that
+ * could not be asked — a rate limit, a timeout, an error page — said nothing about the book
+ * and nothing was written down; reading that as *there is no cover* is precisely the mistake
+ * that produced a false 0% in the research this is built on. And *unchanged* is not
+ * reassurance: it means the source was asked afresh and gave the same answer, so an owner
+ * looking at the wrong book now knows the lookup is not what is wrong — the ISBN is.
  */
 export function whatTheLookupSaid(outcome: string, because: string | undefined): string {
   switch (outcome) {
@@ -79,7 +81,7 @@ export function whatTheLookupSaid(outcome: string, because: string | undefined):
     case "none":
       return "No source has a cover for this ISBN. That is an answer, and it is recorded — an image of your own is the way to face this one.";
     case "unchanged":
-      return "The cover it already carries is still where it was.";
+      return "The sources were asked again and handed back the same cover. If it is the wrong book, the ISBN is what to look at — or take the cover off and give it an image of your own.";
     default:
       return `${because ?? "The source could not be reached."} Nothing was recorded, so try again.`;
   }

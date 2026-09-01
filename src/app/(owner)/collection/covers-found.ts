@@ -115,7 +115,14 @@ export function whatNoLookupReaches(skipped: number): string | null {
 export function howFarTheCoversHaveGot(standing: CoverStanding): string | null {
   if (standing.volumes === 0) return null;
 
-  return `${standing.faced} of ${standing.volumes} ${standing.volumes === 1 ? "Volume is" : "Volumes are"} faced with an image.`;
+  // Two words agreeing with two different numbers, which is the whole of why this is a
+  // function and not a template in the page. *Volume* is plural on the denominator — it is
+  // *of 96 Volumes* — and the verb agrees with the numerator, because what is being said is
+  // that one thing is faced: **1 of 96 Volumes is faced**, and **31 of 96 Volumes are**.
+  const noun = standing.volumes === 1 ? "Volume" : "Volumes";
+  const verb = standing.faced === 1 ? "is" : "are";
+
+  return `${standing.faced} of ${standing.volumes} ${noun} ${verb} faced with an image.`;
 }
 
 function covers(many: number): string {

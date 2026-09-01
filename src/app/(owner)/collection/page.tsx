@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
+import { Drawer, OpensDrawer } from "@/components/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ import { coverStanding } from "@/core/queries/cover";
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { acquire, catalogue, findCovers } from "./actions";
+import { acquire, catalogue, findCovers, findCoversAgain } from "./actions";
 import {
   howFarTheCoversHaveGot,
   readCoverReport,
@@ -75,6 +76,51 @@ function asked(params: Asked, name: string): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }
 
+// The two panels this screen has, named rather than typed out at four call sites, and read
+// against this pair rather than trusted: `?panel=banana` opens nothing, which is the same
+// honesty every filter on this wall is held to.
+const COVERS = "covers";
+const CATALOGUE = "catalogue";
+const PANELS = [COVERS, CATALOGUE] as const;
+
+/**
+ * This screen's address with a panel open on it, and **with every filter still on**.
+ *
+ * That is the whole reason it is a function. A drawer is one bit of navigation, so opening
+ * one has to leave the other seven parameters exactly where they were — a *Catalogue* button
+ * that dropped `?series=…&type=manga` would answer the owner's search by throwing it away.
+ */
+function panelled(params: Asked, panel: string): string {
+  const asking = onlyTheFilters(params);
+  asking.set("panel", panel);
+  return `/collection?${asking}`;
+}
+
+/** The same address with the panel closed: where every way out of a drawer leads. */
+function unpanelled(params: Asked): string {
+  const asking = onlyTheFilters(params);
+  const said = asking.toString();
+  return said === "" ? "/collection" : `/collection?${said}`;
+}
+
+/**
+ * What the owner asked the *wall* for, without the panel and without the answer to the last
+ * write.
+ *
+ * A banner reporting a lookup is about the press that produced it, so carrying it through
+ * the open and the close of a drawer would print it again over an act nobody just performed.
+ */
+function onlyTheFilters(params: Asked): URLSearchParams {
+  const asking = new URLSearchParams();
+
+  for (const name of ["title", "series", "publisher", "binding", "type"]) {
+    const value = asked(params, name);
+    if (value) asking.set(name, value);
+  }
+
+  return asking;
+}
+
 export default async function CollectionPage({ searchParams }: { searchParams: Promise<Asked> }) {
   await requireOwner();
 
@@ -123,15 +169,31 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   const catalogued = asked(params, "catalogued");
   const acquired = asked(params, "acquired");
   const lookedUp = readCoverReport((name) => asked(params, name));
+  const panel = PANELS.find((one) => one === asked(params, "panel"));
 
   return (
     <main className="px-5 pb-16 sm:px-8">
-      <header className="pt-8 sm:pt-12">
-        <h1 className="font-heading text-2xl sm:text-3xl">Collection</h1>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          The Volumes physically in the house, standing the way the shelf stands. Not what has been
-          read, and not what is wanted — what is owned.
-        </p>
+      {/* **The two acts the owner comes here to perform, in the hero rather than at the
+          foot.** Recording an object and facing the wall with jackets are the screen's two
+          verbs, and folded into disclosures under ninety-six tiles they were a scroll away
+          from a screen that is read on a phone. They are links to `?panel=…` and the form
+          arrives as a drawer over the window — the open state is the URL, so it costs no
+          script, it is bookmarkable and the back button closes it (`@/components/drawer`). */}
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pt-8 sm:pt-12">
+        <div className="min-w-0">
+          <h1 className="font-heading text-2xl sm:text-3xl">Collection</h1>
+          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
+            The Volumes physically in the house, standing the way the shelf stands. Not what has
+            been read, and not what is wanted — what is owned.
+          </p>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <OpensDrawer href={panelled(params, COVERS)}>Covers</OpensDrawer>
+          <OpensDrawer href={panelled(params, CATALOGUE)} emphasis="loud">
+            Catalogue a Volume
+          </OpensDrawer>
+        </div>
       </header>
 
       {/* One form, in two registers.
@@ -315,93 +377,99 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </section>
       ) : null}
 
-      {/* **The lookup, and it is a verb rather than a setting.** It sits at the foot with the
-          other thing the owner comes to this screen to *do*, folded away, because the screen
-          is read a hundred times for every time it is repaired. The button is a plain form
-          post: a few seconds pass while somebody else's server is asked, and the wall
-          re-renders with the jackets on it. Nothing runs in the browser (ADR-0010). */}
-      <details className="group mt-10 rounded-xl ring-1 ring-foreground/10">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden">
-          Look up the covers
-          <span className="ml-2 text-muted-foreground group-open:hidden">
-            — {howFarTheCoversHaveGot(covers) ?? "nothing catalogued yet"}
-          </span>
-        </summary>
-
-        <form action={findCovers} className="border-t border-border p-4">
-          <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto sm:px-6">
-            Look them up
-          </Button>
-          <p className="mt-3 max-w-prose text-pretty text-xs text-muted-foreground">
+      {panel === COVERS ? (
+        <Drawer
+          title="Covers"
+          description="Asked for by ISBN, pointed at where they live, and never copied here."
+          closesTo={unpanelled(params)}
+        >
+          <p className="text-pretty text-sm">
             {howFarTheCoversHaveGot(covers)}{" "}
             {covers.due > 0
               ? `${covers.due} ${covers.due === 1 ? "carries" : "carry"} an ISBN and no cover.`
-              : "Nothing with an ISBN is missing one."}{" "}
+              : "Nothing with an ISBN is missing one."}
           </p>
           <NoLookupReaches
             many={covers.withoutAnIsbn}
-            className="mt-1 max-w-prose text-pretty text-xs text-muted-foreground"
+            className="mt-2 text-pretty text-sm text-muted-foreground"
           />
-          <p className="mt-2 max-w-prose text-pretty text-xs text-muted-foreground">
-            A cover is asked for by ISBN at Google Books, and at Open Library for what Google does
-            not have — and it is <em>pointed at</em> where it lives, never copied here (ADR-0013).
-            One run asks about a couple of dozen objects and checks the covers it already has, so a
-            jacket that has been withdrawn is looked up again rather than left broken on the wall.
-            Press it again for the rest.
-          </p>
-        </form>
-      </details>
 
-      <details className="group mt-4 rounded-xl ring-1 ring-foreground/10">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden">
-          Catalogue a Volume
-          <span className="ml-2 text-muted-foreground group-open:hidden">
-            — publisher, Binding, ISBN
-          </span>
-        </summary>
-
-        {/* Two things this form deliberately does not ask for.
-            No medium, and there is none to ask for: digital ownership is not modelled, so
-            an owned ebook is not a thing this form could record even if it offered a box.
-            And no price and no day, because those are facts about an object *coming home*
-            and this form only says what the object is (ADR-0007) — they are asked for by
-            the row above, at the moment they are true. */}
-        <form action={catalogue} className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
-          <Field
-            name="title"
-            label="Title"
-            placeholder="Slam Dunk 1"
-            required
-            className="sm:col-span-2"
-          />
-          <Field name="publisher" label="Publisher" placeholder="Planet Manga" required />
-          <Field name="editionLine" label="Edition line" placeholder="DC Must Have" />
-
-          <Picker id="catalogue-binding" name="binding" label="Binding" required>
-            {bindings.map((one: Binding) => (
-              <option key={one.id} value={one.id}>
-                {one.name}
-              </option>
-            ))}
-          </Picker>
-
-          <Field name="language" label="Language" defaultValue="it" required />
-          <Field name="isbn" label="ISBN" placeholder="9788828765431" inputMode="numeric" />
-
-          <div className="sm:col-span-2">
-            <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto sm:px-6">
-              Catalogue it
+          <form action={findCovers} className="mt-5">
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Look up what is missing
             </Button>
-            <p className="mt-2 max-w-prose text-xs text-muted-foreground">
-              A language is a code — <code className="font-mono">it</code>,{" "}
-              <code className="font-mono">en</code>, <code className="font-mono">ja</code>.
-              Cataloguing says what the object is; it does not say you have it. Holding it? Say so
-              from <em>Known, not in the house</em> above, with what you paid. Which Series it
-              belongs to, and where in it, is said from that Series.
+            <p className="mt-2 text-pretty text-xs text-muted-foreground">
+              Google Books first, then Open Library for what Google does not have. One run asks
+              about a couple of dozen objects and checks the ones already faced, so a jacket that
+              has been withdrawn is looked up again rather than left broken. Press it again for the
+              rest.
             </p>
-          </div>
-        </form>
-      </details>
+          </form>
+
+          {/* **The repair, and it is a second button because it is a different act.** The run
+              above spends no request on a cover that still loads, which is right nearly
+              always and is exactly wrong in the one case that brought this screen its worst
+              bug: a jacket fetched against an ISBN that was later corrected is *live* and
+              belongs to another book. Nothing that asks whether an image loads can see that.
+              So this one throws the recorded answers away and asks again from the ISBNs that
+              are on the rows now. */}
+          <form action={findCoversAgain} className="mt-6 border-t border-border pt-5">
+            <Button type="submit" variant="outline" className="h-11 w-full sm:h-10">
+              Ask again about the ones already faced
+            </Button>
+            <p className="mt-2 text-pretty text-xs text-muted-foreground">
+              For a cover that is wrong rather than missing — the wall showing another book&apos;s
+              jacket because the ISBN it was asked about has since been corrected. This ignores what
+              is recorded and asks the sources from scratch. It costs a request per object, so it is
+              the slower of the two.
+            </p>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {panel === CATALOGUE ? (
+        <Drawer
+          title="Catalogue a Volume"
+          description="What the object is. It does not say you have it — that is the next act, and a different one (ADR-0007)."
+          closesTo={unpanelled(params)}
+        >
+          {/* Two things this form deliberately does not ask for.
+              No medium, and there is none to ask for: digital ownership is not modelled, so
+              an owned ebook is not a thing this form could record even if it offered a box.
+              And no price and no day, because those are facts about an object *coming home*
+              and this form only says what the object is (ADR-0007) — they are asked for by
+              the row on the wall, at the moment they are true. */}
+          <form action={catalogue} className="grid gap-4">
+            <Field name="title" label="Title" placeholder="Slam Dunk 1" required />
+            <Field name="publisher" label="Publisher" placeholder="Planet Manga" required />
+            <Field name="editionLine" label="Edition line" placeholder="DC Must Have" />
+
+            <Picker id="catalogue-binding" name="binding" label="Binding" required>
+              {bindings.map((one: Binding) => (
+                <option key={one.id} value={one.id}>
+                  {one.name}
+                </option>
+              ))}
+            </Picker>
+
+            <Field name="language" label="Language" defaultValue="it" required />
+            <Field name="isbn" label="ISBN" placeholder="9788828765431" inputMode="numeric" />
+
+            <div>
+              <Button type="submit" className="h-11 w-full sm:h-10">
+                Catalogue it
+              </Button>
+              <p className="mt-2 text-pretty text-xs text-muted-foreground">
+                A language is a code — <code className="font-mono">it</code>,{" "}
+                <code className="font-mono">en</code>, <code className="font-mono">ja</code>.
+                Holding it already? Say so from <em>Known, not in the house</em> on the wall, with
+                what you paid. Which Series it belongs to, and where in it, is said from that
+                Series.
+              </p>
+            </div>
+          </form>
+        </Drawer>
+      ) : null}
     </main>
   );
 }

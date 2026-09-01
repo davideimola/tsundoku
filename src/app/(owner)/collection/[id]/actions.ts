@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
 import { acquireVolume, amendVolume, releaseVolume } from "@/core/verbs/collection";
-import { dropOwnCover, lookUpCoverFor, setOwnCover } from "@/core/verbs/cover";
+import { dropOwnCover, forgetTheCover, lookUpCoverFor, setOwnCover } from "@/core/verbs/cover";
 import { eraseEditionNote, writeEditionNote } from "@/core/verbs/edition-note";
 import {
   recordVolumeCarriesStory,
@@ -169,6 +169,22 @@ export async function lookUpCover(form: FormData): Promise<void> {
     said.set("cover", answer.outcome);
     if (answer.outcome === "unanswered") said.set("because", answer.because);
   });
+}
+
+/**
+ * Take the looked-up cover off: the tile goes back to the drawn one.
+ *
+ * **A blank tile is better than a wrong one.** An object wearing another book's jacket is
+ * not a gap in the library, it is the library lying — and the owner should not have to wait
+ * on a source to stop it. It leaves an image of their own alone, and leaves nothing behind
+ * that would stop a later lookup asking again.
+ */
+export async function forgetCover(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+
+  return saying(volumeId, new URLSearchParams({ forgot: "1" }), () => forgetTheCover(volumeId));
 }
 
 /**

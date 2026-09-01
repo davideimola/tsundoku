@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
 import { acquireVolume, catalogueVolume } from "@/core/verbs/collection";
-import { type CoverLookupReport, lookUpCovers } from "@/core/verbs/cover";
+import { type CoverLookupReport, type HowToLookUp, lookUpCovers } from "@/core/verbs/cover";
 import { requireOwner } from "@/lib/auth/owner";
 
 // The write side of the Collection screen, and a thin adapter like the page beside it
@@ -96,11 +96,37 @@ export async function acquire(form: FormData): Promise<void> {
  * does, which is what keeps the Collection wall answerable on a shop's signal.
  */
 export async function findCovers(): Promise<void> {
+  return reportingWhatWasFound({});
+}
+
+/**
+ * Ask the sources again about objects that already carry a cover, instead of checking the
+ * cover is still there.
+ *
+ * **A second button because it is a second act.** The run above is the cheap sweep: it spends
+ * no request on a jacket that still loads, which is right nearly always and is exactly wrong
+ * in the case that produced this app's worst bug — a cover fetched against an ISBN that was
+ * later corrected is *live* and belongs to another book, and nothing that asks whether an
+ * image loads can tell. This throws the recorded answers away and asks from the ISBNs that
+ * are on the rows now.
+ */
+export async function findCoversAgain(): Promise<void> {
+  return reportingWhatWasFound({ again: true });
+}
+
+/**
+ * The shared body of the two buttons above.
+ *
+ * The wall is called **here**, which is on the only path either export has — a Server
+ * Function that delegated its authorisation to a caller would be a Server Function anybody
+ * could POST to. `src/app/gated.test.ts` checks the file; this is the reason the file passes.
+ */
+async function reportingWhatWasFound(how: HowToLookUp): Promise<void> {
   await requireOwner();
 
   let report: CoverLookupReport;
   try {
-    report = await lookUpCovers();
+    report = await lookUpCovers(how);
   } catch (error) {
     if (!isRefusal(error)) throw error;
     revalidatePath("/collection");

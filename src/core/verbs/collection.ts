@@ -136,6 +136,19 @@ export type VolumeAmendment = {
   isbn?: string | null;
 };
 
+// **Whether this amendment puts a different ISBN on the object**, said once and spent five
+// times in the statement below — `$7` is the amended ISBN.
+//
+// Both halves matter. An amendment that names no ISBN leaves `$7` null, and `null is
+// distinct from '978…'` is *true*, so without the first half every amendment to a publisher
+// or a Binding would silently unface the object. And the second half is `is distinct from`
+// rather than `<>` because `'978…' <> null` is null, not true: an ISBN arriving on a Volume
+// that had none must count as a replacement.
+//
+// It reads the column, which inside a `set` clause is the value as it stood before the
+// update — which is exactly the ISBN the cover was an answer to.
+const THE_ISBN_IS_REPLACED = `($7::text is not null and $7::text is distinct from isbn)`;
+
 /**
  * Complete or correct a catalogued Volume: the ISBN it was catalogued without, the
  * publisher left blank, the Binding somebody guessed wrong.
@@ -148,6 +161,10 @@ export type VolumeAmendment = {
  *
  * It says nothing about the house, the narrative or the Series: this is the object as the
  * library catalogues it, and everything else about it is a different fact somewhere else.
+ *
+ * **It says one thing about the cover, and it has to**: putting a *different* ISBN on the
+ * object drops the looked-up cover with it. See `THE_ISBN_IS_REPLACED` above for why that is
+ * a correction and not a courtesy.
  */
 export async function amendVolume(
   volumeId: string,
@@ -163,6 +180,16 @@ export async function amendVolume(
   // fields are a closed list written here, nothing a caller supplies reaches the statement
   // except as a parameter, and *leave it standing* is the same sentence in SQL as it is in
   // the type above.
+  //
+  // **And a new ISBN takes the looked-up cover with it**, in the same statement, because a
+  // cover is the answer to the ISBN that stood here when it was asked for (ADR-0013). This is
+  // not tidiness: ADR-0012 named the exact failure — *a wrong one quietly fetches another
+  // book's cover for as long as the record stands* — and it happened, in production, the week
+  // covers shipped. An assistant proposed an ISBN, the approval wrote it, and *One-Punch Man
+  // 9* wore *Slam Dunk 9*'s jacket. Correcting the ISBN now unfaces the object, so the wall
+  // goes back to a drawn tile — honestly blank — until a lookup asks about the ISBN that is
+  // actually there. The owner's own image is untouched, because that was never an answer to
+  // an ISBN.
   const changed = await refusing(
     () =>
       run<{ id: string }>(
@@ -172,7 +199,12 @@ export async function amendVolume(
                 edition_line = coalesce($4, edition_line),
                 binding_id   = coalesce($5, binding_id),
                 language     = coalesce($6, language),
-                isbn         = coalesce($7, isbn)
+                isbn         = coalesce($7, isbn),
+                cover_source       = case when ${THE_ISBN_IS_REPLACED} then null else cover_source end,
+                cover_reference    = case when ${THE_ISBN_IS_REPLACED} then null else cover_reference end,
+                cover_url          = case when ${THE_ISBN_IS_REPLACED} then null else cover_url end,
+                cover_info_url     = case when ${THE_ISBN_IS_REPLACED} then null else cover_info_url end,
+                cover_looked_up_at = case when ${THE_ISBN_IS_REPLACED} then null else cover_looked_up_at end
           where id = $1
           returning id`,
         [

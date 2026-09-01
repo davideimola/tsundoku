@@ -20,6 +20,7 @@ import { tint } from "@/lib/tint";
 import {
   acquire,
   carry,
+  forgetCover,
   lookUpCover,
   recordIsbn,
   release,
@@ -475,18 +476,35 @@ function TheCover({ volume }: { volume: RecordedVolume }) {
         </p>
 
         {volume.isbn ? (
-          <form action={lookUpCover}>
-            <input type="hidden" name="volumeId" value={volume.id} />
-            <Button type="submit" variant="outline" className="h-11 sm:h-10 sm:px-6">
-              {volume.cover && !own ? "Look it up again" : "Look up a cover"}
-            </Button>
-            <p className="mt-2 max-w-prose text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-start gap-2">
+            <form action={lookUpCover}>
+              <input type="hidden" name="volumeId" value={volume.id} />
+              <Button type="submit" variant="outline" className="h-11 sm:h-10 sm:px-6">
+                {volume.lookedUp.source ? "Ask again" : "Look up a cover"}
+              </Button>
+            </form>
+
+            {/* **The way out of a wrong cover, and it is the fast one.** Asking again depends
+                on the source having a better answer; this depends on nothing at all, and a
+                blank tile is better than another book's jacket. Offered only where there is
+                something to forget. */}
+            {volume.lookedUp.source ? (
+              <form action={forgetCover}>
+                <input type="hidden" name="volumeId" value={volume.id} />
+                <Button type="submit" variant="ghost" className="h-11 sm:h-10 sm:px-4">
+                  Take it off
+                </Button>
+              </form>
+            ) : null}
+
+            <p className="max-w-prose basis-full text-xs text-muted-foreground">
               Google Books first, then Open Library. The image is <em>pointed at</em> where it lives
-              and never copied here, so it is 128 pixels wide — which is all there is — and it can
-              be withdrawn by whoever owns it. A cover that has gone is looked up again by this
-              button, and by the run on the Collection.
+              and never copied here, so it is 128 pixels wide — which is all there is — and whoever
+              owns it can withdraw it. <strong>Asking again always reaches the source</strong>,
+              whatever is recorded here: a jacket fetched against an ISBN that has since been
+              corrected still loads perfectly, and is still the wrong book.
             </p>
-          </form>
+          </div>
         ) : (
           <p className="max-w-prose text-pretty text-xs text-muted-foreground">
             Every source is keyed by ISBN, and this object has none — so there is nothing to ask.

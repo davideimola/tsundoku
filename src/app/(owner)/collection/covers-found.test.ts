@@ -144,6 +144,18 @@ describe("how far the covers have got", () => {
     );
   });
 
+  // The verb agrees with what is being said — one thing is faced — and the noun with what it
+  // is being said out of. They are two different numbers, and *1 of 96 Volumes are faced*
+  // reads as a typo on the one screen that is meant to look considered.
+  it("agrees the verb with the figure and the noun with its denominator", () => {
+    expect(howFarTheCoversHaveGot({ volumes: 96, faced: 1, due: 25, withoutAnIsbn: 40 })).toBe(
+      "1 of 96 Volumes is faced with an image."
+    );
+    expect(howFarTheCoversHaveGot({ volumes: 1, faced: 0, due: 1, withoutAnIsbn: 0 })).toBe(
+      "0 of 1 Volume are faced with an image."
+    );
+  });
+
   it("is silent where there is no catalogue to be a fraction of", () => {
     expect(howFarTheCoversHaveGot({ volumes: 0, faced: 0, due: 0, withoutAnIsbn: 0 })).toBeNull();
   });

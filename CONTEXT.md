@@ -49,6 +49,9 @@ and revocable by them at any moment; an owner's image is theirs, at whatever siz
 and is the only thing that will ever face a Volume with no ISBN — every Bonelli monthly, always
 (ADR-0013). **A Volume with no cover is the ordinary case, not a gap**: the tile the walls draw
 in the Series' tint is the cover, and an image covers it.
+A looked-up cover **is an answer to the ISBN that stood on the record when it was asked for**,
+which is why correcting the ISBN takes the cover with it: the alternative is an object wearing
+another book's jacket, which loads perfectly and is a lie.
 A **Story** has none of its own — a narrative is not an object — and what it wears on a wall is
 borrowed from the first Volume that carries it.
 _Avoid_: thumbnail and artwork — *thumbnail* names a size, and the size is a consequence of

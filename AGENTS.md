@@ -141,6 +141,34 @@ Three rules follow, and each is a file:
 - **The fallback chain is resolved once, in the core.** `THE_COVER_IT_IS_FACED_WITH` in
   `src/core/queries/cover.ts` is the owner's image over the looked-up one, and the three walls
   that draw a tile all read it rather than each deciding.
+- **A cover is an answer to an ISBN, so `amendVolume` drops it when it writes a different
+  one.** ADR-0012 predicted the failure and production produced it: *One-Punch Man 9* wearing
+  *Slam Dunk 9*'s jacket, because the ISBN behind it was wrong. A blank tile is honest and a
+  wrong one is not — and a wrong one passes every check, because the image loads. The two
+  repairs are `forgetTheCover` and the run's `again`, and a press on one object's own page
+  always reaches the source rather than checking the recorded address still resolves.
+
+### Where a form the owner opened deliberately goes
+
+**In a drawer whose open state is the URL** — `@/components/drawer`, a link to `?panel=…`,
+and a panel the server renders when that parameter is there. `src/app/(owner)/collection/page.tsx`
+is the pattern: the hero carries *Covers* and *Catalogue a Volume*, and each is an `<a>`.
+
+It is worth knowing why this is not a dialog component. A drawer is ordinarily client state,
+a portal and a focus trap; the screen that needed one is the one the owner opens **in a shop,
+on the shop's signal**, and a form that exists only once a bundle has parsed is a form that is
+not there when it is wanted. A drawer's open state is genuinely one bit of *navigation*, so
+putting it in the URL costs no script at all — which is a stronger claim than the finder's
+scripted-half-with-an-unscripted-twin (ADR-0010), and it is available here only because of
+that. What it buys: the open drawer is linkable, it survives a refresh, and the back button
+closes it because that is what going back means.
+
+Two rules for adding one. **Read the panel against a list**, the way every filter on a wall
+is read — `?panel=banana` opens nothing. And **carry the screen's other parameters through**:
+opening a drawer must not take the owner's search filters off on the way, and closing it must
+put them back. `panelled()`/`unpanelled()` on the Collection are that, and they deliberately
+drop the answer to the *last write*, so a report is not printed again over an act nobody just
+performed.
 
 ### Where a screen's own derivation goes
 

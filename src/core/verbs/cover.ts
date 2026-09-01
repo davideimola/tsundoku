@@ -102,6 +102,19 @@ export type HowToLookUp = {
    * 100 requests per IP per five minutes. Neither is troubled by this.
    */
   pace?: number;
+  /**
+   * Ask the sources again about objects that already carry a cover, instead of checking
+   * that the cover is still there.
+   *
+   * **The escape hatch for a cover that is wrong rather than missing.** An ordinary run only
+   * re-asks when the recorded address has *gone*, which is the right default: a live jacket
+   * is nearly always the right jacket, and re-asking about ninety-six of them costs
+   * ninety-six requests to somebody else's server. But a cover fetched against a *wrong
+   * ISBN* is live and wrong, and nothing about it looks broken — *One-Punch Man 9* wearing
+   * *Slam Dunk 9*'s jacket is the case this exists for. Correcting the ISBN unfaces the
+   * object on its own (`amendVolume`); this is what re-faces a shelf of them.
+   */
+  again?: boolean;
   /** Who to ask. The sources, unless a test hands over its own. */
   ask?: AskForACover;
   /** How to tell whether a recorded cover is still there. The real `HEAD`, unless a test says. */
@@ -174,7 +187,7 @@ export async function lookUpCovers(how: HowToLookUp = {}): Promise<CoverLookupRe
     // a run touches has to be in exactly one number for the report to be readable.
     const hadOne = volume.coverUrl !== null;
 
-    if (volume.coverUrl) {
+    if (volume.coverUrl && !how.again) {
       if (asked > 0) await breathe(pace);
       asked += 1;
 
@@ -223,11 +236,21 @@ export type OneCoverLookedUp =
   | { outcome: "unchanged" };
 
 /**
- * Look up **one** object's cover, from the page that is a record of that object.
+ * Look up **one** object's cover, from the page that is a record of that object — and
+ * **always ask the source**, whatever is recorded here now.
  *
- * The same three answers as a run, and one more: `unchanged`, for a cover that was already
- * recorded and is still where it was. Asking a source again for an image that is there
- * would spend a request to learn nothing.
+ * That is the difference between this and a run, and it is deliberate. A run is sweeping a
+ * shelf, so it checks a recorded cover is still *there* and spends no request where it is; a
+ * press on one object's own page is the owner saying *this one is wrong*, and the only cover
+ * they cannot fix that way is the one this verb declined to re-ask about. The failure is
+ * real and it is in production: a wrong ISBN fetched *Slam Dunk 9*'s jacket onto *One-Punch
+ * Man 9*, the ISBN was corrected, and the jacket stayed — live, wrong, and passing every
+ * check that asks whether an image still loads.
+ *
+ * So the four answers are about what the source said, not about what was skipped:
+ * `unchanged` now means the source was asked and handed back the same address, which is
+ * worth telling the owner because it means the ISBN, not the lookup, is what to look at
+ * next.
  *
  * **A Volume with no ISBN is refused in prose rather than probed**, because on one object
  * the owner is owed the reason: nothing keyed by an ISBN can find this, and the answer is a
@@ -252,30 +275,53 @@ export async function lookUpCoverFor(
     );
   }
 
-  const verify = how.verify ?? stillThere;
-
-  if (volume.coverUrl) {
-    const state = await verify(volume.coverUrl);
-    if (state === "there") {
-      await recordChecked(volume.id);
-      return { outcome: "unchanged" };
-    }
-    if (state === "unknown") {
-      return { outcome: "unanswered", because: "That cover's source could not be reached." };
-    }
-  }
-
   const answer = await (how.ask ?? theSources)(volume.isbn);
 
   if (answer.answer === "found") {
     await recordCover(volume.id, answer.cover);
-    return { outcome: "found", cover: answer.cover };
+    return answer.cover.url === volume.coverUrl
+      ? { outcome: "unchanged" }
+      : { outcome: "found", cover: answer.cover };
   }
   if (answer.answer === "none") {
     await recordNoCover(volume.id);
     return { outcome: "none" };
   }
   return { outcome: "unanswered", because: answer.because };
+}
+
+/**
+ * Take the looked-up cover off an object: the tile goes back to the drawn one, and nothing
+ * is claimed about the book until a lookup asks again.
+ *
+ * **A blank tile is better than a wrong one**, and that is the whole argument for the verb.
+ * *One-Punch Man 9* wearing *Slam Dunk 9*'s jacket is not a gap in the library, it is the
+ * library lying, and the owner should not have to wait on Google to stop it. Correcting a
+ * wrong ISBN does this on its own (`amendVolume`); this is what does it when the ISBN was
+ * already right and the jacket is somebody else's anyway.
+ *
+ * It leaves the owner's own image alone — that was never an answer to an ISBN — and it
+ * leaves nothing behind that would stop a later run asking again.
+ */
+export async function forgetTheCover(volumeId: string): Promise<void> {
+  if (!UUID.test(volumeId)) throw new Refusal("not-found", NO_SUCH_VOLUME);
+
+  const [outcome] = await query<{ known: boolean; forgotten: boolean }>(
+    `with known as (select id from volume where id = $1),
+          gone as (update volume
+                      set cover_source = null, cover_reference = null, cover_url = null,
+                          cover_info_url = null, cover_looked_up_at = null
+                    where id = $1 and cover_url is not null
+                returning id)
+     select exists (select 1 from known) as known,
+            exists (select 1 from gone)  as forgotten`,
+    [volumeId]
+  );
+
+  if (!outcome.known) throw new Refusal("not-found", NO_SUCH_VOLUME);
+  if (!outcome.forgotten) {
+    throw new Refusal("not-allowed", "That Volume carries no looked-up cover to forget.");
+  }
 }
 
 /**

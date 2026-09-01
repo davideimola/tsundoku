@@ -4,8 +4,14 @@ import type { AskForACover, CoverAnswer, StillThere } from "../covers.ts";
 import { query } from "../db.ts";
 import { findVolume, listCollectionWall } from "../queries/collection.ts";
 import { isRefusal } from "../refusal.ts";
-import { catalogueVolume } from "./collection.ts";
-import { dropOwnCover, lookUpCoverFor, lookUpCovers, setOwnCover } from "./cover.ts";
+import { amendVolume, catalogueVolume } from "./collection.ts";
+import {
+  dropOwnCover,
+  forgetTheCover,
+  lookUpCoverFor,
+  lookUpCovers,
+  setOwnCover,
+} from "./cover.ts";
 
 // Seam 1: the verb against a real Postgres, and **the sources handed over rather than
 // reached**. What is asserted is what the owner sees afterwards — the tile on the wall and
@@ -295,14 +301,26 @@ describe("looking one object up", () => {
     ).rejects.toSatisfy((error: unknown) => isRefusal(error) && error.code === "not-found");
   });
 
-  it("asks nobody about a cover that is still where it was", async () => {
+  // The production failure this verb exists to be able to fix: a wrong ISBN fetched another
+  // book's jacket, the ISBN was corrected, and the jacket stayed — live, and passing any
+  // check that only asks whether an image still loads. A press here must reach the source.
+  it("asks the source again even where the cover it carries loads perfectly well", async () => {
     const id = await aVolume("9788828765431");
     await lookUpCoverFor(id, { ask: asking({ "9788828765431": found() }) });
 
-    const answer = await lookUpCoverFor(id, {
-      ask: NOTHING_IS_ASKED,
-      verify: checking("there"),
-    });
+    const ask = asking({ "9788828765431": found(ANOTHER_COVER) });
+    const answer = await lookUpCoverFor(id, { ask, verify: checking("there") });
+
+    expect(ask.asked).toEqual(["9788828765431"]);
+    expect(answer).toMatchObject({ outcome: "found" });
+    expect(await facedWith(id)).toMatchObject({ url: ANOTHER_COVER });
+  });
+
+  it("says so where the source hands back the same address, so the ISBN is what to look at", async () => {
+    const id = await aVolume("9788828765431");
+    await lookUpCoverFor(id, { ask: asking({ "9788828765431": found() }) });
+
+    const answer = await lookUpCoverFor(id, { ask: asking({ "9788828765431": found() }) });
 
     expect(answer).toEqual({ outcome: "unchanged" });
   });
@@ -381,5 +399,124 @@ describe("what a wall is faced with", () => {
 
     expect(await facedWith(id)).toBeNull();
     expect((await findVolume(id))?.cover).toMatchObject({ from: "google-books" });
+  });
+});
+
+describe("forgetting a looked-up cover", () => {
+  // A blank tile is better than a wrong one: an object wearing another book's jacket is the
+  // library lying, and the owner should not have to wait on a source to stop it.
+  it("takes it off, and the tile goes back to the drawn one", async () => {
+    const id = await aVolume("9788828765431");
+    await lookUpCovers({ ask: asking({ "9788828765431": found() }), pace: 0 });
+
+    await forgetTheCover(id);
+
+    expect(await facedWith(id)).toBeNull();
+  });
+
+  it("leaves nothing behind, so a later run asks about it again", async () => {
+    const id = await aVolume("9788828765431");
+    await lookUpCovers({ ask: asking({ "9788828765431": found() }), pace: 0 });
+    await forgetTheCover(id);
+
+    const ask = asking({ "9788828765431": found(ANOTHER_COVER) });
+    const report = await lookUpCovers({ ask, pace: 0 });
+
+    expect(ask.asked).toEqual(["9788828765431"]);
+    expect(report).toMatchObject({ found: 1, stillDue: 0 });
+  });
+
+  it("leaves an image of the owner's own alone, which was never an answer to an ISBN", async () => {
+    const id = await aVolume("9788828765431");
+    await lookUpCovers({ ask: asking({ "9788828765431": found() }), pace: 0 });
+    await setOwnCover(id, "https://tsundoku.davideimola.dev/images/one-piece-100.jpg");
+
+    await forgetTheCover(id);
+
+    expect(await facedWith(id)).toMatchObject({ from: "own" });
+  });
+
+  it("is refused off an object that carries none, rather than passing silently", async () => {
+    const id = await aVolume("9788828765431");
+
+    await expect(forgetTheCover(id)).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.code === "not-allowed"
+    );
+  });
+});
+
+describe("looking them all up again", () => {
+  // The bulk half of the same failure. An ordinary run checks a recorded cover is still
+  // *there* and spends no request where it is, which is right until the covers are wrong
+  // rather than missing — and then it is exactly what makes a shelf of them unfixable.
+  it("asks the source about covers that are already there, instead of checking them", async () => {
+    const id = await aVolume("9788828765431");
+    await lookUpCovers({ ask: asking({ "9788828765431": found() }), pace: 0 });
+
+    const ask = asking({ "9788828765431": found(ANOTHER_COVER) });
+    const report = await lookUpCovers({ ask, again: true, verify: checking("there"), pace: 0 });
+
+    expect(ask.asked).toEqual(["9788828765431"]);
+    expect(report).toMatchObject({ refreshed: 1, checked: 0 });
+    expect(await facedWith(id)).toMatchObject({ url: ANOTHER_COVER });
+  });
+
+  it("clears one the sources no longer have, rather than leaving the old answer standing", async () => {
+    const id = await aVolume("9788828765431");
+    await lookUpCovers({ ask: asking({ "9788828765431": found() }), pace: 0 });
+
+    await lookUpCovers({ ask: asking({}), again: true, verify: checking("there"), pace: 0 });
+
+    expect(await facedWith(id)).toBeNull();
+  });
+});
+
+// **The failure that put this whole group of tests here.** An assistant proposed an ISBN, the
+// owner approved it, and the lookup faithfully fetched the cover of a different book — the
+// exact risk ADR-0012 named when it argued an ISBN belongs behind the Inbox: *a wrong one
+// quietly fetches another book's cover for as long as the record stands*.
+//
+// A cover is an answer to the ISBN that stood on the row when it was asked for. So changing
+// the ISBN has to take the answer with it, or correcting the mistake leaves the wall exactly
+// as wrong as it was — and looking right, because the image loads.
+describe("a cover is an answer to the ISBN it was asked about", () => {
+  it("goes when a different ISBN is put on the object", async () => {
+    const id = await aVolume("9788828765431", "One-Punch Man 9");
+    await lookUpCovers({ ask: asking({ "9788828765431": found() }), pace: 0 });
+
+    await amendVolume(id, { isbn: "9788828765448" });
+
+    expect(await facedWith(id)).toBeNull();
+  });
+
+  it("comes back for the ISBN that is actually there, on the next run", async () => {
+    const id = await aVolume("9788828765431", "One-Punch Man 9");
+    await lookUpCovers({ ask: asking({ "9788828765431": found() }), pace: 0 });
+    await amendVolume(id, { isbn: "9788828765448" });
+
+    await lookUpCovers({ ask: asking({ "9788828765448": found(ANOTHER_COVER) }), pace: 0 });
+
+    expect(await facedWith(id)).toMatchObject({ url: ANOTHER_COVER });
+  });
+
+  // The other half, and the one that would be a silent regression: an amendment about a
+  // publisher or a Binding says nothing about the ISBN, and must not unface the shelf.
+  it("stays where the amendment is about something else entirely", async () => {
+    const id = await aVolume("9788828765431");
+    await lookUpCovers({ ask: asking({ "9788828765431": found() }), pace: 0 });
+
+    await amendVolume(id, { publisher: "Star Comics" });
+    await amendVolume(id, { editionLine: "Ultimate Deluxe Edition" });
+
+    expect(await facedWith(id)).toMatchObject({ url: A_COVER });
+  });
+
+  it("stays where the amendment names the very same ISBN again", async () => {
+    const id = await aVolume("9788828765431");
+    await lookUpCovers({ ask: asking({ "9788828765431": found() }), pace: 0 });
+
+    await amendVolume(id, { isbn: "9788828765431" });
+
+    expect(await facedWith(id)).toMatchObject({ url: A_COVER });
   });
 });

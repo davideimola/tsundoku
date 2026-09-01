@@ -97,6 +97,24 @@ owner to make between the assistant's word and the record's, which is the whole 
 Amendment buys. So there is no `covers_look_up` tool on `/mcp`, and adding one would be a
 decision for an ADR rather than for a tool file.
 
+**A cover is an answer to an ISBN, so changing the ISBN takes the cover with it.** This is
+the consequence that was learned the hard way, in production, the week this shipped:
+[ADR-0012](0012-a-credit-is-attributed-directly-and-mints-its-person.md) had already named
+the exact failure — *a wrong one quietly fetches another book's cover for as long as the
+record stands* — and then an assistant proposed an ISBN, the owner approved it, and
+*One-Punch Man 9* wore *Slam Dunk 9*'s jacket. So `amendVolume` clears the looked-up cover
+whenever it writes a **different** ISBN, and the object goes back to a drawn tile until a
+lookup asks about the ISBN that is actually there. A blank tile is honest; a wrong one is the
+library lying, and it is a lie that passes every check, because the image loads.
+
+**Two repairs follow from that, and they are different acts.** *Forgetting* a cover
+(`forgetTheCover`, and the run's `again`) throws the recorded answer away and asks again from
+the ISBN on the row now; it exists because the ordinary sweep spends no request on a jacket
+that still loads — right nearly always, and exactly wrong for a cover that is wrong rather
+than missing. A press on **one object's own page always reaches the source**, whatever is
+recorded, for the same reason: the only cover the owner cannot fix is the one the app
+declined to re-ask about.
+
 **Every viewer's browser tells Google which books are on the wall.** On the private owner
 surface that viewer is the owner. On the public page on the roadmap it is everybody, and it is a
 privacy cost that should be accepted deliberately rather than discovered.

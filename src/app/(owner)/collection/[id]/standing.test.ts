@@ -133,11 +133,20 @@ describe("what one lookup answered", () => {
   it("says a cover arrived, and says an absence is recorded", () => {
     expect(whatTheLookupSaid("found", undefined)).toContain("cover was found");
     expect(whatTheLookupSaid("none", undefined)).toContain("No source has a cover");
-    expect(whatTheLookupSaid("unchanged", undefined)).toContain("still where it was");
+    expect(whatTheLookupSaid("unchanged", undefined)).toContain("the same cover");
   });
 
   // The one this exists for: nothing was written down, so it is not an answer about the book
   // and the owner must not read it as one.
+  // *Unchanged* is the answer an owner staring at the wrong book gets when the lookup is
+  // working correctly, so it has to point at the ISBN rather than sound like all is well.
+  it("sends an unchanged answer at the ISBN, which is the thing that would be wrong", () => {
+    const said = whatTheLookupSaid("unchanged", undefined);
+
+    expect(said).toContain("asked again");
+    expect(said).toContain("ISBN");
+  });
+
   it("never reads a source that could not be reached as an absence", () => {
     const said = whatTheLookupSaid("unanswered", "Open Library is rate-limiting this address.");
 
