@@ -1,4 +1,5 @@
 import type { HowFarItGot, StoryReading } from "@/core/queries/story";
+import type { CarriedStory, CoveredInstalments } from "@/core/queries/story-to-volume";
 
 // HOW A READING IS SAID, and the one predicate the acts on a Story's page hang off.
 //
@@ -92,6 +93,45 @@ export function howFarItGot(far: HowFarItGot): string {
  */
 export function instalments(howMany: number): string {
   return `${howMany} ${howMany === 1 ? "Instalment" : "Instalments"}`;
+}
+
+/**
+ * What one object holds of a serialized work: *Instalment 7*, or *Instalments 1–35*.
+ *
+ * One part and a range are the same sentence at two sizes, and saying *Instalments 7–7* about
+ * a tankōbon would be the screen reading a range off a single number. An en dash, because it
+ * is a span rather than a subtraction.
+ *
+ * **Two screens spend it** — the spines on a Story's page and the list on a Volume's — which
+ * is the same shape `wishes/shopping.ts` is in, and the reason it is one function: the object
+ * says the same thing whichever end the owner is standing at.
+ */
+export function whatItCovers(covers: CoveredInstalments): string {
+  return covers.from === covers.to
+    ? `${INSTALMENT} ${covers.from}`
+    : `${INSTALMENT}s ${covers.from}–${covers.to}`;
+}
+
+const INSTALMENT = "Instalment";
+
+/**
+ * The sentence under the two boxes on a Volume's page: where this range came from, and what
+ * emptying them would do.
+ *
+ * It is three sentences rather than one with a blank in it, because the three cases are
+ * genuinely different facts — the owner wrote the range, the line supplied it, or there is
+ * nothing to supply it because the object stands in no line.
+ */
+export function howTheRangeIsKept(story: CarriedStory): string {
+  const outOf = `Of ${story.instalments}.`;
+
+  if (story.covers?.written) {
+    return `${outOf} Empty both to follow this object's place in its line again.`;
+  }
+  if (story.covers) {
+    return `Empty, so it follows this object's place in its line: ${whatItCovers(story.covers)} of ${story.instalments}.`;
+  }
+  return `${outOf} Empty until you say so, and this object stands in no line to follow.`;
 }
 
 /**

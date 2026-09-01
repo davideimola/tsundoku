@@ -19,6 +19,10 @@ import { type CarriedStory, listStoriesInVolume } from "@/core/queries/story-to-
 import { listTypes } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
+// The words a covered range is said in, spent from the Story's own derivation rather than
+// written again here: the object says the same thing whichever end the owner is standing at,
+// and the Reading list's picker borrows the Wishes' three words for the same reason.
+import { howTheRangeIsKept } from "../../stories/readings";
 import {
   acquire,
   carry,
@@ -716,13 +720,7 @@ function CoveredRange({ volumeId, story }: { volumeId: string; story: CarriedSto
       <Button type="submit" variant="ghost" size="sm" className="h-8 text-xs">
         Record it
       </Button>
-      <span className="basis-full text-xs text-muted-foreground">
-        {covers?.written
-          ? `Of ${story.instalments}. Empty both to follow this object's place in its line again.`
-          : covers
-            ? `Empty, so it follows this object's place in its line: ${covers.from} of ${story.instalments}.`
-            : `Of ${story.instalments}. Empty until you say so, and this object stands in no line to follow.`}
-      </span>
+      <span className="basis-full text-xs text-muted-foreground">{howTheRangeIsKept(story)}</span>
     </form>
   );
 }

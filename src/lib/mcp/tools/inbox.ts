@@ -249,8 +249,8 @@ count guessed off a shop page becomes a permanent wrong number in a completeness
     type: "number",
     description: `How many **Instalments** the Story has, where it was serialized — Slam Dunk's
 twenty, Ultimate Spider-Man's hundred and sixty. It belongs to the narrative and never to a
-printing, so it is the count of chapters or issues of the *work* and never the number of volumes,
-omnibus or tankōbon a shelf happens to hold. Say it only where the owner did or where you actually
+printing, so it is how many numbered parts the *work* has and never how many volumes, omnibus or
+tankōbon a shelf happens to hold. Say it only where the owner did or where you actually
 read it: a count guessed off a wiki becomes a permanent wrong denominator, and *seven of twenty* is
 read back far more often than it is written.`,
   },

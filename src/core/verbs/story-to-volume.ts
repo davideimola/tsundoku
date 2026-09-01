@@ -109,8 +109,17 @@ export async function recordVolumeCoversInstalments(
   covers: CoveredRange | null
 ): Promise<void> {
   bothAreIds(volumeId, storyId);
-  // A part of a work is a whole number, and the same guard the ids get: half an instalment
-  // reaches the driver as a syntax error on an integer column rather than as a sentence.
+  // Two guards, and both are here for the reason the id's is: neither value can reach Postgres
+  // as anything but a *syntax* error on an integer column, so the constraint that would say so
+  // — `volume_story_covers_a_whole_range` — cannot be reached from this door. It stays in the
+  // schema as the guarantee against any other writer, and these two are the sentences the
+  // owner reads.
+  if (covers && [covers.from, covers.to].filter(Number.isNaN).length === 1) {
+    throw new Refusal(
+      "invalid",
+      "A range is both ends or neither. Say where it starts and where it ends, or leave both empty to follow the line."
+    );
+  }
   if (covers && (!Number.isInteger(covers.from) || !Number.isInteger(covers.to))) {
     throw new Refusal("invalid", "An Instalment is a whole part of the work, counted from one.");
   }

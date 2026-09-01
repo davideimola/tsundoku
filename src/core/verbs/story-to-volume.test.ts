@@ -245,6 +245,22 @@ describe("what a Volume covers of a Story", () => {
     ]);
   });
 
+  it("refuses half a range, because an object covers from somewhere to somewhere", async () => {
+    const storyId = await slamDunk();
+    const volumeId = await aVolume("Slam Dunk Deluxe 1");
+    await recordVolumeCarriesStory(volumeId, storyId);
+
+    await expect(
+      // What the Volume's own page sends when one of the two boxes was filled in.
+      recordVolumeCoversInstalments(volumeId, storyId, { from: 1, to: Number.NaN })
+    ).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+      message:
+        "A range is both ends or neither. Say where it starts and where it ends, or leave both empty to follow the line.",
+    });
+  });
+
   it("refuses a range that inverts", async () => {
     const storyId = await slamDunk();
     const volumeId = await aVolume("Slam Dunk Deluxe 1");

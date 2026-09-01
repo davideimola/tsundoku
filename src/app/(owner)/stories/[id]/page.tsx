@@ -24,6 +24,7 @@ import {
   SCORES,
   stillOpen,
   theOpenReading,
+  whatItCovers,
   whenItHappened,
 } from "../readings";
 import { StoryScore, StoryStateLabel, storyDetail } from "../story-state";
@@ -937,11 +938,7 @@ function Carriers({
                       volume.binding.name,
                       // What of the work is inside this object, where the work is numbered:
                       // an omnibus says *Instalments 1–35* and a tankōbon says the one it is.
-                      volume.covers
-                        ? volume.covers.from === volume.covers.to
-                          ? `Instalment ${volume.covers.from}`
-                          : `Instalments ${volume.covers.from}–${volume.covers.to}`
-                        : null,
+                      volume.covers ? whatItCovers(volume.covers) : null,
                       volume.inTheHouse ? "on the shelf" : "not on the shelf",
                     ]
                       .filter(Boolean)

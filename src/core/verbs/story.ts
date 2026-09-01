@@ -120,8 +120,7 @@ const NOT_A_COUNT_OF_PARTS =
  */
 export async function declareInstalments(
   storyId: string,
-  instalments: number | null,
-  run: Executor = query
+  instalments: number | null
 ): Promise<void> {
   if (!UUID.test(storyId)) throw new Refusal("not-found", NO_SUCH_STORY);
   // The same guard the id gets, for the same reason: six and a half parts is a *syntax*
@@ -133,7 +132,7 @@ export async function declareInstalments(
 
   const changed = await refusing(
     () =>
-      run<{ id: string }>("update story set instalments = $2 where id = $1 returning id", [
+      query<{ id: string }>("update story set instalments = $2 where id = $1 returning id", [
         storyId,
         instalments,
       ]),

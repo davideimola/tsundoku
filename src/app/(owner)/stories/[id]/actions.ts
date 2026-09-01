@@ -44,6 +44,15 @@ import { REACHED, SERIALIZE, STRIKE } from "../panels";
 // calls `requireOwner()` itself, because a layout does not run for a Server Function
 // (`src/app/gated.test.ts`).
 
+/**
+ * Where a refused write comes back to: the drawer it was typed in, and — for the acts that
+ * are about one act of reading rather than about the Story — which Reading that is.
+ *
+ * The pair travels together because the address is one thing, which is the shape the
+ * Volume's own page already gives it (`collection/[id]/actions.ts` calls it `reopens` too).
+ */
+type Reopens = { panel: string; reading?: string };
+
 /** What a form's field held, or nothing where it was left empty. */
 function text(form: FormData, field: string): string | null {
   const value = form.get(field);
@@ -65,8 +74,7 @@ function text(form: FormData, field: string): string | null {
 async function saying(
   storyId: string,
   work: () => Promise<unknown>,
-  panel?: string,
-  reading?: string
+  reopens?: Reopens
 ): Promise<never> {
   let said: URLSearchParams | undefined;
 
@@ -80,8 +88,10 @@ async function saying(
     // sentence is about what was typed, so it is only useful beside the field it is about.
     // The acts that pass none are the ones whose refusals are about the record rather than
     // about a field — they are read on the page, where the record is.
-    if (panel) said.set("panel", panel);
-    if (reading) said.set("reading", reading);
+    if (reopens) {
+      said.set("panel", reopens.panel);
+      if (reopens.reading) said.set("reading", reopens.reading);
+    }
   }
 
   revalidatePath(`/stories/${storyId}`);
@@ -190,7 +200,9 @@ export async function serialize(form: FormData): Promise<void> {
 
   const storyId = text(form, "storyId") ?? "";
 
-  await saying(storyId, () => declareInstalments(storyId, counted(form, "instalments")), SERIALIZE);
+  await saying(storyId, () => declareInstalments(storyId, counted(form, "instalments")), {
+    panel: SERIALIZE,
+  });
 }
 
 /**
@@ -204,12 +216,10 @@ export async function sayWhereIGotTo(form: FormData): Promise<void> {
   const storyId = text(form, "storyId") ?? "";
   const readingId = text(form, "readingId") ?? "";
 
-  await saying(
-    storyId,
-    () => recordInstalmentReached(readingId, counted(form, "atInstalment")),
-    REACHED,
-    readingId
-  );
+  await saying(storyId, () => recordInstalmentReached(readingId, counted(form, "atInstalment")), {
+    panel: REACHED,
+    reading: readingId,
+  });
 }
 
 /**

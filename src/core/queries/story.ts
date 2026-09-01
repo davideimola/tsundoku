@@ -69,13 +69,18 @@ export const THE_INSTALMENT_THE_CURRENT_PASS_REACHED = `
 
 // *Seven of twenty*, or nothing at all.
 //
-// **A work that declares no Instalments has no fraction to be in**, and that is the ordinary
-// Story rather than a gap — so this answers `null` and no screen has to invent a denominator.
-// Where the work does declare them, a pass that has finished none is `0 of 20`: nothing read
-// is a measurement, where *no number at all* is not one.
+// **Two ways to have no fraction, and both are ordinary.** A work that declares no Instalments
+// has none to be in, which is most Stories; and a work nobody has opened is not *at nought*,
+// because how far it got is a fact about a **pass** and there is no pass — so the count is read
+// on its own and no screen has to invent a denominator or a numerator.
+//
+// What *is* `0 of 20` is the third case: a pass that has been opened and has finished none of
+// it. Nothing read is a measurement where *nobody is reading it* is not one, which is the
+// distinction `figureOf` already makes between an absence and a zero.
 const HOW_FAR_IT_GOT = `
   case
     when s.instalments is null then null
+    when not exists (select 1 from reading r where r.story_id = s.id) then null
     else jsonb_build_object(
       'atInstalment', coalesce(${THE_INSTALMENT_THE_CURRENT_PASS_REACHED}, 0),
       'instalments', s.instalments
@@ -169,7 +174,8 @@ export type Story = {
    */
   instalments: number | null;
   /**
-   * *Seven of twenty*, or `null` where the work declares no Instalments.
+   * *Seven of twenty*, or `null` where the work declares no Instalments — and `null` too where
+   * nobody has opened it, because how far it got is a fact about a **pass**.
    *
    * It is the **current pass's** number rather than the furthest any pass ever reached: the
    * question this answers is *where am I*, and a run given up at nine in 2019 and started

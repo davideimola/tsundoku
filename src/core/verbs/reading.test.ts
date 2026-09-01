@@ -256,6 +256,14 @@ describe("the Instalment a pass reached", () => {
     });
   });
 
+  it("says nothing about a run nobody has opened, because there is no pass to be at", async () => {
+    const storyId = await slamDunk();
+
+    // Not *0 of 20*: nought is what an open pass that has read none of it says, and there is
+    // no pass here at all. The count is still on the record and is read on its own.
+    expect(await findStory(storyId)).toMatchObject({ instalments: 20, howFarItGot: null });
+  });
+
   it("says nothing at all about a Story nobody numbered", async () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
     await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });

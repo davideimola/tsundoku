@@ -1014,10 +1014,8 @@ describe("proposing how many Instalments a Story has", () => {
 
     await approveInboxEntry(id);
 
-    expect(await findStory(storyId)).toMatchObject({
-      instalments: 20,
-      howFarItGot: { atInstalment: 0, instalments: 20 },
-    });
+    // The count, and no fraction: nobody has opened it, so there is no pass to be anywhere in.
+    expect(await findStory(storyId)).toMatchObject({ instalments: 20, howFarItGot: null });
   });
 
   it("corrects the count on approval, in the words the owner confirmed", async () => {
