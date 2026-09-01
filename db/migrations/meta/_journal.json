@@ -36,6 +36,13 @@
       "when": 1788212609335,
       "tag": "0004_a_cover_is_hotlinked_and_never_hosted",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788302023935,
+      "tag": "0007_a_story_is_serialized_and_a_pass_says_how_far",
+      "breakpoints": true
     }
   ]
 }
