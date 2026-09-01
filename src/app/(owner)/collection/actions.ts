@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { whatIsOnThisIsbn } from "@/core/queries/isbn";
 import { isRefusal } from "@/core/refusal";
 import { acquireVolume, catalogueVolume, strikeVolumes } from "@/core/verbs/collection";
 import { type CoverLookupReport, type HowToLookUp, lookUpCovers } from "@/core/verbs/cover";
 import { requireOwner } from "@/lib/auth/owner";
+import { whereTheIsbnLeads } from "./identified";
 
 // The write side of the Collection screen, and a thin adapter like the page beside it
 // (ADR-0002): it reads a form, calls one verb, and says what the verb said. No SQL, no
@@ -67,6 +69,32 @@ export async function catalogue(form: FormData): Promise<void> {
       isbn: text(form, "isbn"),
     })
   );
+}
+
+/**
+ * Say what an ISBN is — the owner's own catalogue first, then the national one — and go
+ * wherever the answer leads.
+ *
+ * **The second act on this screen that waits on somebody else's server, and the first one a
+ * camera starts.** It is a plain form post for the same reason the cover run is (ADR-0010):
+ * the field is typed into as often as it is scanned, the scanner writes into that same field
+ * and submits this same form, and a lookup that only worked once a bundle had parsed would be
+ * a lookup that is not there in a shop.
+ *
+ * It writes nothing. What it does is answer *do I already have this?* against Postgres before
+ * anybody's network is involved, and then hand the ordinary catalogue form whatever the
+ * catalogue of record could tell it. Where each of the five answers leads is `./identified.ts`
+ * — a screen's own derivation, and the reason this function is four lines.
+ */
+export async function identify(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const typed = text(form, "isbn") ?? "";
+  const said = await whatIsOnThisIsbn(typed);
+
+  // No `revalidatePath`: nothing was written, and the wall behind the panel is as true as it
+  // was a moment ago.
+  redirect(whereTheIsbnLeads(typed, said));
 }
 
 /** Record that a catalogued Volume is in the house. The Collection starts claiming it. */

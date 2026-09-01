@@ -142,7 +142,9 @@ Three rules follow, and each is a file:
 
 - **Nothing on a render calls a third party.** A page reads a column. The lookup is
   `lookUpCovers` in `src/core/verbs/cover.ts`, a verb the owner runs from the Collection, and
-  `src/core/covers.ts` is the only file in the repository that knows what a `fetch` is.
+  `src/core/covers.ts` is one of the **two** files in the repository that know what a `fetch`
+  is. The other is `src/core/records.ts` — see *Where an ISBN goes* below — and
+  `src/app/hotlinked.test.ts` holds the list at two.
 - **A rate limit is not an absence.** A source answers *found*, *none* or *unanswered*, and the
   third writes nothing at all — a 403 recorded as "no cover" produced a false 0% in the research
   this rests on (`docs/research/cover-images-by-isbn.md`).
@@ -155,6 +157,40 @@ Three rules follow, and each is a file:
   wrong one is not — and a wrong one passes every check, because the image loads. The two
   repairs are `forgetTheCover` and the run's `again`, and a press on one object's own page
   always reaches the source rather than checking the recorded address still resolves.
+
+### Where an ISBN goes, and what a camera is allowed to decide
+
+**`src/core/isbn.ts` reads it, `src/core/records.ts` asks about it, `src/core/queries/isbn.ts`
+is the one question both answer, and the browser decides nothing.** An ISBN used to arrive one
+way — typed at a desk from the object in hand — and now arrives a second, from a barcode read
+in a shop. The two fail differently, and that difference is the whole of this design: a typed
+ISBN is short a digit, where a *scanned* one is **the wrong barcode entirely** — the price
+add-on printed beside it, the ISSN-derived EAN on a Bonelli monthly, the shop's loyalty card —
+and a length check waves all three through. So `theIsbnItIs` answers with a **reading** rather
+than a boolean, and the refusal names which barcode the owner is holding.
+
+`whatIsOnThisIsbn` is the question, and its **order is the feature**: is this an ISBN at all,
+then *does the library already know it* — one round trip to Postgres, before anybody's network
+— and only then what the national catalogue says it is. The middle step short-circuits the
+third, which is worth more than the request it saves: a lookup that asked SBN first would spend
+a shop's signal to fill in a form for an object already on the shelf. It is a file named after
+the question rather than after an area, for `queries/finder.ts`'s reason.
+
+**SBN is the source because it is the one that has manga.** Google Books v1 has the records and
+answers 429 keyless; Dynamic Links, the keyless path the covers use, carries no title at all;
+Open Library holds nothing for 51 of 54 measured ISBNs. SBN is undocumented, is somebody's
+Liferay XHR surface, and goes down — which is why *unanswered* is a third answer here exactly
+as it is for a cover.
+
+**The scanner is an enhancement over a field that already works, and it holds no derivation**
+(`src/app/(owner)/collection/scan.tsx`). It is not rendered until a script is running, because
+a control that does nothing on a shop's signal was never an option (ADR-0010) — and unlike the
+finder it can have no unscripted twin, since a camera *is* a script. What it can have, and has,
+is a twin field: the ISBN panel is a plain form, and typed, pasted or filled in by the phone's
+own text scanner it posts with nothing running. Safari has no `BarcodeDetector`, so the
+fallback is ZXing as WebAssembly, dynamically imported on the first press and served from our
+own origin — `public/decoder/zxing_reader.wasm`, pinned to the dependency by
+`src/app/vendored.test.ts`, which is the fourth wall.
 
 ### Where a form the owner opened deliberately goes
 

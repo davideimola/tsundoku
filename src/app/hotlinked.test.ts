@@ -27,30 +27,51 @@ import { SRC, sourceFiles } from "@/test/source-files";
 
 const SOURCE = sourceFiles(SRC).filter((file) => !/\.test\.tsx?$/.test(file.file));
 
-/** The one file allowed to reach a third party, and the only one. */
-const THE_ONE_THAT_ASKS = "core/covers.ts";
+/**
+ * The files allowed to reach a third party, and **no third**.
+ *
+ * This was one file and is now a list of two, which is the wall doing its job rather than
+ * being relaxed: the second entry could not be added without editing this line, and the
+ * argument for it had to be written in the module (`core/records.ts`) before it would pass.
+ *
+ * The rule was never "one file"; it is **"a source is asked from the model, deliberately, and
+ * never from a screen"**, and what makes a count of them enforceable is that each one is a
+ * *subject*. `covers.ts` answers what an object looks like, and its whole design is about
+ * bytes that are somebody else's — hotlinked, revocable, forbidden to keep (ADR-0013).
+ * `records.ts` answers what an object *is*: a title and a publisher, asked by ISBN so that the
+ * form the owner is about to fill in arrives filled in. Splitting one of these in half would
+ * be the failure this list is watching for, and it would read as a third subject in a hurry.
+ */
+const THE_ONES_THAT_ASK = ["core/covers.ts", "core/records.ts"];
 
 describe("nothing on a page render calls a third party", () => {
-  it("finds the source it is about to check", () => {
+  it("finds the sources it is about to check", () => {
     expect(SOURCE.length).toBeGreaterThan(40);
-    expect(SOURCE.map((file) => file.file)).toContain(THE_ONE_THAT_ASKS);
+    for (const asking of THE_ONES_THAT_ASK) {
+      expect(SOURCE.map((file) => file.file)).toContain(asking);
+    }
   });
 
-  it("calls fetch in exactly one file, and it is the sources module", () => {
+  it("calls fetch in the sources modules and nowhere else", () => {
     const asking = SOURCE.filter((file) => /\bfetch\s*\(/.test(file.source)).map((f) => f.file);
 
-    // Not "no page fetches" but "one file does": a second one is how this becomes a habit,
-    // and the second one is always in a hurry.
-    expect(asking).toEqual([THE_ONE_THAT_ASKS]);
+    // Not "no page fetches" but "these files do": a further one is how this becomes a habit,
+    // and the further one is always in a hurry.
+    expect(asking).toEqual(THE_ONES_THAT_ASK);
   });
 
-  it("keeps that file out of every adapter, so a screen cannot reach a source at all", () => {
+  it("keeps those files out of every adapter, so a screen cannot reach a source at all", () => {
+    const modules = THE_ONES_THAT_ASK.map((file) => file.replace(/^core\/|\.ts$/g, ""));
     const reaching = SOURCE.filter(
-      (file) => file.file.startsWith("app/") && /from "@\/core\/covers"/.test(file.source)
+      (file) =>
+        file.file.startsWith("app/") &&
+        modules.some((module) => new RegExp(`from "@/core/${module}"`).test(file.source))
     ).map((file) => file.file);
 
     // A page importing the sources is a page one edit away from asking them. What an adapter
-    // may reach is the verb, which is the owner's act, and the column, which is a render's.
+    // may reach is the verb, which is the owner's act; the query, which asks the source *as*
+    // the owner's act and hands the answer over as data (`core/queries/isbn.ts`); and the
+    // column, which is a render's.
     expect(reaching).toEqual([]);
   });
 });
@@ -75,6 +96,8 @@ describe("no third-party image byte is ours", () => {
       (file) => file.file
     );
 
-    expect(naming).toEqual([THE_ONE_THAT_ASKS]);
+    // The *covers* module and not the list above it: this is a rule about whose bytes an
+    // `<img>` may point at, and the module that asks what a book is called holds no image.
+    expect(naming).toEqual(["core/covers.ts"]);
   });
 });

@@ -79,9 +79,18 @@ ENV NODE_ENV=production \
 
 # The traced server, its dependencies and the trimmed manifest, all of which `standalone`
 # writes. `.next/static` and `public/` are the two things it deliberately does not trace —
-# they are served, not imported — and this app has no `public/`, so there is one to copy.
+# they are served, not imported — so both are copied.
 COPY --from=build --chown=node:node /build/.next/standalone ./
 COPY --from=build --chown=node:node /build/.next/static ./.next/static
+
+# `public/` holds exactly one thing, and it is the reason this line exists: the barcode
+# decoder the ISBN scanner falls back to in Safari, which has no `BarcodeDetector` of its own.
+# It is a megabyte of WebAssembly served from our own origin rather than from a CDN, because
+# the press that loads it is made in a shop and a third party on that path is one more name to
+# resolve and one more thing to be blocked. Missing here, the scanner would work in Chrome and
+# be silently broken on the owner's phone — `src/app/vendored.test.ts` is the wall, and this is
+# the line that ships what it pins.
+COPY --from=build --chown=node:node /build/public ./public
 
 # The schema, and the runner that applies it. Plain `.ts` run through node's own type
 # stripping, which is how `pnpm db:migrate` runs it on a laptop too — one runner, one

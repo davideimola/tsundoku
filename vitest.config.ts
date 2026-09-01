@@ -96,11 +96,13 @@ import { defineConfig } from "vitest/config";
 // behaviours that matter most — a rate limit is not an absence, and a cover that has gone is
 // looked up again — are exactly the two a live source would not produce on demand.
 //
-// **Three files are neither seam, and they are walls**: `src/app/gated.test.ts`,
-// `src/app/palette.test.ts` and `src/app/hotlinked.test.ts`. Each is arithmetic or a grep
-// over the source, each catches a failure that is silent — a page served ungated, a colour
-// nobody chose, a page that calls a third party on the render — and none of them renders
-// anything. They are the same licence as the paragraph above: text in, verdict out.
+// **Four files are neither seam, and they are walls**: `src/app/gated.test.ts`,
+// `src/app/palette.test.ts`, `src/app/hotlinked.test.ts` and `src/app/vendored.test.ts`. Each
+// is arithmetic or a grep over the source, each catches a failure that is silent — a page
+// served ungated, a colour nobody chose, a page that calls a third party on the render, a
+// vendored decoder that has drifted from the library that loads it and so is broken in Safari
+// only — and none of them renders anything. They are the same licence as the paragraph above:
+// text and bytes in, verdict out.
 export default defineConfig({
   resolve: {
     alias: {

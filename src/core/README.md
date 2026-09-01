@@ -7,7 +7,9 @@ test seam cover both surfaces, and it is the rule to break last.
 ```
 src/core/
 ├── db.ts            the pool, and the only file that knows what a pool is
-├── covers.ts        the cover sources, and the only file that knows what a fetch is
+├── covers.ts        the cover sources — one of the two files that know what a fetch is
+├── records.ts       what a book is, asked by ISBN — the other one
+├── isbn.ts          what an ISBN is, and what else a camera hands over
 ├── money.ts         what a price is, as the owner types it — comma or dot
 ├── queries/         one file per question the app answers
 │   └── type.ts
@@ -52,11 +54,16 @@ call it, which is the other half of the rule: the owner's finder and the assista
 - **One stated exception, and it is outbound.** That rule is about the door a request
   arrives through: an adapter holds the framing, and the model never learns what a session
   or a bearer is. A source the library *asks a question of* is the other direction — a
-  dependency of the model, like the pool — so `covers.ts` sits beside `db.ts` and is the
-  only file in the repository that knows what a `fetch` is (ADR-0013). It is held to the
-  same shape `db.ts` is: everything above it takes it as an argument (`AskForACover`), so no
+  dependency of the model, like the pool — so `covers.ts` and `records.ts` sit beside
+  `db.ts` and are **the only two files in the repository that know what a `fetch` is**
+  (ADR-0013). Two, because they are two subjects: `covers.ts` asks what an object *looks
+  like*, which is a question about bytes that are somebody else's, and `records.ts` asks
+  what an object *is* — a title and a publisher, by ISBN, so that the form the owner is
+  about to fill in arrives filled in. `src/app/hotlinked.test.ts` is the list, and a third
+  entry cannot be added without editing it. Both are held to the same shape `db.ts` is:
+  everything above them takes them as an argument (`AskForACover`, `AskAboutAnIsbn`), so no
   test in this repository calls a third party, and **nothing on a page render calls one
-  either** — a cover lookup is a verb the owner runs, and a render reads a column.
+  either** — a lookup is an act the owner presses, and a render reads a column.
 - **Not here either**: invariants that Postgres can enforce. The database refuses
   what must never be true rather than trusting this module to remember, so a rule
   that can be a constraint should be a constraint in a migration, not an `if`.

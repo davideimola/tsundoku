@@ -20,13 +20,15 @@ import { coverStanding } from "@/core/queries/cover";
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { acquire, catalogue, findCovers, findCoversAgain, strike } from "./actions";
+import { acquire, catalogue, findCovers, findCoversAgain, identify, strike } from "./actions";
 import {
   howFarTheCoversHaveGot,
   readCoverReport,
   whatNoLookupReaches,
   whatTheLookupFound,
 } from "./covers-found";
+import { whatFilledItIn } from "./identified";
+import { ScanAnIsbn } from "./scan";
 
 // THE COLLECTION WALL, and the screen this whole redesign exists for: *do I already have
 // this?* asked standing in a shop, one-handed, on the shop's signal. So the phone is the
@@ -93,7 +95,8 @@ const STRIKE = "strike-the-ticked";
 const COVERS = "covers";
 const CATALOGUE = "catalogue";
 const ELSEWHERE = "elsewhere";
-const PANELS = [COVERS, CATALOGUE, ELSEWHERE] as const;
+const ISBN = "isbn";
+const PANELS = [COVERS, CATALOGUE, ELSEWHERE, ISBN] as const;
 
 /**
  * This screen's address with a panel open on it, and **with every filter still on**.
@@ -178,6 +181,14 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   ]);
 
   const refused = asked(params, "refused");
+  // What a lookup by ISBN handed the catalogue form, and the sentence saying where it came
+  // from (`./identified.ts`). They are read under their own names rather than as `title` and
+  // `publisher`, which are two of this wall's five filters: a prefill sharing a name with a
+  // filter would narrow the shelf behind the panel and stay narrowed after it closed.
+  const scanned = asked(params, "isbn");
+  const record = asked(params, "record");
+  const publishedBy = asked(params, "publishedBy");
+  const filledIn = whatFilledItIn(asked(params, "from"));
   const catalogued = asked(params, "catalogued");
   const acquired = asked(params, "acquired");
   const lookedUp = readCoverReport((name) => asked(params, name));
@@ -217,6 +228,13 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             </OpensDrawer>
           ) : null}
           <OpensDrawer href={panelled(params, COVERS)}>Covers</OpensDrawer>
+          {/* **A second way into the same act, and it is in the hero because of where it is
+              used.** *Catalogue a Volume* asks for five fields; this one asks for the barcode
+              on the back and fills them in. It is a third button rather than a control inside
+              the form beside it for the reason ADR-0007's two verbs are two buttons: what the
+              owner presses says what they are about to do, and *I am holding the object* is a
+              different starting point from *I know what it is called*. */}
+          <OpensDrawer href={panelled(params, ISBN)}>From an ISBN</OpensDrawer>
           <OpensDrawer href={panelled(params, CATALOGUE)} emphasis="loud">
             Catalogue a Volume
           </OpensDrawer>
@@ -305,7 +323,11 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </form>
       </search>
 
-      {refused ? (
+      {/* Not while the ISBN panel is open: that panel covers the screen and carries the
+          refusal itself, beside the field it is about, which is what `@/components/drawer`
+          asks of a screen that shows one — a refusal the owner cannot read is worse than
+          none. */}
+      {refused && panel !== ISBN ? (
         <p
           role="alert"
           className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
@@ -500,6 +522,58 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </Drawer>
       ) : null}
 
+      {panel === ISBN ? (
+        <Drawer
+          title="From an ISBN"
+          description="The barcode on the back, and what the library — yours first, then the national one — already knows about it."
+          refused={refused}
+          closesTo={unpanelled(params)}
+        >
+          {/* **One field, one plain form, and the scanner writes into it.** The camera is the
+              fastest way to fill this in and it is not the only one: typed, pasted, or read
+              out of the printed digits by the phone's own text scanner in the keyboard, this
+              posts and answers with no script running at all (ADR-0010). Which is why the
+              field is first and the camera is the button under it. */}
+          <form action={identify} className="grid gap-4">
+            <Field
+              name="isbn"
+              label="ISBN"
+              idPrefix="scan"
+              defaultValue={scanned ?? ""}
+              placeholder="9788828765431"
+              inputMode="numeric"
+              autoComplete="off"
+              // **Not focused**, deliberately. Autofocus here would open the phone's keyboard
+              // on a panel whose other control is a camera button, and cover it — the field is
+              // one tap away for whoever means to type, and out of the way for whoever came to
+              // scan.
+              required
+            />
+
+            <div>
+              <Button type="submit" className="h-11 w-full sm:h-10">
+                Look it up
+              </Button>
+              <p className="mt-2 text-pretty text-xs text-muted-foreground">
+                Your own catalogue first — if this object is already recorded, this goes straight to
+                it, which is the answer to <em>do I already have this?</em> Then SBN, Italy&apos;s
+                legal-deposit catalogue, for the title and the publisher. Hyphens and spaces are
+                fine here.
+              </p>
+            </div>
+          </form>
+
+          <div className="mt-6 border-t border-border pt-5">
+            <ScanAnIsbn into="scan-isbn" />
+            <p className="mt-2 text-pretty text-xs text-muted-foreground">
+              The camera reads the barcode and looks it up on its own. A Bonelli monthly has no ISBN
+              to read — its barcode is a periodical&apos;s — and neither has anything sold without
+              one, so those are catalogued by hand.
+            </p>
+          </div>
+        </Drawer>
+      ) : null}
+
       {panel === CATALOGUE ? (
         <Drawer
           title="Catalogue a Volume"
@@ -512,9 +586,30 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
               And no price and no day, because those are facts about an object *coming home*
               and this form only says what the object is (ADR-0007) — they are asked for by
               the row on the wall, at the moment they are true. */}
+          {/* **Where the fields came from, when they did not come from the owner.** Three
+              sentences for three states — filled in, nothing published under that ISBN, and
+              the catalogue could not be asked — because they are three different things to do
+              next, and `./identified.ts` is which is which. A form that silently arrived
+              half-filled would be a form the owner has no reason to check. */}
+          {filledIn ? (
+            <p className="mb-4 text-pretty text-sm text-muted-foreground">{filledIn}</p>
+          ) : null}
+
           <form action={catalogue} className="grid gap-4">
-            <Field name="title" label="Title" placeholder="Slam Dunk 1" required />
-            <Field name="publisher" label="Publisher" placeholder="Planet Manga" required />
+            <Field
+              name="title"
+              label="Title"
+              defaultValue={record ?? ""}
+              placeholder="Slam Dunk 1"
+              required
+            />
+            <Field
+              name="publisher"
+              label="Publisher"
+              defaultValue={publishedBy ?? ""}
+              placeholder="Planet Manga"
+              required
+            />
             <Field name="editionLine" label="Edition line" placeholder="DC Must Have" />
 
             <Picker id="catalogue-binding" name="binding" label="Binding" required>
@@ -526,7 +621,17 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             </Picker>
 
             <Field name="language" label="Language" defaultValue="it" required />
-            <Field name="isbn" label="ISBN" placeholder="9788828765431" inputMode="numeric" />
+            {/* Carried from the lookup where there was one, and typed here otherwise — where
+                a printed ISBN's hyphens are refused by the column rather than laundered
+                (`volume_isbn_is_ten_or_thirteen_characters`). The panel that reads a barcode
+                is the lenient door, and what it hands over is already bare digits. */}
+            <Field
+              name="isbn"
+              label="ISBN"
+              defaultValue={scanned ?? ""}
+              placeholder="9788828765431"
+              inputMode="numeric"
+            />
 
             <div>
               <Button type="submit" className="h-11 w-full sm:h-10">
