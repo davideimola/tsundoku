@@ -7,6 +7,7 @@ import {
   THE_STORY_ACT,
   theActsOnTheObject,
   theEditionNoteAct,
+  theSplitAct,
   timesSaid,
   whatTheHouseSays,
   whatTheLookupSaid,
@@ -323,5 +324,41 @@ describe("what writing an ISBN costs", () => {
     // An empty box is not a way to empty the field: that is a different act, and there is no
     // verb for it here.
     expect(said).toContain("records nothing");
+  });
+});
+
+// The sixth act, and the one the screen decides whether to offer. What is asserted is the
+// decision rather than the label: an object with no narrative and an object already holding
+// several are both presses that could never mean anything, and the verb's own refusals — a
+// work other objects carry, a Reading, a Rating — are deliberately *not* second-guessed here.
+describe("splitting an object into the Stories it holds", () => {
+  const carries = (...titles: string[]) =>
+    titles.map((title, at) => ({
+      id: `s${at}`,
+      title,
+      type: { id: "comic", name: "Comic" },
+      latestScore: null,
+    }));
+
+  it("is offered on an object standing for one narrative, which is what the default makes", () => {
+    expect(theSplitAct(carries("Batman: L'uomo che ride"))).toMatchObject({ panel: "split" });
+  });
+
+  it("is not offered where there is nothing to split", () => {
+    expect(theSplitAct([])).toBeNull();
+  });
+
+  it("is not offered on an object that already holds several", () => {
+    expect(theSplitAct(carries("Gotham Noir", "Uomo di legno"))).toBeNull();
+  });
+
+  it("takes an address none of the object's other acts is using", () => {
+    const taken = [
+      ...theActsOnTheObject(volume({ inTheHouse: true })).map((act) => act.panel),
+      theEditionNoteAct(null).panel,
+      THE_STORY_ACT.panel,
+    ];
+
+    expect(taken).not.toContain(theSplitAct(carries("Batman: L'uomo che ride"))?.panel);
   });
 });
