@@ -173,6 +173,7 @@ describe("where a covered range came from", () => {
     type: { id: "manga", name: "Manga" },
     latestScore: null,
     instalments: 20,
+    alsoCarriedElsewhere: false,
   };
 
   it("offers to hand a written range back to the line", () => {

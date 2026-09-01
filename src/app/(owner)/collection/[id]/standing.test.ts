@@ -339,6 +339,8 @@ describe("splitting an object into the Stories it holds", () => {
       type: { id: "comic", name: "Comic" },
       latestScore: null,
       alsoCarriedElsewhere: false,
+      instalments: null,
+      covers: null,
     }));
 
   /** One of twenty tankōbon: the object carries one narrative, and it is not its own. */
