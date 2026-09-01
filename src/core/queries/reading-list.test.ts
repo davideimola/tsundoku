@@ -10,7 +10,7 @@ import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import { openWant } from "../verbs/want.ts";
 import { openWish } from "../verbs/wish.ts";
-import { composeReadingList, type ReadingListEntry } from "./reading-list.ts";
+import { composeReadingList, type ReadingListEntry, theKeyOf } from "./reading-list.ts";
 
 // Seam 1, and **the product** (#1). Everything asserted in this file is a derivation with
 // no row behind it: the two halves of the list, their order, the reasons each row carries,
@@ -58,7 +58,7 @@ describe("what the Reading list composes itself from", () => {
   it("offers every unread stop of an active Path, in the owner's order", async () => {
     await angoloGiappone();
 
-    // Not one stop but the queue behind it: what stands second cannot be pinned before
+    // Not one stop but everything behind it: what stands second cannot be pinned before
     // the owner can see it, and *three Marvel stories and then a DC one* is exactly that
     // (#40).
     expect((await reserve()).map(called)).toEqual(["Vagabond", "Lone Wolf and Cub"]);
@@ -678,6 +678,30 @@ describe("the head the owner pinned", () => {
 
     const { head } = await composeReadingList();
     expect(why(head[0])).toEqual(["want", "path"]);
+  });
+});
+
+// One encoding of a subject, in the core, because both doors key their rows by it and the
+// pin they post names the same thing. A screen with a second encoding is how a press comes
+// to pin the row above.
+describe("what identifies an entry", () => {
+  it("is the Story, or the line and the position, and it is the pin's own subject", async () => {
+    const { stories } = await angoloGiappone();
+    const seriesId = await declareSeries({
+      name: "Death Note",
+      publisher: "Panini",
+      publishedCount: 2,
+      status: "concluded",
+    });
+    await declareSeriesCollected(seriesId);
+
+    const rows = await reserve();
+
+    expect(rows.map((entry) => theKeyOf(entry.subject))).toEqual([
+      `story:${stories[0]}`,
+      `story:${stories[1]}`,
+      `series:${seriesId}#1`,
+    ]);
   });
 });
 

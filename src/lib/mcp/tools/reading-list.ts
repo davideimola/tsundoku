@@ -41,7 +41,7 @@ belongs to no route and carries no order; it falls quiet by itself once a Readin
 so what is here is still wanted. \`because: "path"\` is **a stop on an active Path** — an ordered
 route the owner chose, crossing types and publishers freely — carrying that route, the \`intent\`
 they wrote for it, and \`place\`, which is where the stop stands among what is still to read on it:
-\`1\` is what comes next, and anything higher is the queue behind that. \`because: "series"\` is
+\`1\` is what comes next, and anything higher stands behind it. \`because: "series"\` is
 **the next position of a Series they have decided to collect** that the house has none of; it names
 an object and no Story, because what narrative a Volume carries is a separate fact the ledger does
 not claim to know.

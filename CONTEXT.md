@@ -216,9 +216,12 @@ Story, not a place things are put.
 What to read next, and it is **two halves rather than one list**.
 The **head** is what the owner has pinned, in the order they pinned it. It is short because
 every row in it is a decision, and it is the only place an order means anything.
-The **reserve** is everything else, and it **composes itself** from three sources — the next
-unread Story of every active **Path**, every open **Want**, and the next missing **Volume** of
-every **Series** being collected — rather than being a list kept by hand. It is
+The **reserve** is everything else, and it **composes itself** from three sources — every
+Story still to read on an active **Path**, every open **Want**, and the next missing **Volume**
+of every **Series** being collected — rather than being a list kept by hand. A route
+contributes **everything still ahead on it** and not merely its next stop, because what stands
+behind that stop has to be visible before it can be pinned: that is what makes *three Marvel
+stories and then a DC one* sayable rather than only nameable. It is
 **deliberately unordered**, sorted by a rule nobody maintains (the newest Want first, then the
 Paths, then the Series): a long list somebody has to keep in order is a list that goes stale,
 and the moment an order starts to matter is the moment the owner is already deciding — which

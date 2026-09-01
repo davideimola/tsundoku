@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
 import { Button } from "@/components/ui/button";
-import { composeReadingList, type ReadingListEntry } from "@/core/queries/reading-list";
+import { composeReadingList, type ReadingListEntry, theKeyOf } from "@/core/queries/reading-list";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 // The three steps a shopping list is read in, from the screen that bands by them: this
@@ -12,7 +12,6 @@ import { pin, unpin, unwant, wishFor } from "./actions";
 import {
   entryDetail,
   entryFoot,
-  entryKey,
   entryLeadsTo,
   entryLine,
   entryStanding,
@@ -151,7 +150,7 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
             ) : (
               <ol>
                 {head.map((entry, place) => (
-                  <Entry key={entryKey(entry)} entry={entry} place={place + 1} pinned />
+                  <Entry key={theKeyOf(entry.subject)} entry={entry} place={place + 1} pinned />
                 ))}
               </ol>
             )}
@@ -171,7 +170,7 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
             ) : (
               <ul>
                 {reserve.map((entry) => (
-                  <Entry key={entryKey(entry)} entry={entry} pinned={false} />
+                  <Entry key={theKeyOf(entry.subject)} entry={entry} pinned={false} />
                 ))}
               </ul>
             )}
@@ -359,11 +358,11 @@ function Entry({
             <form action={wishFor} className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="volumeId" value={entry.proposedWish.volumeId} />
               <input type="hidden" name="title" value={entryTitle(entry)} />
-              <label className="sr-only" htmlFor={`priority-${entryKey(entry)}`}>
+              <label className="sr-only" htmlFor={`priority-${theKeyOf(entry.subject)}`}>
                 How soon
               </label>
               <select
-                id={`priority-${entryKey(entry)}`}
+                id={`priority-${theKeyOf(entry.subject)}`}
                 name="priority"
                 defaultValue={entry.proposedWish.priority}
                 className={PICKER}

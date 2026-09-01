@@ -5,7 +5,6 @@ import type { ReadingListEntry, ReadingListReason } from "@/core/queries/reading
 import {
   entryDetail,
   entryFoot,
-  entryKey,
   entryLeadsTo,
   entryLine,
   entryStanding,
@@ -108,7 +107,7 @@ describe("what an entry is called", () => {
 
 // **One row says every reason it is there** (#40), so each reason is worded on its own and
 // the row is the list of them. A route's stop says where it stands in what is left of that
-// route, because the queue behind the next stop is what the owner pins out of.
+// route, because what stands behind the next stop is what the owner pins out of.
 describe("why a row is on the list", () => {
   it("says the Want in the owner's own words, naming nothing to open", () => {
     expect(reasonSaid(reason({ because: "want", want: { id: "a-want", openedAt: "" } }))).toEqual({
@@ -156,16 +155,6 @@ describe("the line that decides whether it can be started tonight", () => {
     expect(entryStanding(entry({ atHand: false, wishAlreadyOpen: true }))).toBe(
       "paper · already on the shopping list"
     );
-  });
-});
-
-// The key and the pin's subject are one value, deliberately: a screen keying its rows one
-// way while the verb it posts to names them another is how a press comes to pin the row
-// above.
-describe("what identifies a row", () => {
-  it("is the Story, or the line and the position", () => {
-    expect(entryKey(storyEntry())).toBe("story:a-story");
-    expect(entryKey(seriesEntry())).toBe("series:a-series#4");
   });
 });
 

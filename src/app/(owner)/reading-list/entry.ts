@@ -71,8 +71,8 @@ export function entryStanding(entry: ReadingListEntry): string {
  * one row for all of them.
  *
  * A route's stop is worded by where it stands among what is still to read on that route:
- * *next* is the one the route is offering, and anything further back is the queue the owner
- * can pin out of order, which is the whole of *three Marvel stories and then a DC one*.
+ * *next* is the one the route is offering, and anything further back is what stands behind it,
+ * which the owner can pin out of order — the whole of *three Marvel stories and then a DC one*.
  */
 export function reasonSaid(reason: ReadingListReason): ReasonSaid {
   if (reason.want) return { said: "I said I want to read it", names: null };
@@ -131,18 +131,10 @@ function ordinal(place: number): string {
   }
 }
 
-/**
- * An entry's identity, which is **its subject written down** — the Story, or the position of
- * the Series.
- *
- * The same value a pin names, deliberately: a screen keying its rows one way while the verb
- * it posts to names them another is how a press comes to pin the row above.
- */
-export function entryKey(entry: ReadingListEntry): string {
-  return entry.subject.kind === "story"
-    ? `story:${entry.subject.id}`
-    : `series:${entry.subject.id}#${entry.subject.position}`;
-}
+// **What identifies a row is not here, and that is deliberate**: it is `theKeyOf` in
+// `@/core/queries/reading-list`, because the same value is what a pin names. A screen keying
+// its rows one way while the verb it posts to names them another is how a press comes to pin
+// the row above, so the encoding is the core's and both doors spend it.
 
 /**
  * Where the tile beside an entry leads — **to the thing the entry is about**, which is not

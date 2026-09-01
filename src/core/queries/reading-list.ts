@@ -5,7 +5,7 @@ import type { PinnedSubject } from "../verbs/reading-list.ts";
 import type { ProposedWish } from "../verbs/wish.ts";
 import { IN_THE_HOUSE } from "./collection.ts";
 import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
-import { type PathStop, theQueueOnActivePaths } from "./path.ts";
+import { type PathStop, stillAheadOnActivePaths } from "./path.ts";
 import { listMissingVolumes, type SeriesLedger } from "./series.ts";
 import type { StoryType } from "./story.ts";
 import { listOpenWants } from "./want.ts";
@@ -34,7 +34,7 @@ import { listOpenWants } from "./want.ts";
 //     saying *I want to read this*, which used to cost a named, ordered route and now costs
 //     one row (#35). A Want that has fallen quiet is absent from it, and it fell quiet by
 //     comparison rather than by anything being written;
-//   - **the queue behind every active Path**, which is `theQueueOnActivePaths` from
+//   - **everything still ahead on every active Path**, which is `stillAheadOnActivePaths` from
 //     `queries/path.ts` — every stop still to read, in the owner's order, and not merely the
 //     next one. That is what makes *three Marvel stories and then a DC one* expressible at
 //     all: what stands behind the next stop has to be visible before it can be pinned (#40).
@@ -100,7 +100,7 @@ export type ReadingListRoute = {
   intent: string | null;
   /**
    * Where this stop stands among the route's **unread** stops, counted from one. `1` is what
-   * comes next on it; anything higher is the queue behind that, which is there to be pinned.
+   * comes next on it; anything higher stands behind that, and is there to be pinned.
    */
   place: number;
 };
@@ -248,9 +248,9 @@ export async function composeReadingList(): Promise<ReadingList> {
   // three derivations already exist, tested, in `queries/want.ts`, `queries/path.ts` and
   // `queries/series.ts` (#35, #9, #7), and re-deriving any of them here to save a round trip
   // would be keeping a second answer to a question that has one.
-  const [wanted, queues, incomplete, pins] = await Promise.all([
+  const [wanted, routes, incomplete, pins] = await Promise.all([
     listOpenWants(),
-    theQueueOnActivePaths(),
+    stillAheadOnActivePaths(),
     listMissingVolumes(),
     pinnedSubjects(),
   ]);
@@ -259,13 +259,6 @@ export async function composeReadingList(): Promise<ReadingList> {
   // Map keeps insertion order, so the rule nobody maintains — newest Want, then the routes,
   // then the ledger — is the order the three loops below run in and is written nowhere else.
   const rows = new Map<string, Row>();
-
-  const reason = (said: Partial<ReadingListReason> & Pick<ReadingListReason, "because">) => ({
-    want: null,
-    path: null,
-    series: null,
-    ...said,
-  });
 
   // **The Wants lead**, newest first, because a Want is the last thing the owner said and
   // has not acted on. Nothing else about one is an order: it has no priority and no place.
@@ -278,8 +271,8 @@ export async function composeReadingList(): Promise<ReadingList> {
   // Then the routes, in the owner's order of routes, and each route's stops in its own
   // order — **all of them and not only the next**, so what stands behind the next stop is
   // there to be pinned.
-  for (const queue of queues) {
-    queue.ahead.forEach((stop: PathStop, ahead: number) => {
+  for (const route of routes) {
+    route.ahead.forEach((stop: PathStop, ahead: number) => {
       row(
         rows,
         { kind: "story", id: stop.storyId },
@@ -288,7 +281,7 @@ export async function composeReadingList(): Promise<ReadingList> {
           title: stop.title,
           type: stop.type,
         }
-      ).reasons.push(reason({ because: "path", path: { ...queue.path, place: ahead + 1 } }));
+      ).reasons.push(reason({ because: "path", path: { ...route.path, place: ahead + 1 } }));
     });
   }
 
@@ -334,7 +327,7 @@ export async function composeReadingList(): Promise<ReadingList> {
         ? carriers.get(draft.subject.id)
         : positions.get(at(draft.subject.id, draft.subject.position));
 
-    entries.set(key(draft.subject), {
+    entries.set(theKeyOf(draft.subject), {
       subject: draft.subject,
       reasons: draft.reasons,
       story: draft.story,
@@ -342,20 +335,33 @@ export async function composeReadingList(): Promise<ReadingList> {
     });
   }
 
-  const pinned = new Set(pins.map(key));
+  const pinned = new Set(pins.map(theKeyOf));
 
   return {
     // **The head is the pins, in pin order.** A pin cannot introduce an entry, so a pin on
     // something no source names any more — a Story since read, a line the owner stopped
     // collecting — contributes nothing and simply waits.
     head: pins.flatMap((subject) => {
-      const entry = entries.get(key(subject));
+      const entry = entries.get(theKeyOf(subject));
       return entry ? [entry] : [];
     }),
     // **The reserve is everything else**, in the order it composed, and nothing sorts it
     // further.
     reserve: [...entries].flatMap(([id, entry]) => (pinned.has(id) ? [] : [entry])),
   };
+}
+
+/**
+ * One reason, with the two halves it does not fill said out loud.
+ *
+ * The nulls are stated rather than left off because the shape is what both doors read: an
+ * assistant asking `reason.series` of a Want gets `null` and not `undefined`, which is the
+ * difference between *there is none* and *this answer has been trimmed*.
+ */
+function reason(
+  said: Partial<ReadingListReason> & Pick<ReadingListReason, "because">
+): ReadingListReason {
+  return { want: null, path: null, series: null, ...said };
 }
 
 /** A row being built: what it is about, and the reasons gathered for it so far. */
@@ -371,16 +377,22 @@ function row(
   subject: PinnedSubject,
   story: { id: string; title: string; type: StoryType } | null
 ): Row {
-  const found = rows.get(key(subject));
+  const found = rows.get(theKeyOf(subject));
   if (found) return found;
 
   const made: Row = { subject, story, reasons: [] };
-  rows.set(key(subject), made);
+  rows.set(theKeyOf(subject), made);
   return made;
 }
 
-/** One entry's identity, which is its subject written down. */
-function key(subject: PinnedSubject): string {
+/**
+ * **One entry's identity, which is its subject written down** — and the core's rather than a
+ * screen's, because both doors key rows by it and the verb they post to names the same thing.
+ *
+ * A screen keying its rows one way while the pin it posts names them another is how a press
+ * comes to pin the row above, so there is one encoding and it is here.
+ */
+export function theKeyOf(subject: PinnedSubject): string {
   return subject.kind === "story"
     ? `story:${subject.id}`
     : `series:${subject.id}#${subject.position}`;
@@ -524,11 +536,17 @@ async function pinnedSubjects(): Promise<PinnedSubject[]> {
       order by pinned_at desc, coalesce(story_id, series_id), series_position`
   );
 
-  return rows.map((row) =>
-    row.storyId
-      ? { kind: "story", id: row.storyId }
-      : { kind: "series", id: row.seriesId ?? "", position: row.position ?? 0 }
-  );
+  // Every row is one subject or the other and the schema is what says so, which is why
+  // neither branch invents a value for the half it did not get: a row that were somehow
+  // neither is not a pin on anything, and it contributes no entry rather than a pin on the
+  // empty string.
+  return rows.flatMap<PinnedSubject>((row) => {
+    if (row.storyId) return [{ kind: "story", id: row.storyId }];
+    if (row.seriesId && row.position !== null) {
+      return [{ kind: "series", id: row.seriesId, position: row.position }];
+    }
+    return [];
+  });
 }
 
 /** One Series' position, as the key of the map below. */

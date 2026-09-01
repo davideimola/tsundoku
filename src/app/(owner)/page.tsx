@@ -3,11 +3,11 @@ import { Cover } from "@/components/cover";
 import { Pile } from "@/components/pile";
 import { countWaitingInboxEntries } from "@/core/queries/inbox";
 import { type Covered, libraryInFigures, thePile, unrecorded, whole } from "@/core/queries/library";
-import { composeReadingList, type ReadingListEntry } from "@/core/queries/reading-list";
+import { composeReadingList, type ReadingListEntry, theKeyOf } from "@/core/queries/reading-list";
 import { listStoryWall } from "@/core/queries/story";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { entryKey, entryStanding, entryTitle } from "./reading-list/entry";
+import { entryStanding, entryTitle } from "./reading-list/entry";
 import { storyDetail } from "./stories/story-state";
 
 // THE DASHBOARD. For eleven slices this page listed the five Types, which is what a walking
@@ -150,7 +150,7 @@ export default async function Home() {
             ) : (
               <ol>
                 {next.map((entry, place) => (
-                  <NextEntry key={entryKey(entry)} entry={entry} place={place + 1} />
+                  <NextEntry key={theKeyOf(entry.subject)} entry={entry} place={place + 1} />
                 ))}
               </ol>
             )}

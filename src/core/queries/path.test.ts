@@ -19,7 +19,7 @@ import {
   listStoriesNotOnPath,
   nextUnreadOnActivePaths,
   nextUnreadOnPath,
-  theQueueOnActivePaths,
+  stillAheadOnActivePaths,
 } from "./path.ts";
 
 // Seam 1, the read side. This is the surface both doors read — the screen and, once #4
@@ -249,7 +249,7 @@ describe("what comes next on every active Path", () => {
   });
 });
 
-describe("the queue behind every active Path", () => {
+describe("everything still ahead on every active Path", () => {
   it("is every stop still to read, in the owner's order and not just the next one", async () => {
     const { stories } = await angoloGiappone();
     await finishReading(
@@ -257,12 +257,12 @@ describe("the queue behind every active Path", () => {
       "2024-02-02"
     );
 
-    const [queue] = await theQueueOnActivePaths();
+    const [route] = await stillAheadOnActivePaths();
 
     // What stands behind the next stop has to be visible before the owner can pin it,
     // which is what the Reading list's head is for (#40).
-    expect(queue.path.name).toBe("Angolo Giappone");
-    expect(titles(queue.ahead)).toEqual(["Lone Wolf and Cub", "Musashi"]);
+    expect(route.path.name).toBe("Angolo Giappone");
+    expect(titles(route.ahead)).toEqual(["Lone Wolf and Cub", "Musashi"]);
   });
 
   it("keeps the routes in the owner's order of routes", async () => {
@@ -272,7 +272,7 @@ describe("the queue behind every active Path", () => {
       await createStory({ title: "Batman: Anno Uno", typeId: "comic" }),
     ]);
 
-    expect((await theQueueOnActivePaths()).map((queue) => queue.path.name)).toEqual([
+    expect((await stillAheadOnActivePaths()).map((route) => route.path.name)).toEqual([
       "Angolo Giappone",
       "Recupero Batman",
     ]);
@@ -289,7 +289,7 @@ describe("the queue behind every active Path", () => {
       "2024-02-02"
     );
 
-    expect(await theQueueOnActivePaths()).toEqual([]);
+    expect(await stillAheadOnActivePaths()).toEqual([]);
   });
 });
 
