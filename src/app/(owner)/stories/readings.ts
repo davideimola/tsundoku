@@ -1,4 +1,4 @@
-import type { StoryReading } from "@/core/queries/story";
+import type { HowFarItGot, StoryReading } from "@/core/queries/story";
 
 // HOW A READING IS SAID, and the one predicate the acts on a Story's page hang off.
 //
@@ -70,6 +70,28 @@ export function whenItHappened(reading: StoryReading): string {
  */
 export function readingNow(reading: StoryReading): string {
   return reading.startedOn ? `Reading it since ${reading.startedOn}.` : "Reading it now.";
+}
+
+/**
+ * *Seven of twenty*, in the fewest words that are still a fraction.
+ *
+ * The screen's own wording rather than the core's, for the reason everything else in this
+ * file is: the count and the pass are two facts the query hands over, and how they are said
+ * to the owner is the page's. It is a fraction rather than a percentage because the units are
+ * the work's own — *seven of twenty* is a place in a book, and *35%* is a progress bar.
+ */
+export function howFarItGot(far: HowFarItGot): string {
+  return `${far.atInstalment} of ${far.instalments}`;
+}
+
+/**
+ * What one Instalment of a work is called on screen, singular or plural.
+ *
+ * A count with no noun beside it reads as a volume count on a page full of objects, which is
+ * the one thing an Instalment is not: it belongs to the narrative and never to a printing.
+ */
+export function instalments(howMany: number): string {
+  return `${howMany} ${howMany === 1 ? "Instalment" : "Instalments"}`;
 }
 
 /**

@@ -75,6 +75,7 @@ const FIELD: Record<ProposalField, { label: string; one: string; many: string }>
   isbn: { label: "ISBN", one: "ISBN", many: "ISBNs" },
   publishedCount: { label: "Volumes published", one: "published count", many: "published counts" },
   status: { label: "Status", one: "status", many: "statuses" },
+  instalments: { label: "Instalments", one: "Instalment count", many: "Instalment counts" },
 };
 
 /**

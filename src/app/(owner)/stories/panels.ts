@@ -34,6 +34,18 @@ export const NOTHING_ON_IT = "nothing-on-it";
 export const STRIKE = "strike";
 
 /**
+ * Saying how many **Instalments** a Story has, and where a pass got to in them (#37).
+ *
+ * Here for `STRIKE`'s reason: each is spelled by the page that opens the drawer and again by
+ * `[id]/actions.ts`, which reopens it to print a refusal inside it — and both of these acts
+ * are genuinely refusable, by Postgres rather than by anything the screen could foresee. A
+ * work cannot be made shorter than what a pass has read of it, and a pass cannot stand past
+ * the end of the work, so the sentence has to come back to the field it is about.
+ */
+export const SERIALIZE = "instalments";
+export const REACHED = "at";
+
+/**
  * What the owner has narrowed the *wall* to, in the order the controls stand in.
  *
  * `page.tsx` puts these in the form as hidden fields and `actions.ts` reads them back off it,

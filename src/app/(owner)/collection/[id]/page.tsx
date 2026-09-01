@@ -15,13 +15,14 @@ import {
 } from "@/core/queries/collection";
 import { type EditionNote, findEditionNote } from "@/core/queries/edition-note";
 import { listStories } from "@/core/queries/story";
-import { listStoriesInVolume } from "@/core/queries/story-to-volume";
+import { type CarriedStory, listStoriesInVolume } from "@/core/queries/story-to-volume";
 import { listTypes } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import {
   acquire,
   carry,
+  coverInstalments,
   forgetCover,
   lookUpCover,
   recordIsbn,
@@ -128,6 +129,12 @@ function panelled(volumeId: string, panel: Panel): string {
 // its select is a scripted component and every control here has to work with nothing running.
 const PICKER =
   "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:h-10 md:text-sm dark:bg-input/30";
+
+// The same look at the size a number wants: two boxes standing in a sentence rather than a
+// field filling a column, which is what an Instalment range is — *1 to 35*, read left to
+// right, beside the Story it is about.
+const NUMBER =
+  "h-9 rounded-lg border border-input bg-transparent px-2 text-center font-mono text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 export default async function VolumePage({
   params,
@@ -341,42 +348,50 @@ export default async function VolumePage({
             ) : (
               <ul className="-my-1">
                 {carried.map((story) => (
-                  <li
-                    key={story.id}
-                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-border py-3 first:border-t-0"
-                  >
-                    <Link
-                      href={`/stories/${story.id}`}
-                      className="min-w-0 flex-1 basis-full outline-none focus-visible:ring-2 focus-visible:ring-ring sm:basis-auto"
-                    >
-                      <span className="font-heading underline decoration-border underline-offset-4 hover:decoration-foreground">
-                        {story.title}
-                      </span>{" "}
-                      <span className="whitespace-nowrap font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-                        {story.type.name}
-                      </span>
-                    </Link>
+                  <li key={story.id} className="border-t border-border py-3 first:border-t-0">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                      <Link
+                        href={`/stories/${story.id}`}
+                        className="min-w-0 flex-1 basis-full outline-none focus-visible:ring-2 focus-visible:ring-ring sm:basis-auto"
+                      >
+                        <span className="font-heading underline decoration-border underline-offset-4 hover:decoration-foreground">
+                          {story.title}
+                        </span>{" "}
+                        <span className="whitespace-nowrap font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                          {story.type.name}
+                        </span>
+                      </Link>
 
-                    <span className="flex items-baseline gap-3">
-                      {/* Tabular, so three judgements of three narratives in one object line
+                      <span className="flex items-baseline gap-3">
+                        {/* Tabular, so three judgements of three narratives in one object line
                           up under each other and read as the three different numbers they
                           are. An em dash where the owner has judged nothing yet. */}
-                      <span className="w-10 text-right font-mono text-xs tabular-nums text-muted-foreground">
-                        {story.latestScore === null ? "—" : story.latestScore.toFixed(1)}
+                        <span className="w-10 text-right font-mono text-xs tabular-nums text-muted-foreground">
+                          {story.latestScore === null ? "—" : story.latestScore.toFixed(1)}
+                        </span>
+                        <form action={stopCarrying}>
+                          <input type="hidden" name="volumeId" value={volume.id} />
+                          <input type="hidden" name="storyId" value={story.id} />
+                          <Button
+                            type="submit"
+                            variant="ghost"
+                            size="sm"
+                            className="-mr-2.5 h-8 text-xs text-muted-foreground"
+                          >
+                            Not in here
+                          </Button>
+                        </form>
                       </span>
-                      <form action={stopCarrying}>
-                        <input type="hidden" name="volumeId" value={volume.id} />
-                        <input type="hidden" name="storyId" value={story.id} />
-                        <Button
-                          type="submit"
-                          variant="ghost"
-                          size="sm"
-                          className="-mr-2.5 h-8 text-xs text-muted-foreground"
-                        >
-                          Not in here
-                        </Button>
-                      </form>
-                    </span>
+                    </div>
+
+                    {/* **What of the work is in this object**, and only where the work is
+                        numbered at all — which is the minority of Stories and none of the
+                        three in *L'uomo che ride*. Left to itself the range follows the
+                        object's position in its line, so the boxes stand empty for every
+                        tankōbon and are typed for the omnibus they exist for. */}
+                    {story.instalments === null ? null : (
+                      <CoveredRange volumeId={volume.id} story={story} />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -638,6 +653,77 @@ export default async function VolumePage({
         </Drawer>
       ) : null}
     </main>
+  );
+}
+
+/**
+ * Which Instalments of one Story are inside this object.
+ *
+ * **The default is the whole reason Instalments cost nothing**: where a line prints one part
+ * per Volume the range follows the volumes, so this reads back *follows the line* and the
+ * owner types nothing. The omnibus is what the boxes are for — one object collecting
+ * thirty-five parts of a work — and emptying them hands the answer back to the line.
+ *
+ * A correction made while reading the list above it rather than a form the owner opened, so
+ * it is inline and not a drawer — the same judgement the Story picker under this list is made
+ * on.
+ */
+function CoveredRange({ volumeId, story }: { volumeId: string; story: CarriedStory }) {
+  const covers = story.covers;
+
+  return (
+    <form
+      action={coverInstalments}
+      className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5"
+    >
+      <input type="hidden" name="volumeId" value={volumeId} />
+      <input type="hidden" name="storyId" value={story.id} />
+
+      <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+        Instalments
+      </span>
+      <label className="sr-only" htmlFor={`covers-from-${story.id}`}>
+        First Instalment of {story.title} in this object
+      </label>
+      <input
+        id={`covers-from-${story.id}`}
+        name="coversFrom"
+        type="number"
+        min={1}
+        max={story.instalments ?? undefined}
+        step={1}
+        inputMode="numeric"
+        defaultValue={covers?.written ? covers.from : ""}
+        placeholder={covers ? String(covers.from) : "1"}
+        className={`${NUMBER} w-16`}
+      />
+      <span className="text-sm text-muted-foreground">to</span>
+      <label className="sr-only" htmlFor={`covers-to-${story.id}`}>
+        Last Instalment of {story.title} in this object
+      </label>
+      <input
+        id={`covers-to-${story.id}`}
+        name="coversTo"
+        type="number"
+        min={1}
+        max={story.instalments ?? undefined}
+        step={1}
+        inputMode="numeric"
+        defaultValue={covers?.written ? covers.to : ""}
+        placeholder={covers ? String(covers.to) : String(story.instalments)}
+        className={`${NUMBER} w-16`}
+      />
+      <Button type="submit" variant="ghost" size="sm" className="h-8 text-xs">
+        Record it
+      </Button>
+      <span className="basis-full text-xs text-muted-foreground">
+        {covers?.written
+          ? `Of ${story.instalments}. Empty both to follow this object's place in its line again.`
+          : covers
+            ? `Empty, so it follows this object's place in its line: ${covers.from} of ${story.instalments}.`
+            : `Of ${story.instalments}. Empty until you say so, and this object stands in no line to follow.`}
+      </span>
+    </form>
   );
 }
 

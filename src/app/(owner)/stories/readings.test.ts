@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { StoryReading } from "@/core/queries/story";
 
 import {
+  howFarItGot,
   howItWent,
+  instalments,
   readingNow,
   SCORES,
   stillOpen,
@@ -28,6 +30,7 @@ function reading(said: Partial<StoryReading> = {}): StoryReading {
     id: "a-reading",
     medium: "paper",
     outcome: "finished",
+    atInstalment: null,
     startedOn: null,
     endedOn: null,
     provenance: { id: "remembered", name: "Remembered" },
@@ -125,5 +128,27 @@ describe("the scores the picker offers", () => {
     expect(SCORES).toHaveLength(19);
     expect(SCORES).toContain(8.5);
     expect(SCORES).not.toContain(0);
+  });
+});
+
+// *Seven of twenty*: the words a serialized run is read in. The two numbers are the core's
+// and the fraction is the screen's, which is the same split every other function here is on.
+describe("how far a pass got", () => {
+  it("is a fraction in the work's own units", () => {
+    expect(howFarItGot({ atInstalment: 7, instalments: 20 })).toBe("7 of 20");
+  });
+
+  it("says nought rather than nothing where the pass has finished none", () => {
+    expect(howFarItGot({ atInstalment: 0, instalments: 20 })).toBe("0 of 20");
+  });
+});
+
+describe("the count of Instalments", () => {
+  it("carries the noun, so a number on a page of objects is not read as volumes", () => {
+    expect(instalments(20)).toBe("20 Instalments");
+  });
+
+  it("says one of them in the singular", () => {
+    expect(instalments(1)).toBe("1 Instalment");
   });
 });

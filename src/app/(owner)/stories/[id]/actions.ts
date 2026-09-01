@@ -5,11 +5,17 @@ import { redirect } from "next/navigation";
 import { FIRST_HAND } from "@/core/queries/provenance";
 import { isRefusal } from "@/core/refusal";
 import { setRating } from "@/core/verbs/rating";
-import { abandonReading, finishReading, type Medium, recordReading } from "@/core/verbs/reading";
-import { strikeStories } from "@/core/verbs/story";
+import {
+  abandonReading,
+  finishReading,
+  type Medium,
+  recordInstalmentReached,
+  recordReading,
+} from "@/core/verbs/reading";
+import { declareInstalments, strikeStories } from "@/core/verbs/story";
 import { recordVolumeCarriesStory } from "@/core/verbs/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
-import { STRIKE } from "../panels";
+import { REACHED, SERIALIZE, STRIKE } from "../panels";
 
 // The writes on a Story's page, and **#29 is where the web stopped being a read-only view of
 // the thing it exists to record**. The assistant could already say *I've started the Batman
@@ -56,7 +62,12 @@ function text(form: FormData, field: string): string | null {
  *
  * Anything that is not a refusal is a bug rather than an answer and stays unhandled.
  */
-async function saying(storyId: string, work: () => Promise<unknown>): Promise<never> {
+async function saying(
+  storyId: string,
+  work: () => Promise<unknown>,
+  panel?: string,
+  reading?: string
+): Promise<never> {
   let said: URLSearchParams | undefined;
 
   try {
@@ -64,6 +75,13 @@ async function saying(storyId: string, work: () => Promise<unknown>): Promise<ne
   } catch (error) {
     if (!isRefusal(error)) throw error;
     said = new URLSearchParams({ refused: error.message });
+    // **A refused write comes back with its panel open**, carrying the verb's prose into the
+    // panel rather than printing it on the page behind (the drawer covers that page): the
+    // sentence is about what was typed, so it is only useful beside the field it is about.
+    // The acts that pass none are the ones whose refusals are about the record rather than
+    // about a field — they are read on the page, where the record is.
+    if (panel) said.set("panel", panel);
+    if (reading) said.set("reading", reading);
   }
 
   revalidatePath(`/stories/${storyId}`);
@@ -143,6 +161,54 @@ export async function rate(form: FormData): Promise<void> {
       prose: text(form, "prose"),
       provenanceId: FIRST_HAND,
     })
+  );
+}
+
+/**
+ * A whole number the owner typed, or `null` where the box was left empty.
+ *
+ * `Number(null)` is `0`, and nought is a *count* this model refuses rather than an absence —
+ * so an empty box is carried through as nothing at all and the verb reads it as *stop
+ * counting*. Anything that is not a number is handed on as `NaN`, which the verb refuses in
+ * its own prose rather than this door deciding what the owner meant.
+ */
+function counted(form: FormData, field: string): number | null {
+  const said = text(form, field);
+  return said === null ? null : Number(said);
+}
+
+/**
+ * **Say how many Instalments the work has**, or take the numbering off it again.
+ *
+ * A fact about the narrative and never about a printing, which is why it is written here and
+ * on no object's page: the omnibus and the tankōbon carrying one work carry the same twenty.
+ * It is refused while a pass has read further than the number given, and the sentence comes
+ * back into the panel it was typed in.
+ */
+export async function serialize(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  await saying(storyId, () => declareInstalments(storyId, counted(form, "instalments")), SERIALIZE);
+}
+
+/**
+ * **Say where this pass got to.** It is written on the Reading and never on the Story: how
+ * far you are is a fact about an act, so a reread starts again at nothing and the pass before
+ * it keeps the number it ended on.
+ */
+export async function sayWhereIGotTo(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+  const readingId = text(form, "readingId") ?? "";
+
+  await saying(
+    storyId,
+    () => recordInstalmentReached(readingId, counted(form, "atInstalment")),
+    REACHED,
+    readingId
   );
 }
 
