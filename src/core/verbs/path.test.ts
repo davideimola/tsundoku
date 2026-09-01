@@ -14,8 +14,11 @@ import {
   removeStoryFromPath,
   renamePath,
   restatePathIntent,
+  strikePath,
   withdrawConstraint,
 } from "./path.ts";
+import { setRating } from "./rating.ts";
+import { recordReading } from "./reading.ts";
 import { createStory } from "./story.ts";
 
 // Seam 1, the write side of a Path. What is asserted here is the owner's judgement
@@ -576,6 +579,88 @@ describe("declaring a constraint", () => {
 
     const left = await query<{ prose: string }>("select prose from declared_constraint");
     expect(left.map((row) => row.prose)).toEqual(["don't accumulate too many unread books"]);
+  });
+});
+
+describe("striking a Path", () => {
+  it("removes the route with its stops and the constraints declared on it", async () => {
+    const pathId = await definePath({ name: "Slam Dunk", intent: "hand-copied to get it read" });
+    const stories = await batmanStories();
+    await placeStoriesOnPath(pathId, stories);
+    await declareConstraint({ pathId, prose: "take it slowly, given the cost" });
+    await declareConstraint({ prose: "don't accumulate too many unread books" });
+
+    await strikePath(pathId);
+
+    expect(await findPath(pathId)).toBeNull();
+    expect(await query("select 1 from path_item where path_id = $1", [pathId])).toEqual([]);
+    const left = await query<{ prose: string }>("select prose from declared_constraint");
+    expect(left.map((row) => row.prose)).toEqual(["don't accumulate too many unread books"]);
+  });
+
+  it("leaves every Story, Reading and Rating the route named exactly as it was", async () => {
+    const pathId = await definePath({ name: "Slam Dunk" });
+    const [storyId] = await batmanStories();
+    await placeStoriesOnPath(pathId, [storyId]);
+    const readingId = await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+      outcome: "finished",
+    });
+    const ratingId = await setRating({ storyId, score: 9, provenanceId: "remembered", readingId });
+
+    await strikePath(pathId);
+
+    expect(await query("select 1 from story where id = $1", [storyId])).toEqual([
+      { "?column?": 1 },
+    ]);
+    const [reading] = await query<{ outcome: string }>(
+      "select outcome from reading where id = $1",
+      [readingId]
+    );
+    expect(reading.outcome).toBe("finished");
+    const [rating] = await query<{ score: string }>(
+      "select score::text from rating where id = $1",
+      [ratingId]
+    );
+    expect(rating.score).toBe("9");
+  });
+
+  it("frees the name it held, so the same route can be defined again", async () => {
+    const pathId = await definePath({ name: "Slam Dunk" });
+
+    await expect(definePath({ name: "Slam Dunk" })).rejects.toMatchObject({
+      code: "already-exists",
+    });
+
+    await strikePath(pathId);
+
+    const again = await definePath({ name: "Slam Dunk" });
+    expect(again).not.toBe(pathId);
+  });
+
+  it("is a different act from putting the route aside, which keeps it whole", async () => {
+    const pathId = await definePath({ name: "Angolo Giappone" });
+    const [storyId] = await batmanStories();
+    await placeStoriesOnPath(pathId, [storyId]);
+
+    await deactivatePath(pathId);
+
+    const aside = await findPath(pathId);
+    expect(aside?.active).toBe(false);
+    expect(aside?.stops.map((stop) => stop.title)).toEqual(["Batman: Anno Uno"]);
+  });
+
+  it("says so in words when there is no such route, and refuses an id no row could have", async () => {
+    await expect(strikePath("00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({
+      code: "not-found",
+      message: "That Path is not in the library.",
+    });
+    await expect(strikePath("banana")).rejects.toMatchObject({
+      code: "not-found",
+      message: "That Path is not in the library.",
+    });
   });
 });
 

@@ -65,6 +65,9 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
 
   const refused = asked(params, "refused");
   const defined = asked(params, "defined");
+  // What was just struck, named here because the page that would have said it is gone: a
+  // route unmade answers on the screen the owner lands on, or it answers nowhere.
+  const struck = asked(params, "struck");
   const panel = asked(params, "panel") === DEFINING_A_PATH ? DEFINING_A_PATH : undefined;
   const active = paths.filter((path) => path.active);
   const aside = paths.filter((path) => !path.active);
@@ -99,6 +102,12 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
       {defined ? (
         <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
           {defined} is a Path. Put Stories on it in the order you mean to read them.
+        </p>
+      ) : null}
+      {struck ? (
+        <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
+          {struck} is no longer a route. Its stops and anything declared on it went with it;
+          everything you read, judged and catalogued is where it was.
         </p>
       ) : null}
 

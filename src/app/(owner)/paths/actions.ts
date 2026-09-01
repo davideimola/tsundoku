@@ -15,10 +15,16 @@ import {
   removeStoryFromPath,
   renamePath,
   restatePathIntent,
+  strikePath,
   withdrawConstraint,
 } from "@/core/verbs/path";
 import { requireOwner } from "@/lib/auth/owner";
-import { DEFINING_A_PATH, NAMING_A_ROUTE, SAYING_WHAT_A_ROUTE_IS_FOR } from "./acts";
+import {
+  DEFINING_A_PATH,
+  NAMING_A_ROUTE,
+  SAYING_WHAT_A_ROUTE_IS_FOR,
+  STRIKING_A_ROUTE,
+} from "./acts";
 
 // The write side of the Paths screens, and a thin adapter like the pages beside it
 // (ADR-0002): each function reads a form, calls one verb, and carries back what the verb
@@ -124,6 +130,42 @@ export async function setActive(form: FormData): Promise<void> {
   const wanted = text(form, "active") === "true";
 
   await saying(form, () => (wanted ? activatePath(pathId) : deactivatePath(pathId)));
+}
+
+/**
+ * **Strike the route: the one act on that page that leaves nothing to come back to.**
+ *
+ * It cannot go through `saying` above, and the reason is the whole of this function: every
+ * other act on this screen answers with the route, redrawn. This one unmakes the page it was
+ * pressed on, so a redirect back to it would be the screen answering with a 404 instead of
+ * saying what it just did. Struck, the owner lands on `/paths` with the name in the address —
+ * the route is gone and the sentence naming it is the only place it still exists. Refused, they
+ * come back to the route with the panel standing open over it, because the sentence is about
+ * the thing on the screen behind it.
+ *
+ * Nothing refuses this today (`@/core/verbs/path`) beyond a route that is not there — but the
+ * refusal path is written all the same, because a verb's prose is the adapter's to carry
+ * whether or not it is currently reachable.
+ */
+export async function strike(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const pathId = text(form, "pathId") ?? "";
+  const name = text(form, "name") ?? "";
+
+  try {
+    await strikePath(pathId);
+  } catch (error) {
+    // Anything that is not a refusal is a bug rather than an answer and stays unhandled.
+    if (!isRefusal(error)) throw error;
+    revalidatePath(`/paths/${pathId}`);
+    redirect(
+      `/paths/${pathId}?${new URLSearchParams({ panel: STRIKING_A_ROUTE, refused: error.message })}`
+    );
+  }
+
+  revalidatePath("/paths");
+  redirect(`/paths?${new URLSearchParams({ struck: name })}`);
 }
 
 /**

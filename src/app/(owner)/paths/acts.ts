@@ -20,10 +20,24 @@ export const NAMING_A_ROUTE = "name";
 export const SAYING_WHAT_A_ROUTE_IS_FOR = "intent";
 
 /**
+ * **Striking the route**: the one act on that page that leaves nothing to come back to.
+ *
+ * Named here for the reason the other two are, and with the Story's own extra one
+ * (`../stories/panels.ts`): this panel's form posts a destructive act, so a name spelled one
+ * way in the page and another in `actions.ts` is a refusal coming back to a screen with no
+ * drawer on it and no sentence anywhere about what happened to the route.
+ */
+export const STRIKING_A_ROUTE = "strike";
+
+/**
  * Every panel one route's own page has.
  *
  * The page opens none the screen did not name, so a hand-typed `?panel=release` cannot stand
  * a form from another screen over a route — the honesty every filter on every wall is held
  * to.
  */
-export const THE_PANELS_ON_A_ROUTE = [NAMING_A_ROUTE, SAYING_WHAT_A_ROUTE_IS_FOR] as const;
+export const THE_PANELS_ON_A_ROUTE = [
+  NAMING_A_ROUTE,
+  SAYING_WHAT_A_ROUTE_IS_FOR,
+  STRIKING_A_ROUTE,
+] as const;
