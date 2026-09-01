@@ -4,24 +4,31 @@ import { query } from "../db.ts";
 import { listSeries } from "../queries/series.ts";
 import { isRefusal } from "../refusal.ts";
 import { acquireVolume, catalogueVolume, releaseVolume } from "./collection.ts";
+import { creditStory } from "./credit.ts";
+import { definePath, placeStoriesOnPath } from "./path.ts";
+import { setRating } from "./rating.ts";
+import { recordReading } from "./reading.ts";
 import {
   amendSeries,
   concludeSeries,
   declareSeries,
   declareSeriesCollected,
+  mergeSeriesIntoOneStory,
   placeVolumeInSeries,
   recordSeriesNoLongerPublishesStory,
   recordSeriesPublishesStory,
   recordVolumesPublished,
   stopCollectingSeries,
 } from "./series.ts";
-import { createStory } from "./story.ts";
+import { createStory, createStoryCarriedBy, declareInstalments } from "./story.ts";
+import { recordVolumeCarriesStory } from "./story-to-volume.ts";
+import { openWant } from "./want.ts";
 
 // Seam 1. What is asserted here is the ledger's write side: that a Series can be declared,
 // that **collecting it is a separate act nothing else performs**, and that every way of
 // getting it wrong comes back as prose rather than as a SQLSTATE.
 beforeEach(async () => {
-  await query("truncate table series, volume, story cascade");
+  await query("truncate table series, volume, story, path, person cascade");
 });
 
 /** The refusal a call produced, or a failure saying it produced none. */
@@ -740,5 +747,375 @@ describe("a Volume joining a Series that names a Story", () => {
     await refusalFrom(() => placeVolumeInSeries({ volumeId: id, seriesId: series, number: 21 }));
 
     expect(await query("select story_id from volume_story where volume_id = $1", [id])).toEqual([]);
+  });
+});
+
+// MERGING A LINE INTO ONE STORY (#41).
+//
+// The gesture that undoes a split the owner never asked for: twenty tankōbon standing as
+// twenty narratives become one work carried by twenty objects. What is asserted here is the
+// pair of halves the ticket is about — **what is carried across** (a Rating, the Readings, the
+// Credits, the Path stops, the Wants, the arrow) and **what is untouched** (every Volume,
+// every Acquisition and the completeness ledger) — and the refusals that stop the collapse
+// losing something.
+describe("merging a Series into one Story", () => {
+  /**
+   * A line of `volumes` tankōbon, each an object in the house standing for a narrative of its
+   * own — which is the state the whole gesture exists to undo.
+   */
+  async function aLineOfTankobon(volumes: number) {
+    const series = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: volumes,
+      status: "concluded",
+    });
+
+    const objects: string[] = [];
+    const narratives: string[] = [];
+    for (let number = 1; number <= volumes; number += 1) {
+      const volume = await volumeInTheHouse({
+        title: `Slam Dunk ${number}`,
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      });
+      const story = await createStoryCarriedBy(
+        { title: `Slam Dunk ${number}`, typeId: "manga" },
+        volume
+      );
+      await placeVolumeInSeries({ volumeId: volume, seriesId: series, number });
+      objects.push(volume);
+      narratives.push(story);
+    }
+
+    return { series, objects, narratives };
+  }
+
+  /** Every row of a table, as JSON, so *untouched* can be asserted rather than argued. */
+  async function snapshotOf(table: "volume" | "acquisition") {
+    return query<{ row: unknown }>(`select to_jsonb(t) as row from ${table} t order by t.id`);
+  }
+
+  /** Which Stories an object carries. */
+  async function carriedBy(volumeId: string): Promise<string[]> {
+    const rows = await query<{ story_id: string }>(
+      "select story_id from volume_story where volume_id = $1 order by story_id",
+      [volumeId]
+    );
+    return rows.map((one) => one.story_id);
+  }
+
+  it("makes one Story of the line, and every object of it carries that one", async () => {
+    const { series, objects, narratives } = await aLineOfTankobon(4);
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    for (const volume of objects) expect(await carriedBy(volume)).toEqual([work]);
+    const [count] = await query<{ count: string }>("select count(*) from story");
+    expect(count.count).toBe("1");
+    expect(narratives).toHaveLength(4);
+  });
+
+  it("takes the Series' own name where the owner names nothing else", async () => {
+    const { series } = await aLineOfTankobon(2);
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const [row] = await query<{ title: string; type_id: string }>(
+      "select title, type_id from story where id = $1",
+      [work]
+    );
+    expect(row).toMatchObject({ title: "Slam Dunk", type_id: "manga" });
+  });
+
+  it("takes the title the owner gave it instead", async () => {
+    const { series } = await aLineOfTankobon(2);
+
+    const work = await mergeSeriesIntoOneStory(series, "  Slam Dunk, the whole run  ");
+
+    const [row] = await query<{ title: string }>("select title from story where id = $1", [work]);
+    expect(row.title).toBe("Slam Dunk, the whole run");
+  });
+
+  it("sets the arrow, so a volume arriving later attaches instead of minting", async () => {
+    const { series } = await aLineOfTankobon(3);
+    const work = await mergeSeriesIntoOneStory(series);
+
+    expect((await ledgerOf(series)).story_id).toBe(work);
+
+    const later = await volumeInTheHouse({
+      title: "Slam Dunk 4",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await placeVolumeInSeries({ volumeId: later, seriesId: series, number: 4 });
+
+    expect(await carriedBy(later)).toEqual([work]);
+    const [count] = await query<{ count: string }>("select count(*) from story");
+    expect(count.count).toBe("1");
+  });
+
+  it("serializes the work to the length of the line, so there is a place to read progress", async () => {
+    const { series } = await aLineOfTankobon(3);
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const [row] = await query<{ instalments: number }>(
+      "select instalments from story where id = $1",
+      [work]
+    );
+    expect(row.instalments).toBe(3);
+  });
+
+  it("leaves every Volume and every Acquisition byte for byte as it was", async () => {
+    const { series } = await aLineOfTankobon(4);
+    const volumes = await snapshotOf("volume");
+    const acquisitions = await snapshotOf("acquisition");
+
+    await mergeSeriesIntoOneStory(series);
+
+    expect(await snapshotOf("volume")).toEqual(volumes);
+    expect(await snapshotOf("acquisition")).toEqual(acquisitions);
+  });
+
+  it("leaves the completeness ledger alone: only the arrow moves", async () => {
+    const { series } = await aLineOfTankobon(3);
+    await declareSeriesCollected(series);
+    const before = await ledgerOf(series);
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    expect(await ledgerOf(series)).toEqual({ ...before, story_id: work });
+  });
+
+  it("carries the one Rating across, so the work is what carries the judgement", async () => {
+    const { series, narratives } = await aLineOfTankobon(3);
+    await setRating({
+      storyId: narratives[1],
+      score: 9,
+      provenanceId: "remembered",
+      prose: "Yes.",
+    });
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const [row] = await query<{ story_id: string; score: string; prose: string }>(
+      "select story_id, score, prose from rating"
+    );
+    expect(row).toMatchObject({ story_id: work, prose: "Yes." });
+    expect(Number(row.score)).toBe(9);
+  });
+
+  it("carries every Reading across, with what it reached and the Rating it carried", async () => {
+    const { series, narratives } = await aLineOfTankobon(3);
+    const first = await recordReading({
+      storyId: narratives[0],
+      medium: "paper",
+      provenanceId: "remembered",
+      outcome: "finished",
+    });
+    await setRating({
+      storyId: narratives[0],
+      readingId: first,
+      score: 8,
+      provenanceId: "remembered",
+    });
+    await recordReading({
+      storyId: narratives[2],
+      medium: "digital",
+      provenanceId: "remembered",
+    });
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const readings = await query<{ story_id: string; medium: string }>(
+      "select story_id, medium from reading order by medium"
+    );
+    expect(readings).toEqual([
+      { story_id: work, medium: "digital" },
+      { story_id: work, medium: "paper" },
+    ]);
+    const [rating] = await query<{ story_id: string; reading_id: string }>(
+      "select story_id, reading_id from rating"
+    );
+    expect(rating).toEqual({ story_id: work, reading_id: first });
+  });
+
+  it("carries the Credits across, once each, and leaves the people standing", async () => {
+    const { series, narratives } = await aLineOfTankobon(3);
+    for (const story of narratives) {
+      await creditStory({ storyId: story, person: "Takehiko Inoue", roleId: "writer" });
+      await creditStory({ storyId: story, person: "Takehiko Inoue", roleId: "artist" });
+    }
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const credits = await query<{ story_id: string; role_id: string }>(
+      "select c.story_id, c.role_id from credit c order by c.role_id"
+    );
+    expect(credits).toEqual([
+      { story_id: work, role_id: "artist" },
+      { story_id: work, role_id: "writer" },
+    ]);
+    const [people] = await query<{ count: string }>("select count(*) from person");
+    expect(people.count).toBe("1");
+  });
+
+  it("repoints a Path's stops at the work, and two stops of one route become one", async () => {
+    const { series, narratives } = await aLineOfTankobon(3);
+    const other = await createStory({ title: "Vagabond", typeId: "manga" });
+    const path = await definePath({ name: "The Inoue run" });
+    await placeStoriesOnPath(path, [narratives[0], other, narratives[2]]);
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const stops = await query<{ story_id: string }>(
+      "select story_id from path_item where path_id = $1 order by position",
+      [path]
+    );
+    expect(stops.map((stop) => stop.story_id)).toEqual([work, other]);
+  });
+
+  it("repoints the Wants at the work, keeping the most recent of them", async () => {
+    const { series, narratives } = await aLineOfTankobon(3);
+    await openWant(narratives[0]);
+    await query("update want set opened_at = now() - interval '3 days'");
+    await openWant(narratives[2]);
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const wants = await query<{ story_id: string; recent: boolean }>(
+      "select story_id, opened_at > now() - interval '1 day' as recent from want"
+    );
+    expect(wants).toEqual([{ story_id: work, recent: true }]);
+  });
+
+  it("refuses a second merge of the same line, which is what the arrow is for", async () => {
+    const { series } = await aLineOfTankobon(2);
+    await mergeSeriesIntoOneStory(series);
+
+    const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series));
+
+    expect(refusal.code).toBe("not-allowed");
+    expect(refusal.message).toMatch(/already publishes a Story/i);
+  });
+
+  it("refuses when two of the narratives are judged apart, because a work has one score", async () => {
+    const { series, narratives } = await aLineOfTankobon(3);
+    await setRating({ storyId: narratives[0], score: 9, provenanceId: "remembered" });
+    await setRating({ storyId: narratives[1], score: 6, provenanceId: "remembered" });
+
+    const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series));
+
+    expect(refusal.code).toBe("not-allowed");
+    expect(refusal.message).toMatch(/one score/i);
+    expect(refusal.message).toMatch(/Nothing was merged/);
+    const [count] = await query<{ count: string }>("select count(*) from story");
+    expect(count.count).toBe("3");
+    expect((await ledgerOf(series)).story_id).toBeNull();
+  });
+
+  it("refuses when a pass counted its way through one of the narratives", async () => {
+    const { series, narratives } = await aLineOfTankobon(2);
+    // The narrative under volume one is itself serialized, and a pass got to part three of it.
+    // Three of *that* is not three of the line, so the collapse would change what the number
+    // means rather than move it.
+    await declareInstalments(narratives[0], 5);
+    await recordReading({
+      storyId: narratives[0],
+      medium: "paper",
+      provenanceId: "remembered",
+      atInstalment: 3,
+    });
+
+    const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series));
+
+    expect(refusal.code).toBe("not-allowed");
+    expect(refusal.message).toMatch(/recorded how far it got/i);
+    expect(refusal.message).toMatch(/Nothing was merged/);
+    const [count] = await query<{ count: string }>("select count(*) from story");
+    expect(count.count).toBe("2");
+    expect((await ledgerOf(series)).story_id).toBeNull();
+  });
+
+  it("carries a pass that counted nothing, which is every ordinary pass", async () => {
+    const { series, narratives } = await aLineOfTankobon(2);
+    await recordReading({
+      storyId: narratives[0],
+      medium: "paper",
+      provenanceId: "remembered",
+      outcome: "finished",
+    });
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const [row] = await query<{ story_id: string; at_instalment: number | null }>(
+      "select story_id, at_instalment from reading"
+    );
+    expect(row).toEqual({ story_id: work, at_instalment: null });
+  });
+
+  it("refuses a narrative another line's object carries too, which is not this line's to collapse", async () => {
+    const { series, narratives } = await aLineOfTankobon(2);
+    const omnibus = await volumeInTheHouse({
+      title: "Slam Dunk Omnibus",
+      publisher: "Planet Manga",
+      binding: "omnibus",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(omnibus, narratives[1]);
+
+    const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series));
+
+    expect(refusal.code).toBe("not-allowed");
+    expect(refusal.message).toMatch(/Nothing was merged/);
+    const [count] = await query<{ count: string }>("select count(*) from story");
+    expect(count.count).toBe("2");
+  });
+
+  it("refuses a line with no objects placed in it", async () => {
+    const series = await blackEdition();
+
+    const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series));
+
+    expect(refusal.code).toBe("not-allowed");
+    expect(refusal.message).toMatch(/no objects/i);
+  });
+
+  it("refuses a line whose objects carry no narrative at all", async () => {
+    const series = await blackEdition();
+    const volume = await volumeInTheHouse({
+      title: "Death Note Black Edition 1",
+      publisher: "Panini Comics",
+      binding: "deluxe",
+      language: "it",
+    });
+    await placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 1 });
+
+    const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series));
+
+    expect(refusal.code).toBe("not-allowed");
+    expect(refusal.message).toMatch(/carry no narrative/i);
+  });
+
+  it("refuses a Series the library does not know", async () => {
+    const refusal = await refusalFrom(() =>
+      mergeSeriesIntoOneStory("00000000-0000-4000-8000-000000000000")
+    );
+    expect(refusal.code).toBe("not-found");
+  });
+
+  it("leaves the work with one score to give", async () => {
+    const { series } = await aLineOfTankobon(3);
+    const work = await mergeSeriesIntoOneStory(series);
+
+    await setRating({ storyId: work, score: 9, provenanceId: "remembered" });
+
+    const [row] = await query<{ score: string }>("select score from rating where story_id = $1", [
+      work,
+    ]);
+    expect(Number(row.score)).toBe(9);
   });
 });

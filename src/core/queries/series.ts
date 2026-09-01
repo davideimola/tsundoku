@@ -217,3 +217,44 @@ export async function listVolumesOutsideASeries(): Promise<PlaceableVolume[]> {
       order by lower(v.title), v.id`
   );
 }
+
+/** What one press of the merge gesture would collapse, counted before it is pressed. */
+export type WhatAMergeWouldCollapse = {
+  /** How many objects are placed in the line, in the house or not: all of them carry the work. */
+  objects: number;
+  /** How many narratives those objects stand for today, and therefore how many become one. */
+  narratives: number;
+};
+
+/**
+ * What merging this Series into one Story would collapse, or `null` where there is no such
+ * Series.
+ *
+ * **A destructive gesture says what it is about to do while the owner is still deciding**, the
+ * way the Stories a strike is offered over carry what goes with each (`listStoriesNothingHasHappenedTo`).
+ * *Eighteen narratives across twenty objects become one* is the whole of what the press means,
+ * and neither number is on the screen otherwise: the ledger counts what is in the house and this
+ * counts what is in the line.
+ *
+ * It is two counts rather than the rows themselves, because the panel says a sentence and a page
+ * reading twenty rows to print a number is the thing the filter rule exists about.
+ */
+export async function whatAMergeWouldCollapse(
+  seriesId: string
+): Promise<WhatAMergeWouldCollapse | null> {
+  if (!UUID.test(seriesId)) return null;
+
+  const rows = await query<WhatAMergeWouldCollapse>(
+    `select (select count(*)::int from volume v where v.series_id = s.id) as objects,
+            (select count(*)::int
+               from (select distinct vs.story_id
+                       from volume_story vs
+                       join volume v on v.id = vs.volume_id
+                      where v.series_id = s.id) carried) as narratives
+       from series s
+      where s.id = $1`,
+    [seriesId]
+  );
+
+  return rows[0] ?? null;
+}

@@ -9,8 +9,15 @@ import {
   recordSeriesPublishesStory,
   recordVolumesPublished,
 } from "../verbs/series.ts";
-import { createStory } from "../verbs/story.ts";
-import { findSeries, listMissingVolumes, listSeries, listVolumesOutsideASeries } from "./series.ts";
+import { createStory, createStoryCarriedBy } from "../verbs/story.ts";
+import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
+import {
+  findSeries,
+  listMissingVolumes,
+  listSeries,
+  listVolumesOutsideASeries,
+  whatAMergeWouldCollapse,
+} from "./series.ts";
 
 // Seam 1, and the slice's whole point: **the missing Volumes are derived and never
 // typed**. The four Death Note Black Edition rows the owner writes by hand in the
@@ -310,5 +317,42 @@ describe("which Story a Series publishes", () => {
         ["Ultimate Deluxe Edition", 3, story],
       ]
     );
+  });
+});
+
+describe("what a merge would collapse", () => {
+  it("counts the objects of the line and the narratives they stand for", async () => {
+    const series = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    const [first, second, third] = await own(series, "Slam Dunk", [1, 2, 3]);
+    // Two objects standing for one narrative and a third standing for its own: three objects,
+    // two narratives, and the sentence the panel prints is both numbers.
+    const shared = await createStoryCarriedBy({ title: "Slam Dunk", typeId: "manga" }, first);
+    await recordVolumeCarriesStory(second, shared);
+    await createStoryCarriedBy({ title: "Slam Dunk 3", typeId: "manga" }, third);
+
+    expect(await whatAMergeWouldCollapse(series)).toEqual({ objects: 3, narratives: 2 });
+  });
+
+  it("counts an object the house no longer holds, because a merge is not about the shelf", async () => {
+    const series = await declareSeries({
+      name: "Death Note",
+      publisher: "Panini Comics",
+      publishedCount: 2,
+      status: "concluded",
+    });
+    const [first] = await own(series, "Death Note", [1, 2]);
+    await releaseVolume(first);
+
+    expect(await whatAMergeWouldCollapse(series)).toMatchObject({ objects: 2 });
+  });
+
+  it("answers nothing at all for a Series the library does not know", async () => {
+    expect(await whatAMergeWouldCollapse("00000000-0000-4000-8000-000000000000")).toBeNull();
+    expect(await whatAMergeWouldCollapse("banana")).toBeNull();
   });
 });
