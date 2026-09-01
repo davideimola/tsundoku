@@ -8,6 +8,11 @@ import { query } from "../db.ts";
 // Story* are read with the Story itself, in `queries/story.ts`, because they are part of
 // the answer to *"what is this?"*; this file answers the other direction — *"what have I
 // read by them?"* — which is a screen of its own (user story 15).
+//
+// And one question asked from the Story's own page rather than from a screen of its own:
+// *"who do I already credit called that?"*, which is what the picker under the name field
+// reads while it is being typed into (#28). It is here because it is a question about the
+// people, and it is the same list `listCreditedPeople` answers with, narrowed to a name.
 
 /** A role a Credit is held in: Writer, Artist. */
 export type CreditRole = {
@@ -26,6 +31,20 @@ export type CreditRole = {
 export async function listCreditRoles(): Promise<CreditRole[]> {
   return query<CreditRole>("select id, name from credit_role order by display_order");
 }
+
+// Every role a person holds **anywhere** in the library, in the order a comic is credited
+// in — a person's own vocabulary rather than their roles on any one Story. Written once
+// because two of the answers below carry it, and two copies of it are two lists that can
+// come to disagree about what a person is.
+//
+// It reads `p.id`, so the statement spending it has to be the one that aliases `person` as
+// `p`. Said here because nothing else can say it: a third caller aliasing it otherwise gets a
+// SQL error about a column nobody wrote.
+const ROLES_HELD = `
+  (select coalesce(jsonb_agg(jsonb_build_object('id', cr.id, 'name', cr.name)
+                             order by cr.display_order), '[]'::jsonb)
+     from (select distinct c.role_id from credit c where c.person_id = p.id) held
+     join credit_role cr on cr.id = held.role_id)`;
 
 /** Someone the library credits, as the list of them shows it. */
 export type CreditedPerson = {
@@ -55,10 +74,7 @@ export async function listCreditedPeople(): Promise<CreditedPerson[]> {
     `select
        p.id,
        p.name,
-       (select coalesce(jsonb_agg(jsonb_build_object('id', cr.id, 'name', cr.name)
-                                  order by cr.display_order), '[]'::jsonb)
-          from (select distinct c.role_id from credit c where c.person_id = p.id) held
-          join credit_role cr on cr.id = held.role_id) as roles,
+       ${ROLES_HELD} as roles,
        (select count(distinct c.story_id)::int
           from credit c
          where c.person_id = p.id) as "storyCount",
@@ -171,4 +187,90 @@ export async function findCreditedPerson(personId: string): Promise<PersonCredit
   );
 
   return rows[0] ?? null;
+}
+
+/** Someone the library already credits, as a row under a field being typed into. */
+export type PersonSuggestion = {
+  id: string;
+  name: string;
+  /** Every role they hold anywhere, in the order roles are credited in. */
+  roles: CreditRole[];
+};
+
+/** What the picker asked. */
+export type PersonSuggestionFilter = {
+  /** What has been typed so far. Blank suggests nobody, which is a real answer. */
+  term: string;
+  /**
+   * How many to answer with, or the few below.
+   *
+   * **No guard against a number that is not a count**, which is where this deliberately
+   * differs from the finder's `perKind`: that one is reachable over MCP, so it earns its
+   * defence against the `NaN` an assistant filling in a schema can send. This is asked by one
+   * screen, with a constant, on the owner's side of the gate — and a defence written for a
+   * caller that does not exist is a line nobody can test.
+   */
+  atMost?: number;
+};
+
+/** A suggestion list's worth: what fits under a field without covering the form. */
+const A_FEW = 6;
+
+// **Where in the name what was typed appears** — 0 for nowhere and 1 for the very start —
+// over both sides folded. Written once because it is what the `where` filters on *and* what
+// the `order by` ranks on, and a fold applied in one of the two and forgotten in the other is
+// a list that answers a question nobody asked.
+const MATCHED_AT = "strpos(lower(unaccent(p.name)), typed.term)";
+
+// The whole statement, built once at module load rather than per call: what varies is the two
+// parameters. The matching is `queries/finder.ts`'s, deliberately — `unaccent` on both sides so
+// `otomo` reaches *Ōtomo* and neither spelling is the special case, and `strpos` rather than
+// `ilike '%…%'` so what was typed is a name and not a pattern. The one piece of ranking is the
+// same too: a name that *starts* with what was typed is the likelier one.
+const THE_PEOPLE_ALREADY_CREDITED = `
+  with typed as (select lower(unaccent($1::text)) as term)
+  select
+    p.id,
+    p.name,
+    ${ROLES_HELD} as roles
+  from person p
+  cross join typed
+ where exists (select 1 from credit c where c.person_id = p.id)
+   and ${MATCHED_AT} > 0
+ order by case when ${MATCHED_AT} = 1 then 0 else 1 end,
+          lower(p.name),
+          p.id
+ limit $2`;
+
+/**
+ * The people the library already credits whose name holds what has been typed.
+ *
+ * **This is what stops a second Yusuke Murata.** The name is unique on `lower(name)` and
+ * there is no rename and no merge (ADR-0012), so a second spelling is a second person for
+ * as long as the library stands, splitting every answer about them in two. The field this
+ * fills is a convenience over one that works without it (ADR-0010) — a name typed in full
+ * reaches the same verb whether these arrived or not — so what it has to be is *right*
+ * rather than present: a suggestion the owner takes has to be the spelling that is already
+ * there, character for character, because that is the whole of what makes it the same
+ * person.
+ *
+ * **Only people who already hold a Credit**, for the reason `listCreditedPeople` says: a
+ * Person exists in order to be pointed at, and the import wrote rows the `Autore` column
+ * never filled. Offering one of those would be suggesting somebody the library has not met.
+ *
+ * It is not the finder itself, and the difference is the question rather than the mechanism:
+ * the finder answers *what in this library is called that* across five kinds, and this
+ * answers *who do I already credit* — the Credit area's own question, asked with a Story
+ * open and a role about to be chosen beside it.
+ *
+ * **A blank term suggests nobody**, and that is an answer rather than a shortcut: a field
+ * nobody has typed into has asked no question.
+ */
+export async function suggestCreditedPeople(
+  filter: PersonSuggestionFilter
+): Promise<PersonSuggestion[]> {
+  const term = filter.term.trim();
+  if (term === "") return [];
+
+  return query<PersonSuggestion>(THE_PEOPLE_ALREADY_CREDITED, [term, filter.atMost ?? A_FEW]);
 }

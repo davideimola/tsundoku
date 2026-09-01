@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { type CreditedStory, findCreditedPerson } from "@/core/queries/credit";
 import { requireOwner } from "@/lib/auth/owner";
+import { rolesSaid } from "../roles";
 
 // Everything read by one Credit — the screen user story 15 asks for, and the reason a
 // Person is a row and not a name repeated on every Credit.
@@ -90,7 +91,7 @@ function CreditedStoryRow({ story }: { story: CreditedStory }) {
           {/* Their roles **on this Story**, which is not necessarily every role they
               hold: ONE wrote One-Punch Man and both wrote and drew Mob Psycho 100. */}
           <span className="mt-0.5 block font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
-            {story.roles.map((role) => role.name).join(" · ")}
+            {rolesSaid(story.roles)}
           </span>
         </span>
         <span className="flex items-baseline gap-3">

@@ -2,9 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { suggestCreditedPeople } from "@/core/queries/credit";
 import { isRefusal } from "@/core/refusal";
 import { creditStory, uncreditStory } from "@/core/verbs/credit";
 import { requireOwner } from "@/lib/auth/owner";
+import { rolesSaid } from "./roles";
+import type { SuggestedName } from "./suggestion";
 
 // The write side of the Credits, and a thin adapter like every page here (ADR-0002): it
 // reads a form, calls one verb, and carries back the prose the verb wrote. No SQL, no
@@ -16,6 +19,15 @@ import { requireOwner } from "@/lib/auth/owner";
 // return there, with the answer in the query string rather than in React state, for the
 // reason the Collection's writes do: a plain form and a redirect work with no JavaScript
 // running at all.
+//
+// **The third function here is a read, which is unusual and deliberate** — `../find/actions.ts`
+// is the precedent and the reasoning is the same. It is the question the picker under the name
+// field asks, one keystroke at a time, so the field can answer without a navigation; and
+// nothing depends on it, because the form it stands in is the plain `POST` above (ADR-0010).
+// It is a Server Function rather than a route handler because the wall is the same call either
+// way (`src/app/gated.test.ts` requires it of both), and it lives beside the write it feeds
+// rather than in a file of its own: what the owner is being helped to type is exactly the name
+// `credit` is about to be given.
 
 /**
  * What a form's field held, trimmed, or the empty string.
@@ -92,4 +104,34 @@ export async function uncredit(form: FormData): Promise<void> {
   }
 
   backToStory(storyId, said);
+}
+
+/** A suggestion list's worth. Fewer than the finder's, because it stands inside a form. */
+const SUGGESTIONS = 6;
+
+/**
+ * The people the library already credits whose name holds what has been typed so far.
+ *
+ * **This exists because of one irreversible thing** (ADR-0012): the name is unique on
+ * `lower(name)`, there is no rename verb and no merge verb, so a second spelling of *Yusuke
+ * Murata* is a second person for as long as the library stands and no query will ever join
+ * the two back together. The library is about to be handed a few hundred proposed Credits;
+ * the list this fills is how the owner reuses a spelling instead of inventing one.
+ *
+ * The wall first, like every entry point behind the gate: a layout does not run for a Server
+ * Function, so this is one of the places the gate is enforced rather than assumed.
+ */
+export async function suggestPeople(term: string): Promise<SuggestedName[]> {
+  await requireOwner();
+
+  // Read as untrusted. A Server Function is a POST, so `term` arrives as whatever the caller
+  // sent whatever the signature says.
+  if (typeof term !== "string") return [];
+
+  const people = await suggestCreditedPeople({ term, atMost: SUGGESTIONS });
+
+  // Drawn on this side of the wire, so the list holds no derivation (#28) — and drawn by
+  // `./roles.ts`, which is the one place the Credit screens say a set of roles, so the row
+  // under the field cannot come to say it differently from the two screens it echoes.
+  return people.map((who) => ({ name: who.name, qualifier: rolesSaid(who.roles) }));
 }

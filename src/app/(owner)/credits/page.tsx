@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listCreditedPeople } from "@/core/queries/credit";
 import { requireOwner } from "@/lib/auth/owner";
+import { rolesSaid } from "./roles";
 
 // The people the library credits, which is the door to the question the whole slice
 // exists for: *what have I actually read by Jeph Loeb, before I commit to the omnibus?*
@@ -54,7 +55,7 @@ export default async function CreditsPage() {
                     {/* The roles they hold anywhere, in the order a comic is credited in.
                         Mono caps, because it is a vocabulary and not prose. */}
                     <span className="mt-0.5 block truncate font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
-                      {person.roles.map((role) => role.name).join(" · ")}
+                      {rolesSaid(person.roles)}
                     </span>
                   </span>
                   {/* The only number on the row, and the one the shelf question turns on:
@@ -71,8 +72,8 @@ export default async function CreditsPage() {
 
       <p className="mt-10 max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
         Read means it went through a Reading, abandoned included — not that the Story is in the
-        library. The word here is Credit and never author: that one presumes a single role and
-        silently drops the artist.
+        library. The word here is Credit, and it is a role rather than a byline: one name on a cover
+        presumes a single role and silently drops the artist.
       </p>
     </main>
   );

@@ -4,7 +4,12 @@ import { creditStory } from "../verbs/credit.ts";
 import { setRating } from "../verbs/rating.ts";
 import { abandonReading, finishReading, recordReading } from "../verbs/reading.ts";
 import { createStory } from "../verbs/story.ts";
-import { findCreditedPerson, listCreditedPeople, listCreditRoles } from "./credit.ts";
+import {
+  findCreditedPerson,
+  listCreditedPeople,
+  listCreditRoles,
+  suggestCreditedPeople,
+} from "./credit.ts";
 
 beforeEach(async () => {
   await query("truncate story, person cascade");
@@ -155,5 +160,87 @@ describe("everything read by one Credit", () => {
   it("is null for a person the library does not know, malformed id or not", async () => {
     expect(await findCreditedPerson("00000000-0000-4000-8000-000000000000")).toBeNull();
     expect(await findCreditedPerson("banana")).toBeNull();
+  });
+});
+
+// The query behind the Credit picker (#28). The list of suggestions under the field has no
+// test of its own — it holds no derivation, and what it draws is decided here (ADR-0010,
+// `vitest.config.ts`). This is what it draws.
+describe("the people a half-typed name suggests", () => {
+  async function credited(title: string, person: string, roleId = "writer") {
+    const storyId = await createStory({ title, typeId: "manga" });
+    return creditStory({ storyId, person, roleId });
+  }
+
+  it("answers with the people already credited whose name holds what has been typed", async () => {
+    await credited("One-Punch Man", "Yusuke Murata", "artist");
+    await credited("Mob Psycho 100", "ONE");
+    await credited("Vagabond", "Takehiko Inoue");
+
+    expect(await suggestCreditedPeople({ term: "mura" })).toEqual([
+      { id: expect.any(String), name: "Yusuke Murata", roles: [{ id: "artist", name: "Artist" }] },
+    ]);
+  });
+
+  it("carries every role they hold anywhere, so the owner can tell two people apart", async () => {
+    await credited("Mob Psycho 100", "ONE", "artist");
+    const mob = await createStory({ title: "Mob Psycho 100 II", typeId: "manga" });
+    await creditStory({ storyId: mob, person: "ONE", roleId: "writer" });
+
+    expect(await suggestCreditedPeople({ term: "one" })).toEqual([
+      {
+        id: expect.any(String),
+        name: "ONE",
+        roles: [
+          { id: "writer", name: "Writer" },
+          { id: "artist", name: "Artist" },
+        ],
+      },
+    ]);
+  });
+
+  it("folds case and accents, so `otomo` reaches Ōtomo", async () => {
+    await credited("Akira", "Katsuhiro Ōtomo");
+
+    expect((await suggestCreditedPeople({ term: "otomo" })).map((who) => who.name)).toEqual([
+      "Katsuhiro Ōtomo",
+    ]);
+    expect((await suggestCreditedPeople({ term: "KATSUHIRO" })).map((who) => who.name)).toEqual([
+      "Katsuhiro Ōtomo",
+    ]);
+  });
+
+  it("puts the name that starts with what was typed above the one that merely holds it", async () => {
+    await credited("Vagabond", "Inoue Takehiko");
+    await credited("Slam Dunk", "Takehiko Inoue");
+
+    expect((await suggestCreditedPeople({ term: "inoue" })).map((who) => who.name)).toEqual([
+      "Inoue Takehiko",
+      "Takehiko Inoue",
+    ]);
+  });
+
+  // A duplicate is what the picker exists to prevent, so a person the library has met has
+  // to be reachable from any part of their name — but somebody nothing points at is not a
+  // person the library has met. The import writes rows the `Autore` column never filled.
+  it("leaves out a person nothing credits", async () => {
+    await query("insert into person (name) values ($1)", ["Osamu Tezuka"]);
+
+    expect(await suggestCreditedPeople({ term: "tezuka" })).toEqual([]);
+  });
+
+  it("suggests nobody for a blank field, which is a field that has asked nothing", async () => {
+    await credited("Akira", "Katsuhiro Ōtomo");
+
+    expect(await suggestCreditedPeople({ term: "" })).toEqual([]);
+    expect(await suggestCreditedPeople({ term: "   " })).toEqual([]);
+  });
+
+  it("answers with at most what was asked for, and with a few when nothing was", async () => {
+    await credited("Akira", "Katsuhiro Ōtomo");
+    await credited("Domu", "Katsuhiro Otomo Jr");
+
+    expect(await suggestCreditedPeople({ term: "katsuhiro", atMost: 1 })).toHaveLength(1);
+    expect(await suggestCreditedPeople({ term: "katsuhiro" })).toHaveLength(2);
   });
 });

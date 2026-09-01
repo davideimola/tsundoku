@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { searchCollection } from "@/core/queries/collection";
 import { type CreditRole, listCreditRoles } from "@/core/queries/credit";
@@ -12,6 +11,7 @@ import { findStory } from "@/core/queries/story";
 import { listVolumesCarryingStory } from "@/core/queries/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
 import { credit, uncredit } from "../../credits/actions";
+import { PersonPicker } from "../../credits/picker";
 import { StoryStateLabel } from "../story-state";
 import { carryFromStory } from "./actions";
 
@@ -217,25 +217,19 @@ export default async function StoryPage({
 
           {/* A name and a role, and nothing else to fill in: a person the library has not
               met is named by crediting them, because the owner is reading a cover rather
-              than keeping a register of people. */}
+              than keeping a register of people.
+
+              The field suggests the people who already exist as it is typed into, and that
+              is the whole of what the script here does: a second spelling of a name is a
+              second person forever (ADR-0012), and this form is where the owner would make
+              one. It stays a plain `POST` with the name in it, so a name typed in full is
+              credited whether the suggestions arrived or not (ADR-0010). */}
           <form
             action={credit}
             className="mt-6 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto_auto] sm:items-end"
           >
             <input type="hidden" name="storyId" value={story.id} />
-            <div className="grid gap-1.5">
-              <Label htmlFor="credit-person" className="text-xs text-muted-foreground">
-                Person
-              </Label>
-              <Input
-                id="credit-person"
-                name="person"
-                placeholder="Yusuke Murata"
-                autoComplete="off"
-                required
-                className="h-11 sm:h-10"
-              />
-            </div>
+            <PersonPicker />
             <div className="grid gap-1.5">
               <Label htmlFor="credit-role" className="text-xs text-muted-foreground">
                 Role
