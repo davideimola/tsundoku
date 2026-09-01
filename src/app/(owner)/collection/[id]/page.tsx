@@ -16,6 +16,7 @@ import {
 import { type EditionNote, findEditionNote } from "@/core/queries/edition-note";
 import { listStories } from "@/core/queries/story";
 import { listStoriesInVolume } from "@/core/queries/story-to-volume";
+import { listTypes } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import {
@@ -24,6 +25,7 @@ import {
   forgetCover,
   lookUpCover,
   recordIsbn,
+  recordStory,
   release,
   removeOwnImage,
   stopCarrying,
@@ -34,6 +36,7 @@ import {
   type Act,
   facedWith,
   type Panel,
+  THE_STORY_ACT,
   theActsOnTheObject,
   theEditionNoteAct,
   timesSaid,
@@ -81,6 +84,13 @@ import {
 // one `Voto` cell for three opinions — is visible in one glance. The scores are the Stories'
 // and are shown here only because this is where the mismatch is legible; nothing on this page
 // attaches a number to the object.
+//
+// **And a narrative the library has never held can be recorded from in here** (#33). The picker
+// under that list names a Story that exists; the panel beside it creates one and records it
+// inside this object in one act, because the owner reading a contents page off the back of a
+// volume is stating both facts at once. It replaced the sentence *record the Story first if it
+// is not in the list*, which described a trip to another screen and back — and that trip is
+// where the second narrative of a volume stopped being recorded at all.
 //
 // **The Edition note sits beside them, and says in its own words that it is not one of those
 // numbers.** Two judgements, in two places, in two registers — a column of digits, and prose
@@ -132,11 +142,14 @@ export default async function VolumePage({
   const volume = await findVolume(id);
   if (!volume) notFound();
 
-  const [carried, note, stories, history] = await Promise.all([
+  const [carried, note, stories, history, types] = await Promise.all([
     listStoriesInVolume(volume.id),
     findEditionNote(volume.id),
     listStories(),
     listAcquisitions(volume.id),
+    // A Type is a data row and never an enum in code (ADR-0006), so the panel that records a
+    // narrative reads the vocabulary rather than carrying a copy of it.
+    listTypes(),
   ]);
 
   const said = await searchParams;
@@ -159,7 +172,7 @@ export default async function VolumePage({
   // itself and not just its name, because a panel's title is the label of the press that
   // opened it and nothing on this page recomputes that sentence.
   const asking = asked(said, "panel");
-  const acting = [...acts, noting].find((act) => act.panel === asking);
+  const acting = [...acts, noting, THE_STORY_ACT].find((act) => act.panel === asking);
   const closesTo = `/collection/${volume.id}`;
 
   return (
@@ -409,10 +422,21 @@ export default async function VolumePage({
               >
                 Record it
               </Button>
+              {/* **The sentence that used to be a detour, and is now a door** (#33). It read
+                  *record the Story first if it is not in the list*, and the trip it described —
+                  the Story wall, a form, then finding this object again — is where the second
+                  narrative of a volume stopped being recorded at all. The panel it opens
+                  creates the Story *and* records it in here, in one act, because that is one
+                  fact with two halves (`@/core/verbs/story`). */}
               <p className="max-w-prose text-xs text-muted-foreground sm:col-span-2">
-                A Story spanning twenty objects is recorded twenty times, once on each. Record the
-                Story first if it is not in the list — being read and being owned are separate
-                facts, and so are the two records.
+                A Story spanning twenty objects is recorded twenty times, once on each. Being read
+                and being owned are separate facts, and so are the two records.{" "}
+                <Link
+                  href={panelled(volume.id, THE_STORY_ACT.panel)}
+                  className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Not in the list? Record it from here.
+                </Link>
               </p>
             </form>
           </CardContent>
@@ -517,6 +541,66 @@ export default async function VolumePage({
 
       {acting?.panel === "cover" ? (
         <TheCover act={acting} volume={volume} refused={refused} closesTo={closesTo} />
+      ) : null}
+
+      {/* **Two facts said in one breath**, which is what the object in the owner's hand is:
+          this narrative exists, and this thing holds it. One verb and one transaction behind it
+          (`@/core/verbs/story`), so a refusal leaves neither half standing — and it is the
+          owner's act alone, because creating a Story from outside is what the Inbox exists to
+          hold (ADR-0005). */}
+      {acting?.panel === "story" ? (
+        <Drawer
+          title={acting.label}
+          refused={refused}
+          description="It is created and recorded inside this object in one act. The granularity is yours: the arc this volume collects, or one story that runs across twenty of them."
+          closesTo={closesTo}
+        >
+          <form action={recordStory} className="grid gap-4">
+            <input type="hidden" name="volumeId" value={volume.id} />
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="story-title" className="text-xs text-muted-foreground">
+                Title
+              </Label>
+              <Input
+                id="story-title"
+                name="title"
+                placeholder="Hulk Rosso"
+                autoComplete="off"
+                required
+                className="h-11 sm:h-10"
+              />
+            </div>
+
+            {/* Native, like every other picker on this screen: shadcn's select is a scripted
+                component, and a form that only works once a bundle has parsed is not a form
+                this application has (ADR-0010). */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="story-type" className="text-xs text-muted-foreground">
+                Type
+              </Label>
+              <select id="story-type" name="type" required defaultValue="" className={PICKER}>
+                <option value="" disabled>
+                  Choose a Type
+                </option>
+                {types.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Record it in here
+            </Button>
+            <p className="max-w-prose text-xs text-muted-foreground">
+              A volume holding an arc and a back-up story from somewhere else is two narratives: say
+              the second one from here too, and each carries its own score. Nothing about this says
+              you have read either — that is a Reading, on the Story&apos;s own page.
+            </p>
+          </form>
+        </Drawer>
       ) : null}
 
       {acting?.panel === "note" ? (

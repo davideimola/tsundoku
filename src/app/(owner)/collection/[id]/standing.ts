@@ -123,12 +123,13 @@ export function facedWith(volume: RecordedVolume): string {
  *
  * The names are a closed set because the page reads what was asked for **against** them, the
  * way every filter on every wall is read: `?panel=banana` opens nothing. And it reads it
- * against the **acts** rather than against this list — `theActsOnTheObject` plus
- * `theEditionNoteAct` name every panel there is, and the page opens none they did not name —
- * so an `?panel=acquire` hand-typed onto an object already in the house opens nothing either,
- * and the two halves of ADR-0007 cannot be made to disagree by editing an address.
+ * against the **acts** rather than against this list — `theActsOnTheObject`,
+ * `theEditionNoteAct` and `THE_STORY_ACT` name every panel there is, and the page opens none
+ * they did not name — so an `?panel=acquire` hand-typed onto an object already in the house
+ * opens nothing either, and the two halves of ADR-0007 cannot be made to disagree by editing
+ * an address.
  */
-export type Panel = "acquire" | "release" | "isbn" | "cover" | "note";
+export type Panel = "acquire" | "release" | "isbn" | "cover" | "note" | "story";
 
 /** One act on the object, and the panel a press on it opens. */
 export type Act = {
@@ -158,6 +159,7 @@ export type Act = {
  * The Edition note is the fourth and it is `theEditionNoteAct`, apart from these because of
  * where it is opened from rather than because it is a lesser act: it is written from beside
  * the prose it replaces, so it does not stand in a row of presses at the top of the screen.
+ * `THE_STORY_ACT` is the fifth, and it is apart for the same reason.
  */
 export function theActsOnTheObject(volume: RecordedVolume): readonly Act[] {
   return [theHouseAct(volume), theIsbnAct(volume), theCoverAct(volume)];
@@ -178,6 +180,30 @@ export function theEditionNoteAct(note: EditionNote | null): Act {
     label: note ? "Rewrite the Edition note" : "Write an Edition note",
   };
 }
+
+/**
+ * Recording a narrative the library has never held, **inside the object the owner is holding**
+ * (#33).
+ *
+ * It is not in the hero and it is not in `theActsOnTheObject`, for the Edition note's reason
+ * rather than a lesser one: it is opened from beside the list it changes, where the sentence
+ * *record the Story first if it is not in the list* used to send the owner to another screen
+ * and back. Half the contents page of a volume never got recorded because of that trip.
+ *
+ * **It takes nothing**, which is what tells it apart from the other five: the other labels are
+ * decided by where the owner stands with this object — in the house, or let go; an ISBN
+ * recorded, or corrected — and this one is not a fact about the Volume at all. Either the
+ * library has the narrative or it has not, and the picker under the list is the door for the
+ * first case. So it is a constant, and there is nothing for a test to vary.
+ *
+ * The wording says *not in the library* rather than *new*, because the press beside it also
+ * says *record* and the two acts differ by exactly that: one names a Story, the other makes
+ * one exist (ADR-0005 is why the second is the owner's alone).
+ */
+export const THE_STORY_ACT: Act = {
+  panel: "story",
+  label: "Record a Story that is not in the library",
+};
 
 /**
  * **What writing an ISBN does to what the object is faced with** — said where the correction

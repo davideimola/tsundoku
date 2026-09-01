@@ -4,6 +4,7 @@ import type { RecordedVolume } from "@/core/queries/collection";
 
 import {
   facedWith,
+  THE_STORY_ACT,
   theActsOnTheObject,
   theEditionNoteAct,
   timesSaid,
@@ -258,6 +259,28 @@ describe("the Edition note's own act", () => {
       expect(act.label.toLowerCase()).not.toContain("rating");
       expect(act.label.toLowerCase()).not.toContain("score");
     }
+  });
+});
+
+// The fifth act, which is neither in the hero nor a fact about the object. What is worth
+// asserting is the address: five panels are named by three different exports, and two of them
+// agreeing on a name would be one form standing over another with no error anywhere.
+describe("recording a Story from inside the object", () => {
+  it("takes an address none of the object's own acts is using", () => {
+    for (const standing of [{}, { inTheHouse: true }, { releasedOn: "2024-01-05" }]) {
+      const taken = [
+        ...theActsOnTheObject(volume(standing)).map((act) => act.panel),
+        theEditionNoteAct(null).panel,
+      ];
+
+      expect(taken).not.toContain(THE_STORY_ACT.panel);
+    }
+  });
+
+  // The press beside it in the list also says *record*, and what tells the two apart is that
+  // one names a Story and the other makes one exist.
+  it("says that the library has not got it, which is the whole of what it adds", () => {
+    expect(THE_STORY_ACT.label.toLowerCase()).toContain("not in the library");
   });
 });
 

@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
+import { Drawer, OpensDrawer } from "@/components/drawer";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   listStoryWall,
   type StoryState,
@@ -10,6 +14,8 @@ import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import { cn } from "@/lib/utils";
+import { record } from "./actions";
+import { carriedAs, RECORD, THE_WALLS_FILTERS } from "./panels";
 import { bandName, StoryScore, stateWord, storyDetail, WALL_STATES } from "./story-state";
 
 // THE STORY WALL, and the screen where **the state stopped being a label at the end of a
@@ -29,6 +35,13 @@ import { bandName, StoryScore, stateWord, storyDetail, WALL_STATES } from "./sto
 //      nothing running in the browser — which is what a screen used on a shop's signal
 //      needs (ADR-0010). The filter is an argument to the core query, so a narrowed wall
 //      reads only what it shows and never seventy-seven rows to keep four.
+//   4. **A Story can be recorded from it** (#33), which is the one thing this wall could not
+//      do for two tickets: `createStory` had a single caller in the whole repository — the
+//      Inbox's approval — so the owner had to have an assistant propose a narrative and then
+//      approve it to themselves, or import a spreadsheet. It is a drawer whose open state is
+//      the URL like every other form the owner opens deliberately, and it is the *only* act
+//      on this screen. Where the press lands afterwards is the point of it: on the Story,
+//      because every act that follows recording one is there (`./actions.ts`).
 //
 // A thin adapter over two queries, like every page here (ADR-0002): no SQL, no pool, no
 // domain logic, and no colour of its own — the one on screen is the library's.
@@ -42,16 +55,23 @@ function asked(params: Asked, name: string): string | undefined {
 }
 
 /**
- * The URL of a narrowing, which is the whole of this page's interaction.
+ * The URL of a narrowing, which is most of this page's interaction — **and of a drawer
+ * standing over it**, which is the rest.
  *
  * Written from the narrowing rather than by editing the query string in place: the two
  * axes are the whole state of this screen, so a link that turns one of them off is the same
  * function as a link that turns one on, and there is no third form for *clear*.
+ *
+ * The panel is the same one bit of navigation (`@/components/drawer`), which is why it is an
+ * argument here rather than a second function: opening the drawer must leave the two filters
+ * exactly where they were, and closing it — `wallAt(narrowing)`, with nothing passed — must
+ * put the owner back on the wall they had narrowed. One function, so the two cannot disagree.
  */
-function wallAt(narrowing: StoryWallFilter): string {
+function wallAt(narrowing: StoryWallFilter, panel?: string): string {
   const search = new URLSearchParams();
   if (narrowing.typeId) search.set("type", narrowing.typeId);
   if (narrowing.state) search.set("state", narrowing.state);
+  if (panel) search.set("panel", panel);
 
   const query = search.toString();
   return query === "" ? "/stories" : `/stories?${query}`;
@@ -74,14 +94,31 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
   const stories = await listStoryWall(narrowing);
   const narrowed = typeId !== undefined || state !== undefined;
 
+  // Read against the one panel this screen has, the way the filters above are read against
+  // the vocabulary: `?panel=banana` opens nothing (`./panels.ts`).
+  const recording = asked(said, "panel") === RECORD;
+  const refused = asked(said, "refused");
+
   return (
     <main className="px-5 py-8 sm:px-8 sm:py-12">
-      <header>
-        <h1 className="font-heading text-2xl sm:text-3xl">Stories</h1>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          The narrative unit, at whatever granularity was the right one — and where the owner is
-          with each one, derived from its Readings on this request and stored nowhere.
-        </p>
+      {/* **One act, and it is the one this screen was missing** (#33): the wall could be
+          looked at and narrowed, and the thing it is a wall of could not be added to it. It is
+          drawn loud and it carries the filters through, because opening a form is navigation
+          and must not answer a search by throwing it away. */}
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="font-heading text-2xl sm:text-3xl">Stories</h1>
+          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
+            The narrative unit, at whatever granularity was the right one — and where the owner is
+            with each one, derived from its Readings on this request and stored nowhere.
+          </p>
+        </div>
+
+        <div className="w-full sm:w-auto">
+          <OpensDrawer href={wallAt(narrowing, RECORD)} emphasis="loud">
+            Record a Story
+          </OpensDrawer>
+        </div>
       </header>
 
       <div className="mt-6 space-y-2 border-y border-border py-3">
@@ -137,6 +174,88 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           ))}
         </div>
       )}
+
+      {/* **The act, and the refusal that comes back into it.** A plain form posting to a
+          Server Function, closing to the wall the owner had narrowed, and working with
+          nothing running in the browser. The verb's prose is printed in here rather than on
+          the page behind, because the panel covers the page and the sentence is about what
+          was typed two inches above it (`@/components/drawer`). The action never sends one
+          without reopening this panel, so there is no second place to print it. */}
+      {recording ? (
+        <Drawer
+          title="Record a Story"
+          description="The narrative, at whatever granularity is the right one for this one — an arc inside a single volume, or one story across twenty. Nothing here says you own anything."
+          refused={refused}
+          closesTo={wallAt(narrowing)}
+        >
+          <form action={record} className="grid gap-4">
+            {/* The wall as it stands underneath, carried so a refusal comes back to it: a
+                Server Function has no URL to read a filter off. Under a prefixed name, because
+                one of the two filters is called `type` and so is a field below — and
+                `FormData.get` would have answered the filter's value for both (`./panels.ts`). */}
+            {THE_WALLS_FILTERS.map((name) => {
+              const value = name === "type" ? typeId : state;
+              return value ? (
+                <input key={name} type="hidden" name={carriedAs(name)} value={value} />
+              ) : null;
+            })}
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="record-title" className="text-xs text-muted-foreground">
+                Title
+              </Label>
+              <Input
+                id="record-title"
+                name="title"
+                placeholder="Hulk Rosso"
+                autoComplete="off"
+                required
+                className="h-11 sm:h-10"
+              />
+            </div>
+
+            {/* A native picker, so the platform's own wheel opens on a phone and the form
+                submits with no script (ADR-0010). The Types are a data row and never an enum
+                in code (ADR-0006), so they are read off the library the wall is filtered by. */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="record-type" className="text-xs text-muted-foreground">
+                Type
+              </Label>
+              <select
+                id="record-type"
+                name="type"
+                required
+                // The Type the wall is narrowed to, where it is narrowed to one: the owner
+                // looking at their manga is usually recording a manga, and the value is
+                // selected in a required field they are looking straight at rather than
+                // assumed behind their back. On the whole wall it is *Choose a Type*.
+                defaultValue={typeId ?? ""}
+                className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30"
+              >
+                <option value="" disabled>
+                  Choose a Type
+                </option>
+                {types.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Button type="submit" className="h-11 w-full sm:h-10">
+                Record it
+              </Button>
+              <p className="mt-2 max-w-prose text-pretty text-xs text-muted-foreground">
+                It lands in the pile, because a Story with no Reading has not been read — and it
+                opens, so the Reading, the score and the objects carrying it are one press away.
+                Which Volumes hold it is said from either end, here or on the object.
+              </p>
+            </div>
+          </form>
+        </Drawer>
+      ) : null}
     </main>
   );
 }

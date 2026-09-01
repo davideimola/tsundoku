@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "../db.ts";
 import { Refusal, refusing } from "../refusal.ts";
+import type { Executor } from "../transaction.ts";
 
 // Writing which Stories a Volume carries: **one fact, readable from both ends** (ADR-0001).
 //
@@ -13,6 +14,12 @@ import { Refusal, refusing } from "../refusal.ts";
 //
 // Both verbs are deliberately safe for the MCP door to call: they act on entities that
 // already exist and refuse anything else, and they create no Story and no Volume (ADR-0005).
+// That stays true of this file after `run` arrived on the first of them: **an executor is
+// where a statement runs and never what it is allowed to write**, so a verb that takes one is
+// no closer to creating anything. What passes one in is `createStoryCarriedBy` in `story.ts` —
+// the owner recording a narrative the library has never held, inside the object they are
+// holding — and it is one act rather than two because half of it landing is a Story nothing
+// carries or an object recorded as carrying nothing (see `../transaction.ts`).
 
 // An id is generated, so the owner never types one: what arrives here came from a screen
 // the caller was just looking at, or from an assistant reading over MCP. A malformed one is
@@ -39,13 +46,20 @@ function bothAreIds(volumeId: string, storyId: string): void {
  *
  * Nothing else follows from it. The Story is not read because an object holding it is
  * owned, and the Volume's Edition note is not a judgement of the Story it carries.
+ *
+ * `run` is how `createStoryCarriedBy` calls this inside its own transaction, so a Story
+ * created to go in an object and the fact that it is in there land together or not at all.
  */
-export async function recordVolumeCarriesStory(volumeId: string, storyId: string): Promise<void> {
+export async function recordVolumeCarriesStory(
+  volumeId: string,
+  storyId: string,
+  run: Executor = query
+): Promise<void> {
   bothAreIds(volumeId, storyId);
 
   await refusing(
     () =>
-      query(
+      run(
         `insert into volume_story (volume_id, story_id)
          values ($1, $2)
          on conflict on constraint volume_story_is_said_once do nothing`,

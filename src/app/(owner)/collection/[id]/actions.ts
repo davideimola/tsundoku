@@ -6,6 +6,7 @@ import { isRefusal } from "@/core/refusal";
 import { acquireVolume, amendVolume, releaseVolume } from "@/core/verbs/collection";
 import { dropOwnCover, forgetTheCover, lookUpCoverFor, setOwnCover } from "@/core/verbs/cover";
 import { eraseEditionNote, writeEditionNote } from "@/core/verbs/edition-note";
+import { createStoryCarriedBy } from "@/core/verbs/story";
 import {
   recordVolumeCarriesStory,
   recordVolumeNoLongerCarriesStory,
@@ -73,6 +74,45 @@ export async function carry(form: FormData): Promise<void> {
 
   return saying(volumeId, new URLSearchParams({ carried: "1" }), () =>
     recordVolumeCarriesStory(volumeId, storyId)
+  );
+}
+
+/**
+ * Record a Story the library has never held, **inside this object**, in one act (#33).
+ *
+ * The picker beside this one names a Story that exists; this one is the case that used to
+ * cost two screens — *Hulk Rosso* holds the six issues of one arc and a back-up story from a
+ * Wolverine issue, and neither narrative is in the library while the owner is reading the
+ * contents page off the back of the object. The old answer was *record the Story first if it
+ * is not in the list*, which meant the Story wall, a form, and finding this object again; the
+ * second narrative of a volume is the one that never survived the trip.
+ *
+ * **One verb and therefore one transaction** (`src/core/verbs/README.md`): this adapter does
+ * not create a Story and then link it, because composing two verbs here would invent a
+ * transaction that does not exist and a half-landed act is either a Story nothing carries or
+ * an object recorded as holding nothing. `createStoryCarriedBy` is the verb.
+ *
+ * It comes back to **this** object rather than to the new Story, and that is the difference
+ * from the same act on the wall (`../../stories/actions.ts`, which lands on the Story). The
+ * owner is here to say what is inside a thing they are holding, and a volume that holds two
+ * narratives is the whole reason this exists: the list they are correcting is the page they
+ * came back to, with the new title in it.
+ */
+export async function recordStory(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+
+  return saying(
+    volumeId,
+    new URLSearchParams({ carried: "1" }),
+    async () => {
+      await createStoryCarriedBy(
+        { title: text(form, "title") ?? "", typeId: text(form, "type") ?? "" },
+        volumeId
+      );
+    },
+    "story"
   );
 }
 

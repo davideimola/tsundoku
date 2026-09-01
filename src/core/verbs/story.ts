@@ -2,12 +2,19 @@ import "server-only";
 
 import { query } from "../db.ts";
 import { Refusal, refusing } from "../refusal.ts";
-import type { Executor } from "../transaction.ts";
+import { type Executor, transaction } from "../transaction.ts";
+import { recordVolumeCarriesStory } from "./story-to-volume.ts";
 
-// Writing a Story. **No Volume is involved**, here or anywhere in this file: being read
-// and being owned are two unrelated facts, and a Story read digitally, borrowed or known
-// only from Goodreads history is a first-class one (ADR-0001). Which Volumes carry a
-// Story is a different fact, written elsewhere.
+// Writing a Story. **Creating one needs no Volume**, and that is the rule the file is built
+// on: being read and being owned are two unrelated facts, and a Story read digitally,
+// borrowed or known only from Goodreads history is a first-class one (ADR-0001). Which
+// Volumes carry a Story is a different fact, and it is written in `story-to-volume.ts`.
+//
+// One verb here names a Volume, and it is the exception that proves the rule rather than a
+// crack in it: `createStoryCarriedBy` is *both* facts said in one breath, because the owner
+// reading a contents page off the back of an object is stating both at once. It takes the
+// Volume as a second argument and writes nothing about it — `NewStory` has no Volume in it,
+// and never will.
 
 /** What creating a Story needs, and the whole of it. */
 export type NewStory = {
@@ -41,6 +48,38 @@ export async function createStory(story: NewStory, run: Executor = query): Promi
   const [created] = rows;
   if (!created) throw new Error("insert into story returned no row");
   return created.id;
+}
+
+/**
+ * Add a Story **and record that this Volume carries it**, in one act.
+ *
+ * The owner is holding the object and reading the contents page off the back of it: *Hulk
+ * Rosso* holds the six issues of one arc and a back-up story from somewhere else, and neither
+ * narrative is in the library yet. Saying so used to be two screens — record the Story on the
+ * wall, come back, choose it in the picker — and the trip back is where the second story of a
+ * volume stops being recorded at all.
+ *
+ * **It is one verb because it is one fact with two halves, and half of it is worse than
+ * neither** (`../transaction.ts`): a Story nothing carries reads as something read digitally,
+ * and an object recorded as carrying nothing reads as an object nobody has opened. So they
+ * land together or not at all, and the refusal that rolls it back is the verb's own prose —
+ * a Type this library does not know, or a Volume that is not in it.
+ *
+ * It composes the two verbs rather than writing their SQL again, which is what keeps the
+ * constraint names and the prose in one place each.
+ *
+ * **Not a tool, and it is the plainest case of ADR-0005 in the repository**: it creates a
+ * Story, so an assistant may only propose it, and the door for that is the Inbox. The Volume
+ * side of it is safe on its own and is `recordVolumeCarriesStory`.
+ *
+ * Returns the new Story's id.
+ */
+export async function createStoryCarriedBy(story: NewStory, volumeId: string): Promise<string> {
+  return transaction(async (run) => {
+    const storyId = await createStory(story, run);
+    await recordVolumeCarriesStory(volumeId, storyId, run);
+    return storyId;
+  });
 }
 
 /** The prose for every constraint the `story` table can refuse a write with. */

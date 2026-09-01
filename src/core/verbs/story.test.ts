@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { findStory, listStories } from "../queries/story.ts";
-import { amendStory, createStory } from "./story.ts";
+import { listStoriesInVolume } from "../queries/story-to-volume.ts";
+import { amendStory, createStory, createStoryCarriedBy } from "./story.ts";
 
 beforeEach(async () => {
-  await query("truncate story cascade");
+  await query("truncate story, volume cascade");
 });
 
 describe("creating a Story", () => {
@@ -48,6 +50,84 @@ describe("creating a Story", () => {
       code: "not-found",
       message: "That is not a Type this library knows.",
     });
+  });
+});
+
+// **Creating a Story inside the object that carries it**, which is the owner standing with a
+// volume in their hand reading its contents page. Two facts said in one breath — the
+// narrative exists, and this object holds it — and the tests that matter are the ones about
+// the *half*: neither side may be left standing on its own.
+describe("creating a Story a Volume carries", () => {
+  const NO_SUCH_ID = "00000000-0000-0000-0000-000000000000";
+
+  async function hulkRosso(): Promise<string> {
+    return volumeInTheHouse({
+      title: "Hulk Rosso",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+  }
+
+  it("writes both facts, and the Story is an ordinary one", async () => {
+    const volumeId = await hulkRosso();
+
+    const storyId = await createStoryCarriedBy({ title: "Hulk Rosso", typeId: "comic" }, volumeId);
+
+    expect(await findStory(storyId)).toMatchObject({
+      title: "Hulk Rosso",
+      type: { id: "comic" },
+      state: "to-read",
+    });
+    expect((await listStoriesInVolume(volumeId)).map((story) => story.id)).toEqual([storyId]);
+  });
+
+  // The case the whole volume is: one object holding an arc and a back-up story from
+  // somewhere else. Two Stories, one Volume, and the second one is the one that used to go
+  // unrecorded because saying it meant a trip back to the wall.
+  it("says it twice for an object holding two narratives", async () => {
+    const volumeId = await hulkRosso();
+
+    await createStoryCarriedBy({ title: "Hulk Rosso", typeId: "comic" }, volumeId);
+    await createStoryCarriedBy({ title: "Wolverine 50, the back-up", typeId: "comic" }, volumeId);
+
+    expect((await listStoriesInVolume(volumeId)).map((story) => story.title)).toEqual([
+      "Hulk Rosso",
+      "Wolverine 50, the back-up",
+    ]);
+  });
+
+  it("creates no Story where the Volume is not in the library", async () => {
+    await expect(
+      createStoryCarriedBy({ title: "Hulk Rosso", typeId: "comic" }, NO_SUCH_ID)
+    ).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
+      message: "That Volume is not in the library.",
+    });
+
+    // The half that would otherwise be left standing: a Story nothing carries, which reads
+    // as something read digitally rather than as a write that failed.
+    expect(await listStories()).toEqual([]);
+  });
+
+  it("records nothing on the Volume where the Type is not one of the library's", async () => {
+    const volumeId = await hulkRosso();
+
+    await expect(
+      createStoryCarriedBy({ title: "Hulk Rosso", typeId: "cyberpunk" }, volumeId)
+    ).rejects.toMatchObject({ name: "Refusal", message: "That is not a Type this library knows." });
+
+    expect(await listStoriesInVolume(volumeId)).toEqual([]);
+    expect(await listStories()).toEqual([]);
+  });
+
+  it("refuses a blank title in the verb's own words", async () => {
+    const volumeId = await hulkRosso();
+
+    await expect(
+      createStoryCarriedBy({ title: "   ", typeId: "comic" }, volumeId)
+    ).rejects.toMatchObject({ name: "Refusal", message: "A Story needs a title." });
   });
 });
 
