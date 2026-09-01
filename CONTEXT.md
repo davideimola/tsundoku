@@ -8,11 +8,19 @@ spreadsheet by hand.
 ## Language
 
 **Story**:
-The narrative unit the owner reads and forms an opinion about. Its granularity is the
-owner's choice, case by case: *Gotham Noir* is a story inside one volume, *Slam Dunk* is
-a story across twenty. A story needs **no volume at all** — read digitally, borrowed,
-read on someone else's shelf, or recorded only as Goodreads history — because being read
-and being owned are two unrelated facts.
+The narrative unit the owner reads and forms an opinion about, and there is **one test for
+what counts as one**: *a Story is what you would give a score to.* It is not decided case by
+case — that was the sentence that quietly made this word mean two things — and it is never
+asked at the moment of cataloguing: the default is **one Volume, one Story**, and two
+deliberate gestures carry the exceptions. *Batman: L'uomo che ride* holds **three** Stories in
+one object, because the three tales are judged apart. *Slam Dunk* is **one** Story across
+twenty tankōbon, because volume 7 is not a thing that gets a score.
+A story needs **no volume at all** — read digitally, borrowed, read on someone else's shelf,
+or recorded only as Goodreads history — because being read and being owned are two unrelated
+facts.
+It is the **spine**: a Volume is an object that attaches to it, a Reading an act, a Rating a
+judgement. Only the spine is always there, which is why nobody creates one on purpose — a
+Story appears because the owner said something about a title.
 _Avoid_: work, title, entry, arc, and **book** unqualified — book names the object, not
 the narrative.
 
@@ -22,6 +30,9 @@ through which Volume if there was one, and whether it was finished or abandoned.
 may be **several for the same story**, because rereading is a real intention the owner
 has already recorded — so a reading is never overwritten, and the rating it carried
 survives beside the next one.
+A pass through a long run **knows how far it got**: the last Volume it finished, and therefore
+*ten out of twenty*. That is why the warning below still stands rather than being bent — how
+far you are is a fact about **the pass**, which is an event, and never a field on the Story.
 _Avoid_: reading status, progress — those name a field, and this is an event.
 
 **Volume**:
@@ -120,7 +131,30 @@ Deluxe Edition; *Death Note* in six Black Edition volumes or twelve standard one
 the volume counts differ between them.
 **Collecting a series is a deliberate decision, never derived from ownership**: holding
 42 of Naruto's 72 volumes does not open a collecting project.
+A Series **says which Story it publishes**, and that lone arrow is the only thing the line and
+the narrative say to each other — **many Series to one Story**, because *Fullmetal Alchemist*
+is one work whether it is printed as the standard edition or as the Ultimate Deluxe. It is what
+makes a volume joining the line attach to the work that is already there instead of minting a
+twenty-first narrative. It states **what the line prints** and never whether it was any good,
+so the ledger stays a ledger.
 _Avoid_: collection — that word is taken, and means the shelf. Also: run, line, saga.
+
+**Instalment**:
+One numbered part of a **Story** that was serialized: *Ultimate Spider-Man* #1…#160, *Slam
+Dunk*'s twenty. It belongs to the **narrative and never to a printing**, and that is the whole
+of its usefulness — *thirty-five out of a hundred and sixty* stays true however the owner read
+them, in singles, in an omnibus, in a deluxe line or half in each, where *one of three omnibus*
+is a fact about a shelf and says nothing about the work.
+It is **optional**, and it costs nothing where it is not wanted: a Story that declares none is
+an ordinary Story, and where a line prints one part per Volume — every manga on these shelves —
+the numbering simply **follows the volumes**, so volume 7 is instalment 7 and nobody types
+anything. Ranges are written by hand only where one object collects many, which is the omnibus
+and very nearly nothing else.
+A **Volume covers a range of them**, which is what lets the library say which parts of a work
+are in the house even when the objects come from different editions.
+_Avoid_: chapter and issue — each names one medium's unit and this model holds both. Also
+**number** unqualified: that one is taken by a Volume's position in its Series, which is a fact
+about the printing and the opposite of this.
 
 **Credit**:
 A person's contribution to a **Story** in a named role — writer, artist. One person may
@@ -149,11 +183,48 @@ shop. It ends only by a deliberate act. *"Complete this series"* is **not** a wi
 is the collecting decision on a Series, and the missing volumes follow from it as a
 query rather than as rows typed by hand.
 
+**Want**:
+An open intention to **read a Story**, standing on its own and belonging to no **Path**. It
+is the fact the library was missing: it could already say *I read this* (a Reading), *I want
+to own this object* (a Wish), *I mean to complete this line* (a Series being collected) and
+*I mean to read these in this order* (a Path) — and had no way at all to say *I want to read
+this*. So the only door into the **Reading list** was minting a Path, a named and ordered
+route that **cannot be undefined**, for something that was never a route; and a Series wholly
+on the shelf and wholly unread stood nowhere at all, because the Series source names the
+Volumes that are **missing** and there were none.
+It pairs with the **Wish**, and the pair is the whole distinction: **a Wish names a Volume and
+is about owning; a Want names a Story and is about reading.** Neither implies the other — the
+owner wants to read what they will borrow, and buys what they will not open for years.
+It **ends by itself and never by a deliberate act**, which is exactly where it parts from the
+Wish: nobody closes a Want, and there is no second truth to keep in step with the Readings. It
+falls quiet when a **Reading began after the Want was opened** — a comparison of dates rather
+than a state, which is what makes **rereading ordinary instead of a special case**: a Want
+opened today on a Story read in 2019 finds no Reading later than itself and stands on the list
+until the owner actually rereads it. Nothing anywhere says *this one is a reread*; it is one
+because the reading is older than the wish to read it again.
+_Avoid_: wish — that word is taken and means the object. Also to-read, plan, backlog, which
+the Reading list's own list already refuses, and **shelf** — a Want is one sentence about one
+Story, not a place things are put.
+
 **Reading list**:
-What to read next — a queue that **composes itself** from the next unread story of every
-active Path and the next volume of every series being read, rather than a list kept by
-hand. The owner overrides it with **pins**, and every entry carries an **intended
-medium**: paper means it must be bought first, digital means it can be started tonight.
+What to read next, and it is **two halves rather than one list**.
+The **head** is what the owner has pinned, in the order they pinned it. It is short because
+every row in it is a decision, and it is the only place an order means anything.
+The **reserve** is everything else, and it **composes itself** from three sources — the next
+unread Story of every active **Path**, every open **Want**, and the next missing **Volume** of
+every **Series** being collected — rather than being a list kept by hand. It is
+**deliberately unordered**, sorted by a rule nobody maintains (the newest Want first, then the
+Paths, then the Series): a long list somebody has to keep in order is a list that goes stale,
+and the moment an order starts to matter is the moment the owner is already deciding — which
+is the pin.
+A **pin** names **the thing to read** and not the source it came from, which is what makes
+*three Marvel stories and then a DC one* expressible at all: what could be pinned before was
+the route or the line, and a route contributes one stop.
+**One Story is one row however many reasons it has to be there** — on two Paths and wanted
+besides is one row that says all three, because the same answer written three times is not
+three answers.
+Every row carries an **intended medium**: paper means it must be bought first, digital means
+it can be started tonight.
 _Avoid_: readlist, to-read, backlog, queue.
 
 **Provenance**:
