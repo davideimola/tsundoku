@@ -15,6 +15,23 @@ import { IN_THE_HOUSE, THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN } from "./collection
 // There is no Edition note anywhere in here. It is a judgement of an object and it never
 // feeds recommendation, and this is a file the MCP door reads (ADR-0001).
 
+/**
+ * The Instalments of a work that are inside one object, and where the answer came from.
+ *
+ * `null` everywhere the question does not arise — a Story that declares no Instalments, or
+ * an object nobody placed in a line to follow.
+ */
+export type CoveredInstalments = {
+  from: number;
+  to: number;
+  /**
+   * Whether the owner wrote this range, or it **follows the Volume's position in its
+   * Series**. The default is the reason nobody types anything for a manga: volume 7 carries
+   * instalment 7, and it is only the omnibus that has to say so.
+   */
+  written: boolean;
+};
+
 /** A Story as a Volume's contents shows it: what it is, and what the owner thought of it. */
 export type CarriedStory = {
   id: string;
@@ -27,6 +44,10 @@ export type CarriedStory = {
    * Story across twenty objects shows the same one twenty times.
    */
   latestScore: number | null;
+  /** How many Instalments the work has, or `null` where it was not serialized. */
+  instalments: number | null;
+  /** Which of them are inside this object, written or followed from the line. */
+  covers: CoveredInstalments | null;
 };
 
 /** A Volume as a Story's carriers show it: the object, and whether the house holds it. */
@@ -58,7 +79,34 @@ export type CarryingVolume = {
    * and *not on the shelf* is the whole of what this list needs to say about it.
    */
   inTheHouse: boolean;
+  /**
+   * Which Instalments of the Story this object holds — *one to thirty-five* for an omnibus,
+   * *seven to seven* for the seventh tankōbon of a line, and `null` for a work nobody
+   * numbered.
+   */
+  covers: CoveredInstalments | null;
 };
+
+// **What part of the work is in this object**, and the default is the whole reason
+// Instalments cost nothing (#37).
+//
+// A range the owner wrote wins. Where they wrote none, it **follows the Volume's position in
+// its Series**: volume 7 of a line that prints one part per Volume carries instalment 7, with
+// nothing typed. Where the Story declares no Instalments, or the object stands in no line,
+// there is no range to have — and an object standing at a position past the end of the work
+// is not made to cover one, since a followed range must be as true as a written one.
+//
+// One fragment for both directions of the many-to-many, because it is one fact: it names the
+// link `vs`, the Volume `v` and the Story `s`.
+const WHAT_IT_COVERS = `
+  case
+    when vs.covers_from is not null
+      then jsonb_build_object('from', vs.covers_from, 'to', vs.covers_to, 'written', true)
+    when s.instalments is not null
+     and v.series_number is not null
+     and v.series_number <= s.instalments
+      then jsonb_build_object('from', v.series_number, 'to', v.series_number, 'written', false)
+  end`;
 
 // The Story shape, as both the single and the batched question build it. `score` leaves as
 // a double rather than as `numeric`, which the driver would hand over as a string.
@@ -73,7 +121,9 @@ const CARRIED_STORY = `
        where g.story_id = s.id
        order by g.set_at desc
        limit 1
-    )
+    ),
+    'instalments', s.instalments,
+    'covers', ${WHAT_IT_COVERS}
   )`;
 
 /**
@@ -104,10 +154,12 @@ export async function listVolumesCarryingStory(storyId: string): Promise<Carryin
             v.language,
             v.series_id as "seriesId",
             v.series_number as "seriesNumber",
-            ${IN_THE_HOUSE} as "inTheHouse"
+            ${IN_THE_HOUSE} as "inTheHouse",
+            ${WHAT_IT_COVERS} as covers
        from volume_story vs
        join volume  v on v.id = vs.volume_id
        join binding b on b.id = v.binding_id
+       join story   s on s.id = vs.story_id
       where vs.story_id = $1
       ${THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN}`,
     [storyId]
@@ -151,8 +203,9 @@ export async function listStoriesInVolumes(
     `select vs.volume_id as "volumeId",
             jsonb_agg(${CARRIED_STORY} order by lower(s.title), s.id) as stories
        from volume_story vs
-       join story s on s.id = vs.story_id
-       join type  t on t.id = s.type_id
+       join story  s on s.id = vs.story_id
+       join type   t on t.id = s.type_id
+       join volume v on v.id = vs.volume_id
       where vs.volume_id = any ($1::uuid[])
       group by vs.volume_id`,
     [volumeIds]

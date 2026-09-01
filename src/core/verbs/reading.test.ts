@@ -1,14 +1,22 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { findStory } from "../queries/story.ts";
-import { abandonReading, finishReading, recordReading } from "./reading.ts";
-import { createStory } from "./story.ts";
+import {
+  abandonReading,
+  finishReading,
+  recordInstalmentReached,
+  recordReading,
+} from "./reading.ts";
+import { createStory, declareInstalments } from "./story.ts";
 
 // Seam 1, against the real Postgres. `truncate story cascade` takes the Readings and
 // the Ratings with it and leaves the two data-row tables — Type and Provenance —
 // alone, because those are schema rather than fixtures.
 beforeEach(async () => {
-  await query("truncate story cascade");
+  // `volume` joins it now that a pass can go through an object: an omnibus left behind by
+  // one test is an object standing in a line in the next.
+  await query("truncate story, volume cascade");
 });
 
 describe("recording a Reading", () => {
@@ -192,5 +200,181 @@ describe("concluding a Reading", () => {
       code: "not-found",
       message: "That Reading is not in the library.",
     });
+  });
+});
+
+// HOW FAR A PASS GOT, which is the whole of *seven of twenty*.
+//
+// The number is on the **pass** and never on the Story, because how far you are is a fact
+// about an event (`CONTEXT.md`). Two things follow, and both are tested below: a reread
+// starts again at nothing without the pass before it forgetting where it reached, and the
+// number is in the work's own units, so it survives changing edition halfway.
+describe("the Instalment a pass reached", () => {
+  async function slamDunk(): Promise<string> {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    await declareInstalments(storyId, 20);
+    return storyId;
+  }
+
+  it("records the last Instalment this pass finished, and the run reads 7 of 20", async () => {
+    const storyId = await slamDunk();
+    const readingId = await recordReading({
+      storyId,
+      medium: "paper",
+      startedOn: "2026-01-01",
+      provenanceId: "remembered",
+    });
+
+    await recordInstalmentReached(readingId, 7);
+
+    const story = await findStory(storyId);
+    expect(story).toMatchObject({ howFarItGot: { atInstalment: 7, instalments: 20 } });
+    expect(story?.readings[0]).toMatchObject({ atInstalment: 7, outcome: null });
+  });
+
+  it("takes it in the same breath as the Reading itself", async () => {
+    const storyId = await slamDunk();
+
+    await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "goodreads-history",
+      atInstalment: 12,
+    });
+
+    expect(await findStory(storyId)).toMatchObject({
+      howFarItGot: { atInstalment: 12, instalments: 20 },
+    });
+  });
+
+  it("reads 0 of 20 while nobody has said where they are, which is a measurement", async () => {
+    const storyId = await slamDunk();
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    expect(await findStory(storyId)).toMatchObject({
+      howFarItGot: { atInstalment: 0, instalments: 20 },
+    });
+  });
+
+  it("says nothing at all about a Story nobody numbered", async () => {
+    const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    expect(await findStory(storyId)).toMatchObject({ howFarItGot: null });
+  });
+
+  it("survives changing edition, because the number is the work's and not the object's", async () => {
+    const storyId = await slamDunk();
+    // An omnibus: one object, standing at position 1 of its own line, carrying a pass that
+    // is at instalment 12 of the work. *One of three omnibus* is a fact about a shelf.
+    const omnibus = await volumeInTheHouse({
+      title: "Slam Dunk Deluxe 1",
+      publisher: "Planet Manga",
+      binding: "deluxe",
+      language: "it",
+    });
+    const readingId = await recordReading({
+      storyId,
+      medium: "paper",
+      volumeId: omnibus,
+      provenanceId: "remembered",
+    });
+
+    await recordInstalmentReached(readingId, 12);
+
+    expect(await findStory(storyId)).toMatchObject({
+      howFarItGot: { atInstalment: 12, instalments: 20 },
+    });
+  });
+
+  it("starts a reread again at nothing, and the pass before it keeps where it got", async () => {
+    const storyId = await slamDunk();
+    const gaveUp = await recordReading({
+      storyId,
+      medium: "paper",
+      startedOn: "2019-01-01",
+      provenanceId: "remembered",
+    });
+    await recordInstalmentReached(gaveUp, 9);
+    await abandonReading(gaveUp, "2019-03-01");
+
+    await recordReading({
+      storyId,
+      medium: "paper",
+      startedOn: "2026-01-01",
+      provenanceId: "remembered",
+    });
+
+    const story = await findStory(storyId);
+    // Where the owner is *now* is the open pass, which has read none of it — and the pass
+    // that gave up in 2019 still says it got to nine.
+    expect(story).toMatchObject({ howFarItGot: { atInstalment: 0, instalments: 20 } });
+    expect(story?.readings.map((reading) => reading.atInstalment)).toEqual([null, 9]);
+  });
+
+  it("is written over rather than added to: I am at seven replaces I am at six", async () => {
+    const storyId = await slamDunk();
+    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    await recordInstalmentReached(readingId, 6);
+    await recordInstalmentReached(readingId, 7);
+
+    expect(await findStory(storyId)).toMatchObject({
+      howFarItGot: { atInstalment: 7, instalments: 20 },
+    });
+  });
+
+  it("stops counting again, and the run goes back to saying nothing about where it is", async () => {
+    const storyId = await slamDunk();
+    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await recordInstalmentReached(readingId, 7);
+
+    await recordInstalmentReached(readingId, null);
+
+    expect(await findStory(storyId)).toMatchObject({
+      howFarItGot: { atInstalment: 0, instalments: 20 },
+    });
+  });
+
+  // Postgres refuses both of these, not an `if` in the verb: a check constraint cannot read
+  // the Story, so the migration's trigger is where the rule lives.
+  it("refuses an Instalment past the end of the work", async () => {
+    const storyId = await slamDunk();
+    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    await expect(recordInstalmentReached(readingId, 21)).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+      message: "That is past the end of this Story. A pass cannot get further than the work goes.",
+    });
+  });
+
+  it("refuses to stand at an Instalment of a Story that has none", async () => {
+    const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
+    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    await expect(recordInstalmentReached(readingId, 2)).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+      message:
+        "That Story has no Instalments. Say how many it has before saying where you are in it.",
+    });
+  });
+
+  it("refuses an Instalment that is not a whole part of the work", async () => {
+    const storyId = await slamDunk();
+    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    await expect(recordInstalmentReached(readingId, 0)).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+      message: "An Instalment is a whole part of the work, counted from one.",
+    });
+  });
+
+  it("refuses a Reading the library does not have", async () => {
+    await expect(
+      recordInstalmentReached("00000000-0000-0000-0000-000000000000", 3)
+    ).rejects.toMatchObject({ name: "Refusal", code: "not-found" });
   });
 });

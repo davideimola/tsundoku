@@ -50,6 +50,38 @@ export const STORY_STATE = `
     else 'abandoned'
   end`;
 
+// How far the pass the owner is on has got, in the work's own units.
+//
+// **The pass is picked the way the stack is ordered** — an open Reading first, then the
+// newest by the day it began — because that is the one the owner is in the middle of, and
+// `stories/readings.ts` finds the same one for the same reason. A second order here would be
+// the page and the sentence disagreeing about which reading is *now*.
+//
+// Exported as SQL under the rule `STORY_STATE` is exported under: there is one right place
+// for the pick, and the Reading list asking *what comes next in this run* must ask it the
+// same way. It names the Story `s`, so a statement spending it joins `story s`.
+export const THE_INSTALMENT_THE_CURRENT_PASS_REACHED = `
+  (select r.at_instalment
+     from reading r
+    where r.story_id = s.id
+    order by (r.outcome is null) desc, r.started_on desc nulls last, r.created_at desc
+    limit 1)`;
+
+// *Seven of twenty*, or nothing at all.
+//
+// **A work that declares no Instalments has no fraction to be in**, and that is the ordinary
+// Story rather than a gap — so this answers `null` and no screen has to invent a denominator.
+// Where the work does declare them, a pass that has finished none is `0 of 20`: nothing read
+// is a measurement, where *no number at all* is not one.
+const HOW_FAR_IT_GOT = `
+  case
+    when s.instalments is null then null
+    else jsonb_build_object(
+      'atInstalment', coalesce(${THE_INSTALMENT_THE_CURRENT_PASS_REACHED}, 0),
+      'instalments', s.instalments
+    )
+  end`;
+
 /** A Type, as a Story carries it. */
 export type StoryType = { id: string; name: string };
 
@@ -93,6 +125,15 @@ export type StoryRating = {
 export type StoryReading = {
   id: string;
   medium: Medium;
+  /**
+   * The last **Instalment** this pass finished, or `null` where nobody counted.
+   *
+   * On the pass and never on the Story, because how far you got is a fact about an event
+   * (`CONTEXT.md`). It is what makes reading half a run in singles and half in a deluxe
+   * line one number, and what lets a reread start again at nothing without the pass before
+   * it forgetting where it reached.
+   */
+  atInstalment: number | null;
   /** `null` while the Reading is still open, which is what makes the Story `reading`. */
   outcome: Outcome | null;
   /** `YYYY-MM-DD`, or `null` where the owner only knows that it happened. */
@@ -102,12 +143,39 @@ export type StoryReading = {
   rating: StoryRating | null;
 };
 
+/**
+ * *Seven of twenty*, as the Story answers it.
+ *
+ * Derived from the pass the owner is on and the count the work declares, and stored
+ * nowhere — the same posture `StoryState` takes, and for the same reason: a stored number
+ * is a number that is wrong the moment a reread begins.
+ */
+export type HowFarItGot = {
+  /** The last Instalment the current pass finished. Nought where it has finished none. */
+  atInstalment: number;
+  /** How many the work has, which is what makes the sentence a fraction. */
+  instalments: number;
+};
+
 /** One Story, with everything the screen and the MCP tool show about it. */
 export type Story = {
   id: string;
   title: string;
   type: StoryType;
   state: StoryState;
+  /**
+   * How many **Instalments** the work has, or `null` where it was not serialized — which is
+   * the ordinary case and asks nothing of anybody.
+   */
+  instalments: number | null;
+  /**
+   * *Seven of twenty*, or `null` where the work declares no Instalments.
+   *
+   * It is the **current pass's** number rather than the furthest any pass ever reached: the
+   * question this answers is *where am I*, and a run given up at nine in 2019 and started
+   * again last week is at one.
+   */
+  howFarItGot: HowFarItGot | null;
   /** Who wrote it and who drew it, in the order roles are credited in. */
   credits: StoryCredit[];
   /** Newest first. Several is the ordinary case, because rereading is. */
@@ -228,6 +296,8 @@ const STORY_COLUMNS = `
     s.title,
     jsonb_build_object('id', t.id, 'name', t.name) as type,
     ${STORY_STATE} as state,
+    s.instalments,
+    ${HOW_FAR_IT_GOT} as "howFarItGot",
     coalesce((
       select jsonb_agg(
         jsonb_build_object(
@@ -248,6 +318,7 @@ const STORY_COLUMNS = `
           'id', r.id,
           'medium', r.medium,
           'outcome', r.outcome,
+          'atInstalment', r.at_instalment,
           'startedOn', r.started_on::text,
           'endedOn', r.ended_on::text,
           'provenance', jsonb_build_object('id', rp.id, 'name', rp.name),

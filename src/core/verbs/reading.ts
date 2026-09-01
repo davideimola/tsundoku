@@ -42,6 +42,16 @@ export type NewReading = {
    * model has, so a digital Reading went through no object (`CONTEXT.md`).
    */
   volumeId?: string | null;
+  /**
+   * The last **Instalment** this pass finished, where the Story declares any.
+   *
+   * Absent is the ordinary case, and it is the only possibility on a Story nobody has
+   * numbered: an Instalment belongs to the narrative, so a pass can only stand at one where
+   * the work says it has them (`CONTEXT.md`). It is on the pass rather than on the Story
+   * because how far you got is a fact about an **event** — which is what makes half a run
+   * read in singles and half in a deluxe line one number.
+   */
+  atInstalment?: number | null;
 };
 
 function readingProse(constraint: string | undefined): string {
@@ -59,8 +69,25 @@ function readingProse(constraint: string | undefined): string {
   if (constraint === "reading_volume_exists") return "That Volume is not in the library.";
   if (constraint === "reading_digital_went_through_no_volume")
     return "A Reading on digital went through no Volume: an owned ebook is not a thing here.";
+  if (constraint === "reading_at_instalment_is_positive") return NOT_AN_INSTALMENT;
+  // The two the migration's trigger raises. A check constraint cannot read the Story, and
+  // whether a pass may stand at instalment seven is a fact about the *work*.
+  if (constraint === "reading_at_instalment_needs_a_serialized_story")
+    return "That Story has no Instalments. Say how many it has before saying where you are in it.";
+  if (constraint === "reading_at_instalment_is_within_the_work")
+    return "That is past the end of this Story. A pass cannot get further than the work goes.";
   return "That Reading could not be recorded.";
 }
+
+/** The prose for an Instalment that is not one. */
+const NOT_AN_INSTALMENT = "An Instalment is a whole part of the work, counted from one.";
+
+// A Reading's id is generated, so nothing types one: a malformed id is the same event as an
+// unknown one, and saying so here keeps it from reaching the driver as a syntax error on a
+// uuid column.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const NO_SUCH_READING = "That Reading is not in the library.";
 
 /**
  * Record that the owner read — or is reading — a Story. Returns the Reading's id.
@@ -74,8 +101,9 @@ export async function recordReading(reading: NewReading): Promise<string> {
     () =>
       query<{ id: string }>(
         `insert into reading
-           (story_id, medium, outcome, started_on, ended_on, provenance_id, volume_id)
-         values ($1, $2, $3, $4, $5, $6, $7)
+           (story_id, medium, outcome, started_on, ended_on, provenance_id, volume_id,
+            at_instalment)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
          returning id`,
         [
           reading.storyId,
@@ -85,6 +113,7 @@ export async function recordReading(reading: NewReading): Promise<string> {
           reading.endedOn ?? null,
           reading.provenanceId,
           reading.volumeId ?? null,
+          reading.atInstalment ?? null,
         ]
       ),
     readingProse
@@ -93,6 +122,46 @@ export async function recordReading(reading: NewReading): Promise<string> {
   const [recorded] = rows;
   if (!recorded) throw new Error("insert into reading returned no row");
   return recorded.id;
+}
+
+/**
+ * Say where this pass has got to: the last **Instalment** it finished, or `null` where the
+ * owner is no longer counting.
+ *
+ * **This is the whole of *seven of twenty*, and it is deliberately not a field on the
+ * Story** (`CONTEXT.md`): how far you are is a fact about a pass, which is an event, so a
+ * reread starts again at nothing without the first pass forgetting where it got. Nothing
+ * else follows from it — a pass that has reached the last Instalment is still open, because
+ * finishing is a separate act the owner performs.
+ *
+ * It writes over what this pass last said, unlike the outcome, and that is the point: *I am
+ * at seven* replaces *I am at six* about the same reading, where reading it again is a
+ * second Reading.
+ *
+ * Refused, by Postgres rather than by an `if`, on a Story that declares no Instalments and
+ * on one past the end of the work.
+ */
+export async function recordInstalmentReached(
+  readingId: string,
+  atInstalment: number | null
+): Promise<void> {
+  if (!UUID.test(readingId)) throw new Refusal("not-found", NO_SUCH_READING);
+  // A whole part or nothing: half of one would reach the driver as a syntax error on an
+  // integer column rather than as prose the owner can read.
+  if (atInstalment !== null && !Number.isInteger(atInstalment)) {
+    throw new Refusal("invalid", NOT_AN_INSTALMENT);
+  }
+
+  const changed = await refusing(
+    () =>
+      query<{ id: string }>("update reading set at_instalment = $2 where id = $1 returning id", [
+        readingId,
+        atInstalment,
+      ]),
+    readingProse
+  );
+
+  if (changed.length === 0) throw new Refusal("not-found", NO_SUCH_READING);
 }
 
 /**

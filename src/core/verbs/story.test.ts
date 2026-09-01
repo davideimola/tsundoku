@@ -8,8 +8,14 @@ import { catalogueVolume } from "./collection.ts";
 import { creditStory } from "./credit.ts";
 import { definePath, placeStoriesOnPath } from "./path.ts";
 import { setRating } from "./rating.ts";
-import { recordReading } from "./reading.ts";
-import { amendStory, createStory, createStoryCarriedBy, strikeStories } from "./story.ts";
+import { recordInstalmentReached, recordReading } from "./reading.ts";
+import {
+  amendStory,
+  createStory,
+  createStoryCarriedBy,
+  declareInstalments,
+  strikeStories,
+} from "./story.ts";
 import { recordVolumeCarriesStory } from "./story-to-volume.ts";
 
 // `path` joins the truncate for the Stories that are struck: a route is the fourth thing
@@ -389,5 +395,104 @@ describe("the Stories nothing has happened to", () => {
       original,
       duplicate,
     ]);
+  });
+});
+
+// SAYING A STORY IS SERIALIZED, which is the one fact about a narrative that is a number.
+//
+// Everything here is about a work that has parts — *Slam Dunk*'s twenty, *Ultimate
+// Spider-Man*'s hundred and sixty. The count belongs to the narrative and never to a
+// printing, and it is optional: the Stories in every other test in this file declare none
+// and are asked nothing.
+describe("declaring how many Instalments a Story has", () => {
+  it("says the work has twenty parts, and reads back as twenty", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+
+    await declareInstalments(storyId, 20);
+
+    expect(await findStory(storyId)).toMatchObject({ title: "Slam Dunk", instalments: 20 });
+  });
+
+  it("declares none, which is the ordinary Story and asks nothing", async () => {
+    const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
+
+    expect(await findStory(storyId)).toMatchObject({ instalments: null, howFarItGot: null });
+  });
+
+  it("takes the numbering back off a Story that never had parts", async () => {
+    const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
+    await declareInstalments(storyId, 3);
+
+    await declareInstalments(storyId, null);
+
+    expect(await findStory(storyId)).toMatchObject({ instalments: null });
+  });
+
+  it("refuses a work of no parts at all, because that is what declaring none says", async () => {
+    const storyId = await createStory({ title: "Akira", typeId: "manga" });
+
+    await expect(declareInstalments(storyId, 0)).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+      message:
+        "A serialized Story has one Instalment or more. Say none at all where it has parts nobody numbers.",
+    });
+  });
+
+  it("refuses a count that is not a whole number of parts", async () => {
+    const storyId = await createStory({ title: "Akira", typeId: "manga" });
+
+    await expect(declareInstalments(storyId, 6.5)).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+    });
+  });
+
+  it("refuses a Story the library does not have", async () => {
+    await expect(
+      declareInstalments("00000000-0000-0000-0000-000000000000", 20)
+    ).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
+      message: "No Story has that id.",
+    });
+  });
+
+  // Postgres refuses it, not an `if`: shortening the work under a pass that has already got
+  // further would make *seven of five* reachable by editing the five.
+  it("refuses to shorten a work past a pass that has already got further", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    await declareInstalments(storyId, 20);
+    const readingId = await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+    });
+    await recordInstalmentReached(readingId, 7);
+
+    await expect(declareInstalments(storyId, 5)).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+      message:
+        "A pass through this Story has got further than that. It cannot be shorter than what you have read of it.",
+    });
+
+    expect(await findStory(storyId)).toMatchObject({ instalments: 20 });
+  });
+
+  it("refuses to take the numbering away while a pass stands at one of its Instalments", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    await declareInstalments(storyId, 20);
+    const readingId = await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+    });
+    await recordInstalmentReached(readingId, 7);
+
+    await expect(declareInstalments(storyId, null)).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+    });
   });
 });

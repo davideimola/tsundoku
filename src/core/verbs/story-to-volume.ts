@@ -73,6 +73,77 @@ export async function recordVolumeCarriesStory(
   );
 }
 
+/** The range of a work one object collects, in the work's own units. */
+export type CoveredRange = {
+  /** The first Instalment inside this object. */
+  from: number;
+  /** The last one. Equal to `from` where the object carries a single part. */
+  to: number;
+};
+
+// SAYING WHICH PART OF THE WORK IS IN THIS OBJECT (#37).
+//
+// **It is written by hand only where one object collects many** — the omnibus, and very
+// nearly nothing else. Where a line prints one part per Volume, which is every manga on
+// these shelves, the range **follows the Volume's position in its Series**: volume 7 is
+// instalment 7 and nobody types anything, so this verb is never reached at all.
+//
+// The range is the *narrative's* units and never the printing's, which is the whole point of
+// an Instalment: *one of three omnibus* is a fact about a shelf, and *one to thirty-five* is
+// a fact about the work that stays true when the owner buys the deluxe line instead.
+
+/**
+ * Say which Instalments of the Story this Volume covers, or hand the answer back to the line
+ * with `null` — an omnibus covers one to thirty-five, and a tankōbon covers its own position.
+ *
+ * It changes nothing else: what an object holds is not what the owner has read of it, and the
+ * Volume keeps its place in its Series either way.
+ *
+ * Refused where this Volume does not carry that Story — there is no fact to qualify — and, by
+ * Postgres rather than by an `if`, on a range that inverts, that starts before the work does
+ * or that reaches past the end of it.
+ */
+export async function recordVolumeCoversInstalments(
+  volumeId: string,
+  storyId: string,
+  covers: CoveredRange | null
+): Promise<void> {
+  bothAreIds(volumeId, storyId);
+  // A part of a work is a whole number, and the same guard the ids get: half an instalment
+  // reaches the driver as a syntax error on an integer column rather than as a sentence.
+  if (covers && (!Number.isInteger(covers.from) || !Number.isInteger(covers.to))) {
+    throw new Refusal("invalid", "An Instalment is a whole part of the work, counted from one.");
+  }
+
+  const written = await refusing(
+    () =>
+      query<{ volume_id: string }>(
+        `update volume_story
+            set covers_from = $3, covers_to = $4
+          where volume_id = $1 and story_id = $2
+          returning volume_id`,
+        [volumeId, storyId, covers?.from ?? null, covers?.to ?? null]
+      ),
+    (constraint) => {
+      if (constraint === "volume_story_cover_does_not_invert")
+        return "A range ends where it started or later: one to thirty-five, never thirty-five to one.";
+      if (constraint === "volume_story_cover_starts_at_one")
+        return "The Instalments of a work are counted from one.";
+      // The two the migration's trigger raises: a check constraint cannot read the Story, and
+      // whether instalment thirty-five exists is a fact about the *work*.
+      if (constraint === "volume_story_cover_needs_a_serialized_story")
+        return "That Story has no Instalments. Say how many it has before saying which of them this object holds.";
+      if (constraint === "volume_story_cover_lies_inside_the_work")
+        return "That reaches past the end of the Story. An object cannot cover more of a work than there is.";
+      return "What this Volume covers could not be recorded.";
+    }
+  );
+
+  if (written.length === 0) {
+    throw new Refusal("not-found", "That Volume does not carry that Story.");
+  }
+}
+
 /**
  * Take that fact back: this Volume does not carry this Story after all.
  *

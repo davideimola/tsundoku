@@ -8,7 +8,7 @@ import {
   type ProposedEntity,
 } from "../queries/inbox.ts";
 import { listSeries } from "../queries/series.ts";
-import { listStories } from "../queries/story.ts";
+import { findStory, listStories } from "../queries/story.ts";
 import { isRefusal } from "../refusal.ts";
 import {
   approveInboxEntries,
@@ -969,5 +969,105 @@ describe("what the schema will not hold", () => {
     expect(await refusedByCheck("act, proposes, subject_id", ["create", "volume", A_RECORD])).toBe(
       true
     );
+  });
+});
+
+// AN INSTALMENT COUNT IS PROPOSED AND NEVER WRITTEN (#37, ADR-0005 and ADR-0011).
+//
+// It is the Inbox's risk rather than the verbs': an invented count is permanent, silent, and
+// wrong in a way the owner never reads back — *seven of twenty* is looked at far more often
+// than the twenty is typed. So an assistant proposes it and the owner's approval is what
+// writes it.
+describe("proposing how many Instalments a Story has", () => {
+  it("waits in the Inbox beside what stands on the record today", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+
+    await proposeAmendment({
+      reported: "Slam Dunk is 276 chapters",
+      amends: "story",
+      subjectId: storyId,
+      proposed: { instalments: 276 },
+    });
+
+    // Nothing has been written: the Story still declares no Instalments.
+    expect(await findStory(storyId)).toMatchObject({ instalments: null });
+    expect(await listWaitingInboxEntries()).toMatchObject([
+      {
+        proposes: "story",
+        subjectId: storyId,
+        details: { instalments: 276 },
+        // What stands there today, so the owner judges 276 against *nothing* rather than
+        // against a number they have to go and look up.
+        standing: { title: "Slam Dunk", instalments: null },
+      },
+    ]);
+  });
+
+  it("is written by the owner's approval and by nothing else", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const { id } = await proposeAmendment({
+      reported: "Slam Dunk is twenty volumes",
+      amends: "story",
+      subjectId: storyId,
+      proposed: { instalments: 20 },
+    });
+
+    await approveInboxEntry(id);
+
+    expect(await findStory(storyId)).toMatchObject({
+      instalments: 20,
+      howFarItGot: { atInstalment: 0, instalments: 20 },
+    });
+  });
+
+  it("corrects the count on approval, in the words the owner confirmed", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
+    const { id } = await proposeAmendment({
+      reported: "it is 276 chapters, not 20 volumes",
+      amends: "story",
+      subjectId: storyId,
+      proposed: { instalments: 276 },
+    });
+
+    // The owner read *276* and knows the number they want is the twenty tankōbon.
+    await approveInboxEntry(id, { instalments: 20 });
+
+    expect(await findStory(storyId)).toMatchObject({ instalments: 20 });
+  });
+
+  it("is refused with the Story's own prose when the count is not a number of parts", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const { id } = await proposeAmendment({
+      reported: "it has a couple of dozen",
+      amends: "story",
+      subjectId: storyId,
+      proposed: { instalments: "a couple of dozen" },
+    });
+
+    const refused = await refusalFrom(approveInboxEntry(id));
+
+    expect(refused).toMatchObject({ code: "invalid" });
+    expect(await findStory(storyId)).toMatchObject({ instalments: null });
+  });
+
+  it("is not a field of a Volume or of a Series, because the count belongs to the narrative", async () => {
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+
+    const refused = await refusalFrom(
+      proposeAmendment({
+        reported: "Slam Dunk is 276 chapters",
+        amends: "series",
+        subjectId: seriesId,
+        proposed: { instalments: 276 },
+      })
+    );
+
+    expect(refused).toMatchObject({ code: "invalid" });
+    expect(refused?.message).toContain("no instalments");
   });
 });
