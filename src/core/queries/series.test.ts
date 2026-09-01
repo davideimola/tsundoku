@@ -6,8 +6,10 @@ import {
   declareSeries,
   declareSeriesCollected,
   placeVolumeInSeries,
+  recordSeriesPublishesStory,
   recordVolumesPublished,
 } from "../verbs/series.ts";
+import { createStory } from "../verbs/story.ts";
 import { findSeries, listMissingVolumes, listSeries, listVolumesOutsideASeries } from "./series.ts";
 
 // Seam 1, and the slice's whole point: **the missing Volumes are derived and never
@@ -15,7 +17,7 @@ import { findSeries, listMissingVolumes, listSeries, listVolumesOutsideASeries }
 // spreadsheet today are `generate_series` against the shelf, so the assertion below is
 // four numbers nobody entered.
 beforeEach(async () => {
-  await query("truncate table series, volume cascade");
+  await query("truncate table series, volume, story cascade");
 });
 
 /** Own the numbered Volumes of a Series, as the owner does one purchase at a time. */
@@ -64,6 +66,7 @@ describe("what am I missing", () => {
         collectingSince: expect.any(String),
         missing: [3, 4, 5, 6],
         nextMissing: 3,
+        publishes: null,
       },
     ]);
   });
@@ -248,5 +251,64 @@ describe("the Volumes a Series screen can place", () => {
       "L'uomo che ride",
     ]);
     expect(id).toBeTruthy();
+  });
+});
+
+// THE ARROW, READ (#39). What a Series prints is one fact on the ledger: two editions of
+// *Fullmetal Alchemist* are two completeness ledgers over one narrative, and that is the
+// whole shape being asserted — missing is per Series, and the Story is one.
+
+/** *Fullmetal Alchemist* as two Series over one Story: the standard printing and the Deluxe. */
+async function twoSeriesOfOneStory() {
+  const story = await createStory({ title: "Fullmetal Alchemist", typeId: "manga" });
+
+  const standard = await declareSeries({
+    name: "Fullmetal Alchemist",
+    publisher: "Planet Manga",
+    publishedCount: 27,
+    status: "concluded",
+  });
+  await own(standard, "Fullmetal Alchemist", [1, 2]);
+  await declareSeriesCollected(standard);
+  await recordSeriesPublishesStory(standard, story);
+
+  const deluxe = await declareSeries({
+    name: "Fullmetal Alchemist",
+    publisher: "Planet Manga",
+    editionLine: "Ultimate Deluxe Edition",
+    publishedCount: 4,
+    status: "ongoing",
+  });
+  await own(deluxe, "Fullmetal Alchemist Ultimate Deluxe", [1]);
+  await declareSeriesCollected(deluxe);
+  await recordSeriesPublishesStory(deluxe, story);
+
+  return { story, standard, deluxe };
+}
+
+describe("which Story a Series publishes", () => {
+  it("names it on the ledger, and says nothing where the Series names none", async () => {
+    const { standard, story } = await twoSeriesOfOneStory();
+    await deathNoteBlackEdition();
+
+    expect((await findSeries(standard))?.publishes).toEqual({
+      id: story,
+      title: "Fullmetal Alchemist",
+    });
+
+    const named = new Map((await listSeries()).map((one) => [one.editionLine, one.publishes]));
+    expect(named.get("Black Edition")).toBeNull();
+  });
+
+  it("is two ledgers and one narrative: what is missing is per Series, the Story is one", async () => {
+    const { story } = await twoSeriesOfOneStory();
+
+    const missing = await listMissingVolumes();
+    expect(missing.map((one) => [one.editionLine, one.missing?.length, one.publishes?.id])).toEqual(
+      [
+        [null, 25, story],
+        ["Ultimate Deluxe Edition", 3, story],
+      ]
+    );
   });
 });

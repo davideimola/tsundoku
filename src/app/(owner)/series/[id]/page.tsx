@@ -116,6 +116,29 @@ export default async function SeriesDetailPage({
           <span className="tabular-nums">{series.publishedCount} published</span>
         </p>
 
+        {/* **The one row on this screen that points out of the ledger** (#39). Everything in
+            the row above counts objects — a publisher, an edition, a status, a number out —
+            and this names a *narrative*, so it stands on its own rather than joining them
+            behind a middle dot.
+
+            Drawn only where the Series says which Story it publishes, and there is
+            deliberately nothing here when it does not: this screen stays a place the owner
+            *looks* rather than one they edit, and an empty slot with a control in it would be
+            the Series screen quietly becoming a second place a narrative is managed. */}
+        {series.publishes ? (
+          <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+              Publishes
+            </span>
+            <Link
+              href={`/stories/${series.publishes.id}`}
+              className="rounded font-heading text-base underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {series.publishes.title}
+            </Link>
+          </p>
+        ) : null}
+
         {/* **The decision leads, because it is the one act that changes what this screen
             means**: the same hollow position is *missing* under a collecting project and
             merely empty without one. The two maintenance acts follow it, quietly. */}

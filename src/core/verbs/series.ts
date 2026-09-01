@@ -6,15 +6,21 @@ import type { Executor } from "../transaction.ts";
 
 // Writing the completeness ledger.
 //
-// Seven verbs, and the shape of the set is the design: the owner declares a Series, records
+// Nine verbs, and the shape of the set is the design: the owner declares a Series, records
 // what the publisher has done to it, places the objects they own in it — and, as a
 // **separate act that nothing else performs**, decides they are completing it. There is
 // no verb here that opens a collecting project as a side effect of anything, because
 // holding 42 of Naruto's 72 volumes is not a decision (CONTEXT.md).
 //
-// The seventh is `amendSeries`, and it is the ledger being **repaired** rather than kept:
-// what an approved Amendment writes when an assistant found the line out of date and the
-// owner agreed (ADR-0011).
+// `amendSeries` is the ledger being **repaired** rather than kept: what an approved
+// Amendment writes when an assistant found the line out of date and the owner agreed
+// (ADR-0011).
+//
+// **The last two are the one arrow out of this file**, and they are the only thing a Series
+// and a Story say to each other (#39): the Series says which Story it publishes, and says it
+// no longer. Everything above them counts objects; those two name a narrative — and they
+// still count nothing about it, because the ledger answers *what am I missing* and never
+// *was it any good* (ADR-0001).
 //
 // What is not here is the missing list. Nothing writes it: it is derived from the count
 // published and the shelf, in `../queries/series.ts`.
@@ -307,6 +313,88 @@ export async function concludeSeries(seriesId: string): Promise<void> {
   });
 }
 
+const NO_SUCH_SERIES = "No Series has that id.";
+const NO_SUCH_STORY = "That Story is not in the library yet.";
+
+/**
+ * Record which Story this Series publishes: the twenty tankōbon of *Slam Dunk* print the
+ * Story called *Slam Dunk*.
+ *
+ * **Many Series may name one Story**, and that is the point rather than a tolerated case:
+ * the standard edition and the Ultimate Deluxe Edition are two completeness ledgers over one
+ * narrative, so what is missing stays per Series and what it was worth stays with the Story.
+ *
+ * Its consequence is the reason it exists: a Volume placed in a Series that names a Story
+ * **attaches to that Story** instead of a new narrative being minted for it, so the owner
+ * says this once per Series and never again (`placeVolumeInSeries`).
+ *
+ * Said again with another Story it **moves** the arrow, because the realistic mistake is the
+ * wrong narrative picked out of a list and a correction should not need a second verb. It
+ * attaches nothing retroactively: the objects already in the Series carry what they carried,
+ * and collapsing them onto one Story is the merge gesture's own act.
+ *
+ * Nothing about the ledger moves — not the count published, not the collecting project, not
+ * a judgement, because a Series has none to give.
+ */
+export async function recordSeriesPublishesStory(seriesId: string, storyId: string): Promise<void> {
+  if (!UUID.test(seriesId)) throw new Refusal("not-found", NO_SUCH_SERIES);
+  if (!UUID.test(storyId)) throw new Refusal("not-found", NO_SUCH_STORY);
+
+  const [outcome] = await refusing(
+    () =>
+      query<{ known: boolean }>(
+        `with said as (
+           update series set story_id = $2 where id = $1 returning id
+         )
+         select exists (select 1 from said) as known`,
+        [seriesId, storyId]
+      ),
+    (constraint) =>
+      constraint === "series_story_exists"
+        ? NO_SUCH_STORY
+        : whySeriesRefused(constraint, "That Series could not be said to publish that Story.")
+  );
+
+  if (!outcome.known) throw new Refusal("not-found", NO_SUCH_SERIES);
+}
+
+/**
+ * Take that back: this Series publishes no Story after all.
+ *
+ * The Story stays in the library with its Readings, its Ratings and every object carrying
+ * it, and the Series stays a ledger with everything it counts — what goes is the arrow, and
+ * the Series simply stops saying what it prints, which is where every Series stood before
+ * this fact existed. A Volume placed in it afterwards attaches to nothing again.
+ *
+ * Refused where there was no such fact rather than passing silently, exactly as taking back
+ * *this Volume carries that Story* is: the caller believed something that is not in the
+ * library.
+ */
+export async function recordSeriesNoLongerPublishesStory(seriesId: string): Promise<void> {
+  if (!UUID.test(seriesId)) throw new Refusal("not-found", NO_SUCH_SERIES);
+
+  const [outcome] = await refusing(
+    () =>
+      query<{ known: boolean; taken: boolean }>(
+        `with known as (
+           select id from series where id = $1
+         ), taken as (
+           update series set story_id = null
+            where id = $1 and story_id is not null
+           returning id
+         )
+         select exists (select 1 from known) as known,
+                exists (select 1 from taken) as taken`,
+        [seriesId]
+      ),
+    (constraint) =>
+      whySeriesRefused(constraint, "That Series could not be said to publish nothing.")
+  );
+
+  if (!outcome.known) throw new Refusal("not-found", NO_SUCH_SERIES);
+  if (!outcome.taken) throw new Refusal("not-found", "That Series publishes no Story.");
+}
+
 /** Which position of which Series an object the owner holds is. */
 export type VolumePlacement = {
   volumeId: string;
@@ -323,8 +411,22 @@ export type VolumePlacement = {
  * another Series — because the realistic mistake is a number typed wrong, and a correction
  * should not need a second verb.
  *
- * Nothing about the narrative follows from it. A Volume joining a Series says which object
- * this is, never what story it tells (ADR-0001).
+ * **Where the Series says which Story it publishes, the object joins that Story too** (#39).
+ * That is not the Series deciding what the object contains — it is the owner's own arrow
+ * being read: they said once that these twenty tankōbon print *Slam Dunk*, and the
+ * twenty-first arriving is that narrative again rather than a twenty-first one. A Series
+ * that names no Story is the ordinary case and nothing follows from joining it, which is
+ * where every Series stood before that arrow existed (ADR-0001 is untouched: the Volume is
+ * still an object and the Story is still a narrative, and this writes the link between them
+ * rather than collapsing the two).
+ *
+ * **Attaching only ever adds, and that is a decision rather than an oversight.** Moving an
+ * object along the same Series says the same fact again and writes nothing; moving it to
+ * *another* Series attaches the second Story and leaves the first standing. Taking a
+ * narrative off an object is `recordVolumeNoLongerCarriesStory`, which is the owner saying
+ * *this object does not carry that* — and a placement quietly deleting that fact would
+ * destroy a link the owner may have made by hand, which the schema cannot tell apart from
+ * one this attached.
  *
  * Refused on a Volume the house does not hold — let go, or catalogued and never had: it
  * fills no position, and the ledger is measured against what is on the shelf.
@@ -353,6 +455,18 @@ export async function placeVolumeInSeries(placement: VolumePlacement): Promise<v
               and exists (select 1 from acquisition a
                            where a.volume_id = volume.id and a.released_on is null)
            returning id
+         ), attached as (
+           -- The arrow, read: the Story this Series publishes, carried by the object that
+           -- just joined it. In the same statement as the placement and conditioned on it, so an
+           -- object refused a position carries nothing either — one verb is one transaction,
+           -- and half of this fact is worse than neither.
+           insert into volume_story (volume_id, story_id)
+           select $1, s.story_id
+             from series s
+            where s.id = $2
+              and s.story_id is not null
+              and exists (select 1 from placed)
+           on conflict on constraint volume_story_is_said_once do nothing
          )
          select exists (select 1 from known)  as known,
                 exists (select 1 from ever)   as owned,

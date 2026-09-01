@@ -10,6 +10,10 @@ import { type McpTool, stringArgument } from "../tool.ts";
 //
 // `series_missing` is user story 36: an assistant reads it and can suggest a purchase that
 // completes something, without the owner having typed a single row of what is absent.
+//
+// All three carry `publishes`, which is the one arrow out of this area: the Story a Series
+// prints, where the owner has said so (#39). It is what the line and the narrative say to
+// each other and still says nothing about quality — `stories_read` is where a judgement is.
 
 const missing: McpTool = {
   name: "series_missing",
@@ -27,6 +31,12 @@ next. Both are computed from the published count against the shelf, so they cann
 Volume that is not in the house counts as missing whichever way it is absent, whether the owner
 released it or it is merely catalogued and was never acquired, because the shelf is what the ledger
 is measured against (ADR-0007).
+
+\`publishes\` is the Story this Series prints, or \`null\` where the owner has not said. **Many
+Series may name one Story** — the standard printing and a deluxe line of one narrative are two
+ledgers over one Story — so two rows here may point at the same \`publishes.id\`, and that means
+one narrative in two editions rather than two things to read. It says what is printed and never
+whether it was any good.
 
 **Collecting is a deliberate decision and never derived from ownership.** A Series the owner has
 not decided to collect is not in this list at all, however many of its Volumes they happen to own:
@@ -53,6 +63,9 @@ is worth having before recommending a start. \`collectingSince\` is the day the 
 complete the Series, or \`null\` where they never did, and \`nextMissing\` is the position to buy next
 where there is a collecting project and something absent from it.
 
+\`publishes\` is the Story this Series prints, or \`null\` where the owner has not said — many
+Series may name one Story, because two editions of one narrative are two ledgers and one Story.
+
 **\`missing\` is \`null\` for a Series that is not being collected, and that is not the same as
 nothing being missing.** An empty list means the line is complete in the house; \`null\` means there
 is no collecting project, so there is nothing that counts as absent. Do not read one as the other,
@@ -76,6 +89,10 @@ listed, so the list is the shelf and not the publisher's catalogue. A Volume is 
 ways, and both count as missing: one the owner released, and one that is catalogued but was never
 acquired (ADR-0007). Answers \`null\` where no such Series exists, which is an answer and not a
 failure.
+
+\`publishes\` is the Story this Series prints, or \`null\` where the owner has not said. Its
+\`id\` is a Story id, so \`stories_find\` reaches the narrative rather than it being guessed at
+from the Volumes.
 
 A Volume standing here says nothing about the story having been read: being on the shelf and having
 been read are unrelated facts, and \`stories_read\` is the one that knows.`,

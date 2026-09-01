@@ -146,7 +146,14 @@ export const series = pgTable("series", {
 	status: text().notNull(),
 	collectingSince: date("collecting_since"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	storyId: uuid("story_id"),
 }, (table) => [
+	index("series_by_story").using("btree", table.storyId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.storyId],
+			foreignColumns: [story.id],
+			name: "series_story_exists"
+		}).onDelete("set null"),
 	unique("series_is_one_per_edition_line").on(table.name, table.publisher, table.editionLine).nullsNotDistinct(),
 	check("series_name_is_not_blank", sql`(name = btrim(name)) AND (name <> ''::text)`),
 	check("series_publisher_is_not_blank", sql`(publisher = btrim(publisher)) AND (publisher <> ''::text)`),

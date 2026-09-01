@@ -48,6 +48,21 @@ const OWNED = `
 // the order the owner reads two Series of one name in.
 const BY_SERIES = "order by lower(s.name), s.edition_line nulls first";
 
+// The Story the Series publishes, as the ledger wears it.
+//
+// One column rather than a join, because it is **the one thing a Series and a Story say to
+// each other** and it is absent on most Series: forty-three of this library's ninety-seven
+// Volumes belong to no Series at all, and a Series that names no Story answers `null` here
+// without the row disappearing. It names the Series `s`, so a statement spending it selects
+// from `series s`.
+const PUBLISHES = `
+  (select jsonb_build_object('id', st.id, 'title', st.title)
+     from story st
+    where st.id = s.story_id)`;
+
+/** The Story a Series publishes: what it prints, and never what it was worth. */
+export type PublishedStory = { id: string; title: string };
+
 /** One Series, and how far from complete it is. */
 export type SeriesLedger = {
   id: string;
@@ -69,6 +84,13 @@ export type SeriesLedger = {
   missing: number[] | null;
   /** The one to buy next, which is the first of `missing`. */
   nextMissing: number | null;
+  /**
+   * The Story this Series publishes, or `null` where it names none — which is the ordinary
+   * case and not a gap. **Many Series may name one Story**: the standard printing and the
+   * Ultimate Deluxe Edition are two ledgers over one narrative, so this is what is printed
+   * and never what it was worth (ADR-0001).
+   */
+  publishes: PublishedStory | null;
 };
 
 const LEDGER = `
@@ -81,7 +103,8 @@ const LEDGER = `
   ${OWNED}                                  as "ownedCount",
   to_char(s.collecting_since, 'YYYY-MM-DD') as "collectingSince",
   derived.missing,
-  (derived.missing -> 0)::int               as "nextMissing"`;
+  (derived.missing -> 0)::int               as "nextMissing",
+  ${PUBLISHES}                              as publishes`;
 
 /**
  * Every declared Series, collected or not.
