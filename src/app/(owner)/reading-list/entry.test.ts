@@ -22,10 +22,11 @@ import {
 // have (ADR-0001), and a tile that opened the wrong one would be the list sending them to the
 // shelf for something they meant to read.
 
-/** An entry with everything absent, which is the shape the two sources fill differently. */
+/** An entry with everything absent, which is the shape the three sources fill differently. */
 function entry(said: Partial<ReadingListEntry> = {}): ReadingListEntry {
   return {
     because: "path",
+    want: null,
     path: null,
     series: null,
     story: null,

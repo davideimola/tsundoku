@@ -405,3 +405,17 @@ export const pathItem = pgTable("path_item", {
 	unique("path_item_position_is_one_place").on(table.pathId, table.position),
 	check("path_item_position_is_positive", sql`"position" > (0)::numeric`),
 ]);
+
+export const want = pgTable("want", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	storyId: uuid("story_id").notNull(),
+	openedAt: timestamp("opened_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("want_newest_first").using("btree", table.openedAt.desc().nullsLast()),
+	foreignKey({
+			columns: [table.storyId],
+			foreignColumns: [story.id],
+			name: "want_story_exists"
+		}).onDelete("cascade"),
+	unique("want_one_open_per_story").on(table.storyId),
+]);

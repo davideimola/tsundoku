@@ -10,7 +10,7 @@ import { tint } from "@/lib/tint";
 // picker offered its own copy of the three words, which is a second answer waiting to
 // happen (#31).
 import { PRIORITIES } from "../wishes/shopping";
-import { pin, unpin, wishFor } from "./actions";
+import { pin, unpin, unwant, wishFor } from "./actions";
 import {
   entryDetail,
   entryFoot,
@@ -27,10 +27,11 @@ import {
 //
 // The design has one idea in it, and everything else is the house style the screens beside
 // it already set. **The list is a numbered sequence, because it is one.** The order is the
-// answer — pinned first, then the routes the owner chose, then the Series ledger — so the
-// ordinal sits in the gutter where the eye starts, and the second line of every row says
-// the one thing that decides whether the entry is actionable tonight: *tonight*, *on the
-// shelf*, or *buy it first*. Nothing else competes for that line.
+// answer — pinned first, then what the owner said they want to read, then the routes they
+// chose, then the Series ledger — so the ordinal sits in the gutter where the eye starts,
+// and the second line of every row says the one thing that decides whether the entry is
+// actionable tonight: *tonight*, *on the shelf*, or *buy it first*. Nothing else competes
+// for that line.
 //
 // **What #29 gave it is the shelf's vocabulary and the width.** Every entry now carries the
 // tile the walls are laid out as — the Series' own tint, the jacket where a lookup found one,
@@ -39,9 +40,12 @@ import {
 // at a desk the act sits in its own column at the right rather than under the prose, so
 // eleven entries are eleven decisions on one screen instead of a scroll.
 //
-// What is deliberately **not** on this screen: any way to edit the list. There is nothing
-// to edit — an entry is composed, so the affordances are a pin (the owner's own order) and,
-// where an entry needs an object they do not have, the proposal the entry already carries.
+// What is deliberately **not** on this screen: any way to edit the list, and — the one that
+// takes saying — any way to *tick an entry off*. There is nothing to edit, because an entry is
+// composed; and a Want is answered by reading the Story rather than by a press here (#35), so
+// the only thing offered against one is taking back a sentence that was a slip. The
+// affordances are a pin (the owner's own order), that strike, and, where an entry needs an
+// object they do not have, the proposal the entry already carries.
 // Pressing that one is opening a Wish, which is why it is a button with a price attached in
 // words and not a quiet automatic thing.
 //
@@ -78,9 +82,9 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
       <header className="pt-8 sm:pt-12">
         <h1 className="font-heading text-2xl sm:text-3xl">What to read next</h1>
         <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          Composed from the routes I am walking and the Series I am completing, in the order I
-          should read them. Nothing here is a list I keep: finish something and it recomposes. Pin
-          an entry where I disagree with it.
+          Composed from what I have said I want to read, the routes I am walking and the Series I am
+          completing, in the order I should read them. Nothing here is a list I keep: finish
+          something and it recomposes. Pin an entry where I disagree with it.
         </p>
       </header>
 
@@ -105,13 +109,18 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
       {entries.length === 0 ? (
         <div className="mt-10 max-w-prose">
           <p className="text-pretty text-sm text-muted-foreground">
-            Nothing composed. Either every route is walked to the end and every Series I am
-            collecting is complete — which is a real answer — or there is nothing to compose from
-            yet.
+            Nothing composed. Either I want to read nothing in particular, every route is walked to
+            the end and every Series I am collecting is complete — which is a real answer — or there
+            is nothing to compose from yet.
           </p>
           <p className="mt-4 text-sm">
+            Open a{" "}
+            <Link href="/stories" className="underline underline-offset-4">
+              Story
+            </Link>{" "}
+            and say I want to read it — that costs nothing else. Or{" "}
             <Link href="/paths" className="underline underline-offset-4">
-              Define a Path
+              define a Path
             </Link>{" "}
             and put Stories on it in the order I mean to read them, or{" "}
             <Link href="/series" className="underline underline-offset-4">
@@ -209,6 +218,14 @@ function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
               ) : null}
             </p>
           ) : null}
+          {entry.want ? (
+            <p className="mt-2 text-sm">
+              I said I want to read it
+              {entry.story ? (
+                <span className="text-muted-foreground"> · {entry.story.type.name}</span>
+              ) : null}
+            </p>
+          ) : null}
           {entry.series ? (
             <p className="mt-2 text-sm">
               Volume {entry.series.position} of {entry.series.publishedCount} of{" "}
@@ -242,13 +259,36 @@ function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2 lg:mt-0 lg:w-64 lg:shrink-0 lg:justify-end">
-          <form action={entry.pinned ? unpin : pin}>
-            <input type="hidden" name="kind" value={source.kind} />
-            <input type="hidden" name="id" value={source.id} />
-            <Button type="submit" variant="ghost" size="sm" className="-ml-2.5 h-9 sm:h-8 lg:ml-0">
-              {entry.pinned ? "Unpin" : "Pin it first"}
-            </Button>
-          </form>
+          {/* **A pin names a Path or a Series**, which is the two sources that existed when it
+              was built, so a Want is offered the one act it has instead. Taking it back is a
+              *strike* and reads like one: a Want the owner has not acted on is still true, and
+              nothing on this screen ticks one off — a Reading is what answers it. */}
+          {entry.want ? (
+            <form action={unwant}>
+              <input type="hidden" name="wantId" value={entry.want.id} />
+              <Button
+                type="submit"
+                variant="ghost"
+                size="sm"
+                className="-ml-2.5 h-9 text-muted-foreground hover:text-foreground sm:h-8 lg:ml-0"
+              >
+                I did not mean that
+              </Button>
+            </form>
+          ) : (
+            <form action={entry.pinned ? unpin : pin}>
+              <input type="hidden" name="kind" value={source.kind} />
+              <input type="hidden" name="id" value={source.id} />
+              <Button
+                type="submit"
+                variant="ghost"
+                size="sm"
+                className="-ml-2.5 h-9 sm:h-8 lg:ml-0"
+              >
+                {entry.pinned ? "Unpin" : "Pin it first"}
+              </Button>
+            </form>
+          )}
 
           {/* **The proposal, as a form.** The entry proposed it; this submit is what opens
               it. Nothing was written by rendering the row, and the priority the proposal

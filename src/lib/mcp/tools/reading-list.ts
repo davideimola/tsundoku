@@ -22,16 +22,20 @@ const next: McpTool = {
 This is the closest thing here to an answer to *"what should I read next"*, and it is the one tool
 to reach for when that is the question.
 
-It composes from two sources and nothing else. \`because: "path"\` is **the next unread Story of an
-active Path** — an ordered route the owner chose, crossing types and publishers freely — and it
+It composes from three sources and nothing else. \`because: "want"\` is **an open Want** — the owner
+having said *I want to read this Story*, which belongs to no route and carries no order; it falls
+quiet by itself once a Reading begins after it, so what is here is still wanted. \`because: "path"\`
+is **the next unread Story of an active Path** — an ordered route the owner chose, crossing types and publishers freely — and it
 carries that Path and the \`intent\` they wrote for it, so a suggestion can say which route it
 extends. \`because: "series"\` is **the next position of a Series they have decided to collect** that
 the house has none of; it names an object and no Story, because what narrative a Volume carries is a
 separate fact the ledger does not claim to know.
 
-**Order is meaning here.** \`pinned\` entries lead, most recently pinned first: a pin is the owner
-overruling the composed order, and it is the strongest signal in this answer. After them come the
-Path entries in the owner's order of routes, then the Series.
+**Order is meaning here, and only at the front.** \`pinned\` entries lead, most recently pinned
+first: a pin is the owner overruling the composed order, and it is the strongest signal in this
+answer. Everything after them is composed rather than ranked — the Wants newest first, then the Path
+entries in the owner's order of routes, then the Series — so do not read a place in that tail as a
+preference.
 
 \`medium\` is the **intended** medium and it is derived, never recorded. \`paper\` means an object is
 involved; \`digital\` means none is, because an owned ebook is not something this library models — so
