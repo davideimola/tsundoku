@@ -151,10 +151,13 @@ export async function strike(form: FormData): Promise<void> {
   await requireOwner();
 
   const pathId = text(form, "pathId") ?? "";
-  const name = text(form, "name") ?? "";
+  let name: string;
 
   try {
-    await strikePath(pathId);
+    // The name comes back from the verb rather than out of the form: the sentence on the
+    // screen the owner lands on is about a row that no longer exists, so the row itself is the
+    // only thing entitled to say what it was called.
+    name = await strikePath(pathId);
   } catch (error) {
     // Anything that is not a refusal is a bug rather than an answer and stays unhandled.
     if (!isRefusal(error)) throw error;

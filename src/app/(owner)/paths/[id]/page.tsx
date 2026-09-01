@@ -432,7 +432,7 @@ export default async function PathPage({
           is read before the second one.
 
           Nothing refuses this — a Path claims nothing about the world, so there is no rail to
-          meet (ADR-0014, ADR-0015, and the widening #36 makes). That is exactly why the
+          meet (ADR-0016). That is exactly why the
           sentence below has to say what stays: the owner's only safety here is knowing that
           striking a route is a judgement withdrawn and never history lost. */}
       {panel === STRIKING_A_ROUTE ? (
@@ -444,7 +444,6 @@ export default async function PathPage({
         >
           <form action={strike} className="grid gap-4">
             <input type="hidden" name="pathId" value={path.id} />
-            <input type="hidden" name="name" value={path.name} />
 
             <p className="text-pretty text-sm text-muted-foreground">
               The library stops knowing <em>{path.name}</em>
@@ -463,7 +462,8 @@ export default async function PathPage({
                   declared on it
                 </>
               ) : null}
-              . Those are the route's own records, and they say nothing once the route is gone.
+              . Those are the route's own records, and they say nothing once the route is gone — a
+              Reading list pin on this route goes with them.
             </p>
 
             <p className="text-pretty text-sm text-muted-foreground">

@@ -165,11 +165,12 @@ async function setActive(pathId: string, active: boolean): Promise<void> {
  * **Strike a Path from the library: it stops knowing the route.** Its stops and the
  * constraints declared on it go with it, and nothing else moves.
  *
- * This is striking (ADR-0014, ADR-0015) reaching a third record, and it is **the widening the
- * shape those two fixed did not have**: a Volume's strike is refused on four things and a
+ * This is striking reaching a third record (ADR-0016, extending ADR-0014 and ADR-0015), and it
+ * is **the widening the shape those two fixed did not have**: a Volume's strike is refused on
+ * four things and a
  * Story's on four more, because each of those rows *asserts something about the world* — an
- * object was in the house, an event happened in the owner's life — and unmaking one of those
- * assertions would be losing history rather than correcting a mistake. **A Path asserts
+ * object was in the house, an event happened in the owner's life — and unmaking one of them
+ * would be losing history rather than correcting a mistake. **A Path asserts
  * nothing.** It is an order the owner decided, and a decision can be withdrawn by the person
  * who made it. So there is no rail here, and nothing refuses.
  *
@@ -190,8 +191,10 @@ async function setActive(pathId: string, active: boolean): Promise<void> {
  *
  * **The owner's act, never the assistant's**, for the reason ADR-0014 gave and ADR-0015
  * repeated: nothing on the MCP surface deletes rows to tidy up after itself.
+ *
+ * Returns the name the route held, which is the one thing about it worth saying afterwards.
  */
-export async function strikePath(pathId: string): Promise<void> {
+export async function strikePath(pathId: string): Promise<string> {
   known(pathId, "Path");
 
   // One statement, and the schema does the rest: every reference to a Path is
@@ -199,11 +202,18 @@ export async function strikePath(pathId: string): Promise<void> {
   // follow it out without this verb naming them one by one. Nothing here has to be cleared
   // first — a Reading, a Rating and a Story do not reference a route at all, which is the
   // structural version of "they are left standing".
-  const struck = await query<{ id: string }>("delete from path where id = $1 returning id", [
+  const struck = await query<{ name: string }>("delete from path where id = $1 returning name", [
     pathId,
   ]);
 
-  if (struck.length === 0) throw new Refusal("not-found", "That Path is not in the library.");
+  const [gone] = struck;
+  if (!gone) throw new Refusal("not-found", "That Path is not in the library.");
+
+  // The name, because the screen that presses this is the one being unmade: what lands on
+  // `/paths` has to say *which* route went, and the only honest source for that is the row
+  // that was deleted. A name carried through the form would be the browser telling the
+  // application what it just did.
+  return gone.name;
 }
 
 function stopProse(constraint: string | undefined): string {

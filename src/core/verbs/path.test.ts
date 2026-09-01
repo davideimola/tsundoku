@@ -590,7 +590,7 @@ describe("striking a Path", () => {
     await declareConstraint({ pathId, prose: "take it slowly, given the cost" });
     await declareConstraint({ prose: "don't accumulate too many unread books" });
 
-    await strikePath(pathId);
+    expect(await strikePath(pathId)).toBe("Slam Dunk");
 
     expect(await findPath(pathId)).toBeNull();
     expect(await query("select 1 from path_item where path_id = $1", [pathId])).toEqual([]);
@@ -640,16 +640,24 @@ describe("striking a Path", () => {
     expect(again).not.toBe(pathId);
   });
 
-  it("is a different act from putting the route aside, which keeps it whole", async () => {
-    const pathId = await definePath({ name: "Angolo Giappone" });
-    const [storyId] = await batmanStories();
-    await placeStoriesOnPath(pathId, [storyId]);
+  it("is a different act from putting a route aside, which still keeps it whole", async () => {
+    const struckId = await definePath({ name: "Slam Dunk" });
+    const asideId = await definePath({ name: "Angolo Giappone" });
+    const [one, two] = await batmanStories();
+    await placeStoriesOnPath(struckId, [one]);
+    await placeStoriesOnPath(asideId, [two]);
 
-    await deactivatePath(pathId);
+    await deactivatePath(asideId);
+    await strikePath(struckId);
 
-    const aside = await findPath(pathId);
+    // Aside says *not now*: the route is still there, with the order the owner made once.
+    const aside = await findPath(asideId);
     expect(aside?.active).toBe(false);
-    expect(aside?.stops.map((stop) => stop.title)).toEqual(["Batman: Anno Uno"]);
+    expect(aside?.stops.map((stop) => stop.title)).toEqual(["Batman: Il lungo Halloween"]);
+
+    // Struck says *this was never a route*, and there is nothing left to take up again.
+    expect(await findPath(struckId)).toBeNull();
+    await expect(deactivatePath(struckId)).rejects.toMatchObject({ code: "not-found" });
   });
 
   it("says so in words when there is no such route, and refuses an id no row could have", async () => {
