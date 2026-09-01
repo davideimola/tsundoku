@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { composeReadingList, type ReadingListEntry } from "@/core/queries/reading-list";
-import type { PinnedSource } from "@/core/verbs/reading-list";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 // The three steps a shopping list is read in, from the screen that bands by them: this
@@ -19,26 +17,33 @@ import {
   entryLine,
   entryStanding,
   entryTitle,
+  reasonSaid,
+  theWantOn,
 } from "./entry";
 
 // THE READING LIST. The screen the owner opens most, and the one the whole application is
 // for: the spreadsheet's `Prossimo` column, recomputed by hand for every route, plus three
 // dashboard tiles reading `#ERROR!` (#1).
 //
-// The design has one idea in it, and everything else is the house style the screens beside
-// it already set. **The list is a numbered sequence, because it is one.** The order is the
-// answer — pinned first, then what the owner said they want to read, then the routes they
-// chose, then the Series ledger — so the ordinal sits in the gutter where the eye starts,
-// and the second line of every row says the one thing that decides whether the entry is
-// actionable tonight: *tonight*, *on the shelf*, or *buy it first*. Nothing else competes
-// for that line.
+// **The screen is two halves now** (#40), and the difference between them is the one idea in
+// its layout. The **head** is what the owner pinned: it is short, every row in it is a
+// decision, and it is genuinely a sequence — so it keeps the ordinal in the gutter, where
+// the eye starts, and reads in pin order. The **reserve** is everything else, and it
+// composes itself: it is deliberately unordered, so it has **no ordinal at all**. That
+// absence is the design. A number beside a reserve row would say *third best*, which is
+// exactly the claim the reserve refuses to make — and the moment an order starts to matter
+// the owner pins the row, which moves it up into the half where a number is true.
 //
-// **What #29 gave it is the shelf's vocabulary and the width.** Every entry now carries the
-// tile the walls are laid out as — the Series' own tint, the jacket where a lookup found one,
-// the position at its foot — because the thing the owner is choosing between is a book, and
-// a column of text is the format the spreadsheet already had. And the row spends the window:
-// at a desk the act sits in its own column at the right rather than under the prose, so
-// eleven entries are eleven decisions on one screen instead of a scroll.
+// Everything else is the house style the screens beside it already set. The second line of
+// every row says the one thing that decides whether the entry is actionable tonight —
+// *tonight*, *on the shelf*, or *buy it first* — and nothing else competes for that line.
+//
+// **What #29 gave it is the shelf's vocabulary and the width.** Every entry carries the tile
+// the walls are laid out as — the Series' own tint, the jacket where a lookup found one, the
+// position at its foot — because the thing the owner is choosing between is a book, and a
+// column of text is the format the spreadsheet already had. And the row spends the window: at
+// a desk the act sits in its own column at the right rather than under the prose, so eleven
+// entries are eleven decisions on one screen instead of a scroll.
 //
 // What is deliberately **not** on this screen: any way to edit the list, and — the one that
 // takes saying — any way to *tick an entry off*. There is nothing to edit, because an entry is
@@ -60,6 +65,8 @@ export const dynamic = "force-dynamic";
 const PICKER =
   "h-11 rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30";
 
+const EYEBROW = "font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground";
+
 type Asked = Record<string, string | string[] | undefined>;
 
 function asked(params: Asked, name: string): string | undefined {
@@ -71,20 +78,22 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
   await requireOwner();
 
   const params = await searchParams;
-  const entries = await composeReadingList();
+  const { head, reserve } = await composeReadingList();
 
   const refused = asked(params, "refused");
   const wished = asked(params, "wished");
-  const tonight = entries.filter((entry) => entry.atHand).length;
+  const composed = head.length + reserve.length;
+  const tonight = [...head, ...reserve].filter((entry) => entry.atHand).length;
 
   return (
     <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
         <h1 className="font-heading text-2xl sm:text-3xl">What to read next</h1>
         <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          Composed from what I have said I want to read, the routes I am walking and the Series I am
-          completing, in the order I should read them. Nothing here is a list I keep: finish
-          something and it recomposes. Pin an entry where I disagree with it.
+          Two halves. What I pinned leads, in the order I pinned it — that half is mine to keep
+          short. Everything under it composes itself from what I said I want to read, the routes I
+          am walking and the Series I am completing, and it is in no order at all. When the order
+          starts to matter, I pin it.
         </p>
       </header>
 
@@ -106,7 +115,7 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
         </p>
       ) : null}
 
-      {entries.length === 0 ? (
+      {composed === 0 ? (
         <div className="mt-10 max-w-prose">
           <p className="text-pretty text-sm text-muted-foreground">
             Nothing composed. Either I want to read nothing in particular, every route is walked to
@@ -130,44 +139,109 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
           </p>
         </div>
       ) : (
-        <>
-          <p className="mt-8 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-            {entries.length} {entries.length === 1 ? "entry" : "entries"} · {tonight} I could start
-            tonight
-          </p>
+        <div className="mt-9 space-y-10">
+          {/* **The head, numbered, because it is the one place an order means anything.**
+              There is no cap on it: twenty pins look wrong here, and pruning them is mine. */}
+          <Half label="Pinned" count={head.length} said="In the order I pinned it, newest first.">
+            {head.length === 0 ? (
+              <p className="max-w-prose text-pretty text-sm text-muted-foreground">
+                Nothing pinned. Pin anything below and it leads this list until I unpin it — that is
+                the only order I keep by hand.
+              </p>
+            ) : (
+              <ol>
+                {head.map((entry, place) => (
+                  <Entry key={entryKey(entry)} entry={entry} place={place + 1} pinned />
+                ))}
+              </ol>
+            )}
+          </Half>
 
-          <ol className="mt-3">
-            {entries.map((entry, place) => (
-              <Entry key={entryKey(entry)} entry={entry} place={place + 1} />
-            ))}
-          </ol>
-        </>
+          {/* **The reserve, unnumbered.** The absence of the ordinal is the point: a number
+              here would read as a rank, and this half is not ranked. */}
+          <Half
+            label="Composed"
+            count={reserve.length}
+            said={`In no order. ${tonight} of the whole list I could start tonight.`}
+          >
+            {reserve.length === 0 ? (
+              <p className="max-w-prose text-pretty text-sm text-muted-foreground">
+                Nothing else composed — everything the library has to offer is pinned above.
+              </p>
+            ) : (
+              <ul>
+                {reserve.map((entry) => (
+                  <Entry key={entryKey(entry)} entry={entry} pinned={false} />
+                ))}
+              </ul>
+            )}
+          </Half>
+        </div>
       )}
     </main>
+  );
+}
+
+/** One half of the list: what it is, how much of it there is, and what its order means. */
+function Half({
+  label,
+  count,
+  said,
+  children,
+}: {
+  label: string;
+  count: number;
+  said: string;
+  children: React.ReactNode;
+}) {
+  const id = `half-${label.toLowerCase()}`;
+
+  return (
+    <section aria-labelledby={id}>
+      <h2 id={id} className={`flex items-baseline gap-3 ${EYEBROW}`}>
+        {label}
+        <span className="tabular-nums">{count}</span>
+        <span className="h-px flex-1 bg-border" aria-hidden="true" />
+      </h2>
+      <p className="mt-1.5 max-w-prose text-pretty text-sm text-muted-foreground">{said}</p>
+
+      <div className="mt-3">{children}</div>
+    </section>
   );
 }
 
 // What an entry is called and how its standing is worded are `./entry` now, because the
 // dashboard says both as well (#24) and a second wording would be a second answer.
 
-/** One entry: what to read, why it is here, and the one thing to do about it. */
-function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
-  // The pin's subject, in the verb's own type: an entry comes from one source and that
-  // source is what a pin points at.
-  const source: PinnedSource = entry.path
-    ? { kind: "path", id: entry.path.id }
-    : { kind: "series", id: entry.series?.id ?? "" };
+/**
+ * One entry: what to read, every reason it is here, and the one thing to do about it.
+ *
+ * `place` is the ordinal, and it is passed only in the head — the reserve has no order to
+ * number.
+ */
+function Entry({
+  entry,
+  place,
+  pinned,
+}: {
+  entry: ReadingListEntry;
+  place?: number;
+  pinned: boolean;
+}) {
+  const want = theWantOn(entry);
 
   return (
     <li className="flex gap-3 border-t border-border py-4 sm:gap-5">
-      {/* The gutter carries the position on the list, because the order *is* the answer
-          this screen gives. Tabular so the column stays a column past nine. */}
-      <span
-        aria-hidden="true"
-        className="w-6 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-muted-foreground"
-      >
-        {String(place).padStart(2, "0")}
-      </span>
+      {/* The gutter carries the position in the head, because there the order *is* the
+          answer. Tabular so the column stays a column past nine. */}
+      {place === undefined ? null : (
+        <span
+          aria-hidden="true"
+          className="w-6 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-muted-foreground"
+        >
+          {String(place).padStart(2, "0")}
+        </span>
+      )}
 
       {/* The object, faced outwards — the same tile as on the walls, in the same colour and
           the same shape, so an entry is recognised by sight rather than read. A Series entry
@@ -189,60 +263,48 @@ function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
           the order they are read in either way. */}
       <div className="min-w-0 flex-1 lg:flex lg:items-start lg:gap-8">
         <div className="min-w-0 lg:flex-1">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <h2 className="font-heading text-lg text-balance">{entryTitle(entry)}</h2>
-            {entry.pinned ? (
-              <Badge variant="outline" className="shrink-0 text-muted-foreground">
-                Pinned
-              </Badge>
-            ) : null}
-          </div>
+          <h3 className="font-heading text-lg text-balance">{entryTitle(entry)}</h3>
 
-          <p className="mt-1 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-            {entryStanding(entry)}
+          {/* The Type belongs to the row and not to each reason: three reasons saying
+           *Manga* three times is the same fact three times. */}
+          <p className={`mt-1 ${EYEBROW}`}>
+            {[entry.story?.type.name, entryStanding(entry)].filter(Boolean).join(" · ")}
           </p>
 
-          {/* Why it is here. A route is a judgement the owner made, so it is named and its
-              intent is quoted; a Series is a ledger, so it is counted. */}
-          {entry.path ? (
-            <p className="mt-2 text-sm">
-              Next on{" "}
-              <Link
-                href={`/paths/${entry.path.id}`}
-                className="underline underline-offset-4 hover:text-foreground"
-              >
-                {entry.path.name}
-              </Link>
-              {entry.story ? (
-                <span className="text-muted-foreground"> · {entry.story.type.name}</span>
-              ) : null}
-            </p>
-          ) : null}
-          {entry.want ? (
-            <p className="mt-2 text-sm">
-              I said I want to read it
-              {entry.story ? (
-                <span className="text-muted-foreground"> · {entry.story.type.name}</span>
-              ) : null}
-            </p>
-          ) : null}
-          {entry.series ? (
-            <p className="mt-2 text-sm">
-              Volume {entry.series.position} of {entry.series.publishedCount} of{" "}
-              <Link
-                href={`/series/${entry.series.id}`}
-                className="underline underline-offset-4 hover:text-foreground"
-              >
-                {[entry.series.name, entry.series.editionLine].filter(Boolean).join(" ")}
-              </Link>
-            </p>
-          ) : null}
+          {/* **Every reason it is here, and one row says all of them.** Wanted, and on two
+              routes, is three sentences under one title rather than the same book three
+              times. The owner's own words about a route are quoted only where that route is
+              actually offering this stop: a route's intent under all ten of its stops is the
+              same sentence ten times. */}
+          <ul className="mt-2 space-y-1.5">
+            {entry.reasons.map((reason) => {
+              const said = reasonSaid(reason);
 
-          {entry.path?.intent ? (
-            <p className="mt-1.5 max-w-prose text-pretty font-serif text-prose italic text-muted-foreground">
-              {entry.path.intent}
-            </p>
-          ) : null}
+              return (
+                <li
+                  key={`${reason.because}:${reason.want?.id ?? reason.path?.id ?? reason.series?.id}`}
+                >
+                  <p className="text-sm">
+                    {said.said}
+                    {said.names ? (
+                      <Link
+                        href={said.names.href}
+                        className="underline underline-offset-4 hover:text-foreground"
+                      >
+                        {said.names.label}
+                      </Link>
+                    ) : null}
+                  </p>
+
+                  {reason.path?.intent && reason.path.place === 1 ? (
+                    <p className="mt-1 max-w-prose text-pretty font-serif text-prose italic text-muted-foreground">
+                      {reason.path.intent}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
 
           {/* Neither on the shelf nor catalogued: there is nothing to wish for, and saying
               so is better than an affordance that could not work. */}
@@ -259,36 +321,36 @@ function Entry({ entry, place }: { entry: ReadingListEntry; place: number }) {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2 lg:mt-0 lg:w-64 lg:shrink-0 lg:justify-end">
-          {/* **A pin names a Path or a Series**, which is the two sources that existed when it
-              was built, so a Want is offered the one act it has instead. Taking it back is a
-              *strike* and reads like one: a Want the owner has not acted on is still true, and
-              nothing on this screen ticks one off — a Reading is what answers it. */}
-          {entry.want ? (
+          {/* **A pin names the thing to read**, so every row can be pinned — which is what
+              makes three stops of one route, then a stop of another, sayable at all (#40).
+              The subject travels in the form exactly as the core states it. */}
+          <form action={pinned ? unpin : pin}>
+            <input type="hidden" name="kind" value={entry.subject.kind} />
+            <input type="hidden" name="id" value={entry.subject.id} />
+            {entry.subject.kind === "series" ? (
+              <input type="hidden" name="position" value={entry.subject.position} />
+            ) : null}
+            <Button type="submit" variant="ghost" size="sm" className="-ml-2.5 h-9 sm:h-8 lg:ml-0">
+              {pinned ? "Unpin" : "Pin it"}
+            </Button>
+          </form>
+
+          {/* Taking a Want back is a *strike* and reads like one: a Want the owner has not
+              acted on is still true, and nothing on this screen ticks one off — a Reading is
+              what answers it. */}
+          {want ? (
             <form action={unwant}>
-              <input type="hidden" name="wantId" value={entry.want.id} />
+              <input type="hidden" name="wantId" value={want.id} />
               <Button
                 type="submit"
                 variant="ghost"
                 size="sm"
-                className="-ml-2.5 h-9 text-muted-foreground hover:text-foreground sm:h-8 lg:ml-0"
+                className="h-9 text-muted-foreground hover:text-foreground sm:h-8"
               >
                 I did not mean that
               </Button>
             </form>
-          ) : (
-            <form action={entry.pinned ? unpin : pin}>
-              <input type="hidden" name="kind" value={source.kind} />
-              <input type="hidden" name="id" value={source.id} />
-              <Button
-                type="submit"
-                variant="ghost"
-                size="sm"
-                className="-ml-2.5 h-9 sm:h-8 lg:ml-0"
-              >
-                {entry.pinned ? "Unpin" : "Pin it first"}
-              </Button>
-            </form>
-          )}
+          ) : null}
 
           {/* **The proposal, as a form.** The entry proposed it; this submit is what opens
               it. Nothing was written by rendering the row, and the priority the proposal
