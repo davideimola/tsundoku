@@ -262,14 +262,18 @@ function theCoverAct(volume: RecordedVolume): Act {
  * Splitting the object into the several Stories it holds — the sixth act, and **the only one
  * this screen decides whether to offer at all** (#38).
  *
- * It is offered on an object standing for exactly one narrative, which is what the default
- * makes of every object: one Volume, one Story. That is the state a split is *from*. An object
- * nobody has said anything about has nothing to split — the act it wants is
- * `THE_STORY_ACT`, beside this one — and an object already holding several has been split
- * once and would leave the gesture with no single narrative to replace. Both are `null` here,
- * which is what stops a hand-typed `?panel=split` standing this form over an object it cannot
- * act on, exactly as `theActsOnTheObject` stops `?panel=release` over something the house does
- * not hold.
+ * It is offered on an object standing for exactly one narrative **of its own**, which is what
+ * the default makes of every object: one Volume, one Story. That is the state a split is
+ * *from*. Three things are not, and each is `null` here — which is what stops a hand-typed
+ * `?panel=split` standing this form over an object it cannot act on, exactly as
+ * `theActsOnTheObject` stops `?panel=release` over something the house does not hold.
+ *
+ * An object nobody has said anything about has nothing to split; the act it wants is
+ * `THE_STORY_ACT`, beside this one. An object already holding several has been split once, and
+ * would leave the gesture no single narrative to replace. And an object whose narrative other
+ * objects carry too is a **volume of a work** — one of twenty tankōbon of *Slam Dunk* — which
+ * is not one volume's to unmake: after a line is merged that is most of this library, and an
+ * act offered on every one of those tiles would be an act the verb only ever refuses.
  *
  * **It is not a second guess at the verb's rule.** `splitVolumeIntoStories` refuses more than
  * this hides — a narrative other objects carry, one a Reading went through, one the owner
@@ -281,7 +285,8 @@ function theCoverAct(volume: RecordedVolume): Act {
  * because *split* alone is a word about the object and the point is the narratives.
  */
 export function theSplitAct(carried: readonly CarriedStory[]): Act | null {
-  if (carried.length !== 1) return null;
+  const [only] = carried;
+  if (!only || carried.length !== 1 || only.alsoCarriedElsewhere) return null;
 
   return { panel: "split", label: "Split it into the Stories it holds" };
 }

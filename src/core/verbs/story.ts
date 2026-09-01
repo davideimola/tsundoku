@@ -314,10 +314,15 @@ export async function strikeStories(storyIds: readonly string[]): Promise<number
 // Two things go with the dropped narrative, and they are said out loud rather than discovered:
 // the **Credits** go and the people they named stay, which is striking's own clause and its
 // reason (ADR-0012, a Person is not owned by the Credit that first named them); and a **Path**
-// stop naming it goes too. The second one is the edge this gesture leaves open — whether a
-// route the owner planned should refuse a split the way it refuses a strike is a decision that
-// is not written down anywhere, and inventing it here is not this verb's to do. What is
-// written down is the pair above, and that is what is implemented.
+// stop naming it goes too.
+//
+// **That second one is a conflict with ADR-0015 and it is left standing deliberately.**
+// Striking refuses a Story a Path names as a stop — it is the fourth of its four — and this
+// gesture does not, because the decision behind it says the auto-made Story is dropped while
+// nothing has attached to it, *no Reading, no Rating*, and names no third thing. Refusing on a
+// route would be a rule nobody wrote, and cascading it away quietly would be one too. So it
+// cascades, it is tested by name below, the panel says so before the press, and the ADR is
+// where the answer belongs the day the owner gives one.
 //
 // **Not a tool, and it cannot become one**: it creates Stories, so an assistant may only
 // propose them and the door for that is the Inbox (ADR-0005).
@@ -412,9 +417,14 @@ export async function splitVolumeIntoStories(
       created.push(storyId);
     }
 
-    // Last, and it takes the Credits and the carrying link with it: every reference to a
-    // Story cascades, and the two that would matter refused the gesture above.
-    await run("delete from story where id = $1", [standing.id]);
+    // Last, and it takes the Credits, the carrying link and any Path stop with it: every
+    // reference to a Story cascades, and the two that would matter refused the gesture above.
+    // Wrapped like every other statement that can be refused, so a reference the schema stops
+    // cascading one day reaches the owner as a sentence rather than as a 500 (`./README.md`).
+    await refusing(
+      () => run("delete from story where id = $1", [standing.id]),
+      () => `${standing.title} could not be replaced by what this object holds.`
+    );
 
     return created;
   });

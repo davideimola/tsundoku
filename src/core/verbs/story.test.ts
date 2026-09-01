@@ -581,6 +581,24 @@ describe("splitting an object into the Stories it holds", () => {
     expect(await listStories()).toEqual([]);
   });
 
+  // **The edge this gesture leaves open, pinned rather than left silent.** Striking refuses a
+  // Story a Path names as a stop (ADR-0015); a split does not, because the decision behind it
+  // names a Reading and a Rating and nothing else. So the stop goes with the narrative it
+  // named, the route keeps its other stops, and this test is where that is written down until
+  // the owner says which of the two acts is right.
+  it("takes a Path stop naming the dropped narrative with it, and leaves the route standing", async () => {
+    const { volumeId, storyId } = await lUomoCheRide();
+    const elsewhere = await createStory({ title: "Batman: Anno Uno", typeId: "comic" });
+    const path = await definePath({ name: "Recupero Batman" });
+    await placeStoriesOnPath(path, [storyId, elsewhere]);
+
+    await splitVolumeIntoStories(volumeId, THE_THREE);
+
+    expect(await query("select story_id from path_item where path_id = $1", [path])).toEqual([
+      { story_id: elsewhere },
+    ]);
+  });
+
   // Striking's own clause, and it holds here for its reason: a Person is not owned by the
   // Credit that first named them (ADR-0012).
   it("takes the Credits on the dropped narrative and leaves the people standing", async () => {

@@ -687,10 +687,10 @@ export default async function VolumePage({
                 (ADR-0012). */}
             <p className="max-w-prose text-xs text-muted-foreground">
               <span className="font-heading text-foreground">{carried[0].title}</span> stops being a
-              narrative of its own, and the Credits on it go with it — the people they name stay.
-              Nothing about the object changes: it is in the house, in its line and at its position
-              exactly as it is now. If you have read it or judged it, this is refused and nothing is
-              split.
+              narrative of its own. The Credits on it go with it — the people they name stay — and
+              so does any Path that names it as a stop. Nothing about the object changes: it is in
+              the house, in its line and at its position exactly as it is now. If you have read it
+              or judged it, this is refused and nothing is split.
             </p>
           </form>
         </Drawer>

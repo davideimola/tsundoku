@@ -27,6 +27,17 @@ export type CarriedStory = {
    * Story across twenty objects shows the same one twenty times.
    */
   latestScore: number | null;
+  /**
+   * Whether another object carries this narrative too — which is to say whether it is *this*
+   * object's own or a work running across a line.
+   *
+   * It is the one fact on this shape that is about neither the Story nor the object but about
+   * the many-to-many between them, and it is here because a screen cannot derive it: read from
+   * one Volume, *Slam Dunk* and *Gotham Noir* look exactly alike. What needs it is the split
+   * (#38) — an object that stands for a work twenty tankōbon share is not one volume's to
+   * unmake, so the act is not offered rather than offered and refused.
+   */
+  alsoCarriedElsewhere: boolean;
 };
 
 /** A Volume as a Story's carriers show it: the object, and whether the house holds it. */
@@ -73,6 +84,12 @@ const CARRIED_STORY = `
        where g.story_id = s.id
        order by g.set_at desc
        limit 1
+    ),
+    'alsoCarriedElsewhere', exists (
+      select 1
+        from volume_story elsewhere
+       where elsewhere.story_id = s.id
+         and elsewhere.volume_id <> vs.volume_id
     )
   )`;
 

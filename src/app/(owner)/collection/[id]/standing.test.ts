@@ -338,7 +338,14 @@ describe("splitting an object into the Stories it holds", () => {
       title,
       type: { id: "comic", name: "Comic" },
       latestScore: null,
+      alsoCarriedElsewhere: false,
     }));
+
+  /** One of twenty tankōbon: the object carries one narrative, and it is not its own. */
+  const aVolumeOfAWork = carries("Slam Dunk").map((story) => ({
+    ...story,
+    alsoCarriedElsewhere: true,
+  }));
 
   it("is offered on an object standing for one narrative, which is what the default makes", () => {
     expect(theSplitAct(carries("Batman: L'uomo che ride"))).toMatchObject({ panel: "split" });
@@ -350,6 +357,12 @@ describe("splitting an object into the Stories it holds", () => {
 
   it("is not offered on an object that already holds several", () => {
     expect(theSplitAct(carries("Gotham Noir", "Uomo di legno"))).toBeNull();
+  });
+
+  // The case that is most of this library once a line is merged: a work across twenty
+  // objects is not one volume's to unmake, so the act is not offered rather than refused.
+  it("is not offered on one volume of a work other objects carry too", () => {
+    expect(theSplitAct(aVolumeOfAWork)).toBeNull();
   });
 
   it("takes an address none of the object's other acts is using", () => {

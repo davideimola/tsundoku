@@ -154,6 +154,43 @@ describe("one Story across twenty Volumes: Slam Dunk", () => {
 // The claim the ticket makes in one line, and the only way to hold it: delete the rows
 // that say the fact, and *both* directions go quiet together. If either side were derived
 // from the other, one of them would survive.
+// **Whether a narrative is this object's own**, read from the object — which is the one thing
+// on a Volume's contents that is about the join rather than about either end of it. From one
+// Volume, a tale inside an omnibus and a work running across twenty tankōbon look identical,
+// and telling them apart is what decides whether an object can be split at all (#38).
+describe("a narrative other objects carry too", () => {
+  it("says so on a volume of a work, and not on an object's own tale", async () => {
+    const own = await volumeInTheHouse({
+      title: "Batman: L'uomo che ride",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+    const first = await volumeInTheHouse({
+      title: "Slam Dunk 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    const second = await volumeInTheHouse({
+      title: "Slam Dunk 2",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+
+    const tale = await createStory({ title: "Gotham Noir", typeId: "comic" });
+    const work = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    await recordVolumeCarriesStory(own, tale);
+    await recordVolumeCarriesStory(first, work);
+    await recordVolumeCarriesStory(second, work);
+
+    expect(await listStoriesInVolume(own)).toMatchObject([{ alsoCarriedElsewhere: false }]);
+    expect(await listStoriesInVolume(first)).toMatchObject([{ alsoCarriedElsewhere: true }]);
+    expect(await listStoriesInVolume(second)).toMatchObject([{ alsoCarriedElsewhere: true }]);
+  });
+});
+
 describe("neither side is derived from the other", () => {
   it("is one stored fact, read from both ends", async () => {
     const volumeId = await volumeInTheHouse({

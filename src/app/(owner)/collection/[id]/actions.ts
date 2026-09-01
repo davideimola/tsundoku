@@ -134,7 +134,7 @@ export async function split(form: FormData): Promise<void> {
   await requireOwner();
 
   const volumeId = text(form, "volumeId") ?? "";
-  const titles = (form.get("titles") ?? "").toString().split("\n");
+  const titles = (text(form, "titles") ?? "").split("\n");
 
   return saying(
     volumeId,
