@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import type { RecordedVolume } from "@/core/queries/collection";
 
-import { facedWith, timesSaid, whatTheHouseSays, whatTheLookupSaid } from "./standing";
+import {
+  facedWith,
+  theActsOnTheObject,
+  theEditionNoteAct,
+  timesSaid,
+  whatTheHouseSays,
+  whatTheLookupSaid,
+  whatWritingAnIsbnDoes,
+} from "./standing";
 
 // A screen's own derivation, tested beside itself under the licence `vitest.config.ts` states.
 // What it answers is *where the owner stands with one object*, in words.
@@ -157,5 +165,140 @@ describe("what one lookup answered", () => {
 
   it("still says something where the source gave no reason", () => {
     expect(whatTheLookupSaid("unanswered", undefined)).toContain("could not be reached");
+  });
+});
+
+describe("the acts the object's page offers", () => {
+  /** Which panels an object's page would open, in the order the hero stands them in. */
+  const panels = (standing: Partial<RecordedVolume>) =>
+    theActsOnTheObject(volume(standing)).map((act) => act.panel);
+
+  /** What one of them is called. */
+  const labelOf = (standing: Partial<RecordedVolume>, panel: string) =>
+    theActsOnTheObject(volume(standing)).find((act) => act.panel === panel)?.label;
+
+  // **The one this file earns its keep on, and it is ADR-0007's third state.** An object
+  // that left the house is offered *acquiring it again* and never *releasing it* — the
+  // alternative is a page offering to release something the house does not have, which is
+  // the blur between being catalogued and being owned made into a button.
+  it("offers acquiring one that was never in the house", () => {
+    expect(panels({})).toContain("acquire");
+    expect(panels({})).not.toContain("release");
+  });
+
+  it("offers releasing one that is in the house, and never acquiring it twice over", () => {
+    const offered = panels({ inTheHouse: true, acquiredOn: "2019-04-02" });
+
+    expect(offered).toContain("release");
+    expect(offered).not.toContain("acquire");
+  });
+
+  it("offers acquiring one that left the house, and says it is again", () => {
+    const letGo = { releasedOn: "2024-01-05" };
+
+    expect(panels(letGo)).toContain("acquire");
+    expect(panels(letGo)).not.toContain("release");
+    expect(labelOf(letGo, "acquire")).toContain("again");
+  });
+
+  // Whether the house holds the thing is what the owner came to say, so it is the act that
+  // leads — and the hero draws the first one loud.
+  it("leads with the act about the house, whichever of the two it is", () => {
+    expect(panels({})[0]).toBe("acquire");
+    expect(panels({ inTheHouse: true })[0]).toBe("release");
+  });
+
+  it("asks for an ISBN where there is none and offers to correct the one that stands there", () => {
+    expect(labelOf({}, "isbn")).toContain("Record");
+    expect(labelOf({ isbn: "9788828765431" }, "isbn")).toContain("Correct");
+  });
+
+  // A wrong cover loads perfectly and is a lie (ADR-0013), so the act over one that exists
+  // is worded as a change rather than as a search that has already succeeded.
+  it("offers to find a cover where there is none and to change the one on the tile", () => {
+    expect(labelOf({}, "cover")).toContain("Find");
+    expect(labelOf({ cover: { url: "https://x/y", from: "google-books" } }, "cover")).toContain(
+      "Change"
+    );
+  });
+
+  // A Bonelli monthly carries no ISBN and never will, and the panel is where that is said —
+  // an act missing from the hero would leave the owner with no way to its own image.
+  it("offers the cover even where no source can be asked, because the panel is the answer", () => {
+    expect(panels({ isbn: null })).toContain("cover");
+  });
+
+  it("names each panel once, so no two acts fight over one address", () => {
+    for (const standing of [{}, { inTheHouse: true }, { releasedOn: "2024-01-05" }]) {
+      const offered = panels(standing);
+      expect(new Set(offered).size).toBe(offered.length);
+    }
+  });
+});
+
+describe("the Edition note's own act", () => {
+  it("offers writing one where the owner has written none", () => {
+    const act = theEditionNoteAct(null);
+
+    expect(act.panel).toBe("note");
+    expect(act.label).toContain("Write");
+  });
+
+  it("offers rewriting the one that stands there", () => {
+    expect(theEditionNoteAct({ note: "Thin paper.", writtenAt: "2026-08-31" }).label).toContain(
+      "Rewrite"
+    );
+  });
+
+  // The word this application will not use for it, wherever it is printed.
+  it("never calls it a Rating", () => {
+    const written = { note: "Thin paper.", writtenAt: "2026-08-31" };
+
+    for (const act of [theEditionNoteAct(null), theEditionNoteAct(written)]) {
+      expect(act.label.toLowerCase()).not.toContain("rating");
+      expect(act.label.toLowerCase()).not.toContain("score");
+    }
+  });
+});
+
+describe("what writing an ISBN costs", () => {
+  const jacket = { url: "https://books.google.com/x", from: "google-books" as const };
+  const asked = { source: "google-books", reference: "abc", infoUrl: null, at: "2026-08-31" };
+
+  // **The failure ADR-0012 predicted and production produced**: *One-Punch Man 9* wearing
+  // *Slam Dunk 9*'s jacket. `amendVolume` drops the looked-up cover when it writes a
+  // different ISBN, and the owner is told so where the correction is made rather than after
+  // the tile has changed under them.
+  it("says a correction takes the looked-up cover with it", () => {
+    const said = whatWritingAnIsbnDoes(
+      volume({ isbn: "9788828765431", cover: jacket, lookedUp: asked })
+    );
+
+    expect(said).toContain("cover");
+    expect(said.toLowerCase()).toContain("wrong book");
+  });
+
+  // The looked-up record still goes, but the tile does not change — so the sentence must not
+  // warn about an image the owner will still be looking at afterwards.
+  it("says an image of the owner's own is left standing", () => {
+    const said = whatWritingAnIsbnDoes(
+      volume({
+        isbn: "9788828765431",
+        cover: { url: "https://mine/x.jpg", from: "own" },
+        lookedUp: asked,
+      })
+    );
+
+    expect(said).toContain("your own");
+    expect(said).not.toContain("wrong book");
+  });
+
+  it("says nothing about covers where no source has ever answered", () => {
+    const said = whatWritingAnIsbnDoes(volume({}));
+
+    expect(said.toLowerCase()).not.toContain("cover");
+    // An empty box is not a way to empty the field: that is a different act, and there is no
+    // verb for it here.
+    expect(said).toContain("records nothing");
   });
 });

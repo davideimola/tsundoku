@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { Drawer, OpensDrawer } from "@/components/drawer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { listMissingVolumes, listSeries, type SeriesLedger } from "@/core/queries/series";
@@ -16,13 +16,20 @@ import { Spines } from "./spines";
 // list of declared Series is under it, because knowing that Naruto is 72 volumes is worth
 // having and is not a project.
 //
-// **In the shell now** (#30), which changes two things and no more. The ledgers spend the
+// **In the shell now** (#30), which changes three things and no more. The ledgers spend the
 // width instead of standing in a column — at a desk they sit two abreast, which is what makes
 // several Series comparable at a glance, and on a phone they are one under the other in the
-// order the owner asks about them. And the picture is the spines (`./spines`) rather than the
+// order the owner asks about them. The picture is the spines (`./spines`) rather than the
 // grid of numbered cells it was: same derivation, same gaps, drawn as the objects they stand
 // for and in the Series' own colour, so a stretch of one colour here is the same stretch the
 // Collection wall shows.
+//
+// And **declaring one is a panel opened from the hero** rather than a five-field card under
+// the list. It is the shape the Collection wall's *Catalogue a Volume* already has
+// (`@/components/drawer`, #32): the state of the drawer is the URL, so it costs no script,
+// `?panel=declare` is a bookmark for *add a Series*, and the back button closes it. What that
+// buys this screen is that the answer — which Series is short of what — is not two screenfuls
+// above a form nobody is filling in most of the time.
 //
 // Nothing here runs in the browser — the one write on this page is a `POST` to a server
 // action, and the screen is a thin adapter over the core (ADR-0002): two queries, laid out.
@@ -35,6 +42,17 @@ function asked(params: Asked, name: string): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }
 
+// The one panel this screen has, read against this name rather than trusted: `?panel=banana`
+// opens nothing, which is the honesty every filter on every wall is held to.
+const DECLARE = "declare";
+
+// This screen narrows nothing, so a panel's address carries the panel and nothing else — and
+// deliberately not the answer to the last write, which is about the press that produced it.
+// Two constants rather than the sibling screens' `panelled()`, because there is one panel here
+// and nothing to build an address out of.
+const OPENS_AT = `/series?panel=${DECLARE}`;
+const CLOSES_TO = "/series";
+
 export default async function SeriesPage({ searchParams }: { searchParams: Promise<Asked> }) {
   await requireOwner();
 
@@ -43,19 +61,26 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
 
   const refused = asked(params, "refused");
   const declared = asked(params, "declared");
+  const panel = asked(params, "panel") === DECLARE ? DECLARE : undefined;
 
   return (
     <main className="px-5 pb-16 sm:px-8">
-      <header className="pt-8 sm:pt-12">
-        <h1 className="font-heading text-2xl sm:text-3xl">Series</h1>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          A publisher's ordered sequence of Volumes, held as a ledger: how many are out, whether it
-          is over, and therefore what is missing. What was any good is a Rating on a Story, and it
-          is not asked here.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4 pt-8 sm:pt-12">
+        <div className="min-w-0">
+          <h1 className="font-heading text-2xl sm:text-3xl">Series</h1>
+          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
+            A publisher's ordered sequence of Volumes, held as a ledger: how many are out, whether
+            it is over, and therefore what is missing. What was any good is a Rating on a Story, and
+            it is not asked here.
+          </p>
+        </div>
+
+        <OpensDrawer href={OPENS_AT}>Declare a Series</OpensDrawer>
       </header>
 
-      {refused ? (
+      {/* On the page only where the panel is not standing over it: a refused declaration comes
+          back with its five fields open, and the sentence is printed in there. */}
+      {refused && !panel ? (
         <p
           role="alert"
           className="mt-6 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
@@ -116,8 +141,8 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
 
         {all.length === 0 ? (
           <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-            No Series yet. Declare one below — its publisher, its edition, and how many Volumes are
-            out.
+            No Series yet. <em>Declare a Series</em> is at the top of the screen: its publisher, its
+            edition, and how many Volumes are out.
           </p>
         ) : (
           <ul className="mt-2">
@@ -142,23 +167,19 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
         )}
       </section>
 
-      <Card className="mt-12">
-        <CardHeader>
-          <CardTitle>Declare a Series</CardTitle>
-          <CardDescription className="text-pretty">
-            It records what the publisher has done, and nothing about what you intend. Deciding to
-            complete a Series is a separate act, on the Series' own page.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={declare} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field
-              name="name"
-              label="Name"
-              placeholder="Death Note"
-              required
-              className="sm:col-span-2"
-            />
+      {/* **Declaring a Series records what the publisher has done and nothing about what the
+          owner intends**, which is the sentence this panel is arranged to make: the decision
+          to complete one is a separate act, on the Series' own page, and it is not offered
+          here at all. */}
+      {panel === DECLARE ? (
+        <Drawer
+          title="Declare a Series"
+          description="It records what the publisher has done, and nothing about what you intend. Deciding to complete a Series is a separate act, on the Series' own page."
+          refused={refused}
+          closesTo={CLOSES_TO}
+        >
+          <form action={declare} className="grid gap-4">
+            <Field name="name" label="Name" placeholder="Death Note" required />
             <Field name="publisher" label="Publisher" placeholder="Panini Comics" required />
             <Field name="editionLine" label="Edition line" placeholder="Black Edition" />
             <Field
@@ -186,18 +207,16 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
               </select>
             </div>
 
-            <div className="sm:col-span-2 lg:col-span-4">
-              <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto sm:px-6">
-                Declare it
-              </Button>
-              <p className="mt-2 max-w-prose text-xs text-muted-foreground">
-                Leave the edition line empty for the standard printing. The same name in another
-                edition is a second Series with its own count.
-              </p>
-            </div>
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Declare it
+            </Button>
+            <p className="max-w-prose text-xs text-muted-foreground">
+              Leave the edition line empty for the standard printing. The same name in another
+              edition is a second Series with its own count.
+            </p>
           </form>
-        </CardContent>
-      </Card>
+        </Drawer>
+      ) : null}
     </main>
   );
 }
@@ -219,19 +238,17 @@ function Collecting({ ledger }: { ledger: SeriesLedger }) {
 function Field({
   name,
   label,
-  className,
   ...props
 }: {
   name: string;
   label: string;
-  className?: string;
 } & React.ComponentProps<typeof Input>) {
   return (
-    <div className={`grid gap-1.5 ${className ?? ""}`}>
+    <div className="grid gap-1.5">
       <Label htmlFor={`declare-${name}`} className="text-xs text-muted-foreground">
         {label}
       </Label>
-      <Input id={`declare-${name}`} name={name} className="h-10" {...props} />
+      <Input id={`declare-${name}`} name={name} className="h-11 sm:h-10" {...props} />
     </div>
   );
 }

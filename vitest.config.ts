@@ -67,7 +67,11 @@ import { defineConfig } from "vitest/config";
 // enter lands on it, `src/app/(owner)/collection/covers-found.ts`, which turns a cover
 // run's six numbers into the clauses the owner reads, `src/app/(owner)/stories/readings.ts`,
 // which says how an act of reading is worded and which one of them is still open — the
-// predicate the acts on a Story's page hang off — and `src/app/(owner)/reading-list/entry.ts`,
+// predicate the acts on a Story's page hang off — `src/app/(owner)/series/positions.ts`, which
+// says what each position of a Series is and so where the difference between *missing* and
+// *not mine yet* is decided, `src/app/(owner)/collection/[id]/standing.ts`, which says where
+// the owner stands with one object and therefore which acts its page offers, and
+// `src/app/(owner)/reading-list/entry.ts`,
 // which says what a composed entry is called, where its tile leads and what its foot carries.
 //
 // It is the same rule and not a wider one: data in, data out, a function

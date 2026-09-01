@@ -46,11 +46,21 @@ function count(form: FormData, field: string): number {
   return said === null ? Number.NaN : Number(said);
 }
 
-/** Run one verb and come back to `where`, carrying either the news or the refusal. */
+/**
+ * Run one verb and come back to `where`, carrying either the news or the refusal.
+ *
+ * `reopens` is the panel the form was standing in, and it is used **only on a refusal** (#30,
+ * following #32's judgement on the Collection's drawer). A write that worked is answered by
+ * the ledger behind the panel, so the panel closes; a refusal is a sentence about what was
+ * typed, and it is only useful beside the field it is about — five fields of a declaration
+ * lost behind a closed drawer is the owner typing them twice. An act with no panel behind it
+ * passes nothing and comes back to the screen either way.
+ */
 async function saying(
   where: string,
   news: URLSearchParams,
-  work: () => Promise<void>
+  work: () => Promise<void>,
+  reopens?: string
 ): Promise<never> {
   let said = news;
 
@@ -61,6 +71,7 @@ async function saying(
     // it becomes a 500 and nobody dresses it up as advice.
     if (!isRefusal(error)) throw error;
     said = new URLSearchParams({ refused: error.message });
+    if (reopens) said.set("panel", reopens);
   }
 
   revalidatePath(where);
@@ -77,15 +88,20 @@ export async function declare(form: FormData): Promise<void> {
   // The new Series' id is deliberately dropped: declaring lands back on the list, where
   // the owner can see it beside the others and decide whether they are collecting it.
   // That decision is the next screen's, and it is a separate act on purpose.
-  await saying("/series", new URLSearchParams({ declared: name }), async () => {
-    await declareSeries({
-      name,
-      publisher: text(form, "publisher") ?? "",
-      editionLine: text(form, "editionLine"),
-      publishedCount: count(form, "publishedCount"),
-      status,
-    });
-  });
+  await saying(
+    "/series",
+    new URLSearchParams({ declared: name }),
+    async () => {
+      await declareSeries({
+        name,
+        publisher: text(form, "publisher") ?? "",
+        editionLine: text(form, "editionLine"),
+        publishedCount: count(form, "publishedCount"),
+        status,
+      });
+    },
+    "declare"
+  );
 }
 
 /** Decide that this Series is being completed. */
@@ -110,8 +126,11 @@ export async function stopCollecting(form: FormData): Promise<void> {
 export async function recordPublished(form: FormData): Promise<void> {
   await requireOwner();
   const id = text(form, "seriesId") ?? "";
-  await saying(`/series/${id}`, new URLSearchParams({ recorded: "1" }), () =>
-    recordVolumesPublished(id, count(form, "publishedCount"))
+  await saying(
+    `/series/${id}`,
+    new URLSearchParams({ recorded: "1" }),
+    () => recordVolumesPublished(id, count(form, "publishedCount")),
+    "published"
   );
 }
 
@@ -119,7 +138,12 @@ export async function recordPublished(form: FormData): Promise<void> {
 export async function conclude(form: FormData): Promise<void> {
   await requireOwner();
   const id = text(form, "seriesId") ?? "";
-  await saying(`/series/${id}`, new URLSearchParams({ concluded: "1" }), () => concludeSeries(id));
+  await saying(
+    `/series/${id}`,
+    new URLSearchParams({ concluded: "1" }),
+    () => concludeSeries(id),
+    "published"
+  );
 }
 
 /** Record which position of the Series a Volume in the house is. */
@@ -127,11 +151,15 @@ export async function place(form: FormData): Promise<void> {
   await requireOwner();
   const id = text(form, "seriesId") ?? "";
   const number = count(form, "number");
-  await saying(`/series/${id}`, new URLSearchParams({ placed: String(number) }), () =>
-    placeVolumeInSeries({
-      volumeId: text(form, "volumeId") ?? "",
-      seriesId: id,
-      number,
-    })
+  await saying(
+    `/series/${id}`,
+    new URLSearchParams({ placed: String(number) }),
+    () =>
+      placeVolumeInSeries({
+        volumeId: text(form, "volumeId") ?? "",
+        seriesId: id,
+        number,
+      }),
+    "place"
   );
 }

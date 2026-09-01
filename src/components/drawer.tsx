@@ -35,15 +35,23 @@ import { cn } from "@/lib/utils";
  * It is passed rather than derived because this component knows nothing about which screen
  * it is standing on, and a drawer that guessed its way home would be a drawer that took the
  * owner's search filters off on the way.
+ *
+ * `refused` is **a verb's own prose about the press that just happened, and it belongs in
+ * here** (#30). A refused write comes back with its panel open, because the sentence is only
+ * useful beside the field it is about — and this panel covers the screen, so a banner left on
+ * the page behind it is a refusal the owner cannot read. A screen that shows one here shows it
+ * nowhere else: one refusal, in one place, and that place is wherever the owner is looking.
  */
 export function Drawer({
   title,
   description,
+  refused,
   closesTo,
   children,
 }: {
   title: string;
   description?: string;
+  refused?: string;
   closesTo: string;
   children: React.ReactNode;
 }) {
@@ -89,7 +97,17 @@ export function Drawer({
           </Link>
         </header>
 
-        <div className="px-5 py-5">{children}</div>
+        <div className="px-5 py-5">
+          {refused ? (
+            <p
+              role="alert"
+              className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {refused}
+            </p>
+          ) : null}
+          {children}
+        </div>
       </section>
     </div>
   );

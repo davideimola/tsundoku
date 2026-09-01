@@ -1,4 +1,5 @@
 import type { RecordedVolume } from "@/core/queries/collection";
+import type { EditionNote } from "@/core/queries/edition-note";
 
 // **Where the owner stands with one object, in words** — the Volume screen's own derivation,
 // beside the page because it is the page's (`AGENTS.md`), and tested beside itself under the
@@ -18,6 +19,15 @@ import type { RecordedVolume } from "@/core/queries/collection";
 // re-derive from the tile: an absence the sources established is not a question nobody asked,
 // and a source that could not be reached is neither. Which of them is true stays the core's
 // answer — `cover`, `lookedUp`, `isbn` — and the words are here, where a test can read them.
+//
+// **And the acts the hero carries joined it for the third time over the same fact** (#30): the
+// forms on this screen went into panels whose open state is the URL, so *which* acts an object
+// offers became an answer rather than a shape of markup — and it is the same three states
+// deciding it. `theActsOnTheObject` is that, and it is load-bearing rather than a list of
+// labels: the page opens no panel these acts did not name, which is what stops a hand-typed
+// `?panel=release` from standing a release form over an object the house does not hold. Each
+// act's label is also its panel's title, so a press and the panel it opens cannot come to
+// call one act two things.
 
 /**
  * The sentence at the head of *In the house*, and the tile's own label.
@@ -105,4 +115,117 @@ export function facedWith(volume: RecordedVolume): string {
   if (!volume.isbn) return "No ISBN, so no source can be asked for one.";
 
   return "Nobody has looked for one yet.";
+}
+
+/**
+ * A panel on the object's page: a form the owner opened deliberately, and its open state is
+ * this screen's URL (`@/components/drawer`, ADR-0010).
+ *
+ * The names are a closed set because the page reads what was asked for **against** them, the
+ * way every filter on every wall is read: `?panel=banana` opens nothing. And it reads it
+ * against the **acts** rather than against this list — `theActsOnTheObject` plus
+ * `theEditionNoteAct` name every panel there is, and the page opens none they did not name —
+ * so an `?panel=acquire` hand-typed onto an object already in the house opens nothing either,
+ * and the two halves of ADR-0007 cannot be made to disagree by editing an address.
+ */
+export type Panel = "acquire" | "release" | "isbn" | "cover" | "note";
+
+/** One act on the object, and the panel a press on it opens. */
+export type Act = {
+  panel: Panel;
+  /** What the press is called. A verb, because it is a thing the owner is about to do. */
+  label: string;
+};
+
+/**
+ * **The acts an object's page offers, in the order the hero stands them in** — which is the
+ * one judgement on this screen that a wrong answer would turn into a lie about the world.
+ *
+ * Three of them, and the first is the one the owner came to perform, drawn loud: whether the
+ * house holds the thing. **That act has two forms and never both at once** (ADR-0007), and the
+ * case worth the file is the third state rather than the second: an object that left the house
+ * is offered *acquiring it again*, because saying it again is a **second acquisition of one
+ * object** and not a correction of the first. An object nobody ever had and an object let go
+ * are two different sentences (`whatTheHouseSays`) and one act.
+ *
+ * The other two are repairs, and each is worded by what stands in the record: an ISBN is
+ * *recorded* where there is none and *corrected* where there is one, and a cover is *found*
+ * where the tile is drawn and *changed* where an image is on it — because a wrong cover loads
+ * perfectly and is the failure ADR-0013 was written after. The cover is offered even where
+ * there is no ISBN to ask a source by: that is the state every Bonelli monthly is in for ever,
+ * and the panel is where it is said out loud and where the owner's own image is given.
+ *
+ * The Edition note is the fourth and it is `theEditionNoteAct`, apart from these because of
+ * where it is opened from rather than because it is a lesser act: it is written from beside
+ * the prose it replaces, so it does not stand in a row of presses at the top of the screen.
+ */
+export function theActsOnTheObject(volume: RecordedVolume): readonly Act[] {
+  return [theHouseAct(volume), theIsbnAct(volume), theCoverAct(volume)];
+}
+
+/**
+ * The Edition note's own act, which is not in the hero.
+ *
+ * It takes the note rather than the Volume because what it is called is decided by whether
+ * there is one — and the note is a record of its own, on a Volume that may have none. The
+ * label is the whole name of the thing (*Write an Edition note*) rather than *Write it*: it
+ * titles the panel as well as the press under the prose, and one string for both is what
+ * keeps the two from drifting apart.
+ */
+export function theEditionNoteAct(note: EditionNote | null): Act {
+  return {
+    panel: "note",
+    label: note ? "Rewrite the Edition note" : "Write an Edition note",
+  };
+}
+
+/**
+ * **What writing an ISBN does to what the object is faced with** — said where the correction
+ * is made, and not discovered afterwards.
+ *
+ * ADR-0012 predicted the failure and production produced it: *One-Punch Man 9* wearing *Slam
+ * Dunk 9*'s jacket, because the ISBN behind it was wrong. A looked-up cover is an answer to
+ * the ISBN that stood on the record when it was asked for, so `amendVolume` drops it when it
+ * writes a different one — and the owner should read that before they press, not after the
+ * tile has changed under them.
+ *
+ * **Three cases, and the middle one is why this is a function.** Where an image of the owner's
+ * own is standing on top, the looked-up record still goes and the tile does *not* change: a
+ * sentence warning about a jacket the owner will still be looking at afterwards would be a
+ * screen describing something that did not happen. And where no source has ever answered
+ * there is nothing to warn about at all, so what is said instead is the thing the field
+ * cannot do — an empty box records nothing rather than emptying the record.
+ */
+export function whatWritingAnIsbnDoes(volume: RecordedVolume): string {
+  if (!volume.lookedUp.source) {
+    return "An empty box records nothing rather than emptying the field: taking a fact out of the record is a different act from putting one in, and there is no verb for it here.";
+  }
+
+  if (volume.cover?.from === "own") {
+    return "Writing a different one takes the looked-up cover off the record with it — it was an answer to the number that stood here. The image of your own is what this object is faced with, and it stays.";
+  }
+
+  return "Writing a different one takes the looked-up cover off with it: a jacket found against the old number still loads perfectly and is the wrong book.";
+}
+
+/** Whether the house holds it: the act this page is opened to perform. */
+function theHouseAct(volume: RecordedVolume): Act {
+  if (volume.inTheHouse) return { panel: "release", label: "It left the house" };
+
+  return {
+    panel: "acquire",
+    // *Again* is the word that makes the history read as one object rather than as a record
+    // being fixed. It is only said where there is something to say it about.
+    label: volume.releasedOn ? "It is in the house again" : "It is in the house",
+  };
+}
+
+/** The ISBN, which this screen is the only place a human can put one on. */
+function theIsbnAct(volume: RecordedVolume): Act {
+  return { panel: "isbn", label: volume.isbn ? "Correct its ISBN" : "Record its ISBN" };
+}
+
+/** The cover: found where the tile is drawn, changed where an image is standing on it. */
+function theCoverAct(volume: RecordedVolume): Act {
+  return { panel: "cover", label: volume.cover ? "Change its cover" : "Find it a cover" };
 }

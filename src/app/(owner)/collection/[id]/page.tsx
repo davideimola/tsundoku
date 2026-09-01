@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cover } from "@/components/cover";
+import { Drawer, OpensDrawer } from "@/components/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import {
   listAcquisitions,
   type RecordedVolume,
 } from "@/core/queries/collection";
-import { findEditionNote } from "@/core/queries/edition-note";
+import { type EditionNote, findEditionNote } from "@/core/queries/edition-note";
 import { listStories } from "@/core/queries/story";
 import { listStoriesInVolume } from "@/core/queries/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
@@ -29,7 +30,17 @@ import {
   useOwnImage,
   writeNote,
 } from "./actions";
-import { facedWith, timesSaid, whatTheHouseSays, whatTheLookupSaid } from "./standing";
+import {
+  type Act,
+  facedWith,
+  type Panel,
+  theActsOnTheObject,
+  theEditionNoteAct,
+  timesSaid,
+  whatTheHouseSays,
+  whatTheLookupSaid,
+  whatWritingAnIsbnDoes,
+} from "./standing";
 
 // ONE VOLUME: the object as the library catalogues it, whether it is in the house, what it
 // holds, and what the owner thinks of it.
@@ -42,10 +53,28 @@ import { facedWith, timesSaid, whatTheHouseSays, whatTheLookupSaid } from "./sta
 // had ever said out loud. Being catalogued is not being owned, and the page must not blur the
 // two; two headings side by side is the least ambiguous way to say so.
 //
+// **Every act on it is a panel now, and that is what "in the new shell" turned out to mean.**
+// This screen was built before the drawer existed and carried its forms down the page: the
+// ISBN box, the acquisition, a `<details>` for the release and another for the cover, four
+// expanded forms between the tile and the Edition note. Read on a phone, the object's own
+// facts ended two screenfuls above the judgement about it, and *what it is* was hard to see
+// for all the boxes offering to change it. So the acts moved into the hero as links to
+// `?panel=…` (`@/components/drawer`, #32's pattern and #29's on the Story beside this one),
+// and what is left on the page is the record: the facts, the history, the narratives and the
+// prose. **Which acts an object offers is `./standing.ts`'s answer** rather than a shape of
+// markup — three states, two forms of one act — and those acts name every panel there is, so
+// the page opens none they did not name: a hand-typed `?panel=release` over an object the
+// house does not hold opens nothing. Each act's label is also its panel's title, which is why
+// no sentence on this screen is written twice. And **a refused write comes back with its panel
+// open, carrying the verb's prose into it** — the panel covers the page a banner would
+// otherwise be printed behind.
+//
 // **The ISBN is a field here, and this is the only place a human can put one.** 0 of 96
-// Volumes carry one, the spreadsheets had no such column, and until the Inbox starts
-// delivering them from an assistant this box is the answer — after which it is where a wrong
-// one is fixed. It is set through the same verb an approved Amendment calls (ADR-0011).
+// Volumes carry one, the sheets had no column for it, and until the Inbox starts delivering
+// them from an assistant this panel is the whole of the answer — after which it is where a
+// wrong one is fixed. Correcting it takes the cover with it, because a looked-up cover is an
+// answer to the ISBN that stood on the record when it was asked for (ADR-0012, #32), and the
+// panel says so where the correction is made.
 //
 // **The Stories are a list with a score column**, so *L'uomo che ride* prints three titles and
 // three different numbers under one object's title, and the thing the spreadsheet destroyed —
@@ -54,13 +83,15 @@ import { facedWith, timesSaid, whatTheHouseSays, whatTheLookupSaid } from "./sta
 // attaches a number to the object.
 //
 // **The Edition note sits beside them, and says in its own words that it is not one of those
-// numbers.** Two judgements, in two places, in two registers — a column of digits, and a box
-// of prose set in the serif, which in this application is the owner's own voice and nothing
-// else. It is nowhere called a Rating, because it is not one: it is an opinion of the *object*.
+// numbers.** Two judgements, in two places, in two registers — a column of digits, and prose
+// set in the serif, which in this application is the owner's own voice and nothing else. It is
+// nowhere called a Rating, because it is not one: it is an opinion of the *object*. It is
+// **read back** on the page and written in a panel, the way a Rating's prose is read back on
+// the Story and written in one — what the owner wrote is the record, and the box is the act.
 //
-// A thin adapter over the core (ADR-0002): four queries, six verbs behind the forms, and no
-// SQL. Nothing runs in the browser — every write is a plain form post, so the page works
-// one-handed on a shop's signal with no JavaScript executing.
+// A thin adapter over the core (ADR-0002): four queries, ten verbs behind the forms, and no
+// SQL. Nothing runs in the browser — every write is a plain form post and every drawer is a
+// link, so the page works one-handed on a shop's signal with no JavaScript executing.
 export const dynamic = "force-dynamic";
 
 type Asked = Record<string, string | string[] | undefined>;
@@ -69,6 +100,24 @@ function asked(params: Asked, name: string): string | undefined {
   const value = params[name];
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }
+
+/**
+ * This screen's address with a panel open on it.
+ *
+ * A Volume is one record and this page narrows nothing, so there are no filters to carry
+ * through — what the address holds is the panel and nothing else. What it deliberately drops
+ * is the answer to the last write: a refusal, or what a lookup just said, is about the press
+ * that produced it, and carrying it through the opening of a drawer would print it again over
+ * an act nobody just performed.
+ */
+function panelled(volumeId: string, panel: Panel): string {
+  return `/collection/${volumeId}?panel=${panel}`;
+}
+
+// shadcn's own input look, borrowed by hand for the native pickers this screen is made of —
+// its select is a scripted component and every control here has to work with nothing running.
+const PICKER =
+  "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:h-10 md:text-sm dark:bg-input/30";
 
 export default async function VolumePage({
   params,
@@ -98,9 +147,24 @@ export default async function VolumePage({
   const held = new Set(carried.map((story) => story.id));
   const offerable = stories.filter((story) => !held.has(story.id));
 
+  // **What this object can have done to it**, which is the core's three states turned into
+  // two forms of one act plus two repairs (`./standing.ts`) — and the Edition note's, which is
+  // an act like the rest and is only opened from somewhere else: beside the prose it replaces.
+  const acts = theActsOnTheObject(volume);
+  const noting = theEditionNoteAct(note);
+
+  // **The act being performed, read against the ones this object has** rather than trusted:
+  // `?panel=banana` opens nothing, and neither does a panel naming an act this object does not
+  // have — a hand-typed `?panel=release` over something the house does not hold. It is the act
+  // itself and not just its name, because a panel's title is the label of the press that
+  // opened it and nothing on this page recomputes that sentence.
+  const asking = asked(said, "panel");
+  const acting = [...acts, noting].find((act) => act.panel === asking);
+  const closesTo = `/collection/${volume.id}`;
+
   return (
-    <main className="px-5 pb-16 sm:px-8">
-      <header className="pt-8 sm:pt-12">
+    <main className="px-5 py-8 sm:px-8 sm:py-12">
+      <header>
         {/* **No breadcrumb.** `tsundoku / collection` was the way back to the wall on a screen
             that had no navigation; the shell has one now, at both widths, and it marks
             *Collection* while the owner is standing here. A trail of one step is a second
@@ -145,9 +209,28 @@ export default async function VolumePage({
             ) : null}
           </div>
         </div>
+
+        {/* **The acts, in their own row under the tile rather than beside it.** The Story's
+            page puts its two in the column next to the cover, which works for two; three
+            beside a tile on a phone is a column two words wide. The first is drawn loud
+            because it is the one the owner opened this page to perform — whether the house
+            holds the thing — and `./standing.ts` is what puts it first. */}
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          {acts.map((act, place) => (
+            <OpensDrawer
+              key={act.panel}
+              href={panelled(volume.id, act.panel)}
+              emphasis={place === 0 ? "loud" : "quiet"}
+            >
+              {act.label}
+            </OpensDrawer>
+          ))}
+        </div>
       </header>
 
-      {refused ? (
+      {/* On the page only where nothing is standing over it: a refused write comes back with
+          its panel open, and that panel is where the sentence is printed (`@/components/drawer`). */}
+      {refused && !acting ? (
         <p
           role="alert"
           className="mt-6 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
@@ -179,42 +262,37 @@ export default async function VolumePage({
             <Fact term="Edition line" detail={volume.editionLine ?? "— the standard printing"} />
             <Fact term="Binding" detail={volume.binding.name} />
             <Fact term="Language" detail={volume.language} mono />
+            {/* **A fact and no longer a box.** It reads in the mono face where there is one
+                and as an absence where there is not — an em dash rather than an empty cell,
+                because a blank reads as a screen that failed to load something. Putting one
+                in is the act in the hero. */}
+            <Fact
+              term="ISBN"
+              detail={volume.isbn ?? "— none recorded"}
+              mono={Boolean(volume.isbn)}
+              wide
+            />
           </dl>
 
-          {/* The ISBN is a field rather than a fact, because it is the one thing on this
-              screen the owner is here to *put right*: nothing in the catalogue carries one,
-              and this box is where the first one lands and where a wrong one is corrected. */}
-          <form
-            action={recordIsbn}
-            className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"
-          >
-            <input type="hidden" name="volumeId" value={volume.id} />
-            <div className="grid gap-1.5">
-              <Label htmlFor="volume-isbn" className="text-xs text-muted-foreground">
-                ISBN
-              </Label>
-              <Input
-                id="volume-isbn"
-                name="isbn"
-                defaultValue={volume.isbn ?? ""}
-                placeholder="9788828765431"
-                inputMode="numeric"
-                autoComplete="off"
-                required
-                className="h-11 font-mono sm:h-10"
-              />
-            </div>
-            <Button type="submit" variant="outline" className="h-11 sm:h-10 sm:px-6">
-              {volume.isbn ? "Correct it" : "Record it"}
-            </Button>
-            <p className="max-w-prose text-xs text-muted-foreground sm:col-span-2">
-              Ten or thirteen characters, no spaces and no dashes. A wrong one is corrected here;
-              there is nothing on this screen that empties the field, because taking a fact out of
-              the record is a different act from putting one in.
-            </p>
-          </form>
-
-          <TheCover volume={volume} />
+          {/* Where the tile's image comes from — a fact about the object, said on the page
+              rather than behind the press that changes it. The source's own page for the book
+              is the link ADR-0013 owes Google, and it belongs with the facts for the same
+              reason: it is true of this object whether or not anybody is repairing it. */}
+          <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
+            {facedWith(volume)}
+            {volume.lookedUp.at ? ` Last asked about on ${volume.lookedUp.at}.` : null}{" "}
+            {volume.lookedUp.infoUrl ? (
+              <a
+                href={volume.lookedUp.infoUrl}
+                // A link off this application entirely, so it says so and takes nothing with it.
+                target="_blank"
+                rel="noreferrer noopener"
+                className="underline decoration-border underline-offset-4 hover:decoration-foreground"
+              >
+                The source&apos;s own page for it
+              </a>
+            ) : null}
+          </p>
         </section>
 
         <section>
@@ -228,55 +306,6 @@ export default async function VolumePage({
           <p className="mt-2 max-w-prose text-pretty text-sm">{whatTheHouseSays(volume)}</p>
 
           <History acquisitions={history} />
-
-          {/* The two acts that change the answer above, and only ever one of them at a time.
-              Coming home is asked for with the day and the price, because that is the moment
-              they become true; leaving costs a deliberate second tap, because nothing undoes
-              it. */}
-          {volume.inTheHouse ? (
-            <details className="group mt-6 rounded-xl ring-1 ring-foreground/10">
-              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden">
-                It left the house
-                <span className="ml-2 text-muted-foreground group-open:hidden">
-                  — sold, given away or lost
-                </span>
-              </summary>
-
-              <form action={release} className="border-t border-border p-4">
-                <input type="hidden" name="volumeId" value={volume.id} />
-                <Button type="submit" variant="destructive" className="h-11 sm:h-10 sm:px-6">
-                  Release it
-                </Button>
-                <p className="mt-2 max-w-prose text-xs text-muted-foreground">
-                  The Collection stops claiming it and it leaves the wall. Nothing is erased: this
-                  page stays, the acquisition above becomes a record of having had it, and so do the
-                  Edition note and the Readings made through it. Buying it again is a second
-                  acquisition of the same object, not a second object.
-                </p>
-              </form>
-            </details>
-          ) : (
-            <form
-              action={acquire}
-              className="mt-6 grid gap-4 rounded-xl ring-1 ring-foreground/10 p-4 sm:grid-cols-2"
-            >
-              <input type="hidden" name="volumeId" value={volume.id} />
-              <Field name="pricePaid" label="Price paid" placeholder="6.50" inputMode="decimal" />
-              <Field name="acquiredOn" label="Came home" type="date" />
-
-              <div className="sm:col-span-2">
-                <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto sm:px-6">
-                  It is in the house
-                </Button>
-                <p className="mt-2 max-w-prose text-xs text-muted-foreground">
-                  Leave both empty where the receipt is gone — the fact does not depend on the day.
-                  {history.length > 0
-                    ? " Saying it again after a release records a second acquisition of this same object."
-                    : null}
-                </p>
-              </div>
-            </form>
-          )}
         </section>
       </div>
 
@@ -340,8 +369,12 @@ export default async function VolumePage({
               </ul>
             )}
 
-            {/* An id is never typed, so the Story is chosen rather than named. A native select
-                opens the platform picker on a phone and submits without JavaScript. */}
+            {/* **A picker under the list it changes, and deliberately not a panel.** A drawer
+                is for a form the owner *opened*; this one is a correction made while reading
+                the list above it, in one press, and the Story's own page carries the same
+                fact from the other end in exactly the same shape (#29). An id is never typed,
+                so the Story is chosen: a native select opens the platform picker on a phone
+                and submits without JavaScript. */}
             <form
               action={carry}
               className="mt-6 grid gap-3 border-t border-border pt-5 sm:grid-cols-[1fr_auto] sm:items-end"
@@ -357,7 +390,7 @@ export default async function VolumePage({
                   required
                   disabled={offerable.length === 0}
                   defaultValue=""
-                  className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:h-10 md:text-sm dark:bg-input/30"
+                  className={PICKER}
                 >
                   <option value="" disabled>
                     {offerable.length === 0 ? "Every Story is already in here" : "Choose a Story"}
@@ -385,48 +418,197 @@ export default async function VolumePage({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Edition note</CardTitle>
-            <CardDescription className="text-pretty">
-              What you think of this as an object — print quality, translation, value for money,
-              whether the Must Have was the right way to try the saga. It decides what to buy.{" "}
-              <strong className="font-medium text-foreground">It is not a score</strong>, it stands
-              beside no Rating, and nothing recommending you a Story will ever read it.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <TheEditionNote act={noting} volume={volume} note={note} />
+      </div>
+
+      {/* **The acts, each in a panel opened from the hero.** Every one is a plain form posting
+          to a Server Function, and every way out of a panel is a link — so all of this works
+          with nothing running in the browser (ADR-0010). A write comes back to this page with
+          the panel gone, which is what closing it means. */}
+      {acting?.panel === "acquire" ? (
+        <Drawer
+          title={acting.label}
+          refused={refused}
+          description={
+            volume.releasedOn
+              ? "A second acquisition of this same object, not a second object — the one above stays where it is, as a record of having had it before."
+              : "The Collection starts claiming it, and it appears on the wall. Cataloguing it never said this; saying it is a separate act (ADR-0007)."
+          }
+          closesTo={closesTo}
+        >
+          <form action={acquire} className="grid gap-4">
+            <input type="hidden" name="volumeId" value={volume.id} />
+            <Field name="pricePaid" label="Price paid" placeholder="6,50" inputMode="decimal" />
+            <Field name="acquiredOn" label="Came home" type="date" />
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              It is in the house
+            </Button>
+            <p className="max-w-prose text-xs text-muted-foreground">
+              Leave both empty where the receipt is gone — the fact does not depend on the day, and
+              a gift has no price in it. A comma is a decimal point: the numeric keyboard on an
+              Italian phone offers no dot.
+            </p>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {/* Nothing undoes it, so it costs a deliberate second press — and it erases nothing,
+          which is the sentence the panel exists to be able to say at length. */}
+      {acting?.panel === "release" ? (
+        <Drawer
+          title={acting.label}
+          refused={refused}
+          description="Sold, given away or lost. The Collection stops claiming it and it leaves the wall; the library keeps knowing this object."
+          closesTo={closesTo}
+        >
+          <form action={release} className="grid gap-4">
+            <input type="hidden" name="volumeId" value={volume.id} />
+            <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
+              Release it
+            </Button>
+            <p className="max-w-prose text-xs text-muted-foreground">
+              Nothing is erased: this page stays, the acquisition becomes a record of having had it,
+              and so do the Edition note and the Readings made through it. Buying it again is a
+              second acquisition of the same object, not a second object.
+            </p>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {/* **The only place a human can put an ISBN on a Volume**, and after the Inbox starts
+          delivering them, the place a wrong one is fixed. */}
+      {acting?.panel === "isbn" ? (
+        <Drawer
+          title={acting.label}
+          refused={refused}
+          description="Ten or thirteen characters, no spaces and no dashes. It is what every cover source is keyed by, and the one fact the sheets had no column for."
+          closesTo={closesTo}
+        >
+          <form action={recordIsbn} className="grid gap-4">
+            <input type="hidden" name="volumeId" value={volume.id} />
+            <div className="grid gap-1.5">
+              <Label htmlFor="volume-isbn" className="text-xs text-muted-foreground">
+                ISBN
+              </Label>
+              <Input
+                id="volume-isbn"
+                name="isbn"
+                defaultValue={volume.isbn ?? ""}
+                placeholder="9788828765431"
+                inputMode="numeric"
+                autoComplete="off"
+                required
+                className="h-11 font-mono sm:h-10"
+              />
+            </div>
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              {volume.isbn ? "Correct it" : "Record it"}
+            </Button>
+            {/* Said where the correction is made rather than discovered afterwards: a
+                looked-up cover is an answer to the ISBN that stood here when it was asked
+                for, so writing a different one takes it off (ADR-0012, #32). Which of the
+                three sentences that is, is `./standing.ts`'s. */}
+            <p className="max-w-prose text-xs text-muted-foreground">
+              {whatWritingAnIsbnDoes(volume)}
+            </p>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {acting?.panel === "cover" ? (
+        <TheCover act={acting} volume={volume} refused={refused} closesTo={closesTo} />
+      ) : null}
+
+      {acting?.panel === "note" ? (
+        <Drawer
+          title={acting.label}
+          refused={refused}
+          description="What you think of this as an object — print quality, translation, value for money, whether the Must Have was the right way to try the saga. It decides what to buy, and it is not a score."
+          closesTo={closesTo}
+        >
+          <form action={writeNote} className="grid gap-4">
+            <input type="hidden" name="volumeId" value={volume.id} />
+            <Label htmlFor="edition-note" className="sr-only">
+              Edition note
+            </Label>
             {/* Set in the serif, in the box it is typed in as much as anywhere it is read
                 back: what the owner thinks of an object is theirs, and the box that says so
                 while they are writing is the box that will say so afterwards. */}
-            <form action={writeNote} className="grid gap-3">
-              <input type="hidden" name="volumeId" value={volume.id} />
-              <Label htmlFor="edition-note" className="sr-only">
-                Edition note
-              </Label>
-              <textarea
-                id="edition-note"
-                name="note"
-                rows={6}
-                defaultValue={note?.note ?? ""}
-                placeholder="Thin paper, good translation, and cheap enough to try the saga on."
-                className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 font-serif text-base leading-relaxed outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
-              />
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <Button type="submit" className="h-11 sm:h-10 sm:px-6">
-                  {note ? "Rewrite it" : "Write it"}
-                </Button>
-                <span className="max-w-prose text-xs text-muted-foreground">
-                  {note
-                    ? `Written ${note.writtenAt}. Rewriting replaces it — an opinion of an object is a verdict, not an event. Empty the box to take it back.`
-                    : "One note per object. Rewriting it later replaces this one."}
-                </span>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+            <textarea
+              id="edition-note"
+              name="note"
+              rows={8}
+              defaultValue={note?.note ?? ""}
+              placeholder="Thin paper, good translation, and cheap enough to try the saga on."
+              className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 font-serif text-base leading-relaxed outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
+            />
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              {note ? "Rewrite it" : "Write it"}
+            </Button>
+            <p className="max-w-prose text-xs text-muted-foreground">
+              {note
+                ? "One note per object, so this replaces what is written there — an opinion of an object is a verdict, not an event. Empty the box to take it back."
+                : "One note per object. Rewriting it later replaces this one, and emptying the box takes it back."}
+            </p>
+          </form>
+        </Drawer>
+      ) : null}
     </main>
+  );
+}
+
+/**
+ * THE EDITION NOTE, read back — the owner's judgement of the **object**, and nowhere a Rating.
+ *
+ * **It is prose on the page and a box in a panel** (#30), which is the shape the Story's page
+ * already gives a Rating: what the owner wrote is the record, and writing it is an act. Before
+ * this the note existed only as an editable textarea, so the one thing the section is for —
+ * reading what you decided about this printing last time — was something the owner had to read
+ * out of a form field.
+ *
+ * The serif is the whole of the distinction. On this surface it means one thing and one thing
+ * only: these are the owner's words and not the application's.
+ */
+function TheEditionNote({
+  act,
+  volume,
+  note,
+}: {
+  act: Act;
+  volume: RecordedVolume;
+  note: EditionNote | null;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Edition note</CardTitle>
+        <CardDescription className="text-pretty">
+          What you think of this as an object — print quality, translation, value for money, whether
+          the Must Have was the right way to try the saga.{" "}
+          <strong className="font-medium text-foreground">It is not a score</strong>, it stands
+          beside no Rating, and nothing recommending you a Story will ever read it.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {note ? (
+          <>
+            <p className="max-w-prose text-pretty font-serif text-prose">{note.note}</p>
+            <p className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+              Written {note.writtenAt}
+            </p>
+          </>
+        ) : (
+          <p className="max-w-prose text-pretty text-sm text-muted-foreground">
+            Nothing written about this printing yet. It is the judgement that decides what to buy
+            next time, and the only one this application will not read back to you as a number.
+          </p>
+        )}
+
+        <div>
+          <OpensDrawer href={panelled(volume.id, act.panel)}>{act.label}</OpensDrawer>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -434,7 +616,7 @@ export default async function VolumePage({
  * THE COVER, on the object's own page: where the image on the tile comes from, and the two
  * ways the owner changes it.
  *
- * **The distinction the block is laid out along is whose bytes they are** (ADR-0013). A
+ * **The distinction the panel is laid out along is whose bytes they are** (ADR-0013). A
  * looked-up cover is a *reference* — the source's own address, pointed at and never copied
  * here, revocable by them at any moment — and it is 128 pixels wide, which is the only size
  * that exists. An image of the owner's own is hosted, is theirs, and overrides the other one:
@@ -442,62 +624,51 @@ export default async function VolumePage({
  * application is allowed to keep.
  *
  * The lookup is offered only where there is an ISBN to look one up by, and where there is
- * not the block says so instead of standing a button there that can only ever be refused.
+ * not the panel says so instead of standing a button there that can only ever be refused —
+ * which is why the act is offered in the hero either way. That state is permanent for a whole
+ * shelf of this library, and an owner in it still needs the way to their own photograph.
  */
-function TheCover({ volume }: { volume: RecordedVolume }) {
+function TheCover({
+  act,
+  volume,
+  refused,
+  closesTo,
+}: {
+  act: Act;
+  volume: RecordedVolume;
+  refused?: string;
+  closesTo: string;
+}) {
   const own = volume.cover?.from === "own";
 
   return (
-    <details className="group mt-6 rounded-xl ring-1 ring-foreground/10">
-      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden">
-        Cover
-        <span className="ml-2 text-muted-foreground group-open:hidden">— {facedWith(volume)}</span>
-      </summary>
-
-      <div className="grid gap-5 border-t border-border p-4">
-        <p className="max-w-prose text-pretty text-sm text-muted-foreground">
-          {facedWith(volume)}
-          {volume.lookedUp.at ? ` Last asked about on ${volume.lookedUp.at}.` : null}{" "}
-          {/* Off the **record**, not off the tile. `cover.at` describes the image being shown,
-              so it is absent the moment an image of the owner's own covers the looked-up one
-              — and the source's page for the book is still a fact about this object, and is
-              the exact column a public page owes Google a link to (ADR-0013). */}
-          {volume.lookedUp.infoUrl ? (
-            <a
-              href={volume.lookedUp.infoUrl}
-              // A link off this application entirely, so it says so and takes nothing with it.
-              target="_blank"
-              rel="noreferrer noopener"
-              className="underline decoration-border underline-offset-4 hover:decoration-foreground"
-            >
-              The source&apos;s own page for it
-            </a>
-          ) : null}
-        </p>
-
+    <Drawer title={act.label} description={facedWith(volume)} refused={refused} closesTo={closesTo}>
+      <div className="grid gap-5">
         {volume.isbn ? (
-          <div className="flex flex-wrap items-start gap-2">
-            <form action={lookUpCover}>
-              <input type="hidden" name="volumeId" value={volume.id} />
-              <Button type="submit" variant="outline" className="h-11 sm:h-10 sm:px-6">
-                {volume.lookedUp.source ? "Ask again" : "Look up a cover"}
-              </Button>
-            </form>
-
-            {/* **The way out of a wrong cover, and it is the fast one.** Asking again depends
-                on the source having a better answer; this depends on nothing at all, and a
-                blank tile is better than another book's jacket. Offered only where there is
-                something to forget. */}
-            {volume.lookedUp.source ? (
-              <form action={forgetCover}>
+          <div className="grid gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <form action={lookUpCover}>
                 <input type="hidden" name="volumeId" value={volume.id} />
-                <Button type="submit" variant="ghost" className="h-11 sm:h-10 sm:px-4">
-                  Take it off
+                <Button type="submit" className="h-11 sm:h-10 sm:px-6">
+                  {volume.lookedUp.source ? "Ask again" : "Look up a cover"}
                 </Button>
               </form>
-            ) : null}
 
-            <p className="max-w-prose basis-full text-xs text-muted-foreground">
+              {/* **The way out of a wrong cover, and it is the fast one.** Asking again
+                  depends on the source having a better answer; this depends on nothing at
+                  all, and a blank tile is better than another book's jacket. Offered only
+                  where there is something to forget. */}
+              {volume.lookedUp.source ? (
+                <form action={forgetCover}>
+                  <input type="hidden" name="volumeId" value={volume.id} />
+                  <Button type="submit" variant="ghost" className="h-11 sm:h-10 sm:px-4">
+                    Take it off
+                  </Button>
+                </form>
+              ) : null}
+            </div>
+
+            <p className="max-w-prose text-xs text-muted-foreground">
               Google Books first, then Open Library. The image is <em>pointed at</em> where it lives
               and never copied here, so it is 128 pixels wide — which is all there is — and whoever
               owns it can withdraw it. <strong>Asking again always reaches the source</strong>,
@@ -506,14 +677,14 @@ function TheCover({ volume }: { volume: RecordedVolume }) {
             </p>
           </div>
         ) : (
-          <p className="max-w-prose text-pretty text-xs text-muted-foreground">
+          <p className="max-w-prose text-pretty text-sm text-muted-foreground">
             Every source is keyed by ISBN, and this object has none — so there is nothing to ask.
-            Record its ISBN above, or give it an image of your own below. A Bonelli monthly never
+            Record its ISBN first, or give it an image of your own below. A Bonelli monthly never
             gets one: those carry a periodical EAN and no ISBN at all.
           </p>
         )}
 
-        <form action={useOwnImage} className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        <form action={useOwnImage} className="grid gap-3 border-t border-border pt-5">
           <input type="hidden" name="volumeId" value={volume.id} />
           <div className="grid gap-1.5">
             <Label htmlFor="volume-image" className="text-xs text-muted-foreground">
@@ -530,10 +701,10 @@ function TheCover({ volume }: { volume: RecordedVolume }) {
               className="h-11 sm:h-10"
             />
           </div>
-          <Button type="submit" variant="outline" className="h-11 sm:h-10 sm:px-6">
+          <Button type="submit" variant="outline" className="h-11 w-full sm:h-10">
             {own ? "Use this one" : "Use my own"}
           </Button>
-          <p className="max-w-prose text-xs text-muted-foreground sm:col-span-2">
+          <p className="max-w-prose text-xs text-muted-foreground">
             A photograph or a scan you host yourself. It overrides whatever the lookup found, at
             whatever size you took it — and it is the only image this library keeps, because it is
             yours and no third party can withdraw it. An address on a source&apos;s own domain is
@@ -555,7 +726,7 @@ function TheCover({ volume }: { volume: RecordedVolume }) {
           </form>
         ) : null}
       </div>
-    </details>
+    </Drawer>
   );
 }
 
@@ -638,9 +809,20 @@ function History({ acquisitions }: { acquisitions: readonly Acquisition[] }) {
   );
 }
 
-function Fact({ term, detail, mono }: { term: string; detail: string; mono?: boolean }) {
+function Fact({
+  term,
+  detail,
+  mono,
+  wide,
+}: {
+  term: string;
+  detail: string;
+  mono?: boolean;
+  /** Across both columns, for a fact too long to stand in half of one — an ISBN. */
+  wide?: boolean;
+}) {
   return (
-    <div>
+    <div className={wide ? "col-span-2" : undefined}>
       <dt className="text-muted-foreground">{term}</dt>
       <dd className={mono ? "font-mono" : undefined}>{detail}</dd>
     </div>

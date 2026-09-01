@@ -11,6 +11,7 @@ import {
   recordVolumeNoLongerCarriesStory,
 } from "@/core/verbs/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
+import type { Panel } from "./standing";
 
 // The write side of one Volume's page: what the object **is**, whether it is in the house,
 // what it carries, and what the owner thinks of it as an object. A thin adapter like every other one (ADR-0002) — it reads a form, calls one
@@ -30,11 +31,22 @@ function text(form: FormData, field: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** Do the work, and say what it said. One shape for every verb on this page. */
+/**
+ * Do the work, and say what it said. One shape for every verb on this page.
+ *
+ * `reopens` is the panel the form was standing in, and it is used **only on a refusal**
+ * (#30, and it is #32's judgement on the Collection's own drawer). A write that succeeded is
+ * answered by the record: the panel closes, and the page behind it now says the thing the
+ * owner just made true. A refusal is the opposite — the sentence is about what was typed, so
+ * it is only useful beside the field it is about, and closing the drawer over it would leave
+ * the owner reading a banner at the top of the page with nowhere to correct anything. A form
+ * with no panel behind it passes nothing and comes back to the page either way.
+ */
 async function saying(
   volumeId: string,
   said: URLSearchParams,
-  work: () => Promise<void>
+  work: () => Promise<void>,
+  reopens?: Panel
 ): Promise<never> {
   let answer = said;
 
@@ -45,6 +57,7 @@ async function saying(
     // it becomes a 500 and nobody dresses it up as advice.
     if (!isRefusal(error)) throw error;
     answer = new URLSearchParams({ refused: error.message });
+    if (reopens) answer.set("panel", reopens);
   }
 
   revalidatePath(`/collection/${volumeId}`);
@@ -89,7 +102,12 @@ export async function release(form: FormData): Promise<void> {
 
   const volumeId = text(form, "volumeId") ?? "";
 
-  return saying(volumeId, new URLSearchParams({ released: "1" }), () => releaseVolume(volumeId));
+  return saying(
+    volumeId,
+    new URLSearchParams({ released: "1" }),
+    () => releaseVolume(volumeId),
+    "release"
+  );
 }
 
 /**
@@ -107,12 +125,16 @@ export async function acquire(form: FormData): Promise<void> {
 
   const volumeId = text(form, "volumeId") ?? "";
 
-  return saying(volumeId, new URLSearchParams({ acquired: "1" }), () =>
-    acquireVolume({
-      volumeId,
-      pricePaid: text(form, "pricePaid"),
-      acquiredOn: text(form, "acquiredOn"),
-    })
+  return saying(
+    volumeId,
+    new URLSearchParams({ acquired: "1" }),
+    () =>
+      acquireVolume({
+        volumeId,
+        pricePaid: text(form, "pricePaid"),
+        acquiredOn: text(form, "acquiredOn"),
+      }),
+    "acquire"
   );
 }
 
@@ -136,8 +158,11 @@ export async function recordIsbn(form: FormData): Promise<void> {
 
   const volumeId = text(form, "volumeId") ?? "";
 
-  return saying(volumeId, new URLSearchParams({ isbn: "1" }), () =>
-    amendVolume(volumeId, { isbn: text(form, "isbn") })
+  return saying(
+    volumeId,
+    new URLSearchParams({ isbn: "1" }),
+    () => amendVolume(volumeId, { isbn: text(form, "isbn") }),
+    "isbn"
   );
 }
 
@@ -164,11 +189,16 @@ export async function lookUpCover(form: FormData): Promise<void> {
   // that same object, and a refusal replaces it wholesale as it does everywhere else.
   const said = new URLSearchParams();
 
-  return saying(volumeId, said, async () => {
-    const answer = await lookUpCoverFor(volumeId);
-    said.set("cover", answer.outcome);
-    if (answer.outcome === "unanswered") said.set("because", answer.because);
-  });
+  return saying(
+    volumeId,
+    said,
+    async () => {
+      const answer = await lookUpCoverFor(volumeId);
+      said.set("cover", answer.outcome);
+      if (answer.outcome === "unanswered") said.set("because", answer.because);
+    },
+    "cover"
+  );
 }
 
 /**
@@ -184,7 +214,12 @@ export async function forgetCover(form: FormData): Promise<void> {
 
   const volumeId = text(form, "volumeId") ?? "";
 
-  return saying(volumeId, new URLSearchParams({ forgot: "1" }), () => forgetTheCover(volumeId));
+  return saying(
+    volumeId,
+    new URLSearchParams({ forgot: "1" }),
+    () => forgetTheCover(volumeId),
+    "cover"
+  );
 }
 
 /**
@@ -202,8 +237,11 @@ export async function useOwnImage(form: FormData): Promise<void> {
 
   const volumeId = text(form, "volumeId") ?? "";
 
-  return saying(volumeId, new URLSearchParams({ imaged: "1" }), () =>
-    setOwnCover(volumeId, text(form, "imageUrl") ?? "")
+  return saying(
+    volumeId,
+    new URLSearchParams({ imaged: "1" }),
+    () => setOwnCover(volumeId, text(form, "imageUrl") ?? ""),
+    "cover"
   );
 }
 
@@ -213,7 +251,12 @@ export async function removeOwnImage(form: FormData): Promise<void> {
 
   const volumeId = text(form, "volumeId") ?? "";
 
-  return saying(volumeId, new URLSearchParams({ unimaged: "1" }), () => dropOwnCover(volumeId));
+  return saying(
+    volumeId,
+    new URLSearchParams({ unimaged: "1" }),
+    () => dropOwnCover(volumeId),
+    "cover"
+  );
 }
 
 /** Write what the owner thinks of the object. Replaces what they thought before. */
@@ -226,10 +269,18 @@ export async function writeNote(form: FormData): Promise<void> {
   // An empty box is the owner clearing the note rather than writing a blank one, which the
   // verb would refuse — so the two intentions arrive at the two verbs from one control.
   if (note === null) {
-    return saying(volumeId, new URLSearchParams({ erased: "1" }), () => eraseEditionNote(volumeId));
+    return saying(
+      volumeId,
+      new URLSearchParams({ erased: "1" }),
+      () => eraseEditionNote(volumeId),
+      "note"
+    );
   }
 
-  return saying(volumeId, new URLSearchParams({ noted: "1" }), () =>
-    writeEditionNote(volumeId, note)
+  return saying(
+    volumeId,
+    new URLSearchParams({ noted: "1" }),
+    () => writeEditionNote(volumeId, note),
+    "note"
   );
 }

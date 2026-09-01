@@ -173,9 +173,26 @@ finishing one and giving up on one are three addresses and three plain forms, be
 `formAction` on a second submit needs a script to send the right one — and a write that only
 works once a bundle has parsed is not a write this application has.
 
-Two rules for adding one. **Read the panel against a list**, the way every filter on a wall
+The Volume's page and the two Series screens are the rest of it (#30), and between them they
+say where the line is. **A press that asks for nothing is a plain form and not a panel** —
+*Collect this Series* takes no field, and a drawer in front of it would be a door in front of
+a door. **A picker under the list it corrects is not a panel either**: a drawer is for a form
+the owner *opened*, where saying which Story is inside this object is a correction made while
+reading the list above it. And **a record the owner reads is on the page even when writing it
+is a panel** — the Edition note is prose in the serif with *Rewrite the Edition note* beside
+it, the way a Rating's prose is read back on the Story, because what was written is the record
+and the box is the act.
+
+Three rules for adding one. **Read the panel against a list**, the way every filter on a wall
 is read — `?panel=banana` opens nothing, and neither does a `?reading=` naming no Reading of
-this Story. And **carry the screen's other parameters through**:
+this Story. Better still, read it against **the acts the screen has**: `theActsOnTheObject`
+and `theEditionNoteAct` in `collection/[id]/standing.ts` name every panel a Volume has, the
+page opens none they did not name, and so a hand-typed `?panel=release` cannot stand a release
+form over an object the house does not hold. Each act's label is its panel's title too, so a
+press and the panel it opens cannot come to call one act two things. **And a refused write
+comes back with its panel open, carrying the verb's prose into the panel** — the sentence is
+about what was typed, so it is only useful beside the field it is about, and a panel covers the
+screen it would otherwise be printed behind. And **carry the screen's other parameters through**:
 opening a drawer must not take the owner's search filters off on the way, and closing it must
 put them back. `panelled()`/`unpanelled()` on the Collection are that, and they deliberately
 drop the answer to the *last write*, so a report is not printed again over an act nobody just
@@ -191,11 +208,15 @@ each kind of record the finder reaches is called and where enter lands on it;
 — which is the one place the difference between *missing* and *not mine yet* is decided;
 `stories/readings.ts` says how an act of reading is worded and **which one of them is still
 open**, which is what puts *start it* or *close it* in a Story's hero and is read off
-`outcome` in one place rather than three; `stories/story-state.tsx` and
-`reading-list/entry.ts` are the same thing at a smaller size. It is the screen's because
-banding is the screen's (see the next section), and it is a *file* rather than a lump inside
-`page.tsx` because it can then be tested beside itself — which `vitest.config.ts` licenses in
-the same sentence it licenses the tint and the gate's predicate, under the same rule: data in,
+`outcome` in one place rather than three; `collection/[id]/standing.ts` says where the owner
+stands with one object — in the house, catalogued, or acquired and let go — and therefore
+**which acts its page offers**, which is where an object that left the house is offered
+acquiring it *again* rather than releasing something the house does not have;
+`stories/story-state.tsx` and `reading-list/entry.ts` are the same thing at a smaller size. It
+is the screen's because banding is the screen's (see the next section), and it is a *file*
+rather than a lump inside `page.tsx` because it can then be tested beside itself — which
+`vitest.config.ts` licenses in the same sentence it licenses the tint and the gate's
+predicate, under the same rule: data in,
 data out, a function the app would still have if React were replaced. A component, a render
 or a private helper of a page is the line, and crossing it is a third seam.
 
