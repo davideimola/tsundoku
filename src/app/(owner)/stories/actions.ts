@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
-import { createStory } from "@/core/verbs/story";
+import { createStory, strikeStories } from "@/core/verbs/story";
 import { requireOwner } from "@/lib/auth/owner";
-import { carriedAs, RECORD, THE_WALLS_FILTERS } from "./panels";
+import { carriedAs, NOTHING_ON_IT, RECORD, THE_WALLS_FILTERS } from "./panels";
 
 // The write side of the Story wall, and **the act the owner did not have** (#33).
 //
@@ -70,7 +70,7 @@ export async function record(form: FormData): Promise<void> {
     // Anything that is not a refusal is a bug rather than an answer and stays unhandled: it
     // becomes a 500, and nobody dresses a broken query up as advice.
     if (!isRefusal(error)) throw error;
-    where = `/stories?${asItWasNarrowed(form, { refused: error.message })}`;
+    where = `/stories?${asItWasNarrowed(form, RECORD, { refused: error.message })}`;
   }
 
   redirect(where);
@@ -83,10 +83,18 @@ export async function record(form: FormData): Promise<void> {
  * The filters come off the form rather than off a URL, because a Server Function has no URL
  * to read — `../collection/actions.ts` threads them the same way for the same reason. Dropping
  * them would answer a refused write by silently throwing away the search behind it.
+ *
+ * The panel is an argument because two acts come back through here and they come back to
+ * different drawers: a refused Story reopens the form it was typed into, and a strike — refused
+ * or done — reopens the list it was ticked from.
  */
-function asItWasNarrowed(form: FormData, said: Record<string, string>): URLSearchParams {
+function asItWasNarrowed(
+  form: FormData,
+  panel: string,
+  said: Record<string, string>
+): URLSearchParams {
   const asking = new URLSearchParams(said);
-  asking.set("panel", RECORD);
+  asking.set("panel", panel);
 
   for (const name of THE_WALLS_FILTERS) {
     // Read under the prefix it travelled as, never under its own name: `type` is also the
@@ -96,4 +104,41 @@ function asItWasNarrowed(form: FormData, said: Record<string, string>): URLSearc
   }
 
   return asking;
+}
+
+/**
+ * Strike the ticked Stories from the library: it stops knowing these narratives.
+ *
+ * **The mirror of `../collection/actions.ts`' strike, over the other half of the model** — an
+ * assistant proposes a Story, the owner approves forty at a time, and until this act existed a
+ * hallucinated narrative was a permanent tile on the wall (ADR-0015, ADR-0014).
+ *
+ * **Back to the list, open, either way.** Clean-up is repeated, so closing the drawer after
+ * each pass would cost a tap to reopen every time; and a refusal has to come back here because
+ * it names the one Story that stands, which is a sentence only useful beside the tick it is
+ * about. The wall's own narrowing rides along, so neither answer throws away the search behind
+ * the panel.
+ *
+ * The count is carried rather than recomputed: what the owner reads afterwards is what this
+ * press did, not what the list happens to hold now.
+ */
+export async function strike(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const ticked = form
+    .getAll("strikeId")
+    .filter((value): value is string => typeof value === "string");
+
+  let struck: number;
+  try {
+    struck = await strikeStories(ticked);
+  } catch (error) {
+    // Anything that is not a refusal is a bug rather than an answer and stays unhandled.
+    if (!isRefusal(error)) throw error;
+    revalidatePath("/stories");
+    redirect(`/stories?${asItWasNarrowed(form, NOTHING_ON_IT, { refused: error.message })}`);
+  }
+
+  revalidatePath("/stories");
+  redirect(`/stories?${asItWasNarrowed(form, NOTHING_ON_IT, { struck: String(struck) })}`);
 }

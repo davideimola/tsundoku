@@ -149,3 +149,130 @@ export async function amendStory(
 
   if (changed.length === 0) throw new Refusal("not-found", NO_SUCH_STORY);
 }
+
+// STRIKING A STORY FROM THE LIBRARY, and it is `strikeVolumes` with a different boundary
+// rather than a second idea (ADR-0015, which extends ADR-0014).
+//
+// The gap is the one ADR-0014 was written about, at the other end of the model. An assistant
+// may not create a Story and may propose one, the owner approves proposals forty at a time
+// (ADR-0005, ADR-0011), and a hallucinated narrative that got through was **permanent** — the
+// Inbox's rejection only leaves a proposal unapproved, and `amendStory` corrects a Story that
+// should exist rather than unmaking one that should not. A wall of seventy-seven tiles with
+// *Slam Dunk* on two of them is a wall that is wrong, and there was nothing to say so with.
+//
+// **What makes it safe is what it refuses**, and the four are the Volume's four asked about a
+// narrative instead of an object:
+//
+//   an object in the house    something on a shelf carries it. The narrative is as real as
+//                             the thing holding it — this is the rail, and it is the reason a
+//                             bulk control over the wall is safe at all
+//   a Reading                 an event in the owner's life names it. No duplicate has one
+//   a Rating                  the judgement, which is the one record that is only ever about
+//                             a narrative and never about an object (ADR-0001)
+//   a Path                    a stop on a route the owner planned. Their own ordering
+//
+// What goes with it is said out loud before it is done, and it is where this differs from the
+// Volume: **the Credits go, and the people they minted stay** (ADR-0012). A duplicate carrying
+// *ONE, story* is carrying an attribution of a narrative that does not exist, and a Person is
+// not owned by the Credit that first named them — they keep every other Credit they hold. The
+// links to Volumes the house does not hold go too, and there is no foreign key to clear first:
+// every reference to a Story cascades, and the two that would matter cannot exist, because
+// either of them refuses the gesture.
+//
+// **The owner's act, never the assistant's.** There is no MCP tool and there must not be one:
+// the party that files a hallucinated Story is exactly the party that must not be able to
+// delete rows to tidy up after itself (ADR-0005, and ADR-0014 said it first).
+
+/**
+ * **Why one Story stands, as SQL** — the whole safety of striking, in four branches, and the
+ * prose the owner reads when one of them is true.
+ *
+ * Exported for the reason `STORY_STATE` in `../queries/story.ts` is: **two readers ask it, and
+ * a second copy of these branches would be a second answer** to *may this record be unmade*.
+ * `strikeStories` spends it to find the one that stands and name it; the list the owner ticks
+ * from is defined as *the Stories this expression has nothing to say about*
+ * (`listStoriesNothingHasHappenedTo`), so the screen cannot come to offer a row the verb would
+ * refuse — the list is not a second guess at the rule, it is the rule read the other way
+ * round.
+ *
+ * It is here rather than beside that query because the rule is the verb's and so is the prose
+ * (`./README.md`): a refusal is written where the act is.
+ *
+ * It names the Story `s`, so a statement spending it joins `story s`, and it answers `null`
+ * for a Story nothing has happened to.
+ */
+export const WHY_A_STORY_STANDS = `
+  case
+    when exists (select 1 from volume_story vs
+                   join acquisition a on a.volume_id = vs.volume_id and a.released_on is null
+                  where vs.story_id = s.id)
+      then 'an object in the house carries it. Say that object no longer carries it first — the library is not where a narrative on a shelf is unmade.'
+    when exists (select 1 from reading r where r.story_id = s.id)
+      then 'a Reading went through it. That is an event in your life, and it names this narrative.'
+    when exists (select 1 from rating g where g.story_id = s.id)
+      then 'you judged it. A score is the one record that is only ever about the narrative itself.'
+    when exists (select 1 from path_item i where i.story_id = s.id)
+      then 'a Path names it as a stop. Take it off the Path first.'
+  end`;
+
+/** Why one Story in a selection could not be struck, in the owner's words. */
+type WhyItStands = { title: string; because: string | null };
+
+/**
+ * Strike Stories from the library: it stops knowing these narratives.
+ *
+ * **The selection lands whole or not at all**, like the Inbox's approval and the catalogue's
+ * strike, and for their reason: a mess arrives by the dozen, and half a clean-up is worse than
+ * none — the owner would have to work out which half. So one refused Story refuses the gesture
+ * and names itself, and nothing has moved when the screen comes back.
+ *
+ * It takes the Credits on each with it and leaves the people standing, and it takes the record
+ * of which Volumes carried it. A Reading, a Rating and a Path stop cannot go with it, because
+ * any of them refuses instead.
+ *
+ * Returns how many were struck. An empty selection is refused rather than passing quietly: a
+ * button reporting *0 struck* is a button the owner cannot tell from a broken one.
+ *
+ * **One selection of one is the same act**, which is what the Story's own page presses — see
+ * ADR-0015 on why that door exists here and not on a Volume's page: the list this is bulk over
+ * holds only Stories nothing has happened to, so it is the *only* place the four refusals can
+ * be read.
+ */
+export async function strikeStories(storyIds: readonly string[]): Promise<number> {
+  const asked = storyIds.filter((id) => UUID.test(id));
+  if (asked.length === 0) {
+    throw new Refusal("invalid", "Tick the Stories to strike from the library first.");
+  }
+
+  return transaction(async (run) => {
+    // One statement for the whole selection, read in the same transaction that is about to
+    // delete them — so nothing can be read, judged or placed on a Path between the check and
+    // the act.
+    const standing = await run<WhyItStands & { id: string }>(
+      `select s.id, s.title, ${WHY_A_STORY_STANDS} as because
+         from story s
+        where s.id = any($1::uuid[])`,
+      [asked]
+    );
+
+    if (standing.length !== asked.length) {
+      throw new Refusal("not-found", "One of those is not a Story the library knows.");
+    }
+
+    const held = standing.find((one) => one.because !== null);
+    if (held) {
+      throw new Refusal("not-allowed", `${held.title} stays: ${held.because} Nothing was struck.`);
+    }
+
+    // Nothing to clear first, unlike a Volume's ended acquisitions: every reference to a
+    // Story is `on delete cascade`, so the Credits and the carrying links follow it out, and
+    // the schema has no say about the rest because the rest cannot be there.
+    const struck = await refusing(
+      () =>
+        run<{ id: string }>(`delete from story where id = any($1::uuid[]) returning id`, [asked]),
+      () => "Those Stories could not be struck from the library."
+    );
+
+    return struck.length;
+  });
+}

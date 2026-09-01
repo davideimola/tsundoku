@@ -1,18 +1,22 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import {
   deactivatePath,
   declareConstraint,
   definePath,
   moveStoryOnPath,
-  placeStoryOnPath,
+  placeStoriesOnPath,
 } from "../verbs/path.ts";
 import { abandonReading, finishReading, recordReading } from "../verbs/reading.ts";
+import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
+import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import {
   findPath,
   listDeclaredConstraints,
   listPaths,
+  listStoriesNotOnPath,
   nextUnreadOnActivePaths,
   nextUnreadOnPath,
 } from "./path.ts";
@@ -21,8 +25,11 @@ import {
 // mounts it, the MCP door — so what is asserted here is what an external assistant sees
 // when it asks what the owner's routes are and what comes next on them.
 
+// `series` and `volume` join it for the picker's order: which run a Story belongs to and
+// where it stands in that run are facts about the objects carrying it, so the fixture that
+// tests the order has to build a shelf.
 beforeEach(async () => {
-  await query("truncate path, story cascade");
+  await query("truncate path, series, story, volume cascade");
 });
 
 /** *Angolo Giappone*, in the order the owner put it in. */
@@ -37,7 +44,7 @@ async function angoloGiappone(): Promise<{ pathId: string; stories: string[] }> 
     await createStory({ title: "Lone Wolf and Cub", typeId: "manga" }),
     await createStory({ title: "Musashi", typeId: "novel" }),
   ];
-  for (const story of stories) await placeStoryOnPath(pathId, story);
+  await placeStoriesOnPath(pathId, stories);
 
   return { pathId, stories };
 }
@@ -182,10 +189,9 @@ describe("what comes next on every active Path", () => {
     const { pathId: giappone } = await angoloGiappone();
 
     const batman = await definePath({ name: "Recupero Batman" });
-    await placeStoryOnPath(
-      batman,
-      await createStory({ title: "Batman: Anno Uno", typeId: "comic" })
-    );
+    await placeStoriesOnPath(batman, [
+      await createStory({ title: "Batman: Anno Uno", typeId: "comic" }),
+    ]);
 
     const ahead = await nextUnreadOnActivePaths();
 
@@ -222,10 +228,9 @@ describe("what comes next on every active Path", () => {
     }
 
     const batman = await definePath({ name: "Recupero Batman" });
-    await placeStoryOnPath(
-      batman,
-      await createStory({ title: "Batman: Anno Uno", typeId: "comic" })
-    );
+    await placeStoriesOnPath(batman, [
+      await createStory({ title: "Batman: Anno Uno", typeId: "comic" }),
+    ]);
 
     expect((await nextUnreadOnActivePaths()).map((entry) => entry.path.name)).toEqual([
       "Recupero Batman",
@@ -234,10 +239,9 @@ describe("what comes next on every active Path", () => {
 
   it("does not care that the Stories cross Types and publishers", async () => {
     const path = await definePath({ name: "Technical Leadership" });
-    await placeStoryOnPath(
-      path,
-      await createStory({ title: "The Manager's Path", typeId: "non-fiction" })
-    );
+    await placeStoriesOnPath(path, [
+      await createStory({ title: "The Manager's Path", typeId: "non-fiction" }),
+    ]);
 
     const [ahead] = await nextUnreadOnActivePaths();
     expect(ahead.next.type).toEqual({ id: "non-fiction", name: "Non-fiction" });
@@ -303,5 +307,114 @@ describe("the declared constraints", () => {
 
   it("are none where the owner has declared none", async () => {
     expect(await listDeclaredConstraints()).toEqual([]);
+  });
+});
+
+// **What can still go on a route, and in what order** — the picker's question, and the order
+// is the whole of it: a route through *Slam Dunk* is twenty stops, and the reason twenty was
+// never worth building by hand is that the owner had to find each title in a list of
+// seventy-seven and could not see that they belonged together.
+describe("the Stories that could still go on a route", () => {
+  /** One tankōbon of *Slam Dunk*, in the house, at its position, carrying its Story. */
+  async function slamDunk(number: number, pathTo: { seriesId: string }): Promise<string> {
+    const storyId = await createStory({ title: `Slam Dunk ${number}`, typeId: "manga" });
+    const volumeId = await volumeInTheHouse({
+      title: `Slam Dunk ${number}`,
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await placeVolumeInSeries({ volumeId, seriesId: pathTo.seriesId, number });
+    await recordVolumeCarriesStory(volumeId, storyId);
+    return storyId;
+  }
+
+  it("leaves out what is already on the route", async () => {
+    const { pathId, stories } = await angoloGiappone();
+    await createStory({ title: "Dune", typeId: "novel" });
+
+    expect(titles(await listStoriesNotOnPath(pathId))).toEqual(["Dune"]);
+    expect((await listStoriesNotOnPath(pathId)).map((one) => one.id)).not.toContain(stories[0]);
+  });
+
+  // 1, 2, 10 — and never 1, 10, 2, which is what a list ordered by title does to a run of
+  // twenty and what makes the owner check each tick.
+  it("stands a run in the order its objects stand on the shelf", async () => {
+    const pathId = await definePath({ name: "Slam Dunk, in order" });
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    await slamDunk(10, { seriesId });
+    await slamDunk(1, { seriesId });
+    await slamDunk(2, { seriesId });
+
+    expect(titles(await listStoriesNotOnPath(pathId))).toEqual([
+      "Slam Dunk 1",
+      "Slam Dunk 2",
+      "Slam Dunk 10",
+    ]);
+  });
+
+  it("carries the line each stands in, so a picker can band them by it", async () => {
+    const pathId = await definePath({ name: "Slam Dunk, in order" });
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    await slamDunk(1, { seriesId });
+
+    expect(await listStoriesNotOnPath(pathId)).toMatchObject([
+      {
+        title: "Slam Dunk 1",
+        type: { id: "manga", name: "Manga" },
+        state: "to-read",
+        series: { id: seriesId, name: "Slam Dunk", editionLine: null },
+        standsAt: 1,
+      },
+    ]);
+  });
+
+  // A Story nothing carries is not part of any run, so it cannot be poured onto a route with
+  // one — it comes after everything that stands in a line, with nothing where a position goes.
+  it("puts what stands in no line last, and says so with nothing", async () => {
+    const pathId = await definePath({ name: "Angolo Giappone" });
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    await createStory({ title: "Aaaa, a novel with no objects", typeId: "novel" });
+    await slamDunk(1, { seriesId });
+
+    const candidates = await listStoriesNotOnPath(pathId);
+
+    expect(titles(candidates)).toEqual(["Slam Dunk 1", "Aaaa, a novel with no objects"]);
+    expect(candidates[1]).toMatchObject({ series: null, standsAt: null });
+  });
+
+  it("narrows by title, folding accents and reading no wildcards", async () => {
+    const pathId = await definePath({ name: "Recupero" });
+    await createStory({ title: "Perché no", typeId: "novel" });
+    await createStory({ title: "100% Doraemon", typeId: "manga" });
+
+    expect(titles(await listStoriesNotOnPath(pathId, { title: "perche" }))).toEqual(["Perché no"]);
+    expect(titles(await listStoriesNotOnPath(pathId, { title: "100%" }))).toEqual([
+      "100% Doraemon",
+    ]);
+    // A pattern is not a search: `%` matched literally above, and `%o%` matches nothing.
+    expect(await listStoriesNotOnPath(pathId, { title: "%o%" })).toEqual([]);
+  });
+
+  it("answers with nothing for a Path that is not there", async () => {
+    await createStory({ title: "Dune", typeId: "novel" });
+
+    expect(await listStoriesNotOnPath("00000000-0000-4000-8000-000000000000")).toEqual([]);
+    expect(await listStoriesNotOnPath("banana")).toEqual([]);
   });
 });

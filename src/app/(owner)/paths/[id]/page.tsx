@@ -3,16 +3,17 @@ import { notFound } from "next/navigation";
 import { Drawer, OpensDrawer } from "@/components/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { PathStop } from "@/core/queries/path";
-import { findPath } from "@/core/queries/path";
-import { listStories } from "@/core/queries/story";
+import type { PathCandidate, PathStop } from "@/core/queries/path";
+import { findPath, listStoriesNotOnPath } from "@/core/queries/path";
 import { requireOwner } from "@/lib/auth/owner";
+import { tint, UNWORN, WORN, worn } from "@/lib/tint";
+import { cn } from "@/lib/utils";
 import { StoryStateLabel } from "../../stories/story-state";
 import {
   makeFirst,
   moveEarlier,
   moveLater,
-  placeStory,
+  placeStories,
   removeStory,
   rename,
   restateIntent,
@@ -20,6 +21,7 @@ import {
 } from "../actions";
 import { NAMING_A_ROUTE, SAYING_WHAT_A_ROUTE_IS_FOR, THE_PANELS_ON_A_ROUTE } from "../acts";
 import { DeclaredConstraints } from "../constraints";
+import { type Run, theRunsOnOffer, theWholeRunPress } from "./candidates";
 
 // ONE PATH, and **the screen where the order is made by hand**. Everything else in this
 // app derives; this is the one place the owner's judgement is typed in, so the order is
@@ -34,6 +36,14 @@ import { DeclaredConstraints } from "../constraints";
 //   before the owner can move *Musashi* above *Vagabond* on a phone in a shop. A drag
 //   interaction would be the only thing in this repo that needed a bundle to work, and it
 //   would fail exactly where this app is used.
+// - **Stories arrive by the run, not one at a time.** The picker was a `<select>` of every
+//   Story in the library and a button, so a route through twenty tankōbon was twenty
+//   searches and twenty round trips — which is why nobody built one. It is now a banded
+//   list of what could still go on this route: ticks for the ordinary case, and one press
+//   over a whole line for the case that made this worth changing. What it is banded by is
+//   the judgement (`./candidates.ts`): the **line the objects stand in**, because that is
+//   the run the owner is working through, and it arrives already wearing the colour the
+//   wall taught them.
 //
 // **In the shell now** (#31), and three things follow from it.
 //
@@ -68,6 +78,16 @@ function asked(params: Asked, name: string): string | undefined {
 // acts it offers: a hand-typed `?panel=banana` opens nothing, and neither does a panel for
 // an act that is not on this screen.
 
+// **What the owner is looking for in the picker, and the form the ticks belong to.**
+//
+// `PICK` is a filter and lives in the URL like every other one (`AGENTS.md`): the picker
+// narrowed to *slam* is a `GET` of this same screen, so it survives a refresh and costs no
+// script. `PLACE` is the id the row checkboxes point their `form` attribute at — the rows sit
+// outside that form, because each band header holds a form of its own and HTML has no nested
+// forms. Both are strings two places spell, which is what buys them a name.
+const PICK = "pick";
+const PLACE = "put-them-on";
+
 export default async function PathPage({
   params,
   searchParams,
@@ -78,12 +98,26 @@ export default async function PathPage({
   await requireOwner();
 
   const { id } = await params;
-  const [path, stories, said] = await Promise.all([findPath(id), listStories(), searchParams]);
+  const said = await searchParams;
+
+  // What the owner typed into the picker, which is the one narrowing this screen has. It is
+  // in the URL like every other filter in this application (`AGENTS.md`), so a narrowed
+  // picker survives a refresh and is an argument to the core query rather than a pass over
+  // seventy-seven rows the page fetched to keep four.
+  const pick = asked(said, PICK);
+
+  // Two questions, and the second is the picker's rather than the wall's: *what could still
+  // go on this route*, which is a fact about the Path and is therefore the Path's query. The
+  // screen used to ask for every Story and subtract the route in memory, and could not order
+  // what was left, because the order that matters here belongs to the objects.
+  const [path, candidates] = await Promise.all([
+    findPath(id),
+    listStoriesNotOnPath(id, { title: pick }),
+  ]);
   if (!path) notFound();
 
   const back = `/paths/${path.id}`;
-  const onTheRoute = new Set(path.stops.map((stop) => stop.storyId));
-  const elsewhere = stories.filter((story) => !onTheRoute.has(story.id));
+  const runs = theRunsOnOffer(candidates);
   const refused = asked(said, "refused");
   const panel = THE_PANELS_ON_A_ROUTE.find((one) => one === asked(said, "panel"));
 
@@ -172,52 +206,106 @@ export default async function PathPage({
           </section>
 
           {/* **A picker under the list it adds to is not a panel** (#30's rule): saying
-              which Story goes on the route is done while reading the route above it, and a
-              drawer in front of it would be a door in front of a door. */}
-          <section className="mt-8 rounded-xl ring-1 ring-foreground/10">
-            <h2 className="px-4 pt-3 text-sm font-medium">
-              Put a Story on this route
-              <span className="ml-2 text-muted-foreground">— it lands at the end</span>
-            </h2>
+              which Stories go on the route is done while reading the route above it, and a
+              drawer in front of it would be a door in front of a door. The list is capped and
+              scrolls inside itself for the same reason — sixty candidates must not push the
+              route they are being added to two screenfuls up the page.
 
-            <form
-              action={placeStory}
-              className="grid gap-3 border-t border-border p-4 sm:grid-cols-[1fr_auto]"
-            >
-              <input type="hidden" name="pathId" value={path.id} />
-              <input type="hidden" name="back" value={back} />
-              <label className="grid gap-1.5">
-                <span className="text-xs text-muted-foreground">Story</span>
-                {/* A native select: it opens the platform picker on a phone and submits with
-                    the form whether JavaScript ran or not. Any Type — a route crosses them. */}
-                <select
-                  name="storyId"
-                  required
-                  disabled={elsewhere.length === 0}
-                  className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:h-10 md:text-sm dark:bg-input/30"
-                >
-                  {elsewhere.map((story) => (
-                    <option key={story.id} value={story.id}>
-                      {story.title} — {story.type.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="flex items-end">
-                <Button
-                  type="submit"
-                  disabled={elsewhere.length === 0}
-                  className="h-11 w-full sm:h-10 sm:w-auto sm:px-6"
-                >
-                  Put it on
-                </Button>
-              </div>
-              {elsewhere.length === 0 ? (
-                <p className="text-xs text-muted-foreground sm:col-span-2">
-                  Every Story in the library is already on this route.
+              **The whole section is one group and the ticks are what it watches.** The submit
+              does not exist until something is ticked, and it counts itself with a CSS counter
+              — the `<ul>` resets it, a ticked row increments it, the button reads it — so the
+              press says how many stops it is about to write with nothing running in the
+              browser (ADR-0010, and the Collection's strike is the same device). */}
+          <section className="group/place mt-8 rounded-xl ring-1 ring-foreground/10">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pt-3">
+              <h2 className="text-sm font-medium">
+                Put Stories on this route
+                <span className="ml-2 text-muted-foreground">
+                  — they land at the end, in this order
+                </span>
+              </h2>
+              {pick ? (
+                <p className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                  {candidates.length} {candidates.length === 1 ? "match" : "matches"}
                 </p>
               ) : null}
-            </form>
+            </div>
+
+            {candidates.length === 0 && !pick ? (
+              <p className="border-t border-border p-4 text-pretty text-sm text-muted-foreground">
+                Every Story in the library is already on this route.
+              </p>
+            ) : (
+              <>
+                {/* A `GET` to this same screen, so the narrowed picker is an address. It is a
+                    field and a button rather than a live filter: nothing here waits for a
+                    bundle, and the platform's own keyboard sends it. */}
+                <form
+                  action={back}
+                  className="flex items-end gap-2 border-t border-border p-4 pb-3"
+                >
+                  <label className="min-w-0 flex-1">
+                    <span className="sr-only">Find a Story by title</span>
+                    <input
+                      name={PICK}
+                      defaultValue={pick ?? ""}
+                      placeholder="slam dunk"
+                      autoComplete="off"
+                      className="h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30"
+                    />
+                  </label>
+                  <Button type="submit" variant="outline" className="h-11 shrink-0 sm:h-10">
+                    Find
+                  </Button>
+                  {pick ? (
+                    <Link
+                      href={back}
+                      className="shrink-0 rounded px-1 py-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      Clear
+                    </Link>
+                  ) : null}
+                </form>
+
+                {candidates.length === 0 ? (
+                  <p className="border-t border-border p-4 text-pretty text-sm text-muted-foreground">
+                    Nothing off this route matches <em>{pick}</em>. Clear it, or record the Story on
+                    the wall first — a route can only point at narratives the library has.
+                  </p>
+                ) : (
+                  /* Capped and scrolling inside itself, and the cap is the argument for
+                     banding: what a scroll pane must never do is hide *that there is more of
+                     one run below the fold*, so a run arrives as one block with its own press
+                     rather than as rows the owner has to reach the end of. */
+                  <ul className="max-h-96 overflow-y-auto overscroll-contain border-t border-border [counter-reset:ticked]">
+                    {runs.map((run) => (
+                      <RunBand
+                        key={run.seriesId ?? run.name}
+                        run={run}
+                        pathId={path.id}
+                        back={back}
+                      />
+                    ))}
+                  </ul>
+                )}
+
+                {/* The ticked selection. Hidden until there is one, so an empty press is not a
+                    thing the screen offers — and the count is the button's, because *how many
+                    stops am I about to write* is the one fact to know before pressing. */}
+                <form
+                  id={PLACE}
+                  action={placeStories}
+                  className="hidden border-t border-border p-4 group-has-[input:checked]/place:block"
+                >
+                  <input type="hidden" name="pathId" value={path.id} />
+                  <input type="hidden" name="back" value={back} />
+                  <Button type="submit" className="h-11 w-full sm:h-10">
+                    Put <span className="font-mono tabular-nums after:[content:counter(ticked)]" />{" "}
+                    on the route
+                  </Button>
+                </form>
+              </>
+            )}
           </section>
         </div>
 
@@ -474,5 +562,102 @@ function Nudge({
         {glyph}
       </Button>
     </form>
+  );
+}
+
+/**
+ * **One run of candidates, as a band with a press over it** — the thing that makes twenty
+ * stops one gesture rather than twenty.
+ *
+ * The band wears the line's own colour, and it is the same colour the tile of every one of
+ * these Stories wears on the wall (`@/lib/tint`): the owner recognises *Slam Dunk* as a
+ * colour before they read the name, which is the whole point of the tint being derived and
+ * stable. What stands in no line wears the page's quiet ground rather than a colour of its
+ * own, because it is not a run.
+ *
+ * The header sticks to the top of the scroll pane, so the line a row belongs to is still
+ * legible thirty rows down — a run of twenty is taller than the pane by design.
+ *
+ * **Its press is a form of its own, and that is why the rows are not inside a form.** HTML has
+ * no nested forms, so the ticks belong to the selection's form by `form={PLACE}` and this one
+ * carries its own stories as hidden fields. Both post the same action with the same field
+ * name: putting a whole run on and putting a tick's worth on are one act (`../actions.ts`).
+ */
+function RunBand({ run, pathId, back }: { run: Run; pathId: string; back: string }) {
+  // Whether this run has shelf positions at all: a numbered run gets a column for them, and
+  // one that has none — novels, omnibuses, anything carried by no object — does not spend a
+  // fifth of a phone's width on an empty gutter.
+  const numbered = run.stories.some((story) => story.standsAt !== null);
+
+  return (
+    <li className="border-t border-border first:border-t-0">
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-dashed border-border bg-background/95 px-4 py-2 backdrop-blur">
+        <span
+          aria-hidden
+          style={worn(tint(run.seriesId))}
+          className={cn("h-4 w-1 shrink-0 rounded-full", run.seriesId ? WORN : UNWORN)}
+        />
+        <h3 className="min-w-0 flex-1 truncate font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+          {run.name}
+        </h3>
+
+        <form action={placeStories} className="shrink-0">
+          <input type="hidden" name="pathId" value={pathId} />
+          <input type="hidden" name="back" value={back} />
+          {run.stories.map((story) => (
+            <input key={story.id} type="hidden" name="storyId" value={story.id} />
+          ))}
+          <Button type="submit" variant="ghost" size="sm" className="-mr-2 h-8 text-xs">
+            {theWholeRunPress(run)}
+          </Button>
+        </form>
+      </div>
+
+      <ul>
+        {run.stories.map((story) => (
+          <Candidate key={story.id} story={story} numbered={numbered} />
+        ))}
+      </ul>
+    </li>
+  );
+}
+
+/**
+ * One Story that could go on the route, as a row under a tick.
+ *
+ * The tap target is the `<label>` and not the box: sixteen pixels is not a thumb, and this is
+ * a list the owner taps down in a row of twenty.
+ *
+ * Two facts beside the title, and each earns its place. **The position** is what makes a run
+ * readable as a run — 1, 2, 3 down the gutter, which is also the order these stops will be
+ * placed in — and **the state** is printed only where it is not *to read*: a route grows from
+ * the pile, so the pile is the silent case, and *read* beside a title is the one thing that
+ * would make the owner untick it. Saying *to read* on sixty rows would be sixty labels
+ * carrying no decision.
+ */
+function Candidate({ story, numbered }: { story: PathCandidate; numbered: boolean }) {
+  return (
+    <li className="flex items-center gap-2 border-t border-dashed border-border first:border-t-0 has-[:checked]:[counter-increment:ticked] has-[:checked]:bg-accent/40">
+      <label className="flex w-11 shrink-0 cursor-pointer items-center justify-center self-stretch outline-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
+        <input
+          type="checkbox"
+          form={PLACE}
+          name="storyId"
+          value={story.id}
+          aria-label={`Put ${story.title} on this route`}
+          className="size-4 accent-foreground"
+        />
+      </label>
+
+      <span className="flex min-w-0 flex-1 items-baseline gap-2 py-2.5 pr-4">
+        {numbered ? (
+          <span className="w-5 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
+            {story.standsAt ?? "—"}
+          </span>
+        ) : null}
+        <span className="min-w-0 flex-1 truncate text-sm">{story.title}</span>
+        {story.state === "to-read" ? null : <StoryStateLabel state={story.state} />}
+      </span>
+    </li>
   );
 }

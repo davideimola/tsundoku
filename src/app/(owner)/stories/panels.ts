@@ -1,4 +1,5 @@
-// THE ADDRESSES THE STORY WALL HAS — one panel and the two filters — **named here because
+// THE ADDRESSES THE STORIES HAVE — the wall's two panels, its two filters, and the one panel
+// on a single Story's page — **named here because
 // more than one file spells each of them**, which is the Collection's own argument for the
 // same file (`../collection/panels.ts`).
 //
@@ -8,9 +9,29 @@
 // drawer on it and the owner's typing gone, with no error anywhere. A filter left out of this
 // list is a narrowed wall that quietly un-narrows itself the moment a Story is recorded.
 //
-// Neither is caught by a type, which is what buys the file its four lines.
+// Neither is caught by a type, which is what buys the file its few lines.
 
 export const RECORD = "record";
+
+/**
+ * The other panel: the Stories nothing has happened to, and the strike over them (ADR-0015).
+ *
+ * Named here for `RECORD`'s reason and with one more of its own — **this panel's form posts a
+ * destructive act**, so a name spelled one way here and another in `actions.ts` is a selection
+ * of records the owner ticked coming back to a wall with no drawer on it and no sentence
+ * anywhere about what happened to them.
+ */
+export const NOTHING_ON_IT = "nothing-on-it";
+
+/**
+ * The panel on **one Story's own page**: striking that Story, and the only place the four
+ * refusals can be read (ADR-0015).
+ *
+ * It is in this file rather than beside `[id]/page.tsx` because it is the one panel name on
+ * that screen that two files spell — the page opens the drawer, and `[id]/actions.ts` reopens
+ * it to print a refusal inside it. The other four are the page's alone and stay there.
+ */
+export const STRIKE = "strike";
 
 /**
  * What the owner has narrowed the *wall* to, in the order the controls stand in.

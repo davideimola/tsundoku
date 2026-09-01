@@ -10,7 +10,7 @@ import {
   moveStoryEarlier,
   moveStoryLater,
   moveStoryOnPath,
-  placeStoryOnPath,
+  placeStoriesOnPath,
   removeStoryFromPath,
   renamePath,
   restatePathIntent,
@@ -182,7 +182,7 @@ describe("putting a Path aside and taking it up again", () => {
   it("marks it inactive, and the route survives untouched", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [first] = await batmanStories();
-    await placeStoryOnPath(pathId, first);
+    await placeStoriesOnPath(pathId, [first]);
 
     await deactivatePath(pathId);
 
@@ -211,9 +211,9 @@ describe("a route through Stories", () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two, three] = await batmanStories();
 
-    await placeStoryOnPath(pathId, three);
-    await placeStoryOnPath(pathId, one);
-    await placeStoryOnPath(pathId, two);
+    await placeStoriesOnPath(pathId, [three]);
+    await placeStoriesOnPath(pathId, [one]);
+    await placeStoriesOnPath(pathId, [two]);
 
     expect(await route(pathId)).toEqual([
       "Batman: Silenzio",
@@ -225,16 +225,14 @@ describe("a route through Stories", () => {
   it("crosses Types freely, because it points at Stories and Types are their attribute", async () => {
     const pathId = await definePath({ name: "Technical Leadership" });
 
-    await placeStoryOnPath(
-      pathId,
-      await createStory({ title: "The Manager's Path", typeId: "non-fiction" })
-    );
-    await placeStoryOnPath(pathId, await createStory({ title: "Vagabond", typeId: "manga" }));
-    await placeStoryOnPath(
-      pathId,
-      await createStory({ title: "Batman: Anno Uno", typeId: "comic" })
-    );
-    await placeStoryOnPath(pathId, await createStory({ title: "Dune", typeId: "novel" }));
+    await placeStoriesOnPath(pathId, [
+      await createStory({ title: "The Manager's Path", typeId: "non-fiction" }),
+    ]);
+    await placeStoriesOnPath(pathId, [await createStory({ title: "Vagabond", typeId: "manga" })]);
+    await placeStoriesOnPath(pathId, [
+      await createStory({ title: "Batman: Anno Uno", typeId: "comic" }),
+    ]);
+    await placeStoriesOnPath(pathId, [await createStory({ title: "Dune", typeId: "novel" })]);
 
     expect(await route(pathId)).toEqual([
       "The Manager's Path",
@@ -247,19 +245,102 @@ describe("a route through Stories", () => {
   it("refuses the same Story twice on one route", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [first] = await batmanStories();
-    await placeStoryOnPath(pathId, first);
+    await placeStoriesOnPath(pathId, [first]);
 
-    await expect(placeStoryOnPath(pathId, first)).rejects.toMatchObject({
+    await expect(placeStoriesOnPath(pathId, [first])).rejects.toMatchObject({
       code: "already-exists",
-      message: "That Story is already on this Path.",
+      message: "That Story is already on this route.",
     });
+  });
+
+  // **A route through a series is one act.** Twenty stops placed one press at a time is the
+  // same judgement typed twenty times, and the third press is where the owner stops building
+  // routes at all.
+  it("places a whole selection in the order it was given, in one act", async () => {
+    const pathId = await definePath({ name: "Recupero Batman" });
+    const [one, two, three] = await batmanStories();
+
+    expect(await placeStoriesOnPath(pathId, [three, one, two])).toBe(3);
+    expect(await route(pathId)).toEqual([
+      "Batman: Silenzio",
+      "Batman: Anno Uno",
+      "Batman: Il lungo Halloween",
+    ]);
+  });
+
+  it("adds a second selection after the route it already has", async () => {
+    const pathId = await definePath({ name: "Recupero Batman" });
+    const [one, two, three] = await batmanStories();
+    await placeStoriesOnPath(pathId, [one, two]);
+
+    await placeStoriesOnPath(pathId, [three]);
+
+    expect(await route(pathId)).toEqual([
+      "Batman: Anno Uno",
+      "Batman: Il lungo Halloween",
+      "Batman: Silenzio",
+    ]);
+  });
+
+  // The spacing is what a later re-order spends, so a selection placed at once has to leave
+  // as much room between its stops as twenty separate presses would have.
+  it("leaves the room a re-order needs between the stops it placed", async () => {
+    const pathId = await definePath({ name: "Recupero Batman" });
+    const [one, two, three] = await batmanStories();
+    await placeStoriesOnPath(pathId, [one, two, three]);
+
+    await moveStoryEarlier(pathId, three);
+
+    expect(await route(pathId)).toEqual([
+      "Batman: Anno Uno",
+      "Batman: Silenzio",
+      "Batman: Il lungo Halloween",
+    ]);
+  });
+
+  // Half a route placed in an order nobody read is worse than none: the owner would have to
+  // work out which half landed.
+  it("places nothing at all when one of the selection is already on the route, and names it", async () => {
+    const pathId = await definePath({ name: "Recupero Batman" });
+    const [one, two, three] = await batmanStories();
+    await placeStoriesOnPath(pathId, [two]);
+
+    await expect(placeStoriesOnPath(pathId, [one, two, three])).rejects.toMatchObject({
+      code: "already-exists",
+      message: "Batman: Il lungo Halloween is already on this route. Nothing was placed.",
+    });
+    expect(await route(pathId)).toEqual(["Batman: Il lungo Halloween"]);
+  });
+
+  it("reads the same Story ticked twice as one intention", async () => {
+    const pathId = await definePath({ name: "Recupero Batman" });
+    const [one] = await batmanStories();
+
+    expect(await placeStoriesOnPath(pathId, [one, one])).toBe(1);
+    expect(await route(pathId)).toEqual(["Batman: Anno Uno"]);
+  });
+
+  it("refuses an empty selection rather than reporting nothing done", async () => {
+    const pathId = await definePath({ name: "Recupero Batman" });
+
+    await expect(placeStoriesOnPath(pathId, [])).rejects.toMatchObject({ code: "invalid" });
+  });
+
+  it("places nothing when one of the selection is not a Story the library has", async () => {
+    const pathId = await definePath({ name: "Recupero Batman" });
+    const [one] = await batmanStories();
+
+    await expect(
+      placeStoriesOnPath(pathId, [one, "00000000-0000-4000-8000-000000000000"])
+    ).rejects.toMatchObject({ code: "not-found" });
+    expect(await route(pathId)).toEqual([]);
   });
 
   it("takes a Story off the route without touching the Story", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two] = await batmanStories();
-    await placeStoryOnPath(pathId, one);
-    await placeStoryOnPath(pathId, two);
+    await placeStoriesOnPath(pathId, [one]);
+    await placeStoriesOnPath(pathId, [two]);
 
     await removeStoryFromPath(pathId, one);
 
@@ -271,7 +352,7 @@ describe("a route through Stories", () => {
   it("refuses to take off a Story that is not on the route", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two] = await batmanStories();
-    await placeStoryOnPath(pathId, one);
+    await placeStoriesOnPath(pathId, [one]);
 
     await expect(removeStoryFromPath(pathId, two)).rejects.toMatchObject({
       code: "not-found",
@@ -283,7 +364,7 @@ describe("a route through Stories", () => {
     const pathId = await definePath({ name: "Recupero Batman" });
 
     await expect(
-      placeStoryOnPath(pathId, "00000000-0000-0000-0000-000000000000")
+      placeStoriesOnPath(pathId, ["00000000-0000-0000-0000-000000000000"])
     ).rejects.toMatchObject({ code: "not-found" });
   });
 
@@ -291,7 +372,7 @@ describe("a route through Stories", () => {
     const [first] = await batmanStories();
 
     await expect(
-      placeStoryOnPath("00000000-0000-0000-0000-000000000000", first)
+      placeStoriesOnPath("00000000-0000-0000-0000-000000000000", [first])
     ).rejects.toMatchObject({ code: "not-found" });
   });
 });
@@ -300,7 +381,7 @@ describe("re-ordering the route by hand", () => {
   it("moves a Story to sit after another one", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two, three] = await batmanStories();
-    for (const story of [one, two, three]) await placeStoryOnPath(pathId, story);
+    for (const story of [one, two, three]) await placeStoriesOnPath(pathId, [story]);
 
     await moveStoryOnPath(pathId, three, one);
 
@@ -314,7 +395,7 @@ describe("re-ordering the route by hand", () => {
   it("moves a Story to the front", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two, three] = await batmanStories();
-    for (const story of [one, two, three]) await placeStoryOnPath(pathId, story);
+    for (const story of [one, two, three]) await placeStoriesOnPath(pathId, [story]);
 
     await moveStoryOnPath(pathId, three, null);
 
@@ -328,7 +409,7 @@ describe("re-ordering the route by hand", () => {
   it("moves a Story one place earlier and one place later", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two, three] = await batmanStories();
-    for (const story of [one, two, three]) await placeStoryOnPath(pathId, story);
+    for (const story of [one, two, three]) await placeStoriesOnPath(pathId, [story]);
 
     await moveStoryEarlier(pathId, three);
     expect(await route(pathId)).toEqual([
@@ -356,7 +437,7 @@ describe("re-ordering the route by hand", () => {
   it("leaves the first Story alone when it is asked to go earlier, and the last one to go later", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two, three] = await batmanStories();
-    for (const story of [one, two, three]) await placeStoryOnPath(pathId, story);
+    for (const story of [one, two, three]) await placeStoriesOnPath(pathId, [story]);
 
     await moveStoryEarlier(pathId, one);
     await moveStoryLater(pathId, three);
@@ -375,7 +456,7 @@ describe("re-ordering the route by hand", () => {
   it("writes one row, and leaves every other Story's place exactly as it was", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two, three] = await batmanStories();
-    for (const story of [one, two, three]) await placeStoryOnPath(pathId, story);
+    for (const story of [one, two, three]) await placeStoriesOnPath(pathId, [story]);
 
     const before = await positions(pathId);
     await moveStoryOnPath(pathId, three, one);
@@ -389,7 +470,7 @@ describe("re-ordering the route by hand", () => {
   it("survives being re-ordered into the same gap over and over", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two, three] = await batmanStories();
-    for (const story of [one, two, three]) await placeStoryOnPath(pathId, story);
+    for (const story of [one, two, three]) await placeStoriesOnPath(pathId, [story]);
 
     // Each pair of moves halves the gap between the first two Stories, so after forty
     // passes the two neighbours are a thousandth of a billionth apart. `numeric` is
@@ -410,7 +491,7 @@ describe("re-ordering the route by hand", () => {
   it("refuses to place a Story after itself", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one] = await batmanStories();
-    await placeStoryOnPath(pathId, one);
+    await placeStoriesOnPath(pathId, [one]);
 
     await expect(moveStoryOnPath(pathId, one, one)).rejects.toMatchObject({ code: "invalid" });
   });
@@ -418,7 +499,7 @@ describe("re-ordering the route by hand", () => {
   it("refuses to move a Story that is not on the route", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two] = await batmanStories();
-    await placeStoryOnPath(pathId, one);
+    await placeStoriesOnPath(pathId, [one]);
 
     await expect(moveStoryOnPath(pathId, two, one)).rejects.toMatchObject({
       code: "not-found",
@@ -430,7 +511,7 @@ describe("re-ordering the route by hand", () => {
   it("refuses to move a Story after one that is not on the route", async () => {
     const pathId = await definePath({ name: "Recupero Batman" });
     const [one, two] = await batmanStories();
-    await placeStoryOnPath(pathId, one);
+    await placeStoriesOnPath(pathId, [one]);
 
     await expect(moveStoryOnPath(pathId, one, two)).rejects.toMatchObject({
       code: "not-found",
@@ -503,7 +584,7 @@ describe("declaring a constraint", () => {
 // it must not arrive as a 500, which is what an unguarded uuid column would raise.
 describe("an id no row could have", () => {
   it("is refused as a thing that is not there, and never as a broken query", async () => {
-    await expect(placeStoryOnPath("banana", "banana")).rejects.toMatchObject({
+    await expect(placeStoriesOnPath("banana", ["banana"])).rejects.toMatchObject({
       code: "not-found",
       message: "That Path is not in the library.",
     });

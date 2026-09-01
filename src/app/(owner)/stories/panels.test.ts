@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { carriedAs, RECORD, THE_WALLS_FILTERS } from "./panels";
+import { carriedAs, NOTHING_ON_IT, RECORD, THE_WALLS_FILTERS } from "./panels";
 
 // The Story wall's addresses, tested beside themselves under the licence `vitest.config.ts`
 // states: data in, data out, a function this application would still have if React were
@@ -35,7 +35,15 @@ describe("carrying the wall's filters through the form", () => {
 
   // A panel's name reaches the URL, so a space or an ampersand in it is a drawer that opens
   // on the way out of one browser and not the other.
-  it("names the panel as a plain slug", () => {
-    expect(RECORD).toMatch(/^[a-z-]+$/);
+  it("names each panel as a plain slug", () => {
+    for (const panel of [RECORD, NOTHING_ON_IT]) {
+      expect(panel).toMatch(/^[a-z-]+$/);
+    }
+  });
+
+  // The two drawers on this wall are a form and a bulk delete. One name for both would open
+  // the destructive one where the owner asked to type a title.
+  it("keeps the two panels apart", () => {
+    expect(NOTHING_ON_IT).not.toBe(RECORD);
   });
 });

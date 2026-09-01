@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "../db.ts";
 import { Refusal, refusing } from "../refusal.ts";
+import { transaction } from "../transaction.ts";
 
 // Writing a Path: the route the owner defines through Stories, and the constraints they
 // declare about how they want to read.
@@ -62,8 +63,8 @@ export type NewPath = {
  * has just defined is one they mean to walk, and `deactivatePath` is the deliberate act
  * of putting it aside.
  *
- * No Story is placed by this verb. The route is built stop by stop with
- * `placeStoryOnPath`, because each placement is a judgement of its own.
+ * No Story is placed by this verb. The route is built with `placeStoriesOnPath`,
+ * which takes them in the order the caller means them to stand in.
  */
 export async function definePath(path: NewPath): Promise<string> {
   const rows = await refusing(
@@ -168,26 +169,104 @@ function stopProse(constraint: string | undefined): string {
 }
 
 /**
- * Place a Story at the end of a Path.
+ * Place Stories at the end of a Path, **in the order they are given**. Returns how many
+ * landed.
  *
- * At the end because that is where a route grows and nowhere else is guessable: the
- * owner then moves it with `moveStoryOnPath` if the end is not where it belongs. A Story
- * is on a route once — placing it twice is refused, since a plan that visits the same
- * stop twice is a mistake in the plan.
+ * At the end because that is where a route grows and nowhere else is guessable: the owner
+ * then moves them with `moveStoryOnPath` if the end is not where they belong. A Story is on a
+ * route once — placing it twice is refused, since a plan that visits the same stop twice is a
+ * mistake in the plan.
+ *
+ * **It takes a selection because that is the shape the act actually has.** A route through
+ * *Slam Dunk* is twenty stops, and one Story per press meant the owner opened a picker, found
+ * a title in seventy-seven, submitted, waited for the route to come back, and did it again
+ * nineteen times. Twenty presses is not a more careful version of one press; it is the same
+ * judgement, taken once, typed twenty times, and the third one is where the owner stops
+ * building routes at all.
+ *
+ * **The order is the caller's, and it is the whole of what the caller is trusted with.** The
+ * positions are spaced by `GAP` in the order the ids arrive, so the route reads in the order
+ * the selection was in — which is why the screen that ticks them stands them in the order
+ * their objects stand on a shelf rather than by title. Nothing here sorts: the owner's
+ * judgement about order is the one thing this application never computes.
+ *
+ * **Whole or nothing**, like the Inbox's approval and the catalogue's strike: one Story
+ * already on the route refuses the selection and names itself, and the route is untouched.
+ * Half a route placed in an order the owner did not read is worse than none — they would have
+ * to work out which half landed.
+ *
+ * A selection of one is an ordinary selection, and there is no second verb for it: this is one
+ * act at two sizes, and two verbs would be two answers to *where does a stop land*.
  */
-export async function placeStoryOnPath(pathId: string, storyId: string): Promise<void> {
+export async function placeStoriesOnPath(
+  pathId: string,
+  storyIds: readonly string[]
+): Promise<number> {
   known(pathId, "Path");
-  known(storyId, "Story");
+  for (const storyId of storyIds) known(storyId, "Story");
 
-  await refusing(
-    () =>
-      query(
-        `insert into path_item (path_id, story_id, position)
-         values ($1, $2, coalesce((select max(position) from path_item where path_id = $1), 0) + $3)`,
-        [pathId, storyId, GAP]
-      ),
-    stopProse
-  );
+  // The same tick twice is one intention, and the route has one place per Story: deduplicated
+  // here rather than left to the primary key, which would refuse the whole selection over a
+  // form that said the same true thing twice. The order the ids first arrived in survives.
+  const asked = [...new Set(storyIds)];
+  if (asked.length === 0) {
+    throw new Refusal("invalid", "Choose the Stories to put on this route first.");
+  }
+
+  return transaction(async (run) => {
+    // What stands in the way, read in the transaction that is about to write — so nothing can
+    // be placed between the check and the act. It is a check rather than the primary key's
+    // own refusal because the key cannot say *which*: `That Story is already on this Path`
+    // over a tick of twenty is a sentence the owner cannot act on.
+    const standing = await run<{ id: string; title: string; standing: boolean }>(
+      `select s.id,
+              s.title,
+              exists (select 1 from path_item i
+                       where i.path_id = $1 and i.story_id = s.id) as standing
+         from story s
+        where s.id = any($2::uuid[])`,
+      [pathId, asked]
+    );
+
+    if (standing.length !== asked.length) throw new Refusal("not-found", noSuchStory(asked.length));
+
+    const already = standing.find((one) => one.standing);
+    if (already) {
+      throw new Refusal(
+        "already-exists",
+        asked.length === 1
+          ? "That Story is already on this route."
+          : `${already.title} is already on this route. Nothing was placed.`
+      );
+    }
+
+    // One statement for the whole selection, and `with ordinality` is what carries the
+    // caller's order into the positions: the nth id lands n gaps past the end of the route,
+    // so the spacing a later re-order needs is the spacing a single placement leaves.
+    const placed = await refusing(
+      () =>
+        run<{ story_id: string }>(
+          `insert into path_item (path_id, story_id, position)
+           select $1,
+                  asked.story_id,
+                  coalesce((select max(position) from path_item where path_id = $1), 0)
+                    + asked.place * $3
+             from unnest($2::uuid[]) with ordinality as asked(story_id, place)
+           returning story_id`,
+          [pathId, asked, GAP]
+        ),
+      stopProse
+    );
+
+    return placed.length;
+  });
+}
+
+/** *No such Story*, in the number of the selection it was asked about. */
+function noSuchStory(asked: number): string {
+  return asked === 1
+    ? "That Story is not in the library yet."
+    : "One of those is not a Story the library knows.";
 }
 
 /** Take a Story off a Path. The Story, its Readings and its Rating are untouched. */

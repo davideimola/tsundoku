@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  listStoriesNothingHasHappenedTo,
   listStoryWall,
+  type StoryNothingHasHappenedTo,
   type StoryState,
   type StoryWallFilter,
   type WallStory,
@@ -14,14 +17,15 @@ import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import { cn } from "@/lib/utils";
-import { record } from "./actions";
-import { carriedAs, RECORD, THE_WALLS_FILTERS } from "./panels";
+import { record, strike } from "./actions";
+import { whatGoesWithIt } from "./nothing-on-it";
+import { carriedAs, NOTHING_ON_IT, RECORD, THE_WALLS_FILTERS } from "./panels";
 import { bandName, StoryScore, stateWord, storyDetail, WALL_STATES } from "./story-state";
 
 // THE STORY WALL, and the screen where **the state stopped being a label at the end of a
 // row and became the axis of the application** (#22).
 //
-// Three things are decided here and nowhere else:
+// Five things are decided here and nowhere else:
 //
 //   1. **The library is looked at rather than read.** Seventy-seven rows of text became a
 //      wall of covers, each in its Series' own tint (`@/lib/tint`). The tint is derived
@@ -42,6 +46,14 @@ import { bandName, StoryScore, stateWord, storyDetail, WALL_STATES } from "./sto
 //      the URL like every other form the owner opens deliberately, and it is the *only* act
 //      on this screen. Where the press lands afterwards is the point of it: on the Story,
 //      because every act that follows recording one is there (`./actions.ts`).
+//   5. **And one can be unmade from it** (ADR-0015), which is the act on the other side of
+//      that one and the reason this wall now has two drawers. A Story an assistant proposed
+//      and the owner approved in a bulk of forty was permanent, so the wall could be *wrong*
+//      — two tiles for one narrative — with nothing on the screen to say so. The control is
+//      bulk because the mess is, and it lives over **the Stories nothing has happened to**:
+//      that list is the safety, since a narrative the owner has read, judged, planned or holds
+//      on a shelf is not in it at all. One Story at a time is on the Story's own page, which
+//      is the only place the four refusals can be read.
 //
 // A thin adapter over two queries, like every page here (ADR-0002): no SQL, no pool, no
 // domain logic, and no colour of its own — the one on screen is the library's.
@@ -91,13 +103,23 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
   const state = WALL_STATES.find((one) => one === asked(said, "state"));
   const narrowing: StoryWallFilter = { typeId, state };
 
-  const stories = await listStoryWall(narrowing);
+  // Two questions, and the second is not the first narrowed. The wall is what the owner
+  // narrowed; the clean-up list is the residue of approvals that went through in a hurry, and
+  // it is read whole — a dozen rows beside seventy-seven — because a filter over a destructive
+  // list would be a way to have half of it in front of you and not know.
+  const [stories, nothingOnThem] = await Promise.all([
+    listStoryWall(narrowing),
+    listStoriesNothingHasHappenedTo(),
+  ]);
   const narrowed = typeId !== undefined || state !== undefined;
 
-  // Read against the one panel this screen has, the way the filters above are read against
-  // the vocabulary: `?panel=banana` opens nothing (`./panels.ts`).
-  const recording = asked(said, "panel") === RECORD;
+  // Read against the panels this screen has, the way the filters above are read against the
+  // vocabulary: `?panel=banana` opens nothing (`./panels.ts`).
+  const panel = asked(said, "panel");
+  const recording = panel === RECORD;
+  const striking = panel === NOTHING_ON_IT && nothingOnThem.length > 0;
   const refused = asked(said, "refused");
+  const struck = asked(said, "struck");
 
   return (
     <main className="px-5 py-8 sm:px-8 sm:py-12">
@@ -118,6 +140,24 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           <OpensDrawer href={wallAt(narrowing, RECORD)} emphasis="loud">
             Record a Story
           </OpensDrawer>
+
+          {/* The other door, and it is a sentence rather than a second pill — the Collection's
+              own judgement about the same pair of acts (`../collection/page.tsx`): what is
+              offered here is *a figure to read*, and a screen with two peers at its head has
+              stopped saying which of them it is for. Absent entirely when there is nothing on
+              the list, which is the ordinary state of a library nobody has approved a
+              duplicate into. */}
+          {nothingOnThem.length > 0 ? (
+            <p className="mt-2 text-pretty text-xs text-muted-foreground sm:text-right">
+              <Link
+                href={wallAt(narrowing, NOTHING_ON_IT)}
+                className="inline-block rounded py-1.5 underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="font-mono tabular-nums">{nothingOnThem.length}</span> with nothing
+                on {nothingOnThem.length === 1 ? "it" : "them"}
+              </Link>
+            </p>
+          ) : null}
         </div>
       </header>
 
@@ -144,6 +184,20 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           ))}
         </Axis>
       </div>
+
+      {/* **The one write on this screen that says so afterwards, and it is the destructive
+          one.** Recording a Story answers itself by landing on the Story; striking leaves
+          nothing to land on, so the count is the whole of the receipt — and a bulk delete
+          that came back silently would be indistinguishable from one that did nothing. The
+          refusal is not printed here: it comes back with the panel open over this page and is
+          drawn inside it, beside the ticks it is about (`@/components/drawer`). */}
+      {struck ? (
+        <p role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm">
+          {struck === "1"
+            ? "1 Story struck from the library. It does not know that narrative any more."
+            : `${struck} Stories struck from the library. It does not know those narratives any more.`}
+        </p>
+      ) : null}
 
       {/* What is on, and the one gesture that turns it all off. Absent entirely when the
           wall is whole, because a *clear* on an unnarrowed wall is a control that does
@@ -256,7 +310,123 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           </form>
         </Drawer>
       ) : null}
+
+      {/* **THE OTHER DRAWER: the back door the Inbox's front door made necessary** (ADR-0015).
+          The Inbox approves in bulk on purpose (ADR-0011), a safeguard exercised forty at a
+          time will let things through, and until this panel existed the wall could hold two
+          tiles for one narrative for ever.
+
+          It is safe over a list because of what the list *is*: nothing read, nothing judged,
+          no Path, and nothing in the house carrying it — so no tick in here can reach a
+          narrative the owner has lived with, and the four refusals the verb writes are
+          unreachable from this screen by construction. They are readable one Story at a time,
+          on the Story's own page, which is the other half of the same decision.
+
+          **It counts itself, and nothing is running in the browser.** The `<ul>` resets a CSS
+          counter, every row holding a ticked box increments it, and the button reads the total
+          — so a destructive act says how many it is about to take while the owner is still
+          ticking. The bar does not exist until something is ticked, and it sticks to the foot
+          of the drawer, because a dozen rows are longer than a phone. */}
+      {striking ? (
+        <Drawer
+          title="Nothing has happened to these"
+          description="The Stories the library knows and your life does not touch — the residue of proposals approved in a hurry."
+          refused={refused}
+          closesTo={wallAt(narrowing)}
+        >
+          {/* One form around the list and the bar, rather than the `form` attribute the
+              Collection's rows need: there is no second form in this drawer for a checkbox to
+              be mistaken for belonging to. It is the group the bar watches for a tick, and a
+              plain `POST`, so it submits with nothing running (ADR-0010). */}
+          <form action={strike} className="group/strike">
+            {/* The wall as it stands underneath, carried so both answers come back to it: a
+                Server Function has no URL to read a filter off. Under a prefixed name, because
+                one of the two filters is called `type` (`./panels.ts`). */}
+            {THE_WALLS_FILTERS.map((name) => {
+              const value = name === "type" ? typeId : state;
+              return value ? (
+                <input key={name} type="hidden" name={carriedAs(name)} value={value} />
+              ) : null;
+            })}
+
+            <p className="text-pretty text-sm text-muted-foreground">
+              {nothingOnThem.length} {nothingOnThem.length === 1 ? "Story" : "Stories"} nobody has
+              read, judged, planned or holds on a shelf. Most of them are the pile and belong here.
+              Tick any that were never real — a narrative proposed and approved in a hurry, the same
+              title twice — and strike them: the library stops knowing them, and the Credits on each
+              go too. Striking is refused on anything you have lived with, and that is said one
+              Story at a time on its own page.
+            </p>
+
+            {/* Rows rather than tiles, and the difference is the point: a tile is the shelf,
+                and this is a list of records. Nothing here wears a Series' tint — what is drawn
+                in a colour is what is standing in the library. */}
+            <ul className="mt-4 rounded-xl border border-dashed border-border px-4 [counter-reset:ticked]">
+              {nothingOnThem.map((story) => (
+                <NothingOnItRow key={story.id} story={story} />
+              ))}
+            </ul>
+
+            <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 hidden border-t border-border bg-background/95 px-5 py-4 backdrop-blur group-has-[input:checked]/strike:block">
+              {/* The bar is the height of its button and nothing more. What striking refuses
+                  is in the paragraph above the list, where it is read *before* anything is
+                  ticked. */}
+              <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
+                Strike <span className="font-mono tabular-nums after:[content:counter(ticked)]" />{" "}
+                from the library
+              </Button>
+            </div>
+          </form>
+        </Drawer>
+      ) : null}
     </main>
+  );
+}
+
+/**
+ * One Story nothing has happened to, as a row under a tick.
+ *
+ * **Ticked by the owner, never on arrival** — the opposite of the Inbox's boxes, and the
+ * difference is what the gesture does. There the selection approves proposals and arriving
+ * ticked is what makes forty of them one act; here it destroys records, and a list that
+ * arrived with everything ticked would be one mis-tap from a library.
+ *
+ * The tap target is the `<label>` rather than the box: the control is 16px and a thumb is not,
+ * and this is a list the owner taps down in a row. What each strike takes with it is said in
+ * the row, in the words `./nothing-on-it.ts` decides — a bulk delete that only said *how many*
+ * would leave *what else* to be discovered a week later.
+ */
+function NothingOnItRow({ story }: { story: StoryNothingHasHappenedTo }) {
+  return (
+    <li className="flex items-start gap-3 border-t border-dashed border-border first:border-t-0 has-[:checked]:[counter-increment:ticked]">
+      <label className="-ml-2 flex w-11 shrink-0 cursor-pointer items-start justify-center self-stretch pt-3.5 outline-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
+        <input
+          type="checkbox"
+          name="strikeId"
+          value={story.id}
+          aria-label={`Strike ${story.title}, ${story.type.name}, from the library`}
+          className="size-4 accent-foreground"
+        />
+      </label>
+
+      <span className="min-w-0 flex-1 py-3">
+        <Link
+          href={`/stories/${story.id}`}
+          className="block truncate font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {story.title}
+        </Link>
+        <span className="mt-0.5 block text-pretty text-xs text-muted-foreground">
+          {whatGoesWithIt(story)}
+        </span>
+      </span>
+
+      {/* The Type, because two rows reading *Slam Dunk 5* are told apart by everything except
+          their title — and it is the fact the owner narrowed the wall by two inches above. */}
+      <Badge variant="outline" className="mt-3 shrink-0 border-dashed">
+        {story.type.name}
+      </Badge>
+    </li>
   );
 }
 

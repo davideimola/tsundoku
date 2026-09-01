@@ -1,7 +1,13 @@
 import "server-only";
 
 import { query } from "../db.ts";
-import { STORY_STATE, type StoryState, type StoryType } from "./story.ts";
+import {
+  STORY_STATE,
+  type StoryState,
+  type StoryType,
+  THE_LINE_IT_STANDS_IN,
+  type WallSeries,
+} from "./story.ts";
 
 // What the owner and an **external reader** ask about a Path. This file is the one both
 // doors read: the screen lays out what it returns, and the MCP door hands the same shapes
@@ -255,5 +261,92 @@ export async function listDeclaredConstraints(): Promise<DeclaredConstraint[]> {
      from declared_constraint c
      left join path p on p.id = c.path_id
     order by (p.id is not null), lower(p.name) nulls first, c.declared_at`
+  );
+}
+
+/** A Story that could still go on a route: enough to recognise it, and to stand it in order. */
+export type PathCandidate = {
+  id: string;
+  title: string;
+  type: StoryType;
+  /** Derived from its Readings. A route usually grows from `to-read`, and never only. */
+  state: StoryState;
+  /**
+   * The line the objects carrying it stand in, or `null` for one that stands in none — read
+   * across the many-to-many, because a Story has no Series of its own (ADR-0001).
+   */
+  series: WallSeries | null;
+  /**
+   * Where it stands in that line: the lowest position of the objects carrying it. `null` where
+   * nothing places it, which is ordinary — a novel, an omnibus, a Story read digitally.
+   */
+  standsAt: number | null;
+};
+
+/**
+ * The Stories that could still go on this route, **standing in the order they stand in on a
+ * shelf**.
+ *
+ * This is the picker's question, and it is here rather than in `queries/story.ts` because the
+ * exclusion is what makes it an answer: *not already on this route* is a fact about the Path.
+ * The screen used to ask for every Story and subtract the route in memory, which is the same
+ * answer computed in the wrong place — and it could not order them, because the order that
+ * matters is not the Story's.
+ *
+ * **The order is the whole design of it** (`verbs/path.ts` places a selection in the order it is
+ * given, and this is that order). Three levels, and each is a fact about the library rather than
+ * a preference:
+ *
+ *   1. **by the line the Stories stand in**, so the twenty tankōbon of one series arrive
+ *      together and are one gesture rather than twenty searches. A Story standing in no line
+ *      comes last, because it is not part of any run;
+ *   2. **then by where each stands in that line** — the position on the shelf, so a route
+ *      through *Slam Dunk* reads 1, 2, 3 and never 1, 10, 11, 2. This is
+ *      `THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN`'s judgement, borrowed for a run of *narratives*
+ *      by the objects that carry them;
+ *   3. **then by title**, which is the only order left that is not an opinion.
+ *
+ * `title` narrows it, with `strpos` and `unaccent` rather than a pattern: `%` and `_` are
+ * ordinary characters in a title — *100% Doraemon* is one — and `perche` finds *Perché*. The
+ * same choice `searchCollection` and the finder made, for the same reasons.
+ *
+ * A Path that is not there answers with nothing rather than with the whole library: the screen
+ * asking is a 404 either way, and answering with candidates for no route is an answer nobody
+ * can use.
+ */
+export async function listStoriesNotOnPath(
+  pathId: string,
+  filter: { title?: string } = {}
+): Promise<PathCandidate[]> {
+  if (!UUID.test(pathId)) return [];
+
+  return query<PathCandidate>(
+    `select c.*
+       from (
+         select s.id,
+                s.title,
+                jsonb_build_object('id', t.id, 'name', t.name) as type,
+                ${STORY_STATE} as state,
+                ${THE_LINE_IT_STANDS_IN} as series,
+                (select min(v.series_number)::int
+                   from volume_story vs
+                   join volume v on v.id = vs.volume_id
+                  where vs.story_id = s.id) as "standsAt"
+           from story s
+           join type t on t.id = s.type_id
+          -- The route has to exist for *not on it* to be an answer: candidates for no route
+          -- are the whole library wearing a question nobody can act on. Uncorrelated, so it
+          -- is decided once rather than per Story.
+          where exists (select 1 from path p where p.id = $1)
+            and not exists (select 1 from path_item i
+                             where i.path_id = $1 and i.story_id = s.id)
+            and ($2::text is null
+                 or strpos(lower(unaccent(s.title)), lower(unaccent($2))) > 0)
+       ) c
+      order by lower(c.series->>'name') nulls last,
+               c.series->>'editionLine' nulls first,
+               c."standsAt" nulls last,
+               lower(c.title)`,
+    [pathId, filter.title ?? null]
   );
 }

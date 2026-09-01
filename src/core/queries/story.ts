@@ -3,6 +3,7 @@ import "server-only";
 import { query } from "../db.ts";
 import type { RatingScale } from "../verbs/rating.ts";
 import type { Medium, Outcome } from "../verbs/reading.ts";
+import { WHY_A_STORY_STANDS } from "../verbs/story.ts";
 import { THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN } from "./collection.ts";
 import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
 
@@ -460,5 +461,62 @@ export async function listStoryWall(filter: StoryWallFilter = {}): Promise<WallS
       and ($2::text is null or derived.state = $2)
     order by s.title`,
     [filter.typeId ?? null, filter.state ?? null]
+  );
+}
+
+/**
+ * A Story nothing has happened to, and **what a strike would take with it** — which is the
+ * whole of why this is not just an id and a title.
+ *
+ * A bulk destructive control has to say what it is about to destroy while the owner is still
+ * ticking, and *the row* is where that is legible: two Credits and a link to an object the
+ * house does not hold are records that go quietly, and the Person each Credit named is not one
+ * of them (ADR-0012).
+ */
+export type StoryNothingHasHappenedTo = {
+  id: string;
+  title: string;
+  type: StoryType;
+  /**
+   * How many Volumes carry it — **none of them in the house**, or the Story would not be in
+   * this list at all. A catalogued object the Collection does not claim is the ordinary case
+   * here, and the link goes when the Story does.
+   */
+  carriedBy: number;
+  /** How many Credits go with it. The people stay, credited wherever else they are. */
+  credits: number;
+};
+
+/**
+ * The Stories the library knows and the owner's life does not touch: **nothing read, nothing
+ * judged, no Path naming them, and nothing in the house carrying them.**
+ *
+ * This is the list striking is offered over, and the list *is* the safety (ADR-0015, and
+ * ADR-0014 for the argument): its membership is `WHY_A_STORY_STANDS` read the other way round,
+ * so the screen cannot come to offer a row `strikeStories` would refuse, and no wrong tick can
+ * reach a narrative the owner has lived with. One expression, two directions — a `not exists`
+ * written again here would be a second answer to the same question, drifting the day a fifth
+ * branch is added.
+ *
+ * Unnarrowed, like the catalogue's own other half: this is the residue of approvals that went
+ * through in a hurry — a dozen rows, next to a wall of seventy-seven — so it is read whole and
+ * there is no filter to keep in step with the wall's.
+ *
+ * By title, so a duplicate stands next to the Story it duplicates: *Slam Dunk 5* twice, one
+ * under the other, is what makes the mess visible at all. Then oldest first, so of two rows
+ * that read the same it is the one that arrived last that looks new.
+ */
+export async function listStoriesNothingHasHappenedTo(): Promise<StoryNothingHasHappenedTo[]> {
+  return query<StoryNothingHasHappenedTo>(
+    `select
+       s.id,
+       s.title,
+       jsonb_build_object('id', t.id, 'name', t.name) as type,
+       (select count(*)::int from volume_story vs where vs.story_id = s.id) as "carriedBy",
+       (select count(*)::int from credit c where c.story_id = s.id) as credits
+     from story s
+     join type t on t.id = s.type_id
+    where (${WHY_A_STORY_STANDS}) is null
+    order by lower(s.title), s.created_at, s.id`
   );
 }

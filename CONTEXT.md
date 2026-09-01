@@ -71,16 +71,21 @@ _Avoid_: purchase — a gift and a book owned since before any of this was writt
 acquisitions with no purchase in them. Also: ownership, stock.
 
 **Striking**:
-Removing a **Volume** from the catalogue because the record was a **mistake** — a duplicate an
-assistant proposed and the owner approved in a hurry, an object that was never real. It is not
-the opposite of an acquisition and never says anything about the world: releasing says the
-object left the house and keeps every record of it, where striking says there was no object.
-So it is refused on anything the owner has lived with — one in the house, one a **Reading** went
-through, one carrying an **Edition note**, one a **Wish** names — and what it takes with it is
-the acquisitions that ended, which for a record that was never true were never true either
-(ADR-0014).
+Removing a record from the library because the record itself was a **mistake** — a duplicate an
+assistant proposed and the owner approved in a hurry, an object or a narrative that was never
+real. It is not the opposite of an acquisition and never says anything about the world:
+releasing says the object left the house and keeps every record of it, where striking says
+there was no object. So it is refused on anything the owner has lived with, and what it takes
+with it is only what was as fictional as the record.
+
+A **Volume** is struck from the **catalogue**: refused on one in the house, one a **Reading**
+went through, one carrying an **Edition note**, one a **Wish** names — and the acquisitions that
+ended go with it (ADR-0014). A **Story** is struck from the library: refused on one an object in
+the house **carries**, one a **Reading** went through, one carrying a **Rating**, one a **Path**
+names as a stop — and the **Credits** go with it while the **people** they name stay (ADR-0015).
 _Avoid_: delete and remove — both read as *take this off the shelf*, which is releasing, and
-the whole point is that these are two different acts.
+the whole point is that these are two different acts. Also, of a Story: unpublish, archive — a
+struck record is gone, not put away.
 
 **Collection**:
 The Volumes with an open acquisition: the objects physically in the owner's home. It is a

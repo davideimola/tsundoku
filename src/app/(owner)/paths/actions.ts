@@ -11,7 +11,7 @@ import {
   moveStoryEarlier,
   moveStoryLater,
   moveStoryOnPath,
-  placeStoryOnPath,
+  placeStoriesOnPath,
   removeStoryFromPath,
   renamePath,
   restatePathIntent,
@@ -126,13 +126,31 @@ export async function setActive(form: FormData): Promise<void> {
   await saying(form, () => (wanted ? activatePath(pathId) : deactivatePath(pathId)));
 }
 
-/** Place a Story at the end of the route. */
-export async function placeStory(form: FormData): Promise<void> {
+/**
+ * Put the ticked Stories at the end of the route, **in the order the picker stood them in**.
+ *
+ * `getAll` reads them in the order the browser sends them, which is the order the fields
+ * appear on the page — and that order is the shelf's, because the picker bands the candidates
+ * by the line they stand in and stands each band in its objects' order
+ * (`core/queries/path.ts`). So ticking twenty tankōbon of *Slam Dunk* writes a route that reads
+ * 1 to 20, and the owner corrects it with the arrows only where they actually disagree.
+ *
+ * One act, one verb, one transaction: twenty stops land together or not at all
+ * (`core/verbs/path.ts`). The same function serves both presses on that panel — the ticked
+ * selection, and a whole band put on at once — because they differ in what is in the form and
+ * in nothing else.
+ *
+ * Only a refusal is said in words, as everywhere on this screen: what worked is the route,
+ * twenty stops longer, on the page that comes back.
+ */
+export async function placeStories(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(form, () =>
-    placeStoryOnPath(text(form, "pathId") ?? "", text(form, "storyId") ?? "")
-  );
+  const ticked = form
+    .getAll("storyId")
+    .filter((value): value is string => typeof value === "string");
+
+  await saying(form, () => placeStoriesOnPath(text(form, "pathId") ?? "", ticked));
 }
 
 /** Take a Story off the route. The Story itself is untouched. */

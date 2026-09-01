@@ -6,8 +6,10 @@ import { FIRST_HAND } from "@/core/queries/provenance";
 import { isRefusal } from "@/core/refusal";
 import { setRating } from "@/core/verbs/rating";
 import { abandonReading, finishReading, type Medium, recordReading } from "@/core/verbs/reading";
+import { strikeStories } from "@/core/verbs/story";
 import { recordVolumeCarriesStory } from "@/core/verbs/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
+import { STRIKE } from "../panels";
 
 // The writes on a Story's page, and **#29 is where the web stopped being a read-only view of
 // the thing it exists to record**. The assistant could already say *I've started the Batman
@@ -162,4 +164,44 @@ export async function carryFromStory(form: FormData): Promise<void> {
   const volumeId = text(form, "volumeId") ?? "";
 
   await saying(storyId, () => recordVolumeCarriesStory(volumeId, storyId));
+}
+
+/**
+ * **Strike this Story from the library: the one act on this page that leaves nothing to come
+ * back to** (ADR-0015).
+ *
+ * It is the same verb the wall's drawer presses, over a selection of one, and this door exists
+ * for what the wall's cannot show. That list holds only Stories nothing has happened to, so no
+ * refusal is ever reachable from it — **here is the only place the four are said**: an object
+ * in the house carrying it, a Reading through it, a score on it, a Path naming it. The owner is
+ * standing on the record they believe is a mistake, and the answer is either that it is gone or
+ * a sentence about what they have lived with.
+ *
+ * So the two directions land in different places, which is the whole of this function. Struck,
+ * it lands on the **wall** with the count in the address: this page no longer describes
+ * anything, and coming back to a 404 is the screen failing to say what it just did. Refused, it
+ * comes back here with the panel open over it, because the sentence is about the thing on the
+ * screen behind it (`@/components/drawer`).
+ *
+ * `revalidatePath` on the wall either way: it is the page being landed on in one case, and in
+ * the other the tile is still there and the owner may go back to it.
+ */
+export async function strikeIt(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  try {
+    await strikeStories([storyId]);
+  } catch (error) {
+    // Anything that is not a refusal is a bug rather than an answer and stays unhandled.
+    if (!isRefusal(error)) throw error;
+    revalidatePath(`/stories/${storyId}`);
+    redirect(
+      `/stories/${storyId}?${new URLSearchParams({ panel: STRIKE, refused: error.message })}`
+    );
+  }
+
+  revalidatePath("/stories");
+  redirect(`/stories?${new URLSearchParams({ struck: "1" })}`);
 }

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { catalogueVolume, releaseVolume } from "../verbs/collection.ts";
-import { deactivatePath, definePath, placeStoryOnPath } from "../verbs/path.ts";
+import { deactivatePath, definePath, placeStoriesOnPath } from "../verbs/path.ts";
 import { finishReading, recordReading } from "../verbs/reading.ts";
 import { pinToReadingList, unpinFromReadingList } from "../verbs/reading-list.ts";
 import { declareSeries, declareSeriesCollected, placeVolumeInSeries } from "../verbs/series.ts";
@@ -30,7 +30,7 @@ async function angoloGiappone(): Promise<{ pathId: string; stories: string[] }> 
     await createStory({ title: "Vagabond", typeId: "manga" }),
     await createStory({ title: "Lone Wolf and Cub", typeId: "manga" }),
   ];
-  for (const story of stories) await placeStoryOnPath(pathId, story);
+  await placeStoriesOnPath(pathId, stories);
 
   return { pathId, stories };
 }
@@ -73,7 +73,7 @@ describe("what the Reading list composes itself from", () => {
     // Walked out rather than put aside: every stop read, and the route contributes
     // nothing for a different reason and with the same answer.
     const walked = await definePath({ name: "Recupero Batman" });
-    await placeStoryOnPath(walked, stories[0]);
+    await placeStoriesOnPath(walked, [stories[0]]);
     await finishReading(
       await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
       "2024-02-02"
@@ -366,15 +366,13 @@ describe("what the Series being collected contribute", () => {
 describe("the order the owner imposes with a pin", () => {
   it("brings a pinned source to the front, and the most recent pin leads", async () => {
     const recupero = await definePath({ name: "Recupero Batman" });
-    await placeStoryOnPath(
-      recupero,
-      await createStory({ title: "Batman: Anno Uno", typeId: "comic" })
-    );
+    await placeStoriesOnPath(recupero, [
+      await createStory({ title: "Batman: Anno Uno", typeId: "comic" }),
+    ]);
     const technical = await definePath({ name: "Technical Leadership" });
-    await placeStoryOnPath(
-      technical,
-      await createStory({ title: "The Manager's Path", typeId: "non-fiction" })
-    );
+    await placeStoriesOnPath(technical, [
+      await createStory({ title: "The Manager's Path", typeId: "non-fiction" }),
+    ]);
 
     // Composed, the routes come back by name: Recupero Batman, then Technical Leadership.
     expect((await composeReadingList()).map((entry) => entry.path?.name)).toEqual([

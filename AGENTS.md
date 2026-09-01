@@ -280,6 +280,13 @@ band of it**, which is that area's own rule about nothing disappearing silently;
 it, over an answer the core hands over split by whether it was read — and a Story they held
 two roles on stands in **both** bands, because that is the pair of facts the word *Credit*
 exists to keep apart;
+`paths/[id]/candidates.ts` bands what could still go on a route by **the line its objects
+stand in** rather than by Type, because a route crosses Types freely and the run the owner is
+working through is the thing they pour onto one in a single press — and it keeps the core's
+order in and between the bands, since that order is what the stops are *placed* in and not
+merely how they are read;
+`stories/nothing-on-it.ts` says what a strike takes with a Story — the Credits, and the
+people it does *not* take (ADR-0012) — which is the half of a bulk delete a count cannot say;
 `stories/story-state.tsx` and `reading-list/entry.ts` are the same thing at a smaller size. It
 is the screen's because banding is the screen's (see the next section), and it is a *file*
 rather than a lump inside `page.tsx` because it can then be tested beside itself — which

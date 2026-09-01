@@ -15,6 +15,7 @@ import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import { credit, uncredit } from "../../credits/actions";
 import { PersonPicker } from "../../credits/picker";
+import { STRIKE } from "../panels";
 import {
   howItWent,
   readingNow,
@@ -24,7 +25,7 @@ import {
   whenItHappened,
 } from "../readings";
 import { StoryScore, StoryStateLabel, storyDetail } from "../story-state";
-import { carryFromStory, finishIt, giveUp, rate, startReading } from "./actions";
+import { carryFromStory, finishIt, giveUp, rate, startReading, strikeIt } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +66,7 @@ function said(params: Asked, name: string): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }
 
-// The four panels this screen has, read against this list rather than trusted: `?panel=banana`
+// The five panels this screen has, read against this list rather than trusted: `?panel=banana`
 // opens nothing, which is the same honesty every filter on every wall is held to.
 //
 // **Finishing and giving up are two panels rather than two buttons in one**, and the reason is
@@ -78,7 +79,10 @@ const START = "start";
 const FINISHED = "finished";
 const GAVE_UP = "gave-up";
 const RATE = "rate";
-const PANELS = [START, FINISHED, GAVE_UP, RATE] as const;
+// The fifth is `STRIKE`, and it is the one panel name on this screen that lives in
+// `../panels.ts`: the refusal it can produce comes back through `./actions.ts`, so two files
+// spell it (ADR-0015). The other four are this page's alone.
+const PANELS = [START, FINISHED, GAVE_UP, RATE, STRIKE] as const;
 
 /**
  * This screen's address with a panel open on it.
@@ -392,6 +396,30 @@ export default async function StoryPage({
         </div>
       </div>
 
+      {/* **The act that unmakes the record, and it is at the bottom for a reason** (ADR-0015).
+          Everything above is what happened to this narrative; this is the statement that none
+          of it did — that the row itself was a mistake, a duplicate an assistant proposed and
+          a bulk approval let through. So it is the last thing on the page, quiet, one press
+          away from a drawer rather than a button beside *Start reading it*.
+
+          **It is offered whatever stands on the Story, and that is deliberate.** The four
+          refusals are the verb's (`@/core/verbs/story`), and a screen that re-derived them to
+          decide whether to draw this would be a second copy of the rule — one that cannot even
+          see the fourth, since this page never asks which Paths name the Story. So the press
+          exists and the answer is the verb's own sentence, which names what the owner has lived
+          with. That is the whole reason this door is here at all: the wall's list holds only
+          Stories nothing has happened to, so no refusal is reachable from it. */}
+      <div className="mt-10 border-t border-border pt-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <p className="max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
+            If this narrative was never real — the same title twice, a proposal approved in a hurry
+            — the library can stop knowing it. Nothing you have read, judged or planned can be
+            struck this way.
+          </p>
+          <OpensDrawer href={panelled(id, STRIKE)}>Strike it from the library</OpensDrawer>
+        </div>
+      </div>
+
       {/* **Opening a Reading, and saying nothing about how it ends.** That absence is the
           record: a Reading with no outcome is what makes this Story read *reading*, here and
           on the dashboard, until the owner comes back and closes it. */}
@@ -554,6 +582,50 @@ export default async function StoryPage({
             <Button type="submit" className="h-11 w-full sm:h-10">
               {judging.rating ? "Say it again" : "Record it"}
             </Button>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {/* **The one panel here whose form has no field in it.** There is nothing to type: the
+          whole of the act is the press, and the panel exists so that the press takes two
+          deliberate taps and so that what the strike takes with it is read before the second
+          one. The refusal is drawn inside here rather than on the page behind, because this
+          panel covers the page (`@/components/drawer`) — and it is the sentence that names
+          which of the owner's own records stands in the way. */}
+      {panel === STRIKE ? (
+        <Drawer
+          title="Strike it from the library"
+          description="For a record that was a mistake — the same narrative twice, a proposal approved in a hurry. Not for something you have finished with: what a Story is and what you did with it are different facts."
+          refused={refused}
+          closesTo={closesTo}
+        >
+          <form action={strikeIt} className="grid gap-4">
+            <input type="hidden" name="storyId" value={story.id} />
+
+            <p className="text-pretty text-sm text-muted-foreground">
+              The library stops knowing <em>{story.title}</em>. The Credits on it go too, and the
+              people they name stay, credited wherever else they are; so does the record of which
+              objects carried it.
+            </p>
+
+            {/* The four, said in full and before the press. They are the verb's own rule and
+                this is a copy of it in prose rather than in code — the page draws the press
+                whatever stands on the Story, and the sentence the verb answers with names
+                which one it was. */}
+            <p className="text-pretty text-sm text-muted-foreground">
+              It is refused, and nothing happens, if an object in the house carries it, if a Reading
+              went through it, if you scored it, or if a Path names it as a stop. Those are your own
+              records, and a mistaken row has none of them.
+            </p>
+
+            <div>
+              <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
+                Strike it
+              </Button>
+              <p className="mt-2 text-pretty text-xs text-muted-foreground">
+                There is no undo. You land back on the wall.
+              </p>
+            </div>
           </form>
         </Drawer>
       ) : null}
