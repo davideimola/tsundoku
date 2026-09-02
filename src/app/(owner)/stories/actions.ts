@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
-import { createStory, strikeStories } from "@/core/verbs/story";
+import { strikeStories } from "@/core/verbs/story";
 import { requireOwner } from "@/lib/auth/owner";
-import { carriedAs, NOTHING_ON_IT, RECORD, THE_WALLS_FILTERS } from "./panels";
+import { carriedAs, NOTHING_ON_IT, THE_WALLS_FILTERS } from "./panels";
 
 // The write side of the Story wall, and **the act the owner did not have** (#33).
 //
@@ -34,49 +34,6 @@ function text(form: FormData, field: string): string | null {
 }
 
 /**
- * Record a Story, and land on it.
- *
- * **The one screen in this group whose write does not come back to the list it was made
- * from**, and the Series beside it is the contrast worth reading: declaring a Series lands
- * back on the ledger, because the next decision — whether it is being collected — is taken
- * from there. A Story is the opposite. Everything that follows recording one is on the Story's
- * own page: the Reading that has started, the score, which Volumes carry it. Coming back to a
- * wall of a hundred tiles to find the one just typed would be the owner's next three taps,
- * every time.
- *
- * It is also the whole of the confirmation, and deliberately the only one: what worked is the
- * page that comes back, and a banner announcing it would be the screen talking about itself.
- *
- * A refusal is the other direction. It is a sentence about what was typed, so it goes back to
- * the wall **as the owner had narrowed it**, with the panel standing open over it and the
- * prose inside the panel — the fields are still there to correct, which is the whole reason
- * the drawer does not close (#30, #32).
- */
-export async function record(form: FormData): Promise<void> {
-  await requireOwner();
-
-  let where: string;
-
-  try {
-    const storyId = await createStory({
-      title: text(form, "title") ?? "",
-      typeId: text(form, "type") ?? "",
-    });
-    where = `/stories/${storyId}`;
-
-    // The wall gained a tile. Said only here, because nothing was written on the other path.
-    revalidatePath("/stories");
-  } catch (error) {
-    // Anything that is not a refusal is a bug rather than an answer and stays unhandled: it
-    // becomes a 500, and nobody dresses a broken query up as advice.
-    if (!isRefusal(error)) throw error;
-    where = `/stories?${asItWasNarrowed(form, RECORD, { refused: error.message })}`;
-  }
-
-  redirect(where);
-}
-
-/**
  * The wall the owner was actually looking at, plus whatever this press has to say about
  * itself.
  *
@@ -84,17 +41,13 @@ export async function record(form: FormData): Promise<void> {
  * to read — `../collection/actions.ts` threads them the same way for the same reason. Dropping
  * them would answer a refused write by silently throwing away the search behind it.
  *
- * The panel is an argument because two acts come back through here and they come back to
- * different drawers: a refused Story reopens the form it was typed into, and a strike — refused
- * or done — reopens the list it was ticked from.
+ * The panel it reopens is the strike's, because the strike is the one act this wall has left:
+ * recording a Story went to the one door (#45), and a refusal or a count is only useful beside
+ * the ticks it is about.
  */
-function asItWasNarrowed(
-  form: FormData,
-  panel: string,
-  said: Record<string, string>
-): URLSearchParams {
+function asItWasNarrowed(form: FormData, said: Record<string, string>): URLSearchParams {
   const asking = new URLSearchParams(said);
-  asking.set("panel", panel);
+  asking.set("panel", NOTHING_ON_IT);
 
   for (const name of THE_WALLS_FILTERS) {
     // Read under the prefix it travelled as, never under its own name: `type` is also the
@@ -136,9 +89,9 @@ export async function strike(form: FormData): Promise<void> {
     // Anything that is not a refusal is a bug rather than an answer and stays unhandled.
     if (!isRefusal(error)) throw error;
     revalidatePath("/stories");
-    redirect(`/stories?${asItWasNarrowed(form, NOTHING_ON_IT, { refused: error.message })}`);
+    redirect(`/stories?${asItWasNarrowed(form, { refused: error.message })}`);
   }
 
   revalidatePath("/stories");
-  redirect(`/stories?${asItWasNarrowed(form, NOTHING_ON_IT, { struck: String(struck) })}`);
+  redirect(`/stories?${asItWasNarrowed(form, { struck: String(struck) })}`);
 }

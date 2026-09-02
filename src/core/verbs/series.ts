@@ -435,8 +435,14 @@ export type VolumePlacement = {
  *
  * Refused on a Volume the house does not hold — let go, or catalogued and never had: it
  * fills no position, and the ledger is measured against what is on the shelf.
+ *
+ * `run` is how the one door runs this inside its own transaction (`what-happened.ts`, and
+ * `../transaction.ts` for why a verb takes one at all).
  */
-export async function placeVolumeInSeries(placement: VolumePlacement): Promise<void> {
+export async function placeVolumeInSeries(
+  placement: VolumePlacement,
+  run: Executor = query
+): Promise<void> {
   if (!UUID.test(placement.volumeId)) {
     throw new Refusal("not-found", "No Volume has that id.");
   }
@@ -449,7 +455,7 @@ export async function placeVolumeInSeries(placement: VolumePlacement): Promise<v
 
   const [outcome] = await refusing(
     () =>
-      query<{ known: boolean; owned: boolean; placed: boolean }>(
+      run<{ known: boolean; owned: boolean; placed: boolean }>(
         `with known as (
            select id from volume where id = $1
          ), ever as (

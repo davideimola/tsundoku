@@ -248,8 +248,15 @@ export type MadeAcquisition = {
  * otherwise claim one object twice and there would be no answer to *what did I pay*. Said
  * again after a release it is a **second acquisition**, which is the real event: sold, then
  * bought again.
+ *
+ * `run` is how the one door calls this inside its own transaction (`what-happened.ts`): the
+ * owner says *I bought it* once, and the object, the acquisition and the narrative land
+ * together or not at all (see `../transaction.ts`).
  */
-export async function acquireVolume(acquisition: MadeAcquisition): Promise<void> {
+export async function acquireVolume(
+  acquisition: MadeAcquisition,
+  run: Executor = query
+): Promise<void> {
   if (!UUID.test(acquisition.volumeId)) {
     throw new Refusal("not-found", NO_SUCH_VOLUME);
   }
@@ -260,7 +267,7 @@ export async function acquireVolume(acquisition: MadeAcquisition): Promise<void>
 
   await refusing(
     () =>
-      query(`insert into acquisition (volume_id, acquired_on, price_paid) values ($1, $2, $3)`, [
+      run(`insert into acquisition (volume_id, acquired_on, price_paid) values ($1, $2, $3)`, [
         acquisition.volumeId,
         acquisition.acquiredOn ?? null,
         pricePaid,

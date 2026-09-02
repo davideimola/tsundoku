@@ -51,6 +51,29 @@ phone, so a destination cannot exist at one width and not the other.
 navigation — and when a page takes the width back off the shell by centring itself in a
 column.
 
+### Where a new record enters the library
+
+**Through the one door, `/add`, and nowhere else** (#45). The owner writes a title or scans a
+barcode and says one of three things — *I bought it*, *I read it*, *I want to read it* — and
+`sayWhatHappened` in `src/core/verbs/what-happened.ts` works out what to record. There is no
+screen that catalogues a Volume on its own, no screen that records a Story on its own, and
+there must not be one again: those were three acts across two screens, and the drift they
+produced is on the shelves — twenty-two Volumes against twenty-one Stories.
+
+Two rules hold it together, and both are `CONTEXT.md`'s rather than the screen's. **A Story is
+never something the owner creates**: it appears because something was said about a title, so
+the default is one Volume, one Story and nobody is ever asked which of the two they are
+recording. And **the one thing that overrides that default is the owner's own arrow**: a Series
+that says which Story it publishes takes a joining object into that work rather than minting a
+twenty-first narrative (#39), which is why the Series picker is on the *bought* panel — the
+moment the object is in hand is the moment its position is known.
+
+The verb is a file named after the sentence rather than after an area, for `queries/finder.ts`'s
+reason: it reaches the Collection, the Story and the Want at once, and it composes those areas'
+verbs rather than writing their SQL again, so every refusal reaches the owner in the words the
+area wrote. It is **not a tool and never will be** — it creates a Story, and an assistant may
+only propose one through the Inbox (ADR-0005).
+
 ### Where a cross-entity question goes
 
 **In `src/core`, and then in both doors.** The finder is one field over the whole library —
@@ -194,11 +217,12 @@ Liferay XHR surface, and goes down — which is why *unanswered* is a third answ
 as it is for a cover.
 
 **The scanner is an enhancement over a field that already works, and it holds no derivation**
-(`src/app/(owner)/collection/scan.tsx`). It is not rendered until a script is running, because
+(`src/app/(owner)/add/scan.tsx`). It is not rendered until a script is running, because
 a control that does nothing on a shop's signal was never an option (ADR-0010) — and unlike the
 finder it can have no unscripted twin, since a camera *is* a script. What it can have, and has,
-is a twin field: the ISBN panel is a plain form, and typed, pasted or filled in by the phone's
-own text scanner it posts with nothing running. Safari has no `BarcodeDetector`, so the
+is a twin field: **the one door has one field, and a barcode and a title go in the same place**
+— typed, pasted or filled in by the phone's own text scanner, it posts with nothing running,
+and which of the two arrived is `add/door.ts`'s to read (#45). Safari has no `BarcodeDetector`, so the
 fallback is ZXing as WebAssembly, dynamically imported on the first press and served from our
 own origin — `public/decoder/zxing_reader.wasm`, pinned to the dependency by
 `src/app/vendored.test.ts`, which is the fourth wall.
@@ -207,7 +231,7 @@ own origin — `public/decoder/zxing_reader.wasm`, pinned to the dependency by
 
 **In a drawer whose open state is the URL** — `@/components/drawer`, a link to `?panel=…`,
 and a panel the server renders when that parameter is there. `src/app/(owner)/collection/page.tsx`
-is the pattern: the hero carries *Covers* and *Catalogue a Volume*, and each is an `<a>`.
+is the pattern: the hero carries *Covers* and *Not in the house*, and each is an `<a>`.
 
 It is worth knowing why this is not a dialog component. A drawer is ordinarily client state,
 a portal and a focus trap; the screen that needed one is the one the owner opens **in a shop,

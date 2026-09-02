@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "../db.ts";
 import { Refusal, refusing } from "../refusal.ts";
+import type { Executor } from "../transaction.ts";
 
 // **The Want**: an open intention to read a Story, standing on its own and belonging to no
 // Path (#35).
@@ -50,13 +51,16 @@ const NO_SUCH_STORY =
  * the schema #34 wrote — quietness is a comparison and there is nothing for a partial index to
  * be partial on — and the alternative, reopening the quiet row on a second press, is a
  * decision nobody has written down. It is left alone here rather than invented.
+ *
+ * `run` is how the one door runs this inside its own transaction (`what-happened.ts`, and
+ * `../transaction.ts` for why a verb takes one at all).
  */
-export async function openWant(storyId: string): Promise<{ id: string }> {
+export async function openWant(storyId: string, run: Executor = query): Promise<{ id: string }> {
   if (!UUID.test(storyId)) throw new Refusal("not-found", NO_SUCH_STORY);
 
   const rows = await refusing(
     () =>
-      query<{ id: string }>("insert into want (story_id) values ($1) returning id::text as id", [
+      run<{ id: string }>("insert into want (story_id) values ($1) returning id::text as id", [
         storyId,
       ]),
     (constraint) => {
