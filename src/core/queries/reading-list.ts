@@ -7,7 +7,7 @@ import { IN_THE_HOUSE } from "./collection.ts";
 import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
 import { type PathStop, stillAheadOnActivePaths } from "./path.ts";
 import { listMissingVolumes, type SeriesLedger } from "./series.ts";
-import type { StoryType } from "./story.ts";
+import { type HowFarItGot, listRunsInProgress, type StoryType } from "./story.ts";
 import { listOpenWants } from "./want.ts";
 
 // **The Reading list, which is a query and not a table.**
@@ -24,11 +24,11 @@ import { listOpenWants } from "./want.ts";
 // owner pinned, in the order they pinned it: it is short because every row in it is a
 // decision, and it is the only place an order means anything. The **reserve** is everything
 // else, and it is deliberately unordered — sorted by a rule nobody maintains, the newest
-// Want first, then the routes, then the ledger — because a long list somebody has to keep in
-// order is a list that goes stale. The moment an order starts to matter is the moment the
+// Want first, then the routes, then the runs in progress, then the ledger — because a long
+// list somebody has to keep in order is a list that goes stale. The moment an order starts to matter is the moment the
 // owner is already deciding, and that is the pin.
 //
-// It composes from three sources and nothing else (CONTEXT.md):
+// It composes from four sources and nothing else (CONTEXT.md):
 //
 //   - **every open Want**, which is `listOpenWants` from `queries/want.ts` — the owner
 //     saying *I want to read this*, which used to cost a named, ordered route and now costs
@@ -39,6 +39,14 @@ import { listOpenWants } from "./want.ts";
 //     next one. That is what makes *three Marvel stories and then a DC one* expressible at
 //     all: what stands behind the next stop has to be visible before it can be pinned (#40).
 //     A route that is exhausted or put aside is simply absent;
+//   - **every run with somewhere left to go**, which is `listRunsInProgress` from
+//     `queries/story.ts` — a Story that declares Instalments and is neither read nor
+//     abandoned, naming the Instalment that comes next (#43). It is the case this whole
+//     tracker started from: *Slam Dunk* collected, twenty published and twenty on the shelf,
+//     so the ledger below has nothing to say about it — it names what is **missing** — and
+//     without a hand-made Path the run stood nowhere at all. **The run is the whole signal**:
+//     no route minted for something that was never a route, no flag on the Series, and no
+//     Want required, so a work owned whole and never opened stands here at nought of twenty;
 //   - **the next missing Volume of every Series being collected**, which is
 //     `listMissingVolumes` from `queries/series.ts` — and *being collected* is the owner's
 //     deliberate decision, never derived from what is on the shelf.
@@ -105,6 +113,23 @@ export type ReadingListRoute = {
   place: number;
 };
 
+/**
+ * The run an entry is the next part of: how much of it has been read, and what to read next.
+ *
+ * The fraction is the Story's own `HowFarItGot` and not a shape of this file's, so the row and
+ * the Story's own page say *7 of 20* in the same words — `howFarItGot` in
+ * `app/(owner)/stories/readings.ts` is the wording, and there is one of it. A run nobody has
+ * opened says *0 of 20* here where the Story's page says nothing at all, and that is the one
+ * place the two part: the page answers *where am I in this pass*, and there is no pass, where
+ * this answers *what do I read next*, which nought of twenty answers perfectly well.
+ */
+export type ReadingListRun = {
+  /** *Seven of twenty*: how much of the work has been read, in the work's own units. */
+  howFarItGot: HowFarItGot;
+  /** The Instalment that comes next — one past what has been read, so an unopened run is at 1. */
+  nextInstalment: number;
+};
+
 /** The line an entry would be bought from, and which position of it. */
 export type ReadingListLine = {
   id: string;
@@ -126,8 +151,8 @@ export type ReadingListLine = {
  * says which half is filled.
  */
 export type ReadingListReason = {
-  /** Which of the three sources this reason is. */
-  because: "want" | "path" | "series";
+  /** Which of the four sources this reason is. */
+  because: "want" | "path" | "run" | "series";
   /**
    * The Want, and when the owner said it. Null on a route's or a line's reason.
    *
@@ -137,6 +162,15 @@ export type ReadingListReason = {
   want: { id: string; openedAt: string } | null;
   /** The route this stop is on, with the owner's own words about it. Null otherwise. */
   path: ReadingListRoute | null;
+  /**
+   * The run this is the next part of, and how much of it has been read. Null on every other
+   * reason.
+   *
+   * It is the only reason that names something **inside** the Story rather than a record
+   * beside it, because a run is not a thing the owner keeps anywhere: it is the work counted
+   * against what has been read of it (#43).
+   */
+  run: ReadingListRun | null;
   /** The Series this object would complete, and which position of it is next. Null otherwise. */
   series: ReadingListLine | null;
 };
@@ -224,8 +258,8 @@ export type ReadingList = {
   head: ReadingListEntry[];
   /**
    * Everything else, in an order nobody maintains: the newest Want first, then the routes in
-   * the owner's order of routes and each route's stops in its own order, then the Series by
-   * name.
+   * the owner's order of routes and each route's stops in its own order, then the runs with
+   * somewhere left to go, then the Series by name.
    *
    * **Do not read a place in it as a ranking.** It is deliberately unordered, and the moment
    * an order matters the owner pins the row, which moves it to the head.
@@ -244,20 +278,22 @@ export type ReadingList = {
  * exactly as it was.
  */
 export async function composeReadingList(): Promise<ReadingList> {
-  // The three sources and the pins, read together. Four statements rather than one: the
-  // three derivations already exist, tested, in `queries/want.ts`, `queries/path.ts` and
-  // `queries/series.ts` (#35, #9, #7), and re-deriving any of them here to save a round trip
-  // would be keeping a second answer to a question that has one.
-  const [wanted, routes, incomplete, pins] = await Promise.all([
+  // The four sources and the pins, read together. Five statements rather than one: the four
+  // derivations already exist, tested, in `queries/want.ts`, `queries/path.ts`,
+  // `queries/story.ts` and `queries/series.ts` (#35, #9, #43, #7), and re-deriving any of them
+  // here to save a round trip would be keeping a second answer to a question that has one.
+  const [wanted, routes, runs, incomplete, pins] = await Promise.all([
     listOpenWants(),
     stillAheadOnActivePaths(),
+    listRunsInProgress(),
     listMissingVolumes(),
     pinnedSubjects(),
   ]);
 
   // **One row per thing to read, and the order they arrive in is the reserve's order.** A
   // Map keeps insertion order, so the rule nobody maintains — newest Want, then the routes,
-  // then the ledger — is the order the three loops below run in and is written nowhere else.
+  // then the runs, then the ledger — is the order the four loops below run in and is written
+  // nowhere else.
   const rows = new Map<string, Row>();
 
   // **The Wants lead**, newest first, because a Want is the last thing the owner said and
@@ -283,6 +319,21 @@ export async function composeReadingList(): Promise<ReadingList> {
         }
       ).reasons.push(reason({ because: "path", path: { ...route.path, place: ahead + 1 } }));
     });
+  }
+
+  // Then the runs with somewhere left to go, which are the works the owner has not finished.
+  // After the routes because a route is an order they decided and a run is only a work
+  // standing unfinished, and before the ledger because both of those are things to *read*
+  // where the ledger is a thing to buy. A run that is **wanted**, or that stands on a route,
+  // merges into that row rather than opening a second: one Story is one row, however many
+  // reasons put it there.
+  for (const run of runs) {
+    row(rows, { kind: "story", id: run.story.id }, run.story).reasons.push(
+      reason({
+        because: "run",
+        run: { howFarItGot: run.howFarItGot, nextInstalment: run.nextInstalment },
+      })
+    );
   }
 
   // Then the ledger, which is the shopping half: a position of a line rather than a
@@ -361,7 +412,7 @@ export async function composeReadingList(): Promise<ReadingList> {
 function reason(
   said: Partial<ReadingListReason> & Pick<ReadingListReason, "because">
 ): ReadingListReason {
-  return { want: null, path: null, series: null, ...said };
+  return { want: null, path: null, run: null, series: null, ...said };
 }
 
 /** A row being built: what it is about, and the reasons gathered for it so far. */

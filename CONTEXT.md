@@ -143,7 +143,10 @@ is one work whether it is printed as the standard edition or as the Ultimate Del
 makes a volume joining the line attach to the work that is already there instead of minting a
 twenty-first narrative. It states **what the line prints** and never whether it was any good,
 so the ledger stays a ledger.
-_Avoid_: collection — that word is taken, and means the shelf. Also: run, line, saga.
+_Avoid_: collection — that word is taken, and means the shelf. Also: line, saga — and **run**
+*for the ledger itself*: a run is the serialized **Story** a line prints, which is the word the
+Reading list uses for one that still has somewhere to go (#43). *The twenty tankōbon* are the
+Series; *Slam Dunk* is the run.
 
 **Instalment**:
 One numbered part of a **Story** that was serialized: *Ultimate Spider-Man* #1…#160, *Slam
@@ -216,14 +219,23 @@ Story, not a place things are put.
 What to read next, and it is **two halves rather than one list**.
 The **head** is what the owner has pinned, in the order they pinned it. It is short because
 every row in it is a decision, and it is the only place an order means anything.
-The **reserve** is everything else, and it **composes itself** from three sources — every
-Story still to read on an active **Path**, every open **Want**, and the next missing **Volume**
-of every **Series** being collected — rather than being a list kept by hand. A route
+The **reserve** is everything else, and it **composes itself** from four sources — every
+Story still to read on an active **Path**, every open **Want**, every **run with somewhere left
+to go**, and the next missing **Volume** of every **Series** being collected — rather than
+being a list kept by hand. A route
 contributes **everything still ahead on it** and not merely its next stop, because what stands
 behind that stop has to be visible before it can be pinned: that is what makes *three Marvel
-stories and then a DC one* sayable rather than only nameable. It is
+stories and then a DC one* sayable rather than only nameable. A **run** contributes the
+**Instalment** that comes next for as long as it has somewhere left to go: *the run is the whole
+signal*, so *Slam Dunk* — collected, twenty published and twenty on the shelf, which the Series
+source has nothing to say about because nothing is missing — stands on the list with no route
+minted for it, no flag on its line and no **Want** needed, at *nought of twenty* until the owner
+opens it. It leaves the list by itself, the way a Want falls quiet: a **Reading** that finished
+it or that the owner abandoned takes it off, and so does a pass that has reached the last part.
+It is
 **deliberately unordered**, sorted by a rule nobody maintains (the newest Want first, then the
-Paths, then the Series): a long list somebody has to keep in order is a list that goes stale,
+Paths, then the runs, then the Series): a long list somebody has to keep in order is
+a list that goes stale,
 and the moment an order starts to matter is the moment the owner is already deciding — which
 is the pin.
 A **pin** names **the thing to read** and not the source it came from, which is what makes

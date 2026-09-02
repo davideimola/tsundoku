@@ -31,7 +31,7 @@ to reach for when that is the question.
 \`head\` is what the owner **pinned**, in pin order, newest pin leading — every row in it is a
 decision they took, and it is the only place an order means anything. \`reserve\` is everything
 else: it composes itself and is **deliberately unordered**, sorted by a rule nobody maintains (the
-newest Want first, then the routes, then the Series), so **do not read a place in it as a
+newest Want first, then the routes, then the runs in progress, then the Series), so **do not read a place in it as a
 preference**. Say what the owner decided apart from what merely composed.
 
 Every entry carries \`reasons\`, and **one Story is one row however many reasons put it there**: a
@@ -41,7 +41,15 @@ belongs to no route and carries no order; it falls quiet by itself once a Readin
 so what is here is still wanted. \`because: "path"\` is **a stop on an active Path** — an ordered
 route the owner chose, crossing types and publishers freely — carrying that route, the \`intent\`
 they wrote for it, and \`place\`, which is where the stop stands among what is still to read on it:
-\`1\` is what comes next, and anything higher stands behind it. \`because: "series"\` is
+\`1\` is what comes next, and anything higher stands behind it. \`because: "run"\` is **a run with somewhere left to
+go**: a serialized Story the owner has neither finished nor abandoned. It carries
+\`howFarItGot\` — \`atInstalment\` out of \`instalments\`, in the work's own units and never in
+volumes — and \`nextInstalment\`, the part to read next, so you can say *carry on with Slam Dunk,
+you are at seven of twenty*. **A run nobody has opened is here too**, at \`atInstalment: 0\`, and
+that is the row this whole list was rebuilt for: a work owned complete and unread is invisible to
+the Series half, which names only what is **missing**. Nothing was marked to put it here — no
+route, no flag on its Series, no Want — and it leaves the list by itself when a Reading finishes
+or abandons it, or when a pass reaches the last part. \`because: "series"\` is
 **the next position of a Series they have decided to collect** that the house has none of; it names
 an object and no Story, because what narrative a Volume carries is a separate fact the ledger does
 not claim to know.
@@ -64,8 +72,8 @@ nothing wrong.
 Two absences to read correctly. A \`paper\` entry with **no \`object\`** is one whose Volume the
 library has not catalogued — a Series position nobody recorded — so there is nothing to wish for and
 naming the object is the owner's act, or an Inbox proposal, never this list's. And **both lists
-empty** means every active route is walked out, nothing is wanted and every Series being collected
-is complete: a real answer, not missing data. Read \`path_constraints\` before turning any of this
+empty** means every active route is walked out, nothing is wanted, every run is finished or set
+aside and every Series being collected is complete: a real answer, not missing data. Read \`path_constraints\` before turning any of this
 into a recommendation.`,
   inputSchema: { type: "object", properties: {}, additionalProperties: false },
   readOnly: true,

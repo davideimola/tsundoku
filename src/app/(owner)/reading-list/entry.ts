@@ -4,6 +4,7 @@ import type {
   ReadingListReason,
   ReadingListRoute,
 } from "@/core/queries/reading-list";
+import { howFarItGot } from "../stories/readings";
 
 // How an entry of the Reading list is **said**, in one place, because two screens say it
 // now: the list itself, and the dashboard's *what to read next* (#24).
@@ -17,7 +18,10 @@ import type {
 //
 // **A row carries several reasons now** (#40): one Story is one row however many reasons put
 // it there, so the four questions below read across `reasons` rather than off a single
-// filled half. The three readers at the top are what keep every one of them, and both
+// filled half. **The readers at the top stay three, and the fourth source is why that is not
+// an omission**: a run names no record beside the Story (#43) — it is the work counted against
+// what has been read of it — so what it says is *7 of 20 read*, and there is nothing for a
+// reader to fetch and nothing for the sentence to link to. The three readers at the top are what keep every one of them, and both
 // screens, asking the same way.
 
 /** The Want that put this entry here, where one did. */
@@ -84,6 +88,25 @@ export function reasonSaid(reason: ReadingListReason): ReasonSaid {
     };
   }
 
+  if (reason.run) {
+    // **The fraction is said in the work's own words, and they are the Story page's words**:
+    // `howFarItGot` is the one wording of *seven of twenty* in this application (#37), spent
+    // here rather than written again, so a row and the page it opens cannot say two numbers.
+    //
+    // The verb is the judgement. Nothing read is *0 of 20* — a work owned whole and never
+    // opened, or a pass that has finished none of it — and what it asks for is **starting**;
+    // anything above nought asks for **carrying on**. One word, and it is the difference
+    // between the list describing the shelf and the list telling the owner what to do next.
+    const { howFarItGot: far, nextInstalment } = reason.run;
+
+    return {
+      said: `${howFarItGot(far)} read — ${far.atInstalment === 0 ? "start" : "carry on"} at ${nextInstalment}`,
+      // It names no record, because a run is not one: it is the open pass, read as a
+      // fraction, and the Story the tile already leads to is where it is kept.
+      names: null,
+    };
+  }
+
   if (reason.series) {
     const { name, editionLine, position, publishedCount } = reason.series;
     return {
@@ -95,7 +118,7 @@ export function reasonSaid(reason: ReadingListReason): ReasonSaid {
     };
   }
 
-  // Unreachable — a reason is one of the three — and answered rather than thrown, for the
+  // Unreachable — a reason is one of the four — and answered rather than thrown, for the
   // reason `entryFoot` answers rather than throwing.
   return { said: "On the list", names: null };
 }
