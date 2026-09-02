@@ -258,76 +258,84 @@ export default async function StoryPage({
           the wall laid this Story out as opens the page instead, in the same colour and with
           the same score at its foot — so arriving from the wall is arriving at the thing that
           was tapped. It carries no href, because this is the page it would lead to. */}
-      <header className="flex items-start gap-4 sm:gap-6">
-        <div className="w-20 shrink-0 sm:w-28">
-          <Cover
-            title={story.title}
-            tint={tint(story.series?.id)}
-            detail={storyDetail(story)}
-            foot={<StoryScore of={story.latestScore} />}
-            image={story.cover}
-          />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h1 className="text-pretty font-heading text-2xl leading-tight sm:text-3xl">
-            {story.title}
-          </h1>
-          <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-              {story.type.name}
-            </span>
-            <StoryStateLabel state={story.state} />
-            {/* **The fraction is the run's own unit**, tabular so that 7 of 20 and 12 of 20
-                read as places in one book rather than as two different numbers. It is drawn
-                only where the work says it has parts, which is the minority of Stories. */}
-            {story.howFarItGot ? (
-              <span className="font-mono text-sm tabular-nums text-muted-foreground">
-                {howFarItGot(story.howFarItGot)}
-              </span>
-            ) : null}
-          </p>
-          {story.series ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              <Link
-                href={`/series/${story.series.id}`}
-                className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {[story.series.name, story.series.editionLine].filter(Boolean).join(" ")}
-              </Link>
-            </p>
-          ) : null}
-
-          {/* **The act this screen is opened to perform**, and which one it is follows from
-              the Readings rather than from a choice: a Story with something open is one the
-              owner is holding, and the only thing to say about it is how it ended. */}
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            {open ? (
-              <>
-                <OpensDrawer href={panelled(id, FINISHED)} emphasis="loud">
-                  I finished it
-                </OpensDrawer>
-                <OpensDrawer href={panelled(id, GAVE_UP)}>I gave up on it</OpensDrawer>
-                {story.instalments === null ? null : (
-                  <OpensDrawer href={panelled(id, REACHED, open.id)}>Where I am in it</OpensDrawer>
-                )}
-                <span className="text-sm text-muted-foreground">{readingNow(open)}</span>
-              </>
-            ) : (
-              <>
-                <OpensDrawer href={panelled(id, START)} emphasis="loud">
-                  Start reading it
-                </OpensDrawer>
-                {story.readings.length > 0 ? (
-                  <span className="text-sm text-muted-foreground">
-                    Again — nothing below is replaced.
-                  </span>
-                ) : null}
-              </>
-            )}
+      {/* **The record's own act stands apart from the reading ones**, which is the shape the
+          Path's page already gives this (`../../paths/[id]/page.tsx`): what the hero *says*
+          is corrected from the hero, and the presses about tonight keep the column beside
+          the cover to themselves. On a phone the cluster wraps under the whole block rather
+          than squeezing the title into two words. */}
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+        <div className="flex min-w-0 flex-1 basis-72 items-start gap-4 sm:gap-6">
+          <div className="w-20 shrink-0 sm:w-28">
+            <Cover
+              title={story.title}
+              tint={tint(story.series?.id)}
+              detail={storyDetail(story)}
+              foot={<StoryScore of={story.latestScore} />}
+              image={story.cover}
+            />
           </div>
 
-          {/* **The lesser half of the same sentence**, and it is deliberately quiet: *not
+          <div className="min-w-0 flex-1">
+            <h1 className="text-pretty font-heading text-2xl leading-tight sm:text-3xl">
+              {story.title}
+            </h1>
+            <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                {story.type.name}
+              </span>
+              <StoryStateLabel state={story.state} />
+              {/* **The fraction is the run's own unit**, tabular so that 7 of 20 and 12 of 20
+                read as places in one book rather than as two different numbers. It is drawn
+                only where the work says it has parts, which is the minority of Stories. */}
+              {story.howFarItGot ? (
+                <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                  {howFarItGot(story.howFarItGot)}
+                </span>
+              ) : null}
+            </p>
+            {story.series ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                <Link
+                  href={`/series/${story.series.id}`}
+                  className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {[story.series.name, story.series.editionLine].filter(Boolean).join(" ")}
+                </Link>
+              </p>
+            ) : null}
+
+            {/* **The act this screen is opened to perform**, and which one it is follows from
+              the Readings rather than from a choice: a Story with something open is one the
+              owner is holding, and the only thing to say about it is how it ended. */}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {open ? (
+                <>
+                  <OpensDrawer href={panelled(id, FINISHED)} emphasis="loud">
+                    I finished it
+                  </OpensDrawer>
+                  <OpensDrawer href={panelled(id, GAVE_UP)}>I gave up on it</OpensDrawer>
+                  {story.instalments === null ? null : (
+                    <OpensDrawer href={panelled(id, REACHED, open.id)}>
+                      Where I am in it
+                    </OpensDrawer>
+                  )}
+                  <span className="text-sm text-muted-foreground">{readingNow(open)}</span>
+                </>
+              ) : (
+                <>
+                  <OpensDrawer href={panelled(id, START)} emphasis="loud">
+                    Start reading it
+                  </OpensDrawer>
+                  {story.readings.length > 0 ? (
+                    <span className="text-sm text-muted-foreground">
+                      Again — nothing below is replaced.
+                    </span>
+                  ) : null}
+                </>
+              )}
+            </div>
+
+            {/* **The lesser half of the same sentence**, and it is deliberately quiet: *not
               tonight, but soon* is a smaller act than starting, so it sits under the loud one
               in the eyebrow's register rather than beside it as a second button competing for
               the press. A press that asks for nothing is a plain form and not a panel.
@@ -336,39 +344,47 @@ export default async function StoryPage({
               falls quiet on its own once a Reading begins after it was opened, so a quiet one
               says which side of the Reading it stands on, and the only press against either is
               taking back a sentence that was a slip. */}
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-            {want ? (
-              <>
-                <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-                  {want.quiet ? "Wanted, and read since" : "On the Reading list"}
-                </span>
-                <form action={unwant}>
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+              {want ? (
+                <>
+                  <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                    {want.quiet ? "Wanted, and read since" : "On the Reading list"}
+                  </span>
+                  <form action={unwant}>
+                    <input type="hidden" name="storyId" value={id} />
+                    <input type="hidden" name="wantId" value={want.id} />
+                    <Button
+                      type="submit"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
+                    >
+                      I did not mean that
+                    </Button>
+                  </form>
+                </>
+              ) : (
+                <form action={wantIt}>
                   <input type="hidden" name="storyId" value={id} />
-                  <input type="hidden" name="wantId" value={want.id} />
                   <Button
                     type="submit"
                     variant="link"
                     size="sm"
                     className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
                   >
-                    I did not mean that
+                    I want to read it
                   </Button>
                 </form>
-              </>
-            ) : (
-              <form action={wantIt}>
-                <input type="hidden" name="storyId" value={id} />
-                <Button
-                  type="submit"
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
-                >
-                  I want to read it
-                </Button>
-              </form>
-            )}
+              )}
+            </div>
           </div>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <OpensDrawer href={panelled(id, RENAME)}>
+            <Nib className="size-4 shrink-0" />
+            Correct the title
+          </OpensDrawer>
         </div>
       </header>
 
@@ -515,19 +531,7 @@ export default async function StoryPage({
           exists and the answer is the verb's own sentence, which names what the owner has lived
           with. That is the whole reason this door is here at all: the wall's list holds only
           Stories nothing has happened to, so no refusal is reachable from it. */}
-      {/* **The two acts about the record rather than about the reading**, lightest first. They
-          are one strip because they are one thought asked at two strengths — *this is wrong*
-          — and putting the rename up in the hero would have set a maintenance act beside the
-          three that are about tonight. */}
-      <div className="mt-10 grid gap-3 border-t border-border pt-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <p className="max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
-            The work's name is the work's own. A line that came to publish it left it whatever it
-            was called as one object, so this is where the two are said the same way again.
-          </p>
-          <OpensDrawer href={panelled(id, RENAME)}>Correct the title</OpensDrawer>
-        </div>
-
+      <div className="mt-10 border-t border-border pt-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <p className="max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
             If this narrative was never real — the same title twice, a proposal approved in a hurry
@@ -1147,6 +1151,37 @@ function whatItWouldCollapse(line: SeriesPublishingNothing): string {
  * a Story that declares none says so in one line and offers the act rather than showing an
  * empty field nobody asked for.
  */
+/**
+ * The nib on *Correct the title*: **the one act in this hero that is about the record rather
+ * than about tonight**, and the glyph is what keeps it from reading as a third press in the
+ * same breath as *Start reading it*.
+ *
+ * Stroked, at the magnifier's weight (`../../finder.tsx`), because that is what a glyph drawn
+ * on paper is in this application; the door's plus is filled because it is knocked out of an
+ * ink block (`../../door.tsx`). Two techniques, one rule, and still no icon library — this is
+ * the third glyph the whole application has.
+ */
+function Nib({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      className={className}
+    >
+      {/* The body, laid along the diagonal a hand holds a pen at. */}
+      <path d="M15.2 4.3 19.7 8.8 9.1 19.4l-5.4 1 1-5.4z" />
+      {/* Where the nib meets the paper, said as its own stroke so the point survives 16px. */}
+      <path d="M4.7 15 9 19.3" />
+    </svg>
+  );
+}
+
 function Instalments({ story }: { story: FoundStory }) {
   return (
     <Card>
