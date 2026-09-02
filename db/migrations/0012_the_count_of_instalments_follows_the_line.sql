@@ -27,9 +27,10 @@
 --   4. two or more Series naming one Story → no following at all. The number stops moving
 --      and becomes the owner's, because which of two ledgers a narrative takes its length
 --      from is not something this library decides for them
---   5. a line that stops answering — deleted, repointed, or corrected down to nought —
---      **freezes** the number rather than taking it away. Nothing the owner has read a
---      fraction against disappears behind their back
+--   5. **while a line names the work, the line's answer governs — including its silence.** A
+--      ledger corrected down to nought is rule 2 read in the other direction: the line says
+--      nothing, so the work declares nothing again. When **no** line names it any more, nothing
+--      governs, and the number that stood becomes the owner's rather than disappearing
 --
 -- **It is a column kept by a trigger rather than a derivation at read time**, and the reason
 -- is load-bearing. The two invariants #34 insisted be constraints rather than `if`s — a pass
@@ -76,7 +77,7 @@ ALTER TABLE "story" ADD CONSTRAINT "story_instalments_are_said_by_the_owner_or_t
 ALTER TABLE "story" ADD CONSTRAINT "story_instalments_carry_whose_word_they_are" CHECK ((instalments IS NULL) OR (instalments_said_by IS NOT NULL));--> statement-breakpoint
 ALTER TABLE "story" ADD CONSTRAINT "story_the_lines_count_is_a_number" CHECK ((instalments_said_by IS DISTINCT FROM 'line'::text) OR (instalments IS NOT NULL));--> statement-breakpoint
 
-CREATE FUNCTION public.the_count_the_lines_give(work uuid) RETURNS void
+CREATE FUNCTION public.the_work_takes_its_count_from_the_line(work uuid) RETURNS void
     LANGUAGE plpgsql
     AS $$
 declare
@@ -103,11 +104,23 @@ begin
        and s.instalments_said_by is distinct from 'owner'
        and (s.instalments is distinct from printed
             or s.instalments_said_by is distinct from 'line');
+  elsif lines = 1 then
+    -- The one line that names the work has nothing to say: nought published is *nobody filled
+    -- it in* rather than *no parts*, so the work declares nothing again, exactly as an
+    -- unnumbered Story does. It is the same rule read in the other direction rather than a
+    -- second one, which is what keeps a ledger at nought one state with one answer however it
+    -- got there. Where a pass has read a fraction against the number, 0007's own trigger
+    -- refuses the ledger edit instead, and the owner is told which fact is in the way.
+    update story s
+       set instalments = null,
+           instalments_said_by = null
+     where s.id = work
+       and s.instalments_said_by = 'line';
   else
-    -- No line answers it any more — nought published, two ledgers, or none at all. The
-    -- number is **frozen and handed to the owner** rather than taken away: a fraction the
-    -- owner has been reading against must not vanish because a ledger was edited, and which
-    -- of two lines a narrative takes its length from is theirs to say.
+    -- No line names it, or two do. Nothing governs the number, so what stood there **becomes
+    -- the owner's** rather than being taken away: a fraction they have been reading against
+    -- must not vanish because an arrow was withdrawn, and which of two ledgers a narrative
+    -- takes its length from is theirs to say.
     update story s
        set instalments_said_by = 'owner'
      where s.id = work
@@ -116,7 +129,7 @@ begin
 end;
 $$;--> statement-breakpoint
 
-COMMENT ON FUNCTION public.the_count_the_lines_give(uuid) IS 'Puts one Story''s count of Instalments back in step with the Series that publish it (#34): the line''s number where exactly one line answers, frozen as the owner''s word where none does, and never touched where the owner has corrected it by hand.';--> statement-breakpoint
+COMMENT ON FUNCTION public.the_work_takes_its_count_from_the_line(uuid) IS 'Puts one Story''s count of Instalments back in step with the Series that publish it (#34): the line''s number where exactly one line answers, no count at all where that one line says nought, the owner''s word where no line names it or two do, and never touched where the owner has corrected it by hand.';--> statement-breakpoint
 
 CREATE FUNCTION public.the_count_follows_the_line() RETURNS trigger
     LANGUAGE plpgsql
@@ -127,11 +140,11 @@ begin
   -- are read in two statements rather than in one expression for the reason 0007 splits its
   -- own function — a body naming `old.story_id` fails on the insert event whatever guards it.
   if tg_op <> 'INSERT' then
-    perform the_count_the_lines_give(old.story_id);
+    perform the_work_takes_its_count_from_the_line(old.story_id);
   end if;
 
   if tg_op <> 'DELETE' then
-    perform the_count_the_lines_give(new.story_id);
+    perform the_work_takes_its_count_from_the_line(new.story_id);
   end if;
 
   return null;

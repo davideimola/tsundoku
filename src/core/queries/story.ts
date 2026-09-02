@@ -648,13 +648,22 @@ export async function listStoriesNothingHasHappenedTo(): Promise<StoryNothingHas
 // `IN_THE_HOUSE` is spent rather than restated, so this agrees with the Collection about what
 // having something means (ADR-0007). It names the Volume `v`, and this fragment names the
 // Story `s`.
+// **Positions rather than objects**, which is what makes it *whole* and not merely *as many*:
+// the house can hold twenty volumes of a line of twenty and still be missing the first, if it
+// holds one that stands past the end of the ledger. So what is counted is the positions in the
+// line that the house holds, and a line is whole when every one of them is there — the same
+// question `queries/series.ts` asks the other way round when it names what is missing. One
+// owned Volume per position per Series is `volume_holds_one_position` from `0000`, and it is
+// what lets a count of rows answer a question about positions.
 const ALL_ON_THE_SHELF = `
   exists (
     select 1 from series se
      where se.story_id = s.id
        and se.published_count > 0
        and (select count(*) from volume v
-             where v.series_id = se.id and ${IN_THE_HOUSE}) >= se.published_count)`;
+             where v.series_id = se.id
+               and v.series_number between 1 and se.published_count
+               and ${IN_THE_HOUSE}) >= se.published_count)`;
 
 /** One run in progress: the work, where the pass stands, and the part that comes next. */
 export type RunInProgress = {

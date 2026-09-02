@@ -817,6 +817,28 @@ describe("a run with somewhere left to go", () => {
     ]);
   });
 
+  it("counts the positions of the line and not the objects, so a gap is not a whole shelf", async () => {
+    const storyId = await aLine("Death Note", 2, 0);
+    const seriesId = (
+      await query<{ id: string }>("select id from series where name = $1", ["Death Note"])
+    )[0].id;
+
+    // Two objects in the house, of a line of two — and the first position is empty, because
+    // one of them stands past the end of the ledger. As many is not the same as whole.
+    for (const number of [2, 3]) {
+      const volumeId = await volumeInTheHouse({
+        title: `Death Note ${number}`,
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      });
+      await placeVolumeInSeries({ volumeId, seriesId, number });
+    }
+    expect(storyId).toBeTruthy();
+
+    expect(await listRunsInProgress()).toEqual([]);
+  });
+
   it("says nothing about a run with no objects at all that nobody has opened", async () => {
     await createStory({ title: "Vagabond", typeId: "manga", instalments: 37 });
 

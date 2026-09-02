@@ -849,6 +849,19 @@ describe("the count of Instalments following the line", () => {
     expect(await findStory(storyId)).toMatchObject({ instalments: 22, instalmentsSaidBy: "line" });
   });
 
+  it("declares nothing again where the one line naming it is corrected back down to nought", async () => {
+    const { storyId, seriesId } = await aLinePublishing("Kagurabachi", 4);
+
+    await recordVolumesPublished(seriesId, 0);
+
+    // A ledger at nought is one state with one answer however it got there: the line says
+    // nothing, so the work says nothing, exactly as if the number had never been filled in.
+    expect(await findStory(storyId)).toMatchObject({
+      instalments: null,
+      instalmentsSaidBy: null,
+    });
+  });
+
   it("stops following for good once the owner has corrected the count by hand", async () => {
     const { storyId, seriesId } = await aLinePublishing("Ultimate Spider-Man", 20);
 
@@ -932,6 +945,10 @@ describe("the count of Instalments following the line", () => {
       message:
         "The Story this line publishes takes its Instalments from it, and a pass through that work has got further than that. Correct the count on the Story first, which is also what takes it off the line.",
     });
+
+    // And the same refusal stands for taking the ledger to nought, which would unnumber the
+    // work under that pass.
+    await expect(recordVolumesPublished(seriesId, 0)).rejects.toMatchObject({ name: "Refusal" });
 
     expect(await findStory(storyId)).toMatchObject({ instalments: 20 });
     const [ledger] = await query<{ published_count: number }>(

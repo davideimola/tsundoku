@@ -163,7 +163,8 @@ and very nearly nothing else.
 facts are one: where exactly one **Series** names the Story and has published more than nought
 Volumes, the count *is* that number and stays at it as the line grows — an ongoing line gains
 volumes, and the work gains parts. Nought published is *the owner never filled it in* rather
-than *no parts*, and such a work declares nothing at all. What keeps the printing's count and
+than *no parts*, and such a work declares nothing at all — in both directions, so a ledger
+corrected back down to nought unnumbers the work again. What keeps the printing's count and
 the narrative's from collapsing into one is that **the owner's word ends the following**:
 correcting the count by hand — or taking the numbering off — makes the number theirs, and no
 line moves it again. Two Series naming one Story stop the following as well, because which of

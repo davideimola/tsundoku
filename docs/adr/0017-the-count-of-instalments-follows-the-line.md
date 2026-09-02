@@ -52,7 +52,8 @@ never *owned* by one.
 **Nought published is silence, not zero.** A Series with `published_count = 0` is one the owner
 never filled in — three lines are in that state today — so it says nothing about the work, and the
 work declares nothing, exactly as an unnumbered Story does. Reading nought as *no parts* would have
-been the model inventing a fact out of a blank field.
+been the model inventing a fact out of a blank field. It holds in both directions: a ledger
+corrected back down to nought unnumbers the work again.
 
 **Two lines stop the following altogether.** *Fullmetal Alchemist* is one work whether it is
 printed as twenty-seven standard volumes or as eighteen deluxe ones, and which of those says how
@@ -60,9 +61,16 @@ long the narrative is, is not a question this library is entitled to answer. So 
 name one Story the number stops moving and becomes the owner's. No work has two lines today; the
 rule exists so that the day one does, nothing is decided behind them.
 
-The same posture answers a line that stops answering — deleted, repointed, or corrected down to
-nought. The number is **frozen and handed to the owner** rather than taken away, because a fraction
-the owner has been reading against must not vanish because a ledger was edited.
+Between them those three clauses settle one more case, which is the mechanics rather than a fourth
+rule: what becomes of a number when the line stops answering. **While a line names the work, the
+line's answer governs — including its silence.** A ledger corrected back down to nought is rule two
+read in the other direction, so the work declares nothing again: a line at nought is one state with
+one answer however it got there, and the alternative would have been the same state saying two
+things. When **no** line names the work any more — the arrow withdrawn, the ledger gone — nothing
+governs it, and the number that stood **becomes the owner's** rather than disappearing, because a
+fraction they have been reading against must not vanish because an arrow was taken back. Where a
+pass has read against the number, unnumbering the work is refused by 0007's own trigger and the
+owner is told which fact is in the way.
 
 ## Why a column and a trigger, and not a derivation at read time
 
@@ -137,7 +145,9 @@ which is the recommendation this list exists not to make.
 Series' count published — the same arrow the count of Instalments itself follows. One question
 cannot be answered off the ledger while the other is answered off the shelf. Where two lines print
 one work, **either being whole is enough**, because what is being asked is whether the work can be
-read through tonight and any complete printing of it can.
+read through tonight and any complete printing of it can. And *whole* counts the **positions** of
+the line the house holds rather than the objects it holds of the line: twenty volumes on the shelf
+with the first missing and one standing past the end of the ledger is as many, and not whole.
 
 One case falls out of it rather than being decided by it: **a work the house holds none of and
 nobody has opened contributes no run.** That is wanted — the owner reads digitally sometimes and
