@@ -8,6 +8,7 @@ import { creditStory } from "./credit.ts";
 import { definePath, placeStoriesOnPath } from "./path.ts";
 import { setRating } from "./rating.ts";
 import { recordReading } from "./reading.ts";
+import { pinToReadingList } from "./reading-list.ts";
 import {
   amendSeries,
   concludeSeries,
@@ -990,6 +991,36 @@ describe("merging a Series into one Story", () => {
       "select story_id, opened_at > now() - interval '1 day' as recent from want"
     );
     expect(wants).toEqual([{ story_id: work, recent: true }]);
+  });
+
+  // A pin names a Story since #40, so a collapse reaches one — and `on delete cascade` means
+  // it would go *silently*, which is the one way this gesture could take a decision the owner
+  // made off the front of their own list without saying so.
+  it("repoints a pin at the work, keeping the most recent of them", async () => {
+    const { series, narratives } = await aLineOfTankobon(3);
+    await pinToReadingList({ kind: "story", id: narratives[0] });
+    await query("update reading_list_pin set pinned_at = now() - interval '3 days'");
+    await pinToReadingList({ kind: "story", id: narratives[2] });
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const pins = await query<{ story_id: string; recent: boolean }>(
+      "select story_id, pinned_at > now() - interval '1 day' as recent from reading_list_pin"
+    );
+    expect(pins).toEqual([{ story_id: work, recent: true }]);
+  });
+
+  it("leaves a pin on a position of the line alone: the shopping half names an object", async () => {
+    const { series } = await aLineOfTankobon(2);
+    await pinToReadingList({ kind: "series", id: series, position: 3 });
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const pins = await query<{ story_id: string | null; series_position: number | null }>(
+      "select story_id, series_position from reading_list_pin"
+    );
+    expect(pins).toEqual([{ story_id: null, series_position: 3 }]);
+    expect(work).toBeTruthy();
   });
 
   it("refuses a second merge of the same line, which is what the arrow is for", async () => {

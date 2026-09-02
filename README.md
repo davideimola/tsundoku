@@ -445,6 +445,30 @@ and say so instead.
 tab goes in which file, which columns each one needs, what the import refuses and what it
 reports rather than absorbing.
 
+## The conversion
+
+The other command nobody runs for you, and for the same reason. Fifty-one of the library's
+eighty-three Stories are numbers of a run, across five lines — One-Punch Man, Slam Dunk, La
+via del grembiule, Fullmetal Alchemist and Death Note — because a Story used to be *the
+owner's choice, case by case*, and the choice made for a manga shelf was to track the run
+rather than judge the work. One rule replaced that: **a Story is what you would give a score
+to**. This is the one-off that moves the owner's rows onto it.
+
+```sh
+pnpm convert:runs --dry-run    # read the library, print the plan, write nothing
+pnpm convert:runs              # convert the five runs, and strike the hand-made Slam Dunk Path
+```
+
+It presses `mergeSeriesIntoOneStory` five times, so the five lines become five works and the
+Path the owner minted as a workaround for a Want goes with them. **It refuses the whole run
+while any narrative it would collapse carries a Reading or a Rating** — today that count is
+zero, and the guard is what keeps this safe the day it is actually run. Every Volume, every
+Acquisition and every completeness ledger is untouched: the shelf does not move.
+
+It is a script rather than a migration on purpose — the gesture it presses is a verb and not
+SQL, a migration would run itself on a deploy nobody was watching, and nothing here is schema.
+[`db/convert/README.md`](db/convert/README.md) is the argument and the rehearsal.
+
 ## Going live
 
 **The application is one container and the cluster is a second repository.** The code

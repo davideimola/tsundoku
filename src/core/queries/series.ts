@@ -258,3 +258,55 @@ export async function whatAMergeWouldCollapse(
 
   return rows[0] ?? null;
 }
+
+/** One narrative of a line that a merge would carry something of the owner's across on. */
+export type NarrativeAMergeWouldCarry = {
+  id: string;
+  title: string;
+  /** How many passes went through it. */
+  readings: number;
+  /** Whether it carries a score of its own — a Rating naming no Reading. */
+  judged: boolean;
+};
+
+/**
+ * The narratives of this line that carry a Reading or a Rating, in the order their objects
+ * stand on the shelf. Empty where the line has been neither read nor judged, and for a Series
+ * the library does not know.
+ *
+ * **The merge carries these and is right to** — a pass through volume seven was a pass through
+ * the work, and `mergeSeriesIntoOneStory` moves it. This is the question asked by whoever is
+ * about to run the gesture *unattended*, over five lines at once and against the live library
+ * (#44): there, carrying is exactly what must not happen quietly, because a Reading moved onto
+ * a work is a claim about what the owner read that nobody watched being made. So the
+ * conversion reads this first and refuses the whole run while it says anything at all.
+ *
+ * It answers rows rather than a count because the refusal names what stopped it. *Nothing was
+ * converted* is only useful beside *Slam Dunk 7 has been read*, which is the one sentence that
+ * tells the owner where to look.
+ */
+export async function whatAMergeWouldCarry(seriesId: string): Promise<NarrativeAMergeWouldCarry[]> {
+  if (!UUID.test(seriesId)) return [];
+
+  return query<NarrativeAMergeWouldCarry>(
+    `select s.id,
+            s.title,
+            (select count(*)::int from reading r where r.story_id = s.id) as readings,
+            exists (select 1 from rating g
+                     where g.story_id = s.id and g.reading_id is null) as judged
+       from story s
+      where exists (select 1
+                      from volume_story vs
+                      join volume v on v.id = vs.volume_id
+                     where vs.story_id = s.id and v.series_id = $1)
+        and (exists (select 1 from reading r where r.story_id = s.id)
+             or exists (select 1 from rating g where g.story_id = s.id))
+      order by (select min(v.series_number)
+                  from volume_story vs
+                  join volume v on v.id = vs.volume_id
+                 where vs.story_id = s.id and v.series_id = $1),
+               lower(s.title),
+               s.id`,
+    [seriesId]
+  );
+}
