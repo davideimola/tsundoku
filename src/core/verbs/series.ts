@@ -812,6 +812,29 @@ export async function mergeSeriesIntoOneStory(
       () => "What you meant to read of this line could not be pointed at one Story."
     );
 
+    // A pin names a Story since #40, and one pin per Story, so the same rule as the Want and
+    // for a sharper reason: the pin cascades. Left alone, the delete at the foot of this
+    // transaction would take the owner's own order off the front of their list **silently** —
+    // the one thing a gesture that only changes what is judged must not do. The most recent
+    // pin is kept, which is what migration 0010 decided when two routes offered one Story: a
+    // pin is the act of saying *this next*, so the later one is the standing decision. A pin
+    // on a *position of the line* is another subject entirely — the shopping half names an
+    // object and no narrative — and nothing here touches it.
+    await refusing(
+      () =>
+        run(
+          `with gone as (
+             delete from reading_list_pin where story_id = any($2::uuid[]) returning pinned_at
+           ), kept as (
+             select max(pinned_at) as pinned_at from gone
+           )
+           insert into reading_list_pin (story_id, pinned_at)
+           select $1, pinned_at from kept where pinned_at is not null`,
+          [work, collapsing]
+        ),
+      () => "What you pinned of this line could not be pointed at one Story."
+    );
+
     // A second Series that named one of these narratives comes to name the work: two ledgers
     // over one narrative is what the arrow is for, and leaving it would have let the delete
     // below silently empty it (`on delete set null`).
