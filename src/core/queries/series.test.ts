@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { releaseVolume } from "../verbs/collection.ts";
+import { setRating } from "../verbs/rating.ts";
+import { recordReading } from "../verbs/reading.ts";
 import {
   declareSeries,
   declareSeriesCollected,
@@ -16,6 +18,7 @@ import {
   listMissingVolumes,
   listSeries,
   listVolumesOutsideASeries,
+  whatAMergeWouldCarry,
   whatAMergeWouldCollapse,
 } from "./series.ts";
 
@@ -354,5 +357,65 @@ describe("what a merge would collapse", () => {
   it("answers nothing at all for a Series the library does not know", async () => {
     expect(await whatAMergeWouldCollapse("00000000-0000-4000-8000-000000000000")).toBeNull();
     expect(await whatAMergeWouldCollapse("banana")).toBeNull();
+  });
+});
+
+// What a merge would carry (#44). The merge itself moves a Reading and a Rating onto the
+// work and is right to; this is the question a *conversion* asks before it runs unattended
+// over the whole library, where the answer has to be *nothing* for the run to be lossless.
+describe("what a merge would carry", () => {
+  /** Three tankōbon of one line, each standing for a narrative of its own. */
+  async function aLineOfThree(): Promise<{ series: string; narratives: string[] }> {
+    const series = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 3,
+      status: "concluded",
+    });
+    const objects = await own(series, "Slam Dunk", [1, 2, 3]);
+    const narratives: string[] = [];
+    for (const [index, volume] of objects.entries()) {
+      narratives.push(
+        await createStoryCarriedBy({ title: `Slam Dunk ${index + 1}`, typeId: "manga" }, volume)
+      );
+    }
+    return { series, narratives };
+  }
+
+  it("says nothing at all for a line nobody has read or judged", async () => {
+    const { series } = await aLineOfThree();
+
+    expect(await whatAMergeWouldCarry(series)).toEqual([]);
+  });
+
+  it("names the narrative a pass went through, and how many passes there were", async () => {
+    const { series, narratives } = await aLineOfThree();
+    await recordReading({ storyId: narratives[1], medium: "paper", provenanceId: "remembered" });
+    await recordReading({
+      storyId: narratives[1],
+      medium: "digital",
+      provenanceId: "remembered",
+      outcome: "finished",
+    });
+
+    expect(await whatAMergeWouldCarry(series)).toEqual([
+      { id: narratives[1], title: "Slam Dunk 2", readings: 2, judged: false },
+    ]);
+  });
+
+  it("names the narrative that carries a score, in the order the objects stand on the shelf", async () => {
+    const { series, narratives } = await aLineOfThree();
+    await setRating({ storyId: narratives[2], score: 9, provenanceId: "remembered" });
+    await recordReading({ storyId: narratives[0], medium: "paper", provenanceId: "remembered" });
+
+    expect(await whatAMergeWouldCarry(series)).toEqual([
+      { id: narratives[0], title: "Slam Dunk 1", readings: 1, judged: false },
+      { id: narratives[2], title: "Slam Dunk 3", readings: 0, judged: true },
+    ]);
+  });
+
+  it("answers nothing for a Series the library does not know", async () => {
+    expect(await whatAMergeWouldCarry("00000000-0000-4000-8000-000000000000")).toEqual([]);
+    expect(await whatAMergeWouldCarry("banana")).toEqual([]);
   });
 });
