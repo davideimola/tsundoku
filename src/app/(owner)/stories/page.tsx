@@ -388,6 +388,11 @@ function Band({ state, stories }: { state: StoryState; stories: WallStory[] }) {
               // Borrowed off the first Volume that carries it: a Story is a narrative and has
               // no ISBN of its own, so the jacket it wears is an object's (ADR-0001, #32).
               image={story.cover}
+              // And what the tile says about that borrowing (#34). A work carried by several
+              // objects is faced out of a stack, so the jacket reads as the first volume of a
+              // run rather than as the work itself; the count is not printed here, because
+              // *how many* is answered on the Story's own page.
+              objects={story.carriedBy}
             />
           </li>
         ))}

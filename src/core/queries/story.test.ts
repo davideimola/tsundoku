@@ -483,8 +483,41 @@ describe("the Story wall", () => {
         // case and not a gap (ADR-0013). What a jacket is borrowed from is asserted in
         // `queries/cover.test.ts`, beside the fragment that resolves it.
         cover: null,
+        // One object, which is the ordinary case and the tile the wall has always drawn.
+        carriedBy: 1,
       },
     ]);
+  });
+
+  // **What the borrowed jacket has to say out loud** (#34). A Story is a run across as many
+  // objects as it spans, and the jacket the tile wears is volume one's — so a tile drawn
+  // identically for a twenty-volume run and for a work carried by one Volume claims the object
+  // *is* the work. The count is what lets the tile say it is faced with the first of several;
+  // nothing
+  // prints it, which is why the wall does not need a second question to get it.
+  it("counts the objects carrying it, so a run can be faced as a run", async () => {
+    const { storyId } = await carriedBy("Slam Dunk", "Slam Dunk");
+    for (const number of [2, 3]) {
+      const volumeId = await volumeInTheHouse({
+        title: `Slam Dunk ${number}`,
+        publisher: "Star Comics",
+        binding: "tankobon",
+        language: "it",
+      });
+      await recordVolumeCarriesStory(volumeId, storyId);
+    }
+
+    expect((await listStoryWall()).map((story) => story.carriedBy)).toEqual([3]);
+  });
+
+  // Nothing carries it, and that is an ordinary answer rather than a gap: read digitally,
+  // borrowed, or known only from a history (ADR-0001). Nought and one are the same tile —
+  // there is no run to say anything about — and they are two different facts, so the query
+  // answers with the number rather than with a boolean the screen would have to trust.
+  it("counts nought objects for a Story no Volume carries", async () => {
+    await createStory({ title: "Sapiens", typeId: "non-fiction" });
+
+    expect((await listStoryWall())[0].carriedBy).toBe(0);
   });
 
   // The ordinary case, not a gap: being read and being owned are unrelated facts

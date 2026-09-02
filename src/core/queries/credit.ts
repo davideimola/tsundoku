@@ -3,6 +3,7 @@ import "server-only";
 import { query } from "../db.ts";
 import type { FacedWith } from "./cover.ts";
 import {
+  HOW_MANY_OBJECTS_CARRY_IT,
   STORY_STATE,
   type StoryState,
   THE_COVER_IT_IS_FACED_OUT_WITH,
@@ -131,6 +132,15 @@ export type CreditedStory = {
   series: WallSeries | null;
   /** The jacket an object carrying it is faced with, or `null` — the drawn tile. */
   cover: FacedWith | null;
+  /**
+   * How many objects carry it, which is what tells the tile whether that borrowed jacket
+   * stands for one object or for a run (#34).
+   *
+   * The fourth of the Story wall's own facts, here for the reason the other three are: a wall
+   * of somebody's work is the same tile, and a run drawn as a stack on `/stories` and as a
+   * single object here would be one narrative claiming two things.
+   */
+  carriedBy: number;
 };
 
 /** One person, split by whether the owner has actually read the thing. */
@@ -178,7 +188,8 @@ const CREDITED_STORY = `
                      limit 1),
     'state', ${STORY_STATE},
     'series', ${THE_LINE_IT_STANDS_IN},
-    'cover', ${THE_COVER_IT_IS_FACED_OUT_WITH}
+    'cover', ${THE_COVER_IT_IS_FACED_OUT_WITH},
+    'carriedBy', ${HOW_MANY_OBJECTS_CARRY_IT}
   )`;
 
 // The two lists, which differ by one word. `whetherRead` is `exists` for what went

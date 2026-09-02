@@ -268,6 +268,23 @@ export const THE_LINE_IT_STANDS_IN = `
     order by lower(se.name), se.edition_line nulls first, se.id
     limit 1)`;
 
+// How many objects carry the narrative.
+//
+// One fragment, because three questions ask it for two different reasons and none of them is
+// allowed a second answer: the walls that lay a Story out as a tile read it to know whether one
+// is facing a **run** (see `THE_COVER_IT_IS_FACED_OUT_WITH` below), and the strike list reads it
+// to say what a strike would take with the Story. It names the Story `s`, like every fragment
+// here.
+//
+// Nought is an ordinary answer and not a gap (ADR-0001): a Story read digitally, borrowed, or
+// known only from a history is carried by nothing at all.
+//
+// Exported for the reason the two fragments below it are: a person's body of work is a wall of
+// the same tile (`queries/credit.ts`), so it asks the same question, and a Story that read as a
+// run on one wall and as a single object on the next would be the tile saying two things.
+export const HOW_MANY_OBJECTS_CARRY_IT = `
+  (select count(*)::int from volume_story vs where vs.story_id = s.id)`;
+
 // Which of a Story's Volumes lends it a jacket, when several could.
 //
 // **A Story has no cover of its own, because a Story is not an object** (ADR-0001). *Slam
@@ -280,6 +297,16 @@ export const THE_LINE_IT_STANDS_IN = `
 // page stands those same objects up in — one fragment, in `queries/collection.ts`, because a
 // jacket picked in one order beside a shelf drawn in another would be a page disagreeing with
 // itself.
+//
+// **The borrowing is unchanged, and what changed is that the tile now says it is borrowed**
+// (#34). That merge made a Story a run across many objects, and volume one's jacket carries a
+// volume number and one edition's design — so a wall that drew a twenty-volume run and a
+// work carried by one Volume identically had the tile claiming *this object is the work*. It is
+// still the
+// right picture: it is how the owner recognises *Slam Dunk*, and a drawn substitute would be a
+// downgrade. What the tile needed was not another image but the count beside it
+// (`HOW_MANY_OBJECTS_CARRY_IT`), so that where a Story spans several objects the jacket is
+// faced out of a stack rather than on its own. No number is printed; the stack is the fact.
 export const THE_COVER_IT_IS_FACED_OUT_WITH = `
   (select ${THE_COVER_IT_IS_FACED_WITH}
      from volume_story vs
@@ -505,6 +532,20 @@ export type WallStory = {
    * decided in one place — see `THE_COVER_IT_IS_FACED_OUT_WITH`.
    */
   cover: FacedWith | null;
+  /**
+   * **How many objects carry the Story**, which is what tells the tile whether the jacket it
+   * is wearing stands for one object or for a run (#34).
+   *
+   * Not a figure the tile prints. `Cover` spends its one number on the score, and *how many
+   * objects* is answered properly on the Story's own page under *Volumes carrying it*; what
+   * the wall does with this is draw the borrowed jacket out of a stack where there is more
+   * than one, so a twenty-volume run and a work carried by one Volume stop being the same
+   * picture.
+   *
+   * Nought and one are the same tile — there is no run to say anything about — and they are
+   * still two different facts, so this is the count and not a boolean.
+   */
+  carriedBy: number;
 };
 
 /**
@@ -551,7 +592,8 @@ export async function listStoryWall(filter: StoryWallFilter = {}): Promise<WallS
        derived.state,
        ${LATEST_SCORE} as "latestScore",
        ${THE_LINE_IT_STANDS_IN} as series,
-       ${THE_COVER_IT_IS_FACED_OUT_WITH} as cover
+       ${THE_COVER_IT_IS_FACED_OUT_WITH} as cover,
+       ${HOW_MANY_OBJECTS_CARRY_IT} as "carriedBy"
      from story s
      join type t on t.id = s.type_id
      ${STATE_ONCE}
@@ -610,7 +652,7 @@ export async function listStoriesNothingHasHappenedTo(): Promise<StoryNothingHas
        s.id,
        s.title,
        jsonb_build_object('id', t.id, 'name', t.name) as type,
-       (select count(*)::int from volume_story vs where vs.story_id = s.id) as "carriedBy",
+       ${HOW_MANY_OBJECTS_CARRY_IT} as "carriedBy",
        (select count(*)::int from credit c where c.story_id = s.id) as credits
      from story s
      join type t on t.id = s.type_id

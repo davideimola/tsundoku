@@ -135,6 +135,10 @@ function Work({ story }: { story: CreditedStory }) {
         detail={storyDetail(story)}
         foot={<StoryScore of={story.latestScore} />}
         image={story.cover}
+        // A run is faced as a run here too (#34): this is the Story wall's tile, and a
+        // narrative drawn as a stack there and as a single object here would be the same
+        // borrowed jacket claiming two different things.
+        objects={story.carriedBy}
       />
       <p className="mt-1.5">
         <StoryStateLabel state={story.state} />

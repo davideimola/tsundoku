@@ -272,6 +272,11 @@ export default async function StoryPage({
               detail={storyDetail(story)}
               foot={<StoryScore of={story.latestScore} />}
               image={story.cover}
+              // The same tile the wall was tapped on, stack and all, so arriving here is
+              // arriving at the thing that was tapped. It counts the carriers this page is
+              // already holding rather than asking a second time: `Carriers` below stands
+              // those same objects up, and one fact read twice is one fact that can disagree.
+              objects={carriedBy.length}
             />
           </div>
 

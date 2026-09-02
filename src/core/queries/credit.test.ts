@@ -132,6 +132,7 @@ describe("everything read by one Credit", () => {
           state: "read",
           series: null,
           cover: null,
+          carriedBy: 0,
         },
         {
           id: noir,
@@ -146,6 +147,7 @@ describe("everything read by one Credit", () => {
           state: "abandoned",
           series: null,
           cover: null,
+          carriedBy: 0,
         },
       ],
       notRead: [
@@ -159,6 +161,7 @@ describe("everything read by one Credit", () => {
           state: "to-read",
           series: null,
           cover: null,
+          carriedBy: 0,
         },
       ],
     });
@@ -203,6 +206,11 @@ describe("everything read by one Credit", () => {
     expect(person?.notRead[0]?.cover).toMatchObject({
       url: "https://books.google.com/books/content?id=njT&img=1&zoom=5",
     });
+    // And how many objects that jacket was borrowed from, which is the fourth fact the tile
+    // is drawn from (#34): one object here, so the tile is the plain one. It is read off the
+    // same fragment the Story wall reads, so a run cannot be a stack there and a single
+    // object on this wall.
+    expect(person?.notRead[0]?.carriedBy).toBe(1);
   });
 
   it("carries both roles where the same person held both", async () => {
