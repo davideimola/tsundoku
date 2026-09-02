@@ -39,13 +39,14 @@ import { listOpenWants } from "./want.ts";
 //     next one. That is what makes *three Marvel stories and then a DC one* expressible at
 //     all: what stands behind the next stop has to be visible before it can be pinned (#40).
 //     A route that is exhausted or put aside is simply absent;
-//   - **every run the owner is in the middle of**, which is `listRunsInProgress` from
-//     `queries/story.ts` — a Story with an open pass and somewhere left to go, naming the
-//     Instalment that comes next (#43). It is the case this whole tracker started from:
-//     *Slam Dunk* collected, twenty published and twenty on the shelf, so the ledger below
-//     has nothing to say about it, and without a hand-made Path the run stood nowhere at
-//     all. **Starting it is the only signal** — no route minted for something that was never
-//     a route, and no flag on the Series;
+//   - **every run with somewhere left to go**, which is `listRunsInProgress` from
+//     `queries/story.ts` — a Story that declares Instalments and is neither read nor
+//     abandoned, naming the Instalment that comes next (#43). It is the case this whole
+//     tracker started from: *Slam Dunk* collected, twenty published and twenty on the shelf,
+//     so the ledger below has nothing to say about it — it names what is **missing** — and
+//     without a hand-made Path the run stood nowhere at all. **The run is the whole signal**:
+//     no route minted for something that was never a route, no flag on the Series, and no
+//     Want required, so a work owned whole and never opened stands here at nought of twenty;
 //   - **the next missing Volume of every Series being collected**, which is
 //     `listMissingVolumes` from `queries/series.ts` — and *being collected* is the owner's
 //     deliberate decision, never derived from what is on the shelf.
@@ -113,16 +114,19 @@ export type ReadingListRoute = {
 };
 
 /**
- * The run an entry is the next part of: where the pass stands, and what to read next.
+ * The run an entry is the next part of: how much of it has been read, and what to read next.
  *
  * The fraction is the Story's own `HowFarItGot` and not a shape of this file's, so the row and
  * the Story's own page say *7 of 20* in the same words — `howFarItGot` in
- * `app/(owner)/stories/readings.ts` is the wording, and there is one of it.
+ * `app/(owner)/stories/readings.ts` is the wording, and there is one of it. A run nobody has
+ * opened says *0 of 20* here where the Story's page says nothing at all, and that is the one
+ * place the two part: the page answers *where am I in this pass*, and there is no pass, where
+ * this answers *what do I read next*, which nought of twenty answers perfectly well.
  */
 export type ReadingListRun = {
-  /** *Seven of twenty*: how far the pass the owner is on has got, in the work's own units. */
+  /** *Seven of twenty*: how much of the work has been read, in the work's own units. */
   howFarItGot: HowFarItGot;
-  /** The Instalment that comes next — one past where the pass stands. */
+  /** The Instalment that comes next — one past what has been read, so an unopened run is at 1. */
   nextInstalment: number;
 };
 
@@ -159,12 +163,12 @@ export type ReadingListReason = {
   /** The route this stop is on, with the owner's own words about it. Null otherwise. */
   path: ReadingListRoute | null;
   /**
-   * The run this is the next part of, and where the pass stands in it. Null on every other
+   * The run this is the next part of, and how much of it has been read. Null on every other
    * reason.
    *
    * It is the only reason that names something **inside** the Story rather than a record
-   * beside it, because a run in progress is not a thing the owner keeps anywhere: it is the
-   * open pass, read as a fraction (#43).
+   * beside it, because a run is not a thing the owner keeps anywhere: it is the work counted
+   * against what has been read of it (#43).
    */
   run: ReadingListRun | null;
   /** The Series this object would complete, and which position of it is next. Null otherwise. */
@@ -254,8 +258,8 @@ export type ReadingList = {
   head: ReadingListEntry[];
   /**
    * Everything else, in an order nobody maintains: the newest Want first, then the routes in
-   * the owner's order of routes and each route's stops in its own order, then the runs the
-   * owner is in the middle of, then the Series by name.
+   * the owner's order of routes and each route's stops in its own order, then the runs with
+   * somewhere left to go, then the Series by name.
    *
    * **Do not read a place in it as a ranking.** It is deliberately unordered, and the moment
    * an order matters the owner pins the row, which moves it to the head.
@@ -317,12 +321,12 @@ export async function composeReadingList(): Promise<ReadingList> {
     });
   }
 
-  // Then the runs in progress, which are what the owner is already in the middle of. After
-  // the routes because a route is an order they decided and a run is one they merely began,
-  // and before the ledger because both of those are things to *read* where the ledger is a
-  // thing to buy. A run that is **wanted** as well merges into that row rather than opening a
-  // second — one Story is one row, however many reasons put it there — and it never meets a
-  // route's stop, because a route offers what is `to-read` and a run is a pass that is open.
+  // Then the runs with somewhere left to go, which are the works the owner has not finished.
+  // After the routes because a route is an order they decided and a run is only a work
+  // standing unfinished, and before the ledger because both of those are things to *read*
+  // where the ledger is a thing to buy. A run that is **wanted**, or that stands on a route,
+  // merges into that row rather than opening a second: one Story is one row, however many
+  // reasons put it there.
   for (const run of runs) {
     row(rows, { kind: "story", id: run.story.id }, run.story).reasons.push(
       reason({

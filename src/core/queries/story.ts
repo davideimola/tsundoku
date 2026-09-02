@@ -598,27 +598,34 @@ export async function listStoriesNothingHasHappenedTo(): Promise<StoryNothingHas
   );
 }
 
-// **A run the owner is in the middle of**, which is the fourth source the Reading list
-// composes from (#43, user stories 30 and 31).
+// **A run with somewhere left to go**, which is the fourth source the Reading list composes
+// from (#43, user stories 14, 30 and 31).
 //
 // The case this exists for is the one that started the whole tracker: *Slam Dunk* collected,
 // twenty published and twenty on the shelf, so the Series source — which names what is
 // **missing** — has nothing to say about it, and without a hand-made Path the run was
-// invisible. **A Story with an open pass that has somewhere left to go is itself the
-// signal**: no route minted for something that was never a route, no flag on the Series, and
-// nothing copied by hand.
+// invisible. **The run itself is the signal**: no route minted for something that was never a
+// route, no flag on the Series, no Want required and nothing copied by hand. A work the owner
+// owns whole and has not opened is the plainest case of it, not an exception to it — user
+// story 14 asks for exactly that row, and after the conversion (#46) *Slam Dunk* is a
+// serialized Story with no pass at all.
 //
-// It is a Story question and lives here for that reason: what a run is, how far the pass got
-// and what comes next are facts about the narrative and its Readings. The Reading list asks
-// it, lays it beside the other three and adds the objects (`queries/reading-list.ts`).
+// It is a Story question and lives here for that reason: what a run is, how far a pass got and
+// what comes next are facts about the narrative and its Readings. The Reading list asks it,
+// lays it beside the other three and adds the objects (`queries/reading-list.ts`).
 
 /** One run in progress: the work, where the pass stands, and the part that comes next. */
 export type RunInProgress = {
   story: { id: string; title: string; type: StoryType };
   /**
-   * *Seven of twenty*, and it is never `null` here — a run is in this list because a pass is
-   * open on it and the work declares a count, which is exactly the two absences that make the
-   * Story's own `howFarItGot` nothing.
+   * *Seven of twenty*, and it is never `null` here.
+   *
+   * **It parts from the Story's own `howFarItGot` in one case, deliberately.** There, a work
+   * nobody has opened answers `null`, because how far it got is a fact about a **pass** and
+   * there is no pass — the Story's page is answering *where am I*. Here the question is *what
+   * do I read next*, which a work with no pass answers perfectly well: nought of twenty, and
+   * the first part. The denominator is the work's own and is there whether or not anybody has
+   * opened it.
    */
   howFarItGot: HowFarItGot;
   /**
@@ -632,23 +639,24 @@ export type RunInProgress = {
 };
 
 /**
- * **Every run the owner is in the middle of that has somewhere left to go.**
+ * **Every run with somewhere left to go.**
  *
  * Three conditions, and each of them is a sentence rather than a rule of this file's own:
  *
  *   - the work is a **run** — it declares Instalments, which most Stories do not, and a Story
  *     with no parts to be at is not something to carry on with;
- *   - a pass is **open** on it, which is `STORY_STATE` reading `reading` and nothing new. A
- *     pass that finished contributes nothing, and so does one that was abandoned: the owner
- *     closed it, and being told to carry on with a book they gave up on is the recommendation
- *     this list exists not to make;
+ *   - the owner has **not closed it**, which is `STORY_STATE` and nothing new: `to-read` and
+ *     `reading` both contribute, and `read` and `abandoned` do not. A pass that finished says
+ *     the run is done, and one that was abandoned says the owner gave up — being told to
+ *     carry on with either is the recommendation this list exists not to make;
  *   - it has **somewhere left to go**. A pass standing at the last Instalment is still open —
  *     finishing is a separate act (`verbs/reading.ts`) — and there is nothing left to read.
  *
- * A work nobody has opened is **absent**, and that is the deliberate half: *wholly unread* is
- * not *at nought*, because how far it got is a fact about a pass and there is no pass. What
- * puts an unread run on the Reading list is a **Want**, which is the source that costs
- * nothing (`queries/want.ts`).
+ * **A work nobody has opened contributes**, and that is the half the whole tracker exists for
+ * (user story 14). *Slam Dunk* owned whole and unread is invisible to the Series source, which
+ * names what is missing and finds nothing; requiring a pass — or a Want — would leave it
+ * invisible. It reads *nought of twenty*, and what it asks for is starting rather than
+ * carrying on.
  *
  * By title, like every other list here: the order is not an opinion this query was asked for.
  */
@@ -657,7 +665,9 @@ export async function listRunsInProgress(): Promise<RunInProgress[]> {
     // The pass's number is read once, laterally, and both the fraction and what comes next
     // are built out of it — the same shape `listStoryWall` derives the state in when it both
     // reports it and narrows by it. Two copies of the pick would be two answers to *where am
-    // I*, and the second would be the one that is wrong.
+    // I*, and the second would be the one that is wrong. `coalesce` is what makes a work with
+    // no pass at all an ordinary member of this list rather than a case: nobody has finished
+    // an Instalment of it, so nought is the true number.
     `select
        jsonb_build_object(
          'id', s.id,
@@ -675,7 +685,7 @@ export async function listRunsInProgress(): Promise<RunInProgress[]> {
        select coalesce(${THE_INSTALMENT_THE_CURRENT_PASS_REACHED}, 0) as at_instalment
      ) pass
     where s.instalments is not null
-      and (${STORY_STATE}) = 'reading'
+      and (${STORY_STATE}) in ('to-read', 'reading')
       and pass.at_instalment < s.instalments
     order by lower(s.title), s.id`
   );

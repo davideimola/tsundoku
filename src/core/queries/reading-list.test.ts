@@ -283,12 +283,12 @@ describe("what a Want puts on the list", () => {
   });
 });
 
-// **A run in progress**, which is the fourth source (#43, user stories 30 and 31) and the case
-// that started the tracker. *Slam Dunk* is collected, twenty published and twenty on the shelf,
-// so the Series source — which names what is **missing** — has nothing to say about it, and
-// without the hand-made Path the run was invisible. A Story with an open pass that has
-// somewhere left to go is itself the signal.
-describe("what a run in progress puts on the list", () => {
+// **A run with somewhere left to go**, which is the fourth source (#43, user stories 14, 30 and
+// 31) and the case that started the tracker. *Slam Dunk* is collected, twenty published and
+// twenty on the shelf, so the Series source — which names what is **missing** — has nothing to
+// say about it, and without the hand-made Path the run was invisible. The run itself is the
+// signal: no route minted for it, no flag on the line, and no Want required.
+describe("what a run puts on the list", () => {
   /** *Slam Dunk*: twenty Instalments, wholly on the shelf, and a pass that has read seven. */
   async function slamDunk(): Promise<string> {
     const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
@@ -332,6 +332,7 @@ describe("what a run in progress puts on the list", () => {
   it("needs no Path minted for it, and no Series marked as anything", async () => {
     const storyId = await slamDunk();
     await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 3 });
+    expect(storyId).toBeTruthy();
 
     expect((await reserve()).map(called)).toEqual(["Slam Dunk"]);
 
@@ -345,24 +346,39 @@ describe("what a run in progress puts on the list", () => {
     expect(collected).toBe("0");
   });
 
-  it("is reachable while wholly owned and wholly unread, and by a Want rather than a route", async () => {
-    // The *Slam Dunk* case at its worst: nothing missing, so the ledger is silent, and no
-    // pass, so the run is not in progress either. A Want costs one row and puts it there.
+  it("shows a run owned whole and wholly unread, which nothing else names", async () => {
+    // The case the whole tracker exists for (user story 14). Nothing is missing, so the
+    // ledger is silent; nobody has opened it, so there is no pass; and no route was ever
+    // minted for it. The run is the only signal there is, and it is enough.
     const storyId = await slamDunk();
 
-    expect(await reserve()).toEqual([]);
+    const [entry] = await reserve();
+
+    expect(why(entry)).toEqual(["run"]);
+    expect(entry.story?.title).toBe("Slam Dunk");
+    expect(entry.subject).toEqual({ kind: "story", id: storyId });
+    expect(entry.reasons[0].run).toEqual({
+      howFarItGot: { atInstalment: 0, instalments: 20 },
+      nextInstalment: 1,
+    });
+  });
+
+  it("stays one row when the owner wants it too, and then when they start it", async () => {
+    const storyId = await slamDunk();
 
     await openWant(storyId);
-    expect((await reserve()).map(why)).toEqual([["want"]]);
+    const wanted = await reserve();
+    expect(wanted).toHaveLength(1);
+    expect(why(wanted[0])).toEqual(["want", "run"]);
 
-    // And the moment the owner opens it the Want falls quiet by itself, with the run taking
-    // it over: one row throughout, and the owner maintained nothing to make that true.
+    // And the moment the owner opens it the Want falls quiet by itself, with the run left
+    // saying where they are: one row throughout, and nothing was maintained to make it so.
     await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 1 });
 
-    const rows = await reserve();
-    expect(rows).toHaveLength(1);
-    expect(why(rows[0])).toEqual(["run"]);
-    expect(rows[0].reasons[0].run?.nextInstalment).toBe(2);
+    const started = await reserve();
+    expect(started).toHaveLength(1);
+    expect(why(started[0])).toEqual(["run"]);
+    expect(started[0].reasons[0].run?.nextInstalment).toBe(2);
   });
 
   it("merges into the row a Want already stands on rather than opening a second", async () => {

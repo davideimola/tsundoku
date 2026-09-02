@@ -639,12 +639,13 @@ describe("the Story, faced as its own page draws it", () => {
   });
 });
 
-// **A run in progress**, which is the fourth source of the Reading list (#43, user stories
-// 30 and 31). The signal is the pass and nothing else: no Path minted for the run, no flag on
-// the Series, nothing copied by hand. What this answers is *which works is the owner in the
-// middle of, and where next* — and it is derived from the same pick the Story's own page
-// reads, so a page saying *7 of 20* and a list saying *read 9 next* cannot both be right.
-describe("a run the owner is in the middle of", () => {
+// **A run with somewhere left to go**, which is the fourth source of the Reading list (#43,
+// user stories 14, 30 and 31). The run itself is the signal: no Path minted for it, no flag on
+// the Series, no Want required, nothing copied by hand. What this answers is *which runs is
+// the owner not done with, and where next* — and it is derived from the same pick the Story's
+// own page reads, so a page saying *7 of 20* and a list saying *read 9 next* cannot both be
+// right.
+describe("a run with somewhere left to go", () => {
   /** *Slam Dunk*: twenty Instalments, and a pass that has finished seven of them. */
   async function atSevenOfTwenty(): Promise<string> {
     const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
@@ -670,7 +671,7 @@ describe("a run the owner is in the middle of", () => {
     ]);
   });
 
-  it("stands at nought and points at the first where the pass has finished none", async () => {
+  it("stands at nought and points at the first where an open pass has finished none", async () => {
     const storyId = await createStory({ title: "Berserk", typeId: "manga", instalments: 42 });
     await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
 
@@ -723,12 +724,19 @@ describe("a run the owner is in the middle of", () => {
     expect(await listRunsInProgress()).toEqual([]);
   });
 
-  it("says nothing about a work nobody has opened, however many Instalments it declares", async () => {
-    await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
+  it("names a run nobody has opened at all, which is the Slam Dunk case", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
 
-    // Wholly unread is not *at nought*: how far it got is a fact about a pass, and there is
-    // no pass. What puts an unread run on the list is a Want.
-    expect(await listRunsInProgress()).toEqual([]);
+    // The row the whole tracker exists for (user story 14). Owned whole and unread, it is
+    // invisible to the Series source — which names what is *missing*, and nothing is — so
+    // requiring a pass, or a Want, would leave it invisible. Nought of twenty, start at one.
+    expect(await listRunsInProgress()).toEqual([
+      {
+        story: { id: storyId, title: "Slam Dunk", type: { id: "manga", name: "Manga" } },
+        howFarItGot: { atInstalment: 0, instalments: 20 },
+        nextInstalment: 1,
+      },
+    ]);
   });
 
   it("says nothing about a Story that declares no Instalments, open pass or not", async () => {

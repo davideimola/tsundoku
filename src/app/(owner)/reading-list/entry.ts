@@ -19,8 +19,8 @@ import { howFarItGot } from "../stories/readings";
 // **A row carries several reasons now** (#40): one Story is one row however many reasons put
 // it there, so the four questions below read across `reasons` rather than off a single
 // filled half. **The readers at the top stay three, and the fourth source is why that is not
-// an omission**: a run in progress names no record beside the Story (#43) — it is the open
-// pass read as a fraction — so what it says is *7 of 20 read*, and there is nothing for a
+// an omission**: a run names no record beside the Story (#43) — it is the work counted against
+// what has been read of it — so what it says is *7 of 20 read*, and there is nothing for a
 // reader to fetch and nothing for the sentence to link to. The three readers at the top are what keep every one of them, and both
 // screens, asking the same way.
 
@@ -93,10 +93,10 @@ export function reasonSaid(reason: ReadingListReason): ReasonSaid {
     // `howFarItGot` is the one wording of *seven of twenty* in this application (#37), spent
     // here rather than written again, so a row and the page it opens cannot say two numbers.
     //
-    // The verb is the judgement. A pass that has finished nothing is *0 of 20* — a
-    // measurement, because there is a pass — and what it asks for is **starting**; anything
-    // above nought asks for **carrying on**. One word, and it is the difference between the
-    // list describing the shelf and the list telling the owner what to do next.
+    // The verb is the judgement. Nothing read is *0 of 20* — a work owned whole and never
+    // opened, or a pass that has finished none of it — and what it asks for is **starting**;
+    // anything above nought asks for **carrying on**. One word, and it is the difference
+    // between the list describing the shelf and the list telling the owner what to do next.
     const { howFarItGot: far, nextInstalment } = reason.run;
 
     return {

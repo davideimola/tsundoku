@@ -140,8 +140,8 @@ describe("why a row is on the list", () => {
   });
 
   it("says a run nothing has been read of yet as a start rather than a continuation", () => {
-    // An open pass that has finished none is *0 of 20*, which is a measurement, and the act
-    // it asks for is starting rather than carrying on.
+    // Nothing read is *0 of 20* — a work owned whole and never opened, or a pass that has
+    // finished none of it — and the act it asks for is starting rather than carrying on.
     expect(
       reasonSaid(
         reason({
