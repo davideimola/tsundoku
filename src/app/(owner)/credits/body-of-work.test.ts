@@ -23,6 +23,7 @@ function story(title: string, roles: { id: string; name: string }[], readings = 
     state: readings === 0 ? "to-read" : "read",
     series: null,
     cover: null,
+    carriedBy: 1,
   };
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { type Tint, UNWORN, WORN, worn } from "@/lib/tint";
 import { cn } from "@/lib/utils";
+import { PILE } from "./mark";
 
 // THE COVER, which is what a library looks like when it is faced outwards.
 //
@@ -47,6 +48,59 @@ import { cn } from "@/lib/utils";
 //      number would answer it on some tiles and not others. So the number sits on a strip of
 //      the page's own ground over the jacket — tokens, not a colour of this file's.
 
+// **And a Story turned out to be a run** (#34). The jacket is still borrowed off the first
+// Volume carrying the narrative (`THE_COVER_IT_IS_FACED_OUT_WITH` in `@/core/queries/story`)
+// and that has not changed: volume one's cover is how the owner recognises *Slam Dunk*, and a
+// stylised substitute would be a downgrade. What was wrong was not the picture but the tile's
+// **claim** — a twenty-volume run and a work carried by one Volume were drawn identically, so
+// the jacket read as *this object is the work* rather than as *a run, faced with its first
+// volume*. So a
+// tile standing for several objects is faced out of a stack; see `THE_RUN_BEHIND_IT`.
+
+/** How wide the edge of the Volume nearest the jacket is, in pixels. */
+const NEAREST_EDGE = 4;
+
+/** How much of each edge is tucked under the one in front of it, so none of them floats. */
+const TUCKED_UNDER = 1;
+
+/**
+ * **What is behind a tile standing for a run**: the edges of the other Volumes the jacket is
+ * the front of, showing past its right-hand side.
+ *
+ * Drawn from the mark's own pile (`./mark`), because the application's mark *is* three spines
+ * askew and a run behind a jacket had no business being a second, unrelated shape — an offset
+ * card with a shadow under it is precisely what this deliberately is not. Two things are taken
+ * from it rather than chosen here: the **tilts**, so a stack on a wall lies askew in the
+ * degrees the logo already does, and the **proportion** of the widths, wider nearer the front.
+ *
+ * The pile's widest spine is **the jacket**, and it is the one that stands square: a wall of
+ * tilted covers is a broken wall, so the askewness belongs to what is behind the tile being
+ * read. Which leaves the two narrower spines as the two edges — read off the widths rather
+ * than off positions in the array, because the mark's own wall (`./mark.test.ts`) pins the
+ * geometry and says nothing about the order it is written in.
+ *
+ * Two of them, for the reason the mark is three: counting the jacket, three is the smallest
+ * number that reads as a pile rather than as a pair. It says nothing about **how many** objects
+ * there are and is not meant to — the tile spends its one figure on the score, and the count is
+ * answered on the Story's own page under *Volumes carrying it*.
+ */
+const THE_RUN_BEHIND_IT = (() => {
+  const [, ...narrower] = [...PILE].sort((one, other) => other.width - one.width);
+  const nearest = narrower[0];
+
+  return narrower.map((spine, behind) => ({
+    key: spine.y,
+    /** In the pile's own proportion, the wider spine nearer the jacket. */
+    width: `${((spine.width / nearest.width) * NEAREST_EDGE).toFixed(2)}px`,
+    /** How far past the jacket's edge it shows, which is its width less what is tucked under. */
+    right: `-${(NEAREST_EDGE - TUCKED_UNDER) * (behind + 1)}px`,
+    /** Shorter than the jacket, and each one shorter than the last: a pile is not a diagram. */
+    inset: `${(behind + 1) * 4}%`,
+    /** The pile's own degrees, about the edge's own centre. */
+    rotate: `${spine.tilt}deg`,
+  }));
+})();
+
 export function Cover({
   href,
   title,
@@ -54,6 +108,7 @@ export function Cover({
   foot,
   detail,
   image,
+  objects = 1,
 }: {
   /**
    * Where the tile leads, or nothing at all where it leads nowhere.
@@ -86,6 +141,20 @@ export function Cover({
    * three answers to one question.
    */
   image?: { url: string } | null;
+  /**
+   * **How many objects this tile stands for**, which decides whether it is faced out of a
+   * stack (#34).
+   *
+   * One by default, and a Volume is always one object — so the Collection's walls pass nothing
+   * and are drawn exactly as they were. A Story is what may be several: nought or one is the
+   * plain tile, because there is no run to say anything about, and anything more is a run
+   * faced with its first volume (`THE_RUN_BEHIND_IT`).
+   *
+   * A count rather than a flag because the count is what the caller has — the wall reads it
+   * off the query, the Story's page counts the carriers it is already holding — and a boolean
+   * here would only be that comparison written twice.
+   */
+  objects?: number;
 }) {
   const faced = image ? (
     <>
@@ -144,15 +213,11 @@ export function Cover({
     tint ? WORN : UNWORN
   );
 
-  if (!href) {
-    return (
-      <span title={detail} aria-label={detail} style={worn(tint)} className={shape} role="img">
-        {drawn}
-      </span>
-    );
-  }
-
-  return (
+  const tile = !href ? (
+    <span title={detail} aria-label={detail} style={worn(tint)} className={shape} role="img">
+      {drawn}
+    </span>
+  ) : (
     <Link
       href={href}
       // Twice, because a tooltip is a pointer's affordance and this library is read on a
@@ -175,5 +240,42 @@ export function Cover({
     >
       {drawn}
     </Link>
+  );
+
+  // One object is the tile and nothing else, which is most of this library: twenty-four of
+  // its thirty-one Stories are carried by a single Volume, and none of them gains a pixel.
+  if (objects <= 1) return tile;
+
+  // A run, faced with its first volume. The edges are **siblings of the tile rather than
+  // anything inside it** — the tile clips its own contents so the jacket cannot spill, and
+  // what is behind the jacket has to show past that edge. They are painted first and the
+  // positioned tile follows in document order, which is what puts them behind it without a
+  // z-index; the hover lift then takes the jacket off the pile it is standing on, which is
+  // the gesture and not a second decoration. The tint travels on the wrapper, so the edges
+  // are the same colour as the tile by inheriting it rather than by asking again.
+  return (
+    <span className="relative block" style={worn(tint)}>
+      {THE_RUN_BEHIND_IT.map((edge) => (
+        <span
+          key={edge.key}
+          // Decoration of a fact the tile already carries: the accessible name is `detail`,
+          // and *how many objects* is a sentence on the Story's own page rather than a thing
+          // to announce three times on a wall.
+          aria-hidden="true"
+          style={{
+            width: edge.width,
+            right: edge.right,
+            top: edge.inset,
+            bottom: edge.inset,
+            rotate: edge.rotate,
+          }}
+          className={cn(
+            "pointer-events-none absolute rounded-sm border border-border",
+            tint ? WORN : UNWORN
+          )}
+        />
+      ))}
+      {tile}
+    </span>
   );
 }

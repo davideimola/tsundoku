@@ -69,8 +69,13 @@ export function bandName(state: StoryState): string {
  * Story wall faces them outwards as covers and the dashboard stacks them as a pile (#24), and
  * a second copy of this would be two descriptions of one Story depending on which screen the
  * pointer was over.
+ *
+ * It asks for the three fields it reads rather than for a whole `WallStory`, because four
+ * shapes are drawn as this tile now — the wall's, the dashboard's, the Story's own page and a
+ * person's body of work — and a sentence about a title, a Type and a line has no business
+ * requiring the rest of any of them.
  */
-export function storyDetail(story: WallStory): string {
+export function storyDetail(story: Pick<WallStory, "title" | "type" | "series">): string {
   const line = story.series
     ? [story.series.name, story.series.editionLine].filter(Boolean).join(", ")
     : null;

@@ -117,6 +117,11 @@ export default async function Home() {
                     detail={storyDetail(story)}
                     foot={story.type.name}
                     image={story.cover}
+                    // The wall's tile says whether the jacket is the front of a run (#34),
+                    // and this is the wall's tile: a Story in hand that is drawn as one
+                    // object here and as a stack one screen away would be two claims about
+                    // the same narrative.
+                    objects={story.carriedBy}
                   />
                 </li>
               ))}
