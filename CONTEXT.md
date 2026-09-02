@@ -159,6 +159,16 @@ an ordinary Story, and where a line prints one part per Volume — every manga o
 the numbering simply **follows the volumes**, so volume 7 is instalment 7 and nobody types
 anything. Ranges are written by hand only where one object collects many, which is the omnibus
 and very nearly nothing else.
+**How many parts a work has follows the line too**, for the same reason and not because the two
+facts are one: where exactly one **Series** names the Story and has published more than nought
+Volumes, the count *is* that number and stays at it as the line grows — an ongoing line gains
+volumes, and the work gains parts. Nought published is *the owner never filled it in* rather
+than *no parts*, and such a work declares nothing at all. What keeps the printing's count and
+the narrative's from collapsing into one is that **the owner's word ends the following**:
+correcting the count by hand — or taking the numbering off — makes the number theirs, and no
+line moves it again. Two Series naming one Story stop the following as well, because which of
+two ledgers a work takes its length from is not something this library decides for them
+(ADR-0017).
 A **Volume covers a range of them**, which is what lets the library say which parts of a work
 are in the house even when the objects come from different editions.
 _Avoid_: chapter and issue — each names one medium's unit and this model holds both. Also
@@ -226,11 +236,18 @@ being a list kept by hand. A route
 contributes **everything still ahead on it** and not merely its next stop, because what stands
 behind that stop has to be visible before it can be pinned: that is what makes *three Marvel
 stories and then a DC one* sayable rather than only nameable. A **run** contributes the
-**Instalment** that comes next for as long as it has somewhere left to go: *the run is the whole
-signal*, so *Slam Dunk* — collected, twenty published and twenty on the shelf, which the Series
-source has nothing to say about because nothing is missing — stands on the list with no route
-minted for it, no flag on its line and no **Want** needed, at *nought of twenty* until the owner
-opens it. It leaves the list by itself, the way a Want falls quiet: a **Reading** that finished
+**Instalment** that comes next for as long as it has somewhere left to go **and it is either all
+on the shelf or the owner has begun it**: *the run is the whole signal*, so *Slam Dunk* —
+collected, twenty published and twenty on the shelf, which the Series source has nothing to say
+about because nothing is missing — stands on the list with no route minted for it, no flag on
+its line and no **Want** needed, at *nought of twenty* until the owner opens it. That condition
+is what keeps the list a list once the count of Instalments **follows the line** and nearly
+every work with a ledger behind it declares parts: *Berserk* at two of forty-three is a line the
+owner owns a corner of and has said nothing about, and it waits until they own it whole or open
+it. Nothing else is asked for — no flag to fill in, and whether the owner means to complete the
+line says nothing about whether tonight's reading is in the house. *All on the shelf* is read
+against the line's own count published, so a ledger nobody has filled in cannot claim it. It
+leaves the list by itself, the way a Want falls quiet: a **Reading** that finished
 it or that the owner abandoned takes it off, and so does a pass that has reached the last part.
 It is
 **deliberately unordered**, sorted by a rule nobody maintains (the newest Want first, then the
