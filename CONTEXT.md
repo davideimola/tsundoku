@@ -143,7 +143,10 @@ is one work whether it is printed as the standard edition or as the Ultimate Del
 makes a volume joining the line attach to the work that is already there instead of minting a
 twenty-first narrative. It states **what the line prints** and never whether it was any good,
 so the ledger stays a ledger.
-_Avoid_: collection — that word is taken, and means the shelf. Also: run, line, saga.
+_Avoid_: collection — that word is taken, and means the shelf. Also: line, saga — and **run**
+*for the ledger itself*: a run is the serialized **Story** a line prints, which is the word the
+Reading list uses for one the owner is in the middle of (#43). *The twenty tankōbon* are the
+Series; *Slam Dunk* is the run.
 
 **Instalment**:
 One numbered part of a **Story** that was serialized: *Ultimate Spider-Man* #1…#160, *Slam

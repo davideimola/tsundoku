@@ -18,9 +18,10 @@ import { howFarItGot } from "../stories/readings";
 //
 // **A row carries several reasons now** (#40): one Story is one row however many reasons put
 // it there, so the four questions below read across `reasons` rather than off a single
-// filled half. A run in progress is the one reason that names no record beside the Story
-// (#43): it is the open pass read as a fraction, so what it says is *7 of 20 read* and there
-// is nothing for it to link to. The three readers at the top are what keep every one of them, and both
+// filled half. **The readers at the top stay three, and the fourth source is why that is not
+// an omission**: a run in progress names no record beside the Story (#43) — it is the open
+// pass read as a fraction — so what it says is *7 of 20 read*, and there is nothing for a
+// reader to fetch and nothing for the sentence to link to. The three readers at the top are what keep every one of them, and both
 // screens, asking the same way.
 
 /** The Want that put this entry here, where one did. */
@@ -96,12 +97,10 @@ export function reasonSaid(reason: ReadingListReason): ReasonSaid {
     // measurement, because there is a pass — and what it asks for is **starting**; anything
     // above nought asks for **carrying on**. One word, and it is the difference between the
     // list describing the shelf and the list telling the owner what to do next.
-    const start = reason.run.howFarItGot.atInstalment === 0;
+    const { howFarItGot: far, nextInstalment } = reason.run;
 
     return {
-      said: `${howFarItGot(reason.run.howFarItGot)} read — ${start ? "start" : "carry on"} at ${
-        reason.run.nextInstalment
-      }`,
+      said: `${howFarItGot(far)} read — ${far.atInstalment === 0 ? "start" : "carry on"} at ${nextInstalment}`,
       // It names no record, because a run is not one: it is the open pass, read as a
       // fraction, and the Story the tile already leads to is where it is kept.
       names: null,
