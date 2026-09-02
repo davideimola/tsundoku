@@ -56,6 +56,14 @@ import { PILE } from "./mark";
 // the jacket read as *this object is the work* rather than as *a run, faced with its first
 // volume*. So a
 // tile standing for several objects is faced out of a stack; see `THE_RUN_BEHIND_IT`.
+//
+// **And an object turned out to be several works.** The other direction of the same borrowing,
+// and the wall was wrong in it for longer: an omnibus holds tales that are judged apart —
+// `CONTEXT.md` says so of *Batman: L'uomo che ride* — every one of them borrows the object's
+// picture, and a faced tile printed no title, only the score. So the Loeb/Sale omnibus stood
+// on the wall as seven identical jackets and there was nothing on any of them to say which
+// tale it was. The picture is right and stays: it is how the owner recognises the book. What
+// a shared jacket grows is **the words back**, in a band across its foot; see `Fascetta`.
 
 /** How wide the edge of the Volume nearest the jacket is, in pixels. */
 const NEAREST_EDGE = 4;
@@ -108,6 +116,7 @@ export function Cover({
   foot,
   detail,
   image,
+  narratives = 1,
   objects = 1,
 }: {
   /**
@@ -142,6 +151,19 @@ export function Cover({
    */
   image?: { url: string } | null;
   /**
+   * **How many narratives wear this jacket**, which decides whether the tile has to print its
+   * own title over it.
+   *
+   * One by default, and a Volume's jacket is always its own — so the Collection's walls pass
+   * nothing and are drawn exactly as they were. A Story is what may share: an omnibus is one
+   * object holding several works judged apart, they all borrow its picture, and a faced tile
+   * that printed no title drew the same book six times with nothing to tell the tiles apart.
+   *
+   * A count rather than a flag, for `objects`' reason: the count is what the caller reads off
+   * the query, and a boolean here would only be this comparison written somewhere else.
+   */
+  narratives?: number;
+  /**
    * **How many objects this tile stands for**, which decides whether it is faced out of a
    * stack (#34).
    *
@@ -156,6 +178,10 @@ export function Cover({
    */
   objects?: number;
 }) {
+  // A jacket that is only this narrative's is the tile as it was. One shared with the other
+  // works in the same object is the one case a picture cannot answer, so the words come back.
+  const shared = narratives > 1;
+
   const faced = image ? (
     <>
       {/* biome-ignore lint/performance/noImgElement: ADR-0013 - `next/image` would fetch and
@@ -171,11 +197,22 @@ export function Cover({
         // What page the owner is looking at is not the source's business. It does not hide
         // which book was asked for - that is the URL - but it hands over nothing else.
         referrerPolicy="no-referrer"
-        className="absolute inset-0 size-full object-cover"
+        className={cn(
+          "absolute inset-0 size-full object-cover",
+          // Held to its head where a band is coming, because the band is what the foot of the
+          // jacket would otherwise be: a centred crop under one loses the logo and the run's
+          // name off the top to keep a strip of colour that is about to be covered.
+          shared && "object-top"
+        )}
       />
-      <span className="relative mt-auto self-center rounded-sm bg-background/85 px-1.5 py-0.5 text-center font-mono text-xs tabular-nums text-foreground">
-        {foot}
-      </span>
+
+      {shared ? (
+        <Fascetta title={title} foot={foot} tint={tint} />
+      ) : (
+        <span className="relative mt-auto self-center rounded-sm bg-background/85 px-1.5 py-0.5 text-center font-mono text-xs tabular-nums text-foreground">
+          {foot}
+        </span>
+      )}
     </>
   ) : null;
 
@@ -276,6 +313,55 @@ export function Cover({
         />
       ))}
       {tile}
+    </span>
+  );
+}
+
+/**
+ * **The band across the foot of a shared jacket**, carrying the narrative's title and the one
+ * figure the tile spends.
+ *
+ * Not a caption and not a tooltip: a *fascetta*, the printed band an Italian publisher wraps
+ * round a book — an *obi* on a tankōbon — which exists for precisely this reason, that the
+ * cover is the object's and the words that tell this printing from the last are somebody
+ * else's to add. It is the honest claim where a picture cannot make one: *this narrative is in
+ * that book*, rather than *this narrative is that book*.
+ *
+ * **In the Series' own tint**, not on the page's ground. The strip the score sits on when a
+ * jacket is the Story's own is deliberately neutral chrome over somebody else's image; this
+ * is the tile speaking about what it holds, and the one colour this application has belongs
+ * to the library (`@/lib/tint`). It inherits the two properties off the tile rather than
+ * asking for them again, so a band can never be a different colour from the tile it is on.
+ *
+ * **It bleeds to the tile's edges** — the negative margins undo the tile's own padding —
+ * because a band inset on three sides is a label stuck on a cover, and this is the cover.
+ *
+ * Two lines and then clipped, the reason the drawn tile clamps at five: a title still starts
+ * with the word the owner is looking for, and a band that grew to four lines would eat the
+ * jacket it is meant to be telling apart.
+ */
+function Fascetta({
+  title,
+  foot,
+  tint,
+}: {
+  title: string;
+  foot: React.ReactNode;
+  tint: Tint | null;
+}) {
+  return (
+    <span
+      className={cn(
+        "relative -mx-2.5 -mb-2.5 mt-auto flex items-end gap-2 border-t border-border px-2 py-1.5",
+        tint ? WORN : UNWORN
+      )}
+    >
+      <span className="line-clamp-2 min-w-0 flex-1 text-pretty font-heading text-xs font-medium leading-tight">
+        {title}
+      </span>
+      {/* The figure keeps the foot it has everywhere else — same face, same tabular figures —
+          so a run of tiles is still read by running a finger down one column of numbers. */}
+      <span className="shrink-0 font-mono text-xs tabular-nums">{foot}</span>
     </span>
   );
 }

@@ -307,14 +307,48 @@ export const HOW_MANY_OBJECTS_CARRY_IT = `
 // downgrade. What the tile needed was not another image but the count beside it
 // (`HOW_MANY_OBJECTS_CARRY_IT`), so that where a Story spans several objects the jacket is
 // faced out of a stack rather than on its own. No number is printed; the stack is the fact.
-export const THE_COVER_IT_IS_FACED_OUT_WITH = `
-  (select ${THE_COVER_IT_IS_FACED_WITH}
+// **Which object lends the jacket**, picked once and asked two things.
+//
+// It was inside the cover fragment until the sharing had to be counted as well
+// (`HOW_MANY_NARRATIVES_WEAR_THAT_JACKET` below), and the pick could not be written twice:
+// a count taken off one object while the picture came off another is a tile saying *six
+// others wear this* about a jacket none of them wear. So the pick is the fragment, and the
+// two questions are asked of its answer. It names the Story `s`, like every fragment here.
+export const THE_VOLUME_THAT_LENDS_THE_JACKET = `
+  (select v.id
      from volume_story vs
      join volume v on v.id = vs.volume_id
     where vs.story_id = s.id
       and (v.own_image_url is not null or v.cover_url is not null)
     ${THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN}
     limit 1)`;
+
+export const THE_COVER_IT_IS_FACED_OUT_WITH = `
+  (select ${THE_COVER_IT_IS_FACED_WITH}
+     from volume v
+    where v.id = ${THE_VOLUME_THAT_LENDS_THE_JACKET})`;
+
+// **How many narratives wear that jacket**, which is the fact that was missing and the
+// inverse of `HOW_MANY_OBJECTS_CARRY_IT` above.
+//
+// #34 answered one work across many objects: the jacket is faced out of a stack, so a run
+// stops claiming to be one book. **This is the other direction and it went unanswered**: an
+// omnibus is one object holding several works judged apart — `CONTEXT.md` names *Batman:
+// L'uomo che ride* and its three tales — and each of them borrows the same picture. A faced
+// tile prints no title, so the wall drew the Loeb/Sale omnibus seven times and the owner
+// could not tell which tile was *Il lungo Halloween*. The tile it produces is the one place
+// on a wall of covers where the words have to come back (`@/components/cover`).
+//
+// Read off the object rather than off the Story, because the sharing is the object's: what
+// makes two tiles indistinguishable is that one book lent them both its face.
+//
+// **One is the ordinary answer and nought is a real one** — a Story no faced object carries
+// is the drawn tile, which already says its own title — so this is the count and not a flag,
+// exactly as the count of carriers is.
+export const HOW_MANY_NARRATIVES_WEAR_THAT_JACKET = `
+  (select count(*)::int
+     from volume_story vs
+    where vs.volume_id = ${THE_VOLUME_THAT_LENDS_THE_JACKET})`;
 
 // The Rating shape, as a subquery builds it. `score` leaves as a double rather than as
 // `numeric`, which the driver would hand over as a string.
@@ -442,6 +476,13 @@ export type FoundStory = Story & {
   latestScore: number | null;
 };
 
+// **What this page deliberately does not read is the sharing of the jacket**
+// (`HOW_MANY_NARRATIVES_WEAR_THAT_JACKET`), and it is the one place a Story is drawn without
+// it. The band exists to answer *which of these is which* on a wall of tiles wearing one
+// picture; here there is one tile, and the title is set beside it at three times the size.
+// It is also 80 pixels wide at this end of the page, where a band clips a title mid-word to
+// repeat the heading. A marking that says nothing is not consistency.
+
 export async function findStory(storyId: string): Promise<FoundStory | null> {
   if (!UUID.test(storyId)) return null;
 
@@ -546,6 +587,15 @@ export type WallStory = {
    * still two different facts, so this is the count and not a boolean.
    */
   carriedBy: number;
+  /**
+   * **How many narratives wear this tile's jacket**, which is what tells the tile whether the
+   * picture it is wearing is its own (#34's inverse, `HOW_MANY_NARRATIVES_WEAR_THAT_JACKET`).
+   *
+   * One is ordinary and nought is the drawn tile. Anything more is an object holding several
+   * works, so several tiles on this wall carry the same picture and nothing else — and that is
+   * the one case where a faced tile has to print its title.
+   */
+  wornBy: number;
 };
 
 /**
@@ -593,7 +643,8 @@ export async function listStoryWall(filter: StoryWallFilter = {}): Promise<WallS
        ${LATEST_SCORE} as "latestScore",
        ${THE_LINE_IT_STANDS_IN} as series,
        ${THE_COVER_IT_IS_FACED_OUT_WITH} as cover,
-       ${HOW_MANY_OBJECTS_CARRY_IT} as "carriedBy"
+       ${HOW_MANY_OBJECTS_CARRY_IT} as "carriedBy",
+       ${HOW_MANY_NARRATIVES_WEAR_THAT_JACKET} as "wornBy"
      from story s
      join type t on t.id = s.type_id
      ${STATE_ONCE}

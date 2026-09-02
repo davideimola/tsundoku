@@ -24,6 +24,7 @@ function story(title: string, roles: { id: string; name: string }[], readings = 
     series: null,
     cover: null,
     carriedBy: 1,
+    wornBy: 1,
   };
 }
 

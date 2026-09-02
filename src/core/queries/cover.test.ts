@@ -160,3 +160,79 @@ describe("the jacket a Story wears on the wall", () => {
     expect((await findStory(story))?.cover).toMatchObject({ url: A_COVER });
   });
 });
+
+// **How many narratives wear that jacket**, which is the other direction of the same
+// borrowing and the one the wall was wrong in: an omnibus holds several works judged apart,
+// they all borrow its picture, and a faced tile printed no title — so seven tales stood on
+// the wall as seven identical jackets. The count is what tells a tile to print its own title
+// over the picture (`@/components/cover`).
+//
+// It is asserted here rather than beside the wall for the reason the jacket is: the question
+// is about which object lends the face, and the two are read off one pick.
+describe("how many narratives wear that jacket", () => {
+  /** One object, faced, carrying each of the titles named. */
+  async function anOmnibus(titles: string[], cover: string | null = A_COVER) {
+    const volume = await volumeInTheHouse({
+      title: "Batman di Jeph Loeb e Tim Sale 1",
+      publisher: "Panini Comics",
+      binding: "omnibus",
+      language: "it",
+    });
+    if (cover) await looked(volume, cover);
+
+    for (const title of titles) {
+      await recordVolumeCarriesStory(volume, await createStory({ title, typeId: "comic" }));
+    }
+
+    return volume;
+  }
+
+  it("counts the works in the object the jacket came off", async () => {
+    await anOmnibus(["Il lungo Halloween", "Vittoria oscura", "Catwoman: A Roma"]);
+
+    expect((await listStoryWall()).map((story) => story.wornBy)).toEqual([3, 3, 3]);
+  });
+
+  // The ordinary case, and the tile nobody touched: a book that holds one work lends its face
+  // to that work alone, so the picture answers on its own and no band is drawn over it.
+  it("counts one where the object holds one work, which is the tile as it was", async () => {
+    await anOmnibus(["Il lungo Halloween"]);
+
+    expect((await listStoryWall())[0].wornBy).toBe(1);
+  });
+
+  // Nought, and it is an answer rather than a gap — the same shape `carriedBy` takes. A Story
+  // no faced object carries is the drawn tile, which prints its own title already, so there is
+  // nothing for a band to add and no object to count the works of.
+  it("counts nought where no object faces it, which is the drawn tile", async () => {
+    await anOmnibus(["Il lungo Halloween"], null);
+
+    expect((await listStoryWall())[0].wornBy).toBe(0);
+  });
+
+  // **It is counted on the object that lent the face, not on every object carrying the
+  // Story**, which is the whole reason the pick is a fragment of its own. A work that spans a
+  // faceless volume and then an omnibus wears the omnibus' jacket, so what it shares is that
+  // book's other tales — counting over its own carriers would have it saying *two others wear
+  // this* about a picture only one book has.
+  it("counts the works in the object that lent the face, not in every carrier", async () => {
+    const story = await createStory({ title: "Il lungo Halloween", typeId: "comic" });
+    const single = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      binding: "paperback",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(single, story);
+
+    const omnibus = await anOmnibus(["Vittoria oscura"]);
+    await recordVolumeCarriesStory(omnibus, story);
+
+    const wall = await listStoryWall();
+    const halloween = wall.find((one) => one.title === "Il lungo Halloween");
+
+    // Carried by two objects, faced by the one of them that has a jacket, and sharing that
+    // jacket with the one other tale in it.
+    expect(halloween).toMatchObject({ carriedBy: 2, wornBy: 2 });
+  });
+});

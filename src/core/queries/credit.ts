@@ -3,6 +3,7 @@ import "server-only";
 import { query } from "../db.ts";
 import type { FacedWith } from "./cover.ts";
 import {
+  HOW_MANY_NARRATIVES_WEAR_THAT_JACKET,
   HOW_MANY_OBJECTS_CARRY_IT,
   STORY_STATE,
   type StoryState,
@@ -141,6 +142,15 @@ export type CreditedStory = {
    * single object here would be one narrative claiming two things.
    */
   carriedBy: number;
+  /**
+   * How many narratives wear that jacket, which is what tells the tile whether the picture is
+   * its own — the fifth of the wall's facts, and here for the reason the other four are.
+   *
+   * A person's body of work is where an omnibus shows up hardest: four of the tales Jeph Loeb
+   * wrote are in one book, so without this the band under his name is the same picture four
+   * times.
+   */
+  wornBy: number;
 };
 
 /** One person, split by whether the owner has actually read the thing. */
@@ -189,7 +199,8 @@ const CREDITED_STORY = `
     'state', ${STORY_STATE},
     'series', ${THE_LINE_IT_STANDS_IN},
     'cover', ${THE_COVER_IT_IS_FACED_OUT_WITH},
-    'carriedBy', ${HOW_MANY_OBJECTS_CARRY_IT}
+    'carriedBy', ${HOW_MANY_OBJECTS_CARRY_IT},
+    'wornBy', ${HOW_MANY_NARRATIVES_WEAR_THAT_JACKET}
   )`;
 
 // The two lists, which differ by one word. `whetherRead` is `exists` for what went

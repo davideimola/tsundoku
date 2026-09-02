@@ -133,6 +133,7 @@ describe("everything read by one Credit", () => {
           series: null,
           cover: null,
           carriedBy: 0,
+          wornBy: 0,
         },
         {
           id: noir,
@@ -148,6 +149,7 @@ describe("everything read by one Credit", () => {
           series: null,
           cover: null,
           carriedBy: 0,
+          wornBy: 0,
         },
       ],
       notRead: [
@@ -162,6 +164,7 @@ describe("everything read by one Credit", () => {
           series: null,
           cover: null,
           carriedBy: 0,
+          wornBy: 0,
         },
       ],
     });
@@ -211,6 +214,11 @@ describe("everything read by one Credit", () => {
     // same fragment the Story wall reads, so a run cannot be a stack there and a single
     // object on this wall.
     expect(person?.notRead[0]?.carriedBy).toBe(1);
+    // And how many works wear that jacket, which is the fifth: one, so the picture is this
+    // narrative's own and the tile keeps the jacket whole. Off the same fragment again — an
+    // omnibus that banded its tales on `/stories` and drew them bare under the name of the
+    // person who wrote them would be one wall contradicting the other.
+    expect(person?.notRead[0]?.wornBy).toBe(1);
   });
 
   it("carries both roles where the same person held both", async () => {

@@ -485,6 +485,9 @@ describe("the Story wall", () => {
         cover: null,
         // One object, which is the ordinary case and the tile the wall has always drawn.
         carriedBy: 1,
+        // And nothing faces it, so no jacket is shared and there is nothing to count the
+        // works of. The sharing is asserted beside the borrowing, in `queries/cover.test.ts`.
+        wornBy: 0,
       },
     ]);
   });
