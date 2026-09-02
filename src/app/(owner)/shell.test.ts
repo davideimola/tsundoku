@@ -8,6 +8,7 @@ import {
   DESTINATIONS,
   NAVIGATION,
   ON_THE_BAR,
+  THE_DOOR,
   THE_FINDER,
 } from "./navigation";
 
@@ -23,11 +24,14 @@ import {
 //   1. **The map and the routes agree, in both directions.** Every destination is a
 //      screen that exists, and every screen is reachable from the chrome. The second half
 //      is the one that matters: it is what makes adding a screen and forgetting the
-//      navigation a failing test instead of a dead end nobody meets for a month. There is
-//      exactly one screen reached by something other than a line in the map — the finder
-//      (#25) — and it is named in `./navigation` as `THE_FINDER` rather than waved through
-//      here, so that a second exception has to be argued for in the module the shell reads
-//      instead of added to a list in a test.
+//      navigation a failing test instead of a dead end nobody meets for a month. Two
+//      screens are reached by something other than a line in the map — the finder (#25)
+//      and the door (#45) — and each is named in `./navigation`, as `THE_FINDER` and
+//      `THE_DOOR`, rather than waved through here, so that a third exception has to be
+//      argued for in the module the shell reads instead of added to a list in a test.
+//      They are a pair and they are the whole of the exception: one asks the library what
+//      it holds, the other tells it something new, and neither is a question the sections
+//      are grouped by.
 //   2. **The phone is a partition, chosen rather than truncated.** Four destinations are
 //      worth opening away from the desk; the rest are behind the fifth tab. Both halves
 //      are read off the same map, so a route cannot exist at one width and not the other,
@@ -77,7 +81,9 @@ describe("the map and the routes agree", () => {
 
   // The half that earns the file. A screen nothing links to is a screen nobody opens.
   it("carries a line for every screen in the group", () => {
-    const linked = new Set([...DESTINATIONS, THE_FINDER].map((destination) => destination.href));
+    const linked = new Set(
+      [...DESTINATIONS, THE_FINDER, THE_DOOR].map((destination) => destination.href)
+    );
 
     const unreachable = gated
       .map((read) => route(read.file))
@@ -143,6 +149,39 @@ describe("the finder", () => {
 
   it("marks no section while the owner is inside it", () => {
     expect(currentDestination(THE_FINDER.href)).toBeUndefined();
+  });
+});
+
+// The other one, held to the same word. The door is the act the chrome carries rather than a
+// question the map groups, so what has to be true of it is what has to be true of the finder
+// — it exists, it is not *also* a destination, and the chrome opens it at both widths — plus
+// the one thing that is its own: it stays off the bottom bar, which is four destinations.
+describe("the door", () => {
+  const shell = sourceFiles(APP).find((read) => read.file === `${GROUP}shell.tsx`);
+  const source = shell?.source ?? "";
+
+  it("is a screen that exists", () => {
+    expect(gated.map((read) => route(read.file))).toContain(THE_DOOR.href);
+  });
+
+  it("is not also a line in the map", () => {
+    expect(DESTINATIONS.map((destination) => destination.href)).not.toContain(THE_DOOR.href);
+  });
+
+  it("is opened from the chrome at the desk and on the phone", () => {
+    expect(shell).toBeDefined();
+    expect(source).toContain("<DoorAtTheDesk");
+    expect(source).toContain("<DoorOnThePhone");
+  });
+
+  // Not a fifth destination on the bar by another name: the bar is four, and the door is
+  // reached from the strip above the fold instead.
+  it("is not on the phone's bottom bar", () => {
+    expect(ON_THE_BAR.map((destination) => destination.href)).not.toContain(THE_DOOR.href);
+  });
+
+  it("marks no section while the owner is inside it", () => {
+    expect(currentDestination(THE_DOOR.href)).toBeUndefined();
   });
 });
 

@@ -7,6 +7,7 @@ import { Mark } from "@/components/mark";
 import { Button } from "@/components/ui/button";
 import { signOutOwner } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
+import { DoorAtTheDesk, DoorOnThePhone } from "./door";
 import { FinderPalette, FinderTrigger } from "./finder";
 import {
   BEHIND_MORE,
@@ -107,7 +108,12 @@ function Desk({ here, onFind }: { here: string | undefined; onFind: () => void }
         <FinderTrigger onOpen={onFind} className="ml-auto" />
       </div>
 
-      <div className="mt-8 flex-1 space-y-7 overflow-y-auto">
+      {/* The act, before the questions. It is the one filled thing in the chrome, and it
+          sits above the map rather than in it because it is not a destination — see
+          `./navigation`'s `THE_DOOR` for the argument and `./door` for the anatomy. */}
+      <DoorAtTheDesk className="mt-6" />
+
+      <div className="mt-7 flex-1 space-y-7 overflow-y-auto">
         {NAVIGATION.map((section) => (
           <div key={section.title}>
             <h2 className="px-2 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
@@ -134,17 +140,21 @@ function Desk({ here, onFind }: { here: string | undefined; onFind: () => void }
  * finder.
  *
  * It is still a strip and not a bar of controls. The navigation on a phone lives at the
- * bottom where a thumb is, and what this carries is the two affordances that have to be at
+ * bottom where a thumb is, and what this carries is the three affordances that have to be at
  * the top of a page rather than the bottom of it — the way back to the front of the
- * application, which is also the mark, and the way into the finder, which opens a field that
- * has to be above the keyboard rather than under it.
+ * application, which is also the mark; the way into the finder, which opens a field that has
+ * to be above the keyboard rather than under it; and the door, which opens a field to type a
+ * title into or a camera to point at a barcode, both of which are two-handed and both of
+ * which are above the fold. The door stays out of the bar below for the reason `./navigation`
+ * gives: that bar is four *destinations*, and a sixth slot would take every tab under the
+ * width its one word already barely fits in.
  *
  * The glyph and no key beside it: there is no `⌘` to press on a phone, and a hint about one
  * would be chrome that is only ever wrong here.
  */
 function PhoneChrome({ onFind }: { onFind: () => void }) {
   return (
-    <div className="sticky top-0 z-20 flex h-12 items-center gap-3 border-b border-border bg-background px-5 sm:gap-4 sm:px-8 lg:hidden">
+    <div className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-border bg-background px-5 sm:gap-3 sm:px-8 lg:hidden">
       <Link
         href="/"
         className={cn(
@@ -157,6 +167,7 @@ function PhoneChrome({ onFind }: { onFind: () => void }) {
       </Link>
 
       <FinderTrigger onOpen={onFind} className="ml-auto" />
+      <DoorOnThePhone />
     </div>
   );
 }

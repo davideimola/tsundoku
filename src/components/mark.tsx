@@ -20,7 +20,7 @@
 export const VIEWBOX = 24;
 
 /** How much the corners are cut. Barely: a spine is a printed edge, not a pill. */
-const CUT = 0.6;
+export const CUT = 0.6;
 
 export type Spine = {
   readonly x: number;

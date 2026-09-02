@@ -18,8 +18,11 @@
  * section whose question it answers, and if it answers none of them the section is wrong
  * rather than the screen.
  *
- * No icons, and no icon library: #19 bought none, one mark does not earn a dependency,
- * and nine destinations named in words are shorter to read than nine glyphs to learn.
+ * No icons on the destinations, and no icon library: #19 bought none, one mark does not
+ * earn a dependency, and destinations named in words are shorter to read than glyphs to
+ * learn. The two screens the chrome carries *outside* this map are the exception and are
+ * drawn rather than named — a magnifier and a spine joining the pile — because a control
+ * repeated on every screen is learned once and then only recognised.
  */
 
 export type Destination = {
@@ -61,17 +64,6 @@ export const NAVIGATION: readonly Section[] = [
   {
     title: "Owning",
     destinations: [
-      // **The one door, and it is filed under a question it only half answers** (#45). Saying
-      // *I bought it*, *I read it* and *I want to read it* reaches all three sections, so on
-      // the face of it this belongs to none of them — but the sections are three questions the
-      // owner *asks* and the door is the one place they make a *statement*, and a fourth
-      // section for it would make the sidebar claim four questions where there are three. It
-      // goes under *Owning* because that is the moment it is opened in: standing in a
-      // fumetteria with an object in one hand. It is not on the bar because the bar is four
-      // chosen destinations and swapping one out is a decision about the phone rather than a
-      // line in a list — and the Collection, which is on the bar, carries this as the first
-      // control in its hero.
-      { href: "/add", label: "Add" },
       { href: "/collection", label: "Collection", onTheBar: true },
       { href: "/series", label: "Series" },
       { href: "/wishes", label: "Wishes" },
@@ -107,6 +99,30 @@ export const NAVIGATION: readonly Section[] = [
  * screen, so the claim holds with nothing running in the browser.
  */
 export const THE_FINDER: Destination = { href: "/find", label: "Find" };
+
+/**
+ * **The door, which is the second screen in this group that is deliberately not a
+ * destination** (#45, placed here).
+ *
+ * It was a line in *Owning* for one release, and it read as a misfiling because it was one.
+ * Saying *I bought it*, *I read it* and *I want to read it* reaches all three sections at
+ * once, so the door belongs to none of them — and the reason is sharper than that. The three
+ * sections are three questions the owner **asks**: what am I in the middle of, do I have
+ * this, what needs repairing. The door is the one place they make a **statement**. A
+ * statement filed among questions is a category error, and it is what a fourth section would
+ * have made permanent.
+ *
+ * So it takes the finder's exception rather than a line of its own, and for the same reason
+ * the finder takes it: the chrome carries it on **every** screen at **both** widths, which
+ * is stronger than a line in a list. The two are a pair — the finder asks the library what
+ * it already holds, the door tells it something new — and they are the only two. A third
+ * would be an argument to have here, in this module, before it is an element in the shell.
+ *
+ * `./door` is what it looks like, and why it is the one filled control in the chrome. It is
+ * still not on the phone's bottom bar: that bar is four *destinations*, and the door is not
+ * one of them.
+ */
+export const THE_DOOR: Destination = { href: "/add", label: "Add to the library" };
 
 /** Every destination, in the order the sections give them. */
 export const DESTINATIONS: readonly Destination[] = NAVIGATION.flatMap(
