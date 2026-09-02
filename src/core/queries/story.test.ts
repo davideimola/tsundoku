@@ -3,11 +3,22 @@ import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { creditStory } from "../verbs/credit.ts";
 import { setRating } from "../verbs/rating.ts";
-import { abandonReading, finishReading, recordReading } from "../verbs/reading.ts";
+import {
+  abandonReading,
+  finishReading,
+  recordInstalmentReached,
+  recordReading,
+} from "../verbs/reading.ts";
 import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
-import { findStory, listReadStories, listStories, listStoryWall } from "./story.ts";
+import {
+  findStory,
+  listReadStories,
+  listRunsInProgress,
+  listStories,
+  listStoryWall,
+} from "./story.ts";
 
 beforeEach(async () => {
   await query("truncate story, person, volume, series cascade");
@@ -625,5 +636,145 @@ describe("the Story, faced as its own page draws it", () => {
     const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
 
     expect(await findStory(storyId)).toMatchObject({ series: null, cover: null });
+  });
+});
+
+// **A run in progress**, which is the fourth source of the Reading list (#43, user stories
+// 30 and 31). The signal is the pass and nothing else: no Path minted for the run, no flag on
+// the Series, nothing copied by hand. What this answers is *which works is the owner in the
+// middle of, and where next* — and it is derived from the same pick the Story's own page
+// reads, so a page saying *7 of 20* and a list saying *read 9 next* cannot both be right.
+describe("a run the owner is in the middle of", () => {
+  /** *Slam Dunk*: twenty Instalments, and a pass that has finished seven of them. */
+  async function atSevenOfTwenty(): Promise<string> {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
+    await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+      startedOn: "2026-01-02",
+      atInstalment: 7,
+    });
+    return storyId;
+  }
+
+  it("names the work, how far the pass got, and what comes next", async () => {
+    const storyId = await atSevenOfTwenty();
+
+    expect(await listRunsInProgress()).toEqual([
+      {
+        story: { id: storyId, title: "Slam Dunk", type: { id: "manga", name: "Manga" } },
+        howFarItGot: { atInstalment: 7, instalments: 20 },
+        nextInstalment: 8,
+      },
+    ]);
+  });
+
+  it("stands at nought and points at the first where the pass has finished none", async () => {
+    const storyId = await createStory({ title: "Berserk", typeId: "manga", instalments: 42 });
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    expect(await listRunsInProgress()).toEqual([
+      {
+        story: { id: storyId, title: "Berserk", type: { id: "manga", name: "Manga" } },
+        // Nothing read is a measurement where *nobody is reading it* is not one: the pass
+        // exists, so the fraction does.
+        howFarItGot: { atInstalment: 0, instalments: 42 },
+        nextInstalment: 1,
+      },
+    ]);
+  });
+
+  it("says nothing about a run whose pass has reached the end of the work", async () => {
+    const storyId = await createStory({ title: "Death Note", typeId: "manga", instalments: 12 });
+    const pass = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await recordInstalmentReached(pass, 12);
+
+    // Still open — finishing is a separate act — and there is nowhere left to go, so the
+    // Reading list has nothing to say about it.
+    expect(await listRunsInProgress()).toEqual([]);
+  });
+
+  it("says nothing about a run whose pass has finished, nor one that was abandoned", async () => {
+    const finished = await createStory({ title: "Pluto", typeId: "manga", instalments: 8 });
+    await finishReading(
+      await recordReading({
+        storyId: finished,
+        medium: "paper",
+        provenanceId: "remembered",
+        atInstalment: 3,
+      }),
+      "2024-02-02"
+    );
+
+    const abandoned = await createStory({ title: "Ulysses", typeId: "novel", instalments: 18 });
+    await abandonReading(
+      await recordReading({
+        storyId: abandoned,
+        medium: "digital",
+        provenanceId: "remembered",
+        atInstalment: 2,
+      }),
+      "2019-04-04"
+    );
+
+    // A pass the owner closed is not a run in progress, whichever way they closed it, and
+    // neither of these is something to be told to carry on with.
+    expect(await listRunsInProgress()).toEqual([]);
+  });
+
+  it("says nothing about a work nobody has opened, however many Instalments it declares", async () => {
+    await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
+
+    // Wholly unread is not *at nought*: how far it got is a fact about a pass, and there is
+    // no pass. What puts an unread run on the list is a Want.
+    expect(await listRunsInProgress()).toEqual([]);
+  });
+
+  it("says nothing about a Story that declares no Instalments, open pass or not", async () => {
+    const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
+    await recordReading({ storyId, medium: "digital", provenanceId: "remembered" });
+
+    // There is no run to be in the middle of. The ordinary Story is this one, and it asks
+    // nothing of anybody.
+    expect(await listRunsInProgress()).toEqual([]);
+  });
+
+  it("reads the pass the owner is on, not the furthest any pass ever reached", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
+    await abandonReading(
+      await recordReading({
+        storyId,
+        medium: "paper",
+        provenanceId: "remembered",
+        startedOn: "2019-01-01",
+        atInstalment: 19,
+      }),
+      "2019-06-01"
+    );
+    await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+      startedOn: "2026-08-01",
+      atInstalment: 2,
+    });
+
+    // A run given up at nineteen in 2019 and started again last week is at two, because the
+    // question is *where am I* — the same pick the Story's own page makes.
+    expect(await listRunsInProgress()).toMatchObject([
+      { howFarItGot: { atInstalment: 2, instalments: 20 }, nextInstalment: 3 },
+    ]);
+  });
+
+  it("stands the runs by title, which is the only order that is not an opinion", async () => {
+    await atSevenOfTwenty();
+    const other = await createStory({ title: "Berserk", typeId: "manga", instalments: 42 });
+    await recordReading({ storyId: other, medium: "paper", provenanceId: "remembered" });
+
+    expect((await listRunsInProgress()).map((run) => run.story.title)).toEqual([
+      "Berserk",
+      "Slam Dunk",
+    ]);
   });
 });

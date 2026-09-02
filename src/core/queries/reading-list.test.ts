@@ -3,7 +3,12 @@ import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { catalogueVolume, releaseVolume } from "../verbs/collection.ts";
 import { deactivatePath, definePath, placeStoriesOnPath } from "../verbs/path.ts";
-import { finishReading, recordReading } from "../verbs/reading.ts";
+import {
+  abandonReading,
+  finishReading,
+  recordInstalmentReached,
+  recordReading,
+} from "../verbs/reading.ts";
 import { pinToReadingList, unpinFromReadingList } from "../verbs/reading-list.ts";
 import { declareSeries, declareSeriesCollected, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
@@ -275,6 +280,188 @@ describe("what a Want puts on the list", () => {
     await composeReadingList();
 
     expect(await query("select story_id from want")).toEqual([{ story_id: storyId }]);
+  });
+});
+
+// **A run in progress**, which is the fourth source (#43, user stories 30 and 31) and the case
+// that started the tracker. *Slam Dunk* is collected, twenty published and twenty on the shelf,
+// so the Series source — which names what is **missing** — has nothing to say about it, and
+// without the hand-made Path the run was invisible. A Story with an open pass that has
+// somewhere left to go is itself the signal.
+describe("what a run in progress puts on the list", () => {
+  /** *Slam Dunk*: twenty Instalments, wholly on the shelf, and a pass that has read seven. */
+  async function slamDunk(): Promise<string> {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
+    const volumeId = await volumeInTheHouse({
+      title: "Slam Dunk 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(volumeId, storyId);
+    return storyId;
+  }
+
+  it("puts the run there, naming how far it got and what comes next", async () => {
+    const storyId = await slamDunk();
+    await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+      startedOn: "2026-01-02",
+      atInstalment: 7,
+    });
+
+    const [entry] = await reserve();
+
+    expect(why(entry)).toEqual(["run"]);
+    expect(entry.story?.title).toBe("Slam Dunk");
+    expect(entry.subject).toEqual({ kind: "story", id: storyId });
+    // *Carry on with Slam Dunk, you are at seven of twenty, read eight next.* The fraction
+    // is the Story's own `howFarItGot`, so the screen says it with the words the Story's
+    // page already says it in.
+    expect(entry.reasons[0].run).toEqual({
+      howFarItGot: { atInstalment: 7, instalments: 20 },
+      nextInstalment: 8,
+    });
+    expect(entry.reasons[0].want).toBeNull();
+    expect(entry.reasons[0].path).toBeNull();
+    expect(entry.reasons[0].series).toBeNull();
+  });
+
+  it("needs no Path minted for it, and no Series marked as anything", async () => {
+    const storyId = await slamDunk();
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 3 });
+
+    expect((await reserve()).map(called)).toEqual(["Slam Dunk"]);
+
+    // The criterion, as a query. Wanting to carry on used to cost a named, ordered route
+    // that could not be undefined; starting the run is now the only signal.
+    const [{ routes }] = await query<{ routes: string }>("select count(*) as routes from path");
+    expect(routes).toBe("0");
+    const [{ collected }] = await query<{ collected: string }>(
+      "select count(*) as collected from series where collecting_since is not null"
+    );
+    expect(collected).toBe("0");
+  });
+
+  it("is reachable while wholly owned and wholly unread, and by a Want rather than a route", async () => {
+    // The *Slam Dunk* case at its worst: nothing missing, so the ledger is silent, and no
+    // pass, so the run is not in progress either. A Want costs one row and puts it there.
+    const storyId = await slamDunk();
+
+    expect(await reserve()).toEqual([]);
+
+    await openWant(storyId);
+    expect((await reserve()).map(why)).toEqual([["want"]]);
+
+    // And the moment the owner opens it the Want falls quiet by itself, with the run taking
+    // it over: one row throughout, and the owner maintained nothing to make that true.
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 1 });
+
+    const rows = await reserve();
+    expect(rows).toHaveLength(1);
+    expect(why(rows[0])).toEqual(["run"]);
+    expect(rows[0].reasons[0].run?.nextInstalment).toBe(2);
+  });
+
+  it("merges into the row a Want already stands on rather than opening a second", async () => {
+    const storyId = await slamDunk();
+    await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+      startedOn: "2026-01-02",
+      atInstalment: 7,
+    });
+    // Said while already in the middle of it — *I really do mean to get through this* — so
+    // the Want stands: no Reading began after it.
+    await openWant(storyId);
+
+    const rows = await reserve();
+
+    expect(rows).toHaveLength(1);
+    expect(why(rows[0])).toEqual(["want", "run"]);
+    expect(rows[0].reasons[1].run?.howFarItGot).toEqual({ atInstalment: 7, instalments: 20 });
+  });
+
+  it("stops contributing when the pass finishes, and when it was abandoned", async () => {
+    const finished = await createStory({ title: "Pluto", typeId: "manga", instalments: 8 });
+    await finishReading(
+      await recordReading({
+        storyId: finished,
+        medium: "paper",
+        provenanceId: "remembered",
+        atInstalment: 3,
+      }),
+      "2024-02-02"
+    );
+
+    const abandoned = await createStory({ title: "Ulysses", typeId: "novel", instalments: 18 });
+    await abandonReading(
+      await recordReading({
+        storyId: abandoned,
+        medium: "digital",
+        provenanceId: "remembered",
+        atInstalment: 2,
+      }),
+      "2019-04-04"
+    );
+
+    // Either way the owner closed the pass, and being told to carry on with a book they
+    // gave up on is the recommendation this list exists not to make.
+    expect(await reserve()).toEqual([]);
+  });
+
+  it("stops contributing when the pass has reached the end of the work", async () => {
+    const storyId = await createStory({ title: "Death Note", typeId: "manga", instalments: 12 });
+    const pass = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await recordInstalmentReached(pass, 11);
+
+    expect((await reserve()).map(called)).toEqual(["Death Note"]);
+
+    await recordInstalmentReached(pass, 12);
+
+    // The pass is still open — finishing is a separate act — and there is nowhere left to
+    // go, so there is nothing left to say about it here.
+    expect(await reserve()).toEqual([]);
+  });
+
+  it("follows the object the way every other narrative row does", async () => {
+    const storyId = await slamDunk();
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 7 });
+
+    const [entry] = await reserve();
+
+    expect(entry.medium).toBe("paper");
+    expect(entry.atHand).toBe(true);
+    expect(entry.object?.title).toBe("Slam Dunk 1");
+  });
+
+  it("comes after the routes and before the ledger, which is the shopping half", async () => {
+    await angoloGiappone();
+    const storyId = await slamDunk();
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 7 });
+    const seriesId = await declareSeries({
+      name: "Death Note",
+      publisher: "Panini",
+      publishedCount: 2,
+      status: "concluded",
+    });
+    await declareSeriesCollected(seriesId);
+
+    expect((await reserve()).map(why)).toEqual([["path"], ["path"], ["run"], ["series"]]);
+  });
+
+  it("carries its reason into the head when the owner pins it", async () => {
+    const storyId = await slamDunk();
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 7 });
+
+    await pinToReadingList({ kind: "story", id: storyId });
+
+    const { head } = await composeReadingList();
+    expect(why(head[0])).toEqual(["run"]);
+    expect(head[0].reasons[0].run?.howFarItGot).toEqual({ atInstalment: 7, instalments: 20 });
   });
 });
 
