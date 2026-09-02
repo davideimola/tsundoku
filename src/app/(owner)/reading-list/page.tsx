@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Cover } from "@/components/cover";
 import { Button } from "@/components/ui/button";
 import { composeReadingList, type ReadingListEntry, theKeyOf } from "@/core/queries/reading-list";
+import type { PinnedSubject } from "@/core/verbs/reading-list";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 // The three steps a shopping list is read in, from the screen that bands by them: this
@@ -9,6 +10,15 @@ import { tint } from "@/lib/tint";
 // happen (#31).
 import { PRIORITIES } from "../wishes/shopping";
 import { pin, unpin, unwant, wishFor } from "./actions";
+import {
+  type StopBehind,
+  THE_ROUTE,
+  theAddressWith,
+  theReserveAsRows,
+  theReserveIsSaid,
+  theRoutesAskedFor,
+  type WhatStandsBehind,
+} from "./behind";
 import {
   entryDetail,
   entryFoot,
@@ -81,6 +91,13 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
 
   const refused = asked(params, "refused");
   const wished = asked(params, "wished");
+  // Which routes the owner asked to look behind — a repeated parameter, because more than one
+  // can stand open at once and putting a second away to read a first would be the screen
+  // choosing for them.
+  const shown = theRoutesAskedFor(params[THE_ROUTE]);
+  // The reserve is drawn as rows that lead and the stops standing behind them (#42), which is
+  // the screen's own judgement over a composed list and lives in `./behind`.
+  const rows = theReserveAsRows(reserve, shown);
   const composed = head.length + reserve.length;
   const tonight = [...head, ...reserve].filter((entry) => entry.atHand).length;
 
@@ -150,7 +167,13 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
             ) : (
               <ol>
                 {head.map((entry, place) => (
-                  <Entry key={theKeyOf(entry.subject)} entry={entry} place={place + 1} pinned />
+                  <Entry
+                    key={theKeyOf(entry.subject)}
+                    entry={entry}
+                    place={place + 1}
+                    pinned
+                    shown={shown}
+                  />
                 ))}
               </ol>
             )}
@@ -161,7 +184,9 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
           <Half
             label="Composed"
             count={reserve.length}
-            said={`In no order. ${tonight} of the whole list I could start tonight.`}
+            // **The count of what is put away is on the screen**, so the fold never reads as
+            // a shorter list than the one the library composed (#42).
+            said={theReserveIsSaid(tonight, reserve.length - rows.length)}
           >
             {reserve.length === 0 ? (
               <p className="max-w-prose text-pretty text-sm text-muted-foreground">
@@ -169,8 +194,14 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
               </p>
             ) : (
               <ul>
-                {reserve.map((entry) => (
-                  <Entry key={theKeyOf(entry.subject)} entry={entry} pinned={false} />
+                {rows.map((row) => (
+                  <Entry
+                    key={theKeyOf(row.entry.subject)}
+                    entry={row.entry}
+                    behind={row.behind}
+                    pinned={false}
+                    shown={shown}
+                  />
                 ))}
               </ul>
             )}
@@ -216,170 +247,322 @@ function Half({
  * One entry: what to read, every reason it is here, and the one thing to do about it.
  *
  * `place` is the ordinal, and it is passed only in the head — the reserve has no order to
- * number.
+ * number. `behind` is what stands behind this row on the routes it **leads**, and only a
+ * reserve row ever has any: a pinned row is a decision the owner already took, and hanging a
+ * route's remaining stops off it would swell the half that is meant to stay short.
  */
 function Entry({
   entry,
   place,
   pinned,
+  shown,
+  behind = [],
 }: {
   entry: ReadingListEntry;
   place?: number;
   pinned: boolean;
+  /** The routes being looked behind, carried through every form so a write does not close one. */
+  shown: string[];
+  behind?: WhatStandsBehind[];
 }) {
   const want = theWantOn(entry);
 
   return (
-    <li className="flex gap-3 border-t border-border py-4 sm:gap-5">
-      {/* The gutter carries the position in the head, because there the order *is* the
-          answer. Tabular so the column stays a column past nine. */}
-      {place === undefined ? null : (
-        <span
-          aria-hidden="true"
-          className="w-6 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-muted-foreground"
-        >
-          {String(place).padStart(2, "0")}
-        </span>
-      )}
+    <li className="border-t border-border py-4">
+      <div className="flex gap-3 sm:gap-5">
+        {/* The gutter carries the position in the head, because there the order *is* the
+            answer. Tabular so the column stays a column past nine. */}
+        {place === undefined ? null : (
+          <span
+            aria-hidden="true"
+            className="w-6 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-muted-foreground"
+          >
+            {String(place).padStart(2, "0")}
+          </span>
+        )}
 
-      {/* The object, faced outwards — the same tile as on the walls, in the same colour and
-          the same shape, so an entry is recognised by sight rather than read. A Series entry
-          nobody has catalogued an object for has no jacket to wear and is the drawn tile,
-          which is the normal case here and not a gap. */}
-      <div className="w-16 shrink-0 sm:w-20">
-        <Cover
-          href={entryLeadsTo(entry)}
-          title={entryTitle(entry)}
-          tint={tint(entryLine(entry))}
-          detail={entryDetail(entry)}
-          foot={entryFoot(entry)}
-          image={entry.object?.cover}
-        />
-      </div>
-
-      {/* The width, spent: what to read on the left and what to do about it on the right,
-          at a desk. On a phone they are one column and the act follows the prose, which is
-          the order they are read in either way. */}
-      <div className="min-w-0 flex-1 lg:flex lg:items-start lg:gap-8">
-        <div className="min-w-0 lg:flex-1">
-          <h3 className="font-heading text-lg text-balance">{entryTitle(entry)}</h3>
-
-          {/* The Type belongs to the row and not to each reason: three reasons saying
-           *Manga* three times is the same fact three times. */}
-          <p className={`mt-1 ${EYEBROW}`}>
-            {[entry.story?.type.name, entryStanding(entry)].filter(Boolean).join(" · ")}
-          </p>
-
-          {/* **Every reason it is here, and one row says all of them.** Wanted, and on two
-              routes, is three sentences under one title rather than the same book three
-              times. The owner's own words about a route are quoted only where that route is
-              actually offering this stop: a route's intent under all ten of its stops is the
-              same sentence ten times. */}
-          <ul className="mt-2 space-y-1.5">
-            {entry.reasons.map((reason) => {
-              const said = reasonSaid(reason);
-
-              return (
-                <li
-                  key={`${reason.because}:${reason.want?.id ?? reason.path?.id ?? reason.series?.id}`}
-                >
-                  <p className="text-sm">
-                    {said.said}
-                    {said.names ? (
-                      <Link
-                        href={said.names.href}
-                        className="underline underline-offset-4 hover:text-foreground"
-                      >
-                        {said.names.label}
-                      </Link>
-                    ) : null}
-                  </p>
-
-                  {reason.path?.intent && reason.path.place === 1 ? (
-                    <p className="mt-1 max-w-prose text-pretty font-serif text-prose italic text-muted-foreground">
-                      {reason.path.intent}
-                    </p>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-
-          {/* Neither on the shelf nor catalogued: there is nothing to wish for, and saying
-              so is better than an affordance that could not work. */}
-          {!entry.atHand && !entry.object ? (
-            <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-              I have not recorded this object yet, so there is nothing to wish for. Catalogue it on
-              the{" "}
-              <Link href="/collection" className="underline underline-offset-4">
-                Collection
-              </Link>{" "}
-              and it becomes something I can want.
-            </p>
-          ) : null}
+        {/* The object, faced outwards — the same tile as on the walls, in the same colour and
+            the same shape, so an entry is recognised by sight rather than read. A Series entry
+            nobody has catalogued an object for has no jacket to wear and is the drawn tile,
+            which is the normal case here and not a gap. */}
+        <div className="w-16 shrink-0 sm:w-20">
+          <Cover
+            href={entryLeadsTo(entry)}
+            title={entryTitle(entry)}
+            tint={tint(entryLine(entry))}
+            detail={entryDetail(entry)}
+            foot={entryFoot(entry)}
+            image={entry.object?.cover}
+          />
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 lg:mt-0 lg:w-64 lg:shrink-0 lg:justify-end">
-          {/* **A pin names the thing to read**, so every row can be pinned — which is what
-              makes three stops of one route, then a stop of another, sayable at all (#40).
-              The subject travels in the form exactly as the core states it. */}
-          <form action={pinned ? unpin : pin}>
-            <input type="hidden" name="kind" value={entry.subject.kind} />
-            <input type="hidden" name="id" value={entry.subject.id} />
-            {entry.subject.kind === "series" ? (
-              <input type="hidden" name="position" value={entry.subject.position} />
-            ) : null}
-            <Button type="submit" variant="ghost" size="sm" className="-ml-2.5 h-9 sm:h-8 lg:ml-0">
-              {pinned ? "Unpin" : "Pin it"}
-            </Button>
-          </form>
+        {/* The width, spent: what to read on the left and what to do about it on the right,
+            at a desk. On a phone they are one column and the act follows the prose, which is
+            the order they are read in either way. */}
+        <div className="min-w-0 flex-1 lg:flex lg:items-start lg:gap-8">
+          <div className="min-w-0 lg:flex-1">
+            <h3 className="font-heading text-lg text-balance">{entryTitle(entry)}</h3>
 
-          {/* Taking a Want back is a *strike* and reads like one: a Want the owner has not
-              acted on is still true, and nothing on this screen ticks one off — a Reading is
-              what answers it. */}
-          {want ? (
-            <form action={unwant}>
-              <input type="hidden" name="wantId" value={want.id} />
+            {/* The Type belongs to the row and not to each reason: three reasons saying
+             *Manga* three times is the same fact three times. */}
+            <p className={`mt-1 ${EYEBROW}`}>
+              {[entry.story?.type.name, entryStanding(entry)].filter(Boolean).join(" · ")}
+            </p>
+
+            {/* **Every reason it is here, and one row says all of them.** Wanted, and on two
+                routes, is three sentences under one title rather than the same book three
+                times. The owner's own words about a route are quoted only where that route is
+                actually offering this stop: a route's intent under all ten of its stops is the
+                same sentence ten times. */}
+            <ul className="mt-2 space-y-1.5">
+              {entry.reasons.map((reason) => {
+                const said = reasonSaid(reason);
+
+                return (
+                  <li
+                    key={`${reason.because}:${reason.want?.id ?? reason.path?.id ?? reason.series?.id}`}
+                  >
+                    <p className="text-sm">
+                      {said.said}
+                      {said.names ? (
+                        <Link
+                          href={said.names.href}
+                          className="underline underline-offset-4 hover:text-foreground"
+                        >
+                          {said.names.label}
+                        </Link>
+                      ) : null}
+                    </p>
+
+                    {reason.path?.intent && reason.path.place === 1 ? (
+                      <p className="mt-1 max-w-prose text-pretty font-serif text-prose italic text-muted-foreground">
+                        {reason.path.intent}
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* Neither on the shelf nor catalogued: there is nothing to wish for, and saying
+                so is better than an affordance that could not work. */}
+            {!entry.atHand && !entry.object ? (
+              <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
+                I have not recorded this object yet, so there is nothing to wish for. Catalogue it
+                on the{" "}
+                <Link href="/collection" className="underline underline-offset-4">
+                  Collection
+                </Link>{" "}
+                and it becomes something I can want.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 lg:mt-0 lg:w-64 lg:shrink-0 lg:justify-end">
+            {/* **A pin names the thing to read**, so every row can be pinned — which is what
+                makes three stops of one route, then a stop of another, sayable at all (#40).
+                The subject travels in the form exactly as the core states it. */}
+            <form action={pinned ? unpin : pin}>
+              <Subject subject={entry.subject} />
+              <RoutesShown shown={shown} />
               <Button
                 type="submit"
                 variant="ghost"
                 size="sm"
-                className="h-9 text-muted-foreground hover:text-foreground sm:h-8"
+                className="-ml-2.5 h-9 sm:h-8 lg:ml-0"
               >
-                I did not mean that
+                {pinned ? "Unpin" : "Pin it"}
               </Button>
             </form>
-          ) : null}
 
-          {/* **The proposal, as a form.** The entry proposed it; this submit is what opens
-              it. Nothing was written by rendering the row, and the priority the proposal
-              suggested is the picker's default rather than its decision. */}
-          {entry.proposedWish ? (
-            <form action={wishFor} className="flex flex-wrap items-center gap-2">
-              <input type="hidden" name="volumeId" value={entry.proposedWish.volumeId} />
-              <input type="hidden" name="title" value={entryTitle(entry)} />
-              <label className="sr-only" htmlFor={`priority-${theKeyOf(entry.subject)}`}>
-                How soon
-              </label>
-              <select
-                id={`priority-${theKeyOf(entry.subject)}`}
-                name="priority"
-                defaultValue={entry.proposedWish.priority}
-                className={PICKER}
-              >
-                {PRIORITIES.map((priority) => (
-                  <option key={priority.value} value={priority.value}>
-                    {priority.name}
-                  </option>
-                ))}
-              </select>
-              <Button type="submit" variant="outline" size="sm" className="h-9 sm:h-8">
-                Want it
-              </Button>
-            </form>
-          ) : null}
+            {/* Taking a Want back is a *strike* and reads like one: a Want the owner has not
+                acted on is still true, and nothing on this screen ticks one off — a Reading is
+                what answers it. */}
+            {want ? (
+              <form action={unwant}>
+                <input type="hidden" name="wantId" value={want.id} />
+                <RoutesShown shown={shown} />
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 text-muted-foreground hover:text-foreground sm:h-8"
+                >
+                  I did not mean that
+                </Button>
+              </form>
+            ) : null}
+
+            {/* **The proposal, as a form.** The entry proposed it; this submit is what opens
+                it. Nothing was written by rendering the row, and the priority the proposal
+                suggested is the picker's default rather than its decision. */}
+            {entry.proposedWish ? (
+              <form action={wishFor} className="flex flex-wrap items-center gap-2">
+                <input type="hidden" name="volumeId" value={entry.proposedWish.volumeId} />
+                <input type="hidden" name="title" value={entryTitle(entry)} />
+                <RoutesShown shown={shown} />
+                <label className="sr-only" htmlFor={`priority-${theKeyOf(entry.subject)}`}>
+                  How soon
+                </label>
+                <select
+                  id={`priority-${theKeyOf(entry.subject)}`}
+                  name="priority"
+                  defaultValue={entry.proposedWish.priority}
+                  className={PICKER}
+                >
+                  {PRIORITIES.map((priority) => (
+                    <option key={priority.value} value={priority.value}>
+                      {priority.name}
+                    </option>
+                  ))}
+                </select>
+                <Button type="submit" variant="outline" size="sm" className="h-9 sm:h-8">
+                  Want it
+                </Button>
+              </form>
+            ) : null}
+          </div>
         </div>
       </div>
+
+      {/* **What stands behind this stop on the routes this row leads** (#42). Under the whole
+          row rather than inside the prose column, because a route is a *rail* and a rail wants
+          the width — and because what is behind belongs to the row rather than to one of its
+          sentences. */}
+      {behind.length > 0 ? (
+        <div className="mt-3 space-y-3 sm:pl-4">
+          {behind.map((route) => (
+            <Behind key={route.route.id} behind={route} shown={shown} />
+          ))}
+        </div>
+      ) : null}
     </li>
+  );
+}
+
+/**
+ * What stands behind one row on one route: how many there are, and — when the owner presses —
+ * the rail itself, with a pin against every stop.
+ *
+ * **The count is outside the press and the rail is inside it.** What the owner needs in order
+ * to decide whether to look is *how many* and *on which route*, and both are on the row
+ * whether it is open or shut.
+ *
+ * The rail is quoted from the route's own screen deliberately (`../paths/[id]/page.tsx`): the
+ * numbers are the owner's order, printed as they are printed there, so what opens here is
+ * recognisable as a piece of the route rather than as a second list about it.
+ */
+function Behind({ behind, shown }: { behind: WhatStandsBehind; shown: string[] }) {
+  const standing = behind.stops.length;
+
+  return (
+    <div>
+      <Link
+        href={theAddressWith(
+          shown,
+          behind.shown ? { hide: behind.route.id } : { show: behind.route.id }
+        )}
+        className="inline-block rounded py-1.5 text-sm text-muted-foreground underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {behind.shown ? "Hide the " : "Show the "}
+        <span className="font-mono tabular-nums">{standing}</span>
+        {standing === 1 ? " stop behind it on " : " stops behind it on "}
+        {behind.route.name}
+      </Link>
+
+      {behind.shown ? (
+        <ol className="mt-1 border-l border-border pl-3 sm:pl-4">
+          {behind.stops.map((stop) => (
+            <Stop key={theKeyOf(stop.entry.subject)} stop={stop} shown={shown} />
+          ))}
+        </ol>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * One stop on the rail: where it stands on the route, what it is, and the press that pins it.
+ *
+ * It is deliberately **not** a full entry — no tile, no reasons, no proposal. A stop standing
+ * behind another is read as part of a sequence rather than chosen out of a shelf, and the act it is here
+ * for is the pin: seeing the second and the third stop is the whole of what makes *three
+ * Marvel stories and then a DC one* sayable (#42). Everything else about it is one tap away
+ * on its own page.
+ */
+function Stop({ stop, shown }: { stop: StopBehind; shown: string[] }) {
+  const leadsTo = entryLeadsTo(stop.entry);
+  const title = entryTitle(stop.entry);
+
+  return (
+    <li className="flex items-baseline gap-3 border-t border-border py-2.5 first:border-t-0">
+      {/* The route's own number, and it is true where a number in this half would not be: it
+          says where the stop stands on the *route*, never where it stands on the list. */}
+      <span
+        aria-hidden="true"
+        className="w-6 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground"
+      >
+        {stop.place}
+      </span>
+
+      <span className="min-w-0 flex-1">
+        {leadsTo ? (
+          <Link href={leadsTo} className="underline-offset-4 outline-none hover:underline">
+            {title}
+          </Link>
+        ) : (
+          title
+        )}
+        <span className={`mt-0.5 block ${EYEBROW}`}>{entryStanding(stop.entry)}</span>
+      </span>
+
+      <form action={pin} className="shrink-0">
+        <Subject subject={stop.entry.subject} />
+        <RoutesShown shown={shown} />
+        <Button
+          type="submit"
+          variant="ghost"
+          size="sm"
+          aria-label={`Pin ${title}`}
+          className="h-11 px-2 sm:h-9"
+        >
+          Pin it
+        </Button>
+      </form>
+    </li>
+  );
+}
+
+/**
+ * What a pin names, as the fields a form carries — the core's own vocabulary and never a
+ * second encoding of it.
+ *
+ * Three forms send it now (the row's pin, the row's unpin, and the pin on a stop standing
+ * behind one), which is exactly the moment a copy of it would start to drift.
+ */
+function Subject({ subject }: { subject: PinnedSubject }) {
+  return (
+    <>
+      <input type="hidden" name="kind" value={subject.kind} />
+      <input type="hidden" name="id" value={subject.id} />
+      {subject.kind === "series" ? (
+        <input type="hidden" name="position" value={subject.position} />
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * **The routes being looked behind, carried through the write.** Every act on this screen is a
+ * POST that redirects back, so a form that did not say what was open would close the rail the
+ * owner is pinning out of — and pinning the second stop and then the third is two presses.
+ */
+function RoutesShown({ shown }: { shown: string[] }) {
+  return (
+    <>
+      {shown.map((id) => (
+        <input key={id} type="hidden" name={THE_ROUTE} value={id} />
+      ))}
+    </>
   );
 }
