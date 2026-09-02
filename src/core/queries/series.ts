@@ -44,6 +44,22 @@ const OWNED = `
      from volume v
     where v.series_id = s.id and ${IN_THE_HOUSE})`;
 
+// What is standing in a line and what those objects stand for: every object placed in the
+// Series, in the house or not, and the narratives they carry between them.
+//
+// Written once for the rule the two fragments above are written once for. Two questions ask it
+// — what one press of the merge gesture would collapse, and which lines the Story's page can
+// offer — and each says both numbers out loud to the owner, so a second copy would be a screen
+// and a script coming to call the same fact two things. It names the Series `s`, so a statement
+// spending it selects from `series s`.
+const WHAT_STANDS_IN_THE_LINE = `
+  (select count(*)::int from volume v where v.series_id = s.id) as objects,
+  (select count(*)::int
+     from (select distinct vs.story_id
+             from volume_story vs
+             join volume v on v.id = vs.volume_id
+            where v.series_id = s.id) carried) as narratives`;
+
 // Name, then edition. The standard printing has no edition line and comes first, which is
 // the order the owner reads two Series of one name in.
 const BY_SERIES = "order by lower(s.name), s.edition_line nulls first";
@@ -218,6 +234,29 @@ export async function listVolumesOutsideASeries(): Promise<PlaceableVolume[]> {
   );
 }
 
+/**
+ * The Series that publish one Story, each with its ledger — how far along it is, and what is
+ * missing from it. Empty where no line names it, which is the ordinary answer.
+ *
+ * **The question the Story's own page asks** (#34, user story 35): the work is managed from
+ * there, so *which lines print this* is read from the narrative's end. **Many Series may name
+ * one Story**, and that is the point rather than a tolerated case — the standard edition and the
+ * Ultimate Deluxe are two completeness ledgers over one narrative, so this answers a list and
+ * never a row.
+ *
+ * It is the same `LEDGER` every other question here reads, missing list included: what the
+ * Story's page prints beside each line is the ledger's own answer, and a screen counting the
+ * gaps for itself would be the second, stale copy this file exists to make impossible.
+ */
+export async function listSeriesPublishingStory(storyId: string): Promise<SeriesLedger[]> {
+  if (!UUID.test(storyId)) return [];
+
+  return query<SeriesLedger>(
+    `select ${LEDGER} from series s ${MISSING} where s.story_id = $1 ${BY_SERIES}`,
+    [storyId]
+  );
+}
+
 /** What one press of the merge gesture would collapse, counted before it is pressed. */
 export type WhatAMergeWouldCollapse = {
   /** How many objects are placed in the line, in the house or not: all of them carry the work. */
@@ -245,18 +284,55 @@ export async function whatAMergeWouldCollapse(
   if (!UUID.test(seriesId)) return null;
 
   const rows = await query<WhatAMergeWouldCollapse>(
-    `select (select count(*)::int from volume v where v.series_id = s.id) as objects,
-            (select count(*)::int
-               from (select distinct vs.story_id
-                       from volume_story vs
-                       join volume v on v.id = vs.volume_id
-                      where v.series_id = s.id) carried) as narratives
-       from series s
-      where s.id = $1`,
+    `select ${WHAT_STANDS_IN_THE_LINE} from series s where s.id = $1`,
     [seriesId]
   );
 
   return rows[0] ?? null;
+}
+
+/** A Series that names no Story yet, and what saying it prints one would collapse. */
+export type SeriesPublishingNothing = WhatAMergeWouldCollapse & {
+  id: string;
+  name: string;
+  /** The publisher's edition line, which is what tells two Series of one name apart. */
+  editionLine: string | null;
+};
+
+/**
+ * The Series the owner could say publish a Story: the ones that name none yet and whose objects
+ * stand for at least one narrative.
+ *
+ * **What the gesture on a Story's page offers**, and it is narrowed by the two refusals a
+ * Series wears on its face: a line that already publishes a Story has been said once and
+ * `mergeSeriesIntoOneStory` refuses a second press, and a line with no objects in it — or with
+ * objects carrying nothing — has nothing to collapse. Both are visible from the ledger alone,
+ * so offering either would be a choice that is a refusal every time.
+ *
+ * **The rest of the refusals stay the verb's**, and this deliberately does not try to
+ * anticipate them: whether two of a line's narratives are judged apart, whether a pass counted
+ * its way through one, whether an object outside the line carries one, are facts about what the
+ * owner has lived with rather than about the line, and a picker re-deriving them would be a
+ * second copy of the rule that could come to disagree with it. The press answers in the verb's
+ * own prose, which names what stopped it.
+ *
+ * Both counts travel with the row because the picker says them out loud: *twenty objects,
+ * eighteen narratives* is the whole of what one press does, and it is the one thing the owner
+ * cannot read anywhere else while choosing.
+ */
+export async function listSeriesPublishingNothing(): Promise<SeriesPublishingNothing[]> {
+  return query<SeriesPublishingNothing>(
+    `select s.id,
+            s.name,
+            s.edition_line as "editionLine",
+            counted.objects,
+            counted.narratives
+       from series s
+       cross join lateral (select ${WHAT_STANDS_IN_THE_LINE}) counted
+      where s.story_id is null
+        and counted.narratives > 0
+      ${BY_SERIES}`
+  );
 }
 
 /** One narrative of a line that a merge would carry something of the owner's across on. */

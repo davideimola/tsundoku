@@ -46,6 +46,20 @@ export const SERIALIZE = "instalments";
 export const REACHED = "at";
 
 /**
+ * **Saying which Series publishes this Story** — the arrow, set from the end the work is
+ * managed from (#34, user stories 35 and 36).
+ *
+ * Here for the reason the two above are: the page opens the drawer and `[id]/actions.ts`
+ * reopens it to print a refusal inside it — and this is the most refusable act on the screen.
+ * The gesture collapses a line onto the work, and it refuses rather than loses anything: a
+ * line that already publishes a Story, a narrative an object outside the line carries too, two
+ * scores that cannot both be the work's one, a pass that counted its way through a narrative in
+ * that narrative's own units. Each of those sentences is about the line the owner just chose,
+ * so it has to come back to the picker it was chosen in.
+ */
+export const PUBLISHES = "publishes";
+
+/**
  * What the owner has narrowed the *wall* to, in the order the controls stand in.
  *
  * `page.tsx` puts these in the form as hidden fields and `actions.ts` reads them back off it,

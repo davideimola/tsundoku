@@ -12,11 +12,12 @@ import {
   recordInstalmentReached,
   recordReading,
 } from "@/core/verbs/reading";
+import { mergeSeriesIntoOneStory } from "@/core/verbs/series";
 import { declareInstalments, strikeStories } from "@/core/verbs/story";
 import { recordVolumeCarriesStory } from "@/core/verbs/story-to-volume";
 import { openWant, strikeWant } from "@/core/verbs/want";
 import { requireOwner } from "@/lib/auth/owner";
-import { REACHED, SERIALIZE, STRIKE } from "../panels";
+import { PUBLISHES, REACHED, SERIALIZE, STRIKE } from "../panels";
 
 // The writes on a Story's page, and **#29 is where the web stopped being a read-only view of
 // the thing it exists to record**. The assistant could already say *I've started the Batman
@@ -311,4 +312,27 @@ export async function unwant(form: FormData): Promise<void> {
   await requireOwner();
 
   await saying(text(form, "storyId") ?? "", () => strikeWant(text(form, "wantId") ?? ""));
+}
+
+/**
+ * **Say which Series publishes this Story**, and let the line collapse onto it.
+ *
+ * The arrow, set from the end the work is managed from (#34, user stories 35 and 36). Its
+ * consequence is the whole gesture and not a flag: every Volume of the line comes to carry this
+ * Story, the per-volume narratives the default minted collapse onto it, and any Rating,
+ * Reading, Credit, Path stop, Want or pin on them is carried across or repointed. Nothing the
+ * owner holds moves — the Volumes, the acquisitions and the completeness ledger are exactly as
+ * they were.
+ *
+ * The verb refuses rather than losing anything, and every one of those sentences is about the
+ * line just chosen, so a refusal comes back into the picker it was chosen in.
+ */
+export async function sayWhichSeriesPublishesIt(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  await saying(storyId, () => mergeSeriesIntoOneStory(text(form, "seriesId") ?? "", { storyId }), {
+    panel: PUBLISHES,
+  });
 }
