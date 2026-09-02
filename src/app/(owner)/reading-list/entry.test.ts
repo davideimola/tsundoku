@@ -25,9 +25,9 @@ import {
 // have (ADR-0001), and a tile that opened the wrong one would be the list sending them to the
 // shelf for something they meant to read.
 
-/** A reason with everything absent, which the three sources fill differently. */
+/** A reason with everything absent, which the four sources fill differently. */
 function reason(said: Partial<ReadingListReason> = {}): ReadingListReason {
-  return { because: "path", want: null, path: null, series: null, ...said };
+  return { because: "path", want: null, path: null, run: null, series: null, ...said };
 }
 
 /** An entry with everything absent. A real one always carries at least one reason. */
@@ -124,6 +124,32 @@ describe("why a row is on the list", () => {
     expect(reasonSaid(reason({ path: { ...A_ROUTE, place: 3 } })).said).toBe("3rd in line on ");
     expect(reasonSaid(reason({ path: { ...A_ROUTE, place: 11 } })).said).toBe("11th in line on ");
     expect(reasonSaid(reason({ path: { ...A_ROUTE, place: 22 } })).said).toBe("22nd in line on ");
+  });
+
+  it("says a run in progress as how far it got and what comes next", () => {
+    // *Seven of twenty*, in the work's own words — the same wording the Story's own page
+    // says it in, because there is one of it (#43).
+    expect(
+      reasonSaid(
+        reason({
+          because: "run",
+          run: { howFarItGot: { atInstalment: 7, instalments: 20 }, nextInstalment: 8 },
+        })
+      )
+    ).toEqual({ said: "7 of 20 read — carry on at 8", names: null });
+  });
+
+  it("says a run nothing has been read of yet as a start rather than a continuation", () => {
+    // An open pass that has finished none is *0 of 20*, which is a measurement, and the act
+    // it asks for is starting rather than carrying on.
+    expect(
+      reasonSaid(
+        reason({
+          because: "run",
+          run: { howFarItGot: { atInstalment: 0, instalments: 20 }, nextInstalment: 1 },
+        })
+      ).said
+    ).toBe("0 of 20 read — start at 1");
   });
 
   it("counts a Series position against what the publisher has printed", () => {
