@@ -9,6 +9,8 @@ import {
   theEditionNoteAct,
   theSplitAct,
   timesSaid,
+  whatTheCatalogueAnswered,
+  whatTheCatalogueOffers,
   whatTheHouseSays,
   whatTheLookupSaid,
   whatWritingAnIsbnDoes,
@@ -375,5 +377,95 @@ describe("splitting an object into the Stories it holds", () => {
     ];
 
     expect(taken).not.toContain(theSplitAct(carries("Batman: L'uomo che ride"))?.panel);
+  });
+});
+
+// **The catalogue's answer, and what there is to correct from it.** Writing an ISBN asks SBN
+// what is published under it, and the three things it can say are three different things for
+// the owner to do — a catalogue with no record of a volume out this month is not a catalogue
+// that was down. What it proposes is then stood beside what this library kept, which is the
+// judgement the panel's whole shape rests on: two boxes identical to the two facts behind them
+// would be asking for a press that changes nothing.
+describe("what the catalogue of record answered", () => {
+  it("says a record is there to read, and that nothing of it is written yet", () => {
+    const said = whatTheCatalogueAnswered("a-record");
+
+    expect(said).toContain("The ISBN is recorded");
+    expect(said).toContain("nothing of it is written");
+  });
+
+  it("says an absent record is ordinary rather than a failure", () => {
+    const said = whatTheCatalogueAnswered("no-record");
+
+    expect(said).toContain("no record");
+    expect(said).toContain("ordinary rather than wrong");
+  });
+
+  it("keeps a catalogue that could not be asked apart from one that has nothing, in its own words", () => {
+    // The distinction the cover research got wrong once, said again here: a backend that is
+    // down has stated no fact about the book, and pressing again may well reach it.
+    const said = whatTheCatalogueAnswered("unanswered", "SBN answered 503.");
+
+    expect(said).toContain("SBN answered 503.");
+    expect(said).toContain("Pressing again");
+    expect(said).not.toContain("no record");
+  });
+
+  it("says nothing at all about an answer nobody gave", () => {
+    // Read against the three rather than trusted: a hand-typed `?from=banana` stands no
+    // proposal in the panel, exactly as `?panel=banana` opens no panel.
+    expect(whatTheCatalogueAnswered(undefined)).toBeNull();
+    expect(whatTheCatalogueAnswered("banana")).toBeNull();
+  });
+});
+
+describe("what the catalogue offers to correct", () => {
+  const recorded = volume({ title: "One Piece 100", publisher: "Star Comics" });
+
+  it("stands what the catalogue says beside what the record says, and marks the difference", () => {
+    const offered = whatTheCatalogueOffers(recorded, {
+      title: "One piece 100",
+      publisher: "Star Comics",
+    });
+
+    expect(offered).toEqual([
+      {
+        field: "title",
+        label: "Title",
+        says: "One piece 100",
+        against: "The record says One Piece 100.",
+        differs: true,
+      },
+      {
+        field: "publisher",
+        label: "Publisher",
+        says: "Star Comics",
+        against: "The same as what the record already says.",
+        differs: false,
+      },
+    ]);
+  });
+
+  it("offers no box for a field the catalogue never named", () => {
+    // A record with no readable imprint line names no publisher, and an empty box standing
+    // there would read as *SBN says this object has no publisher* — a fact nobody stated and,
+    // written, a fact lost.
+    const offered = whatTheCatalogueOffers(recorded, { title: "One piece 100" });
+
+    expect(offered.map((field) => field.field)).toEqual(["title"]);
+  });
+
+  it("reads as a confirmation where the two already agree, rather than as work to do", () => {
+    // The ordinary case once an ISBN has been scanned twice.
+    const offered = whatTheCatalogueOffers(recorded, {
+      title: "One Piece 100",
+      publisher: "Star Comics",
+    });
+
+    expect(offered.some((field) => field.differs)).toBe(false);
+  });
+
+  it("offers nothing where the catalogue named neither field", () => {
+    expect(whatTheCatalogueOffers(recorded, {})).toEqual([]);
   });
 });

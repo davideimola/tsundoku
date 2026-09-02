@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { whatIsPublishedUnderThisIsbn } from "@/core/queries/isbn";
 import { isRefusal } from "@/core/refusal";
 import { acquireVolume, amendVolume, releaseVolume } from "@/core/verbs/collection";
 import { dropOwnCover, forgetTheCover, lookUpCoverFor, setOwnCover } from "@/core/verbs/cover";
@@ -13,6 +14,7 @@ import {
   recordVolumeNoLongerCarriesStory,
 } from "@/core/verbs/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
+import { THE_ISBN_FIELD, WHAT_THE_CATALOGUE_SAID } from "./panels";
 import type { Panel } from "./standing";
 
 // The write side of one Volume's page: what the object **is**, whether it is in the house,
@@ -43,12 +45,22 @@ function text(form: FormData, field: string): string | null {
  * it is only useful beside the field it is about, and closing the drawer over it would leave
  * the owner reading a banner at the top of the page with nowhere to correct anything. A form
  * with no panel behind it passes nothing and comes back to the page either way.
+ *
+ * `carrying` is **what a reopened panel needs to be the panel it was**, and it is the one door's
+ * rule arriving here (`THE_FIELDS_A_REFUSAL_CARRIES`, `../../add/door.ts`). A refusal replaces
+ * the answer wholesale, which is right for a report and wrong for a *proposal*: the panel that
+ * stands the catalogue's account of an object beside this library's would come back with the
+ * refusal in it and the account gone, and the owner would have to scan the barcode again to
+ * read the sentence they had just been refused about. Only the presses that have something to
+ * carry pass it, and it is used on a refusal alone — a write that succeeded is answered by the
+ * record.
  */
 async function saying(
   volumeId: string,
   said: URLSearchParams,
   work: () => Promise<void>,
-  reopens?: Panel
+  reopens?: Panel,
+  carrying?: Record<string, string>
 ): Promise<never> {
   let answer = said;
 
@@ -60,6 +72,7 @@ async function saying(
     if (!isRefusal(error)) throw error;
     answer = new URLSearchParams({ refused: error.message });
     if (reopens) answer.set("panel", reopens);
+    for (const [name, value] of Object.entries(carrying ?? {})) answer.set(name, value);
   }
 
   revalidatePath(`/collection/${volumeId}`);
@@ -242,7 +255,8 @@ export async function acquire(form: FormData): Promise<void> {
 }
 
 /**
- * Record the object's ISBN, or correct the one that stands there.
+ * Record the object's ISBN, or correct the one that stands there — **and ask the catalogue of
+ * record what is published under it.**
  *
  * **This screen is the only place a human can put one** (#30). The spreadsheets had no ISBN
  * column at all, so 0 of 96 Volumes carry one, and until the Inbox starts delivering them
@@ -250,6 +264,25 @@ export async function acquire(form: FormData): Promise<void> {
  * wrong one is fixed. It is the same verb the Inbox's approval calls, because completing a
  * catalogued object is the owner's act either way and an Amendment is only the door a
  * proposal reaches it through (ADR-0011).
+ *
+ * **The lookup is the second half of one press, and the camera is why.** The field is scanned
+ * as well as typed now (`@/components/scan`), and the gesture the barcode buys is *hold the
+ * object, point the phone*: an owner who has just handed the library the number off the back
+ * of a book is an owner in a position to be told what that number is published as. Asking
+ * afterwards, from a second press, would be a lookup nobody performs — which is how 96 Volumes
+ * came to carry a publisher somebody typed and no ISBN at all.
+ *
+ * **Nothing the catalogue says is written by this press.** What comes back rides in the
+ * address and stands in the panel beside the record, and `correctWhatItIs` below is the act
+ * that accepts it. That is the whole of what the drawer's rule is bent for here — a write that
+ * succeeded closes its panel, and this one reopens it — and the reason is that the press has
+ * *two* answers: the ISBN is recorded, which the record now says, and the catalogue answered,
+ * which is a form to read rather than a report to print behind a closed drawer.
+ *
+ * The ISBN is read by the core before anything is written (`whatIsPublishedUnderThisIsbn`), so
+ * a hyphenated one that a keyboard or a phone's text scan handed over is stored as the bare
+ * digits the column accepts, and the barcode beside the one that matters — the price add-on,
+ * a Bonelli monthly's periodical EAN — is refused by name with the digits still in the field.
  *
  * An empty box records nothing rather than emptying the field: the verb refuses an amendment
  * that changes no field, in its own words, and that refusal is carried to the screen like
@@ -260,12 +293,95 @@ export async function recordIsbn(form: FormData): Promise<void> {
   await requireOwner();
 
   const volumeId = text(form, "volumeId") ?? "";
+  const typed = text(form, THE_ISBN_FIELD.name) ?? "";
+  const carrying = { [THE_ISBN_FIELD.name]: typed };
+
+  // Read and looked up before the write, which costs nothing and buys the ordering: an ISBN
+  // the core will not read is an ISBN nothing was written about.
+  const said = await whatIsPublishedUnderThisIsbn(typed);
+
+  // **Not a verb's refusal — no verb was asked anything yet** — so it is not raised as one.
+  // It is the core's own prose either way (`@/core/isbn` names which barcode the owner is
+  // holding), and it comes back the way every refusal on this screen does: the panel open over
+  // the field, with what was scanned still in it.
+  if (said.it === "not-an-isbn") {
+    redirect(
+      `/collection/${volumeId}?${new URLSearchParams({
+        panel: "isbn" satisfies Panel,
+        refused: said.because,
+        ...carrying,
+      })}`
+    );
+  }
+
+  // The panel it came from, reopened over the account of the object it just fetched. `isbn` is
+  // the core's normalised digits and never what was typed: the column is strict and the field
+  // is not.
+  const answer = new URLSearchParams({
+    panel: "isbn" satisfies Panel,
+    [WHAT_THE_CATALOGUE_SAID.said]: said.it,
+  });
+
+  if (said.it === "a-record") {
+    answer.set(WHAT_THE_CATALOGUE_SAID.title, said.record.title);
+    // Omitted rather than empty, for the one door's reason: a box prefilled with nothing is a
+    // box the owner has to notice is not prefilled — and here it would read as the catalogue
+    // saying this object has no publisher.
+    if (said.record.publisher) {
+      answer.set(WHAT_THE_CATALOGUE_SAID.publishedBy, said.record.publisher);
+    }
+  }
+  if (said.it === "unanswered") answer.set(WHAT_THE_CATALOGUE_SAID.because, said.because);
 
   return saying(
     volumeId,
-    new URLSearchParams({ isbn: "1" }),
-    () => amendVolume(volumeId, { isbn: text(form, "isbn") }),
-    "isbn"
+    answer,
+    () => amendVolume(volumeId, { isbn: said.isbn }),
+    "isbn",
+    carrying
+  );
+}
+
+/**
+ * **Correct what the object is from the catalogue's record of it**: the title, the publisher,
+ * or whichever of the two the owner keeps.
+ *
+ * The second half of one gesture, and the half that writes. `recordIsbn` above put the number
+ * on the record and asked SBN what is published under it; this is the press that accepts as
+ * much of that answer as the owner wants, having read it beside the two facts this library
+ * already held.
+ *
+ * **Two fields and only two**, because that is all a `BookRecord` has. Everything else about
+ * the object — the Binding, the language, the edition line, its position in a line — is not in
+ * the catalogue's answer and is not named here, so `amendVolume` leaves it standing: the
+ * amendment is what it says and nothing more, which is the type's own rule (ADR-0011).
+ *
+ * **An empty box keeps what stands on the record**, which is the same sentence the ISBN field
+ * beside it is held to and is the whole of the *keep mine* gesture: a librarian's spelling of
+ * a title is not always an improvement on the spine's, and clearing the box is how the owner
+ * takes the publisher and leaves the title alone. Both cleared is an amendment that changes no
+ * field, and the verb refuses it in its own words.
+ */
+export async function correctWhatItIs(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+  const title = text(form, "title");
+  const publisher = text(form, "publisher");
+
+  return saying(
+    volumeId,
+    new URLSearchParams({ corrected: "1" }),
+    () => amendVolume(volumeId, { title, publisher }),
+    "isbn",
+    // The proposal itself, so a refusal reopens the panel it was refused in rather than a
+    // panel with nothing in it. What is carried is what was in the boxes, because that is what
+    // the sentence the owner is about to read is about.
+    {
+      [WHAT_THE_CATALOGUE_SAID.said]: "a-record",
+      ...(title ? { [WHAT_THE_CATALOGUE_SAID.title]: title } : {}),
+      ...(publisher ? { [WHAT_THE_CATALOGUE_SAID.publishedBy]: publisher } : {}),
+    }
   );
 }
 

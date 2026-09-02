@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Drawer } from "@/components/drawer";
+import { ScanAnIsbn } from "@/components/scan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,6 @@ import { requireOwner } from "@/lib/auth/owner";
 import { bought, identify, read, wanted } from "./actions";
 import { type CarriedField, THE_SENTENCES, theSentence, whatFilledItIn } from "./door";
 import { ASKED, THE_FIELD } from "./panels";
-import { ScanAnIsbn } from "./scan";
 
 // THE ONE DOOR (#45). The owner writes a title or scans a barcode and says one of three
 // things — *I bought it*, *I read it*, *I want to read it* — and the library works out what to
@@ -40,7 +40,7 @@ import { ScanAnIsbn } from "./scan";
 //      three acts that behave three ways are three things to learn. Every panel's state is the
 //      URL, so the whole screen works with nothing running in the browser and the back button
 //      closes what the last tap opened (ADR-0010).
-//   3. **The camera is an enhancement over a field that already works** (`./scan.tsx`). Typed,
+//   3. **The camera is an enhancement over a field that already works** (`@/components/scan`). Typed,
 //      pasted or read out of the printed digits by the phone's own text scanner, the field
 //      posts and answers on a shop's signal with no script at all.
 //   4. **What the library already knows is offered before a second copy of it is made.** A

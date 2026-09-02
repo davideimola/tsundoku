@@ -31,6 +31,19 @@ import { IN_THE_HOUSE } from "./collection.ts";
 // The source arrives as an argument the way `AskForACover` does, so **no test here calls a
 // third party** and the two answers that matter — a catalogue that is down, and an ISBN
 // nothing was published under — are exactly the two a live source would not produce on demand.
+//
+// **There are two questions in here now, and the second is the first with its middle step
+// taken out.** `whatIsPublishedUnderThisIsbn` is asked from the page of an object the
+// owner is already holding — so *does the library know this?* is not a question worth a round
+// trip: the answer is yes, and it is the record on screen. What is wanted there is the third
+// step alone, which is the catalogue of record's own account of the object, read against the
+// one this library kept.
+//
+// They are two exports over one shared step rather than one export with a flag, because the
+// **answers** differ and not merely the work: an ISBN scanned in a shop can turn out to be an
+// object already on the shelf, and an ISBN scanned off the object whose page you are standing
+// on cannot. A boolean would have left every caller of the shop question handling an answer it
+// can get, and every caller of this one handling an answer it cannot.
 
 /** An object the library already holds on this ISBN. */
 export type VolumeOnThisIsbn = {
@@ -55,12 +68,74 @@ export type WhatIsOnThisIsbn =
       readonly isbn: string;
       readonly volumes: readonly VolumeOnThisIsbn[];
     }
-  /** New to the library, and the catalogue of record says what it is. */
+  /** New to the library, and whatever the catalogue of record had to say about it. */
+  | WhatTheCatalogueSaid;
+
+/**
+ * What the catalogue of record said about an ISBN. **Three answers and not two**, for
+ * `../records.ts`'s reason: a source that could not be asked has said nothing about the book,
+ * and writing that down as *nothing is published under this number* is the cover research's
+ * false 0% happening again where it changes a decision.
+ *
+ * It is a type of its own because both questions in this file end in it.
+ */
+export type WhatTheCatalogueSaid =
+  /** The catalogue of record says what it is. */
   | { readonly it: "a-record"; readonly isbn: string; readonly record: BookRecord }
-  /** New to the library, and nothing is published under it that the source knows of. */
+  /** Nothing is published under it that the source knows of. */
   | { readonly it: "no-record"; readonly isbn: string }
-  /** New to the library, and the source could not be asked. **Not** the same as `no-record`. */
+  /** The source could not be asked. **Not** the same as `no-record`. */
   | { readonly it: "unanswered"; readonly isbn: string; readonly because: string };
+
+/**
+ * What an object's own page got back when it asked. The three answers above, plus the barcode
+ * that is not an ISBN at all — which on that screen is a camera pointed a centimetre to the
+ * right, and is the one answer that is about the *press* rather than about the book.
+ */
+export type WhatIsPublishedUnderThisIsbn =
+  | { readonly it: "not-an-isbn"; readonly because: string }
+  | WhatTheCatalogueSaid;
+
+/**
+ * What is published under an ISBN, according to the catalogue of record and nobody else.
+ *
+ * **The question an object's own page asks**: the owner is standing on the record of a
+ * thing they are holding, and what they want is the catalogue's account of it — to fill in
+ * what this library never had and to correct what it got wrong. So the library is not
+ * consulted, because the library's answer is the page the question was asked from.
+ *
+ * The ISBN is read leniently here for the same reason it is below, and more so: this is the
+ * door a camera speaks through on that screen, and a camera answers with whatever it was
+ * pointed at. A price add-on or a Bonelli monthly's periodical EAN comes back as
+ * `not-an-isbn` naming which barcode is in front of the owner — before anything is written
+ * and before anybody's network is asked.
+ */
+export async function whatIsPublishedUnderThisIsbn(
+  typed: string,
+  ask: AskAboutAnIsbn = askSbnAboutAnIsbn
+): Promise<WhatIsPublishedUnderThisIsbn> {
+  const reading = theIsbnItIs(typed);
+  if (reading.read === "not-an-isbn") {
+    return { it: "not-an-isbn", because: reading.because };
+  }
+
+  return whatTheCatalogueSays(reading.isbn, ask);
+}
+
+/**
+ * Ask the source, and turn its three answers into this file's three. **Shared by both
+ * questions**, which is what keeps *a catalogue that is down is not a book that does not
+ * exist* one sentence in one place rather than two copies that can come to disagree.
+ */
+async function whatTheCatalogueSays(
+  isbn: string,
+  ask: AskAboutAnIsbn
+): Promise<WhatTheCatalogueSaid> {
+  const said = await ask(isbn);
+  if (said.answer === "found") return { it: "a-record", isbn, record: said.record };
+  if (said.answer === "none") return { it: "no-record", isbn };
+  return { it: "unanswered", isbn, because: said.because };
+}
 
 /**
  * Ask what is on an ISBN: the owner's own catalogue first, then the world's.
@@ -96,8 +171,5 @@ export async function whatIsOnThisIsbn(
 
   if (known.length > 0) return { it: "already-catalogued", isbn, volumes: known };
 
-  const said = await ask(isbn);
-  if (said.answer === "found") return { it: "a-record", isbn, record: said.record };
-  if (said.answer === "none") return { it: "no-record", isbn };
-  return { it: "unanswered", isbn, because: said.because };
+  return whatTheCatalogueSays(isbn, ask);
 }

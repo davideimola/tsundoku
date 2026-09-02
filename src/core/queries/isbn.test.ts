@@ -3,7 +3,7 @@ import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import type { AskAboutAnIsbn } from "../records.ts";
 import { catalogueVolume, releaseVolume } from "../verbs/collection.ts";
-import { whatIsOnThisIsbn } from "./isbn.ts";
+import { whatIsOnThisIsbn, whatIsPublishedUnderThisIsbn } from "./isbn.ts";
 
 // Seam 1, and the source is handed in — which is the rule `covers.test.ts` set and the reason
 // no test in this repository calls a third party. What is asserted here is the **order the
@@ -193,6 +193,72 @@ describe("what is not an ISBN", () => {
     const source = sourceThatSays(SAYS_ONE_PIECE);
 
     expect((await whatIsOnThisIsbn("", source.ask)).it).toBe("not-an-isbn");
+    expect(source.asked()).toEqual([]);
+  });
+});
+
+// The second question in that file: the same three answers with the library's own step taken
+// out, asked from the page of an object the owner is already holding. What is asserted here is
+// the thing the two questions **differ** by — this one never reaches Postgres, so an ISBN the
+// library already has does not come back as *you have this already*: it comes back as the
+// catalogue's account of the object, which is what there is to correct the record from.
+describe("what is published under an ISBN, asked from the object's own page", () => {
+  it("answers with the catalogue's record even for an ISBN the library already holds", async () => {
+    // The whole case: this object *is* the one on that ISBN. Asking whether the library knows
+    // it would answer a question nobody standing on its page is asking.
+    await catalogueVolume({
+      title: "One Piece 100",
+      publisher: "Star Comics",
+      binding: "tankobon",
+      language: "it",
+      isbn: ONE_PIECE,
+    });
+    const source = sourceThatSays(SAYS_ONE_PIECE);
+
+    expect(await whatIsPublishedUnderThisIsbn(ONE_PIECE, source.ask)).toEqual({
+      it: "a-record",
+      isbn: ONE_PIECE,
+      record: { title: "One piece 100", publisher: "Star Comics" },
+    });
+    expect(source.asked()).toEqual([ONE_PIECE]);
+  });
+
+  it("reads the ISBN as it is printed and asks the source for the bare digits", async () => {
+    // The field is typed into and pasted into as well as scanned, and the source is keyed by
+    // the digits: leniency at the door, strictness on the way out of it.
+    const source = sourceThatSays(SAYS_ONE_PIECE);
+
+    const said = await whatIsPublishedUnderThisIsbn("978-88-226-3275-3", source.ask);
+
+    expect(said.it === "a-record" && said.isbn).toBe(ONE_PIECE);
+    expect(source.asked()).toEqual([ONE_PIECE]);
+  });
+
+  it("keeps a source that could not be asked apart from a book that does not exist", async () => {
+    const down = sourceThatSays({ answer: "unanswered", because: "SBN answered 503." });
+    const empty = sourceThatSays({ answer: "none" });
+
+    expect(await whatIsPublishedUnderThisIsbn(ONE_PIECE, down.ask)).toEqual({
+      it: "unanswered",
+      isbn: ONE_PIECE,
+      because: "SBN answered 503.",
+    });
+    expect(await whatIsPublishedUnderThisIsbn(ONE_PIECE, empty.ask)).toEqual({
+      it: "no-record",
+      isbn: ONE_PIECE,
+    });
+  });
+
+  it("refuses the barcode beside the one that matters, and names it, before asking anybody", async () => {
+    // A camera answers with whatever it was pointed at, and this is the door it speaks
+    // through: the price add-on and a Bonelli monthly's periodical EAN are the two it reads
+    // by accident, and neither is written on an object as its ISBN.
+    const source = sourceThatSays(SAYS_ONE_PIECE);
+
+    const said = await whatIsPublishedUnderThisIsbn("977112365904850039", source.ask);
+
+    expect(said.it).toBe("not-an-isbn");
+    expect(said.it === "not-an-isbn" && said.because).toMatch(/periodical/i);
     expect(source.asked()).toEqual([]);
   });
 });

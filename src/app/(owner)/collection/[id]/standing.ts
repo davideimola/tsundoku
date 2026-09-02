@@ -21,6 +21,15 @@ import type { CarriedStory } from "@/core/queries/story-to-volume";
 // and a source that could not be reached is neither. Which of them is true stays the core's
 // answer — `cover`, `lookedUp`, `isbn` — and the words are here, where a test can read them.
 //
+// **The catalogue's own account of the object joined it next, and it is the same argument a
+// fourth time.** Writing an ISBN now asks SBN what is published under that number, and the
+// three things it can answer are again a distinction the owner cannot re-derive from what is
+// on screen: a catalogue with no record of a volume out this month is not a catalogue that was
+// down. What it proposes is stood beside what this library kept, field by field — which of the
+// two spellings of a title is wanted is the owner's call and is made while looking at both —
+// and which fields *differ* is decided here, so a lookup that merely confirms the record reads
+// as a confirmation rather than as two boxes asking for a press that changes nothing.
+//
 // **And the acts the hero carries joined it for the third time over the same fact** (#30): the
 // forms on this screen went into panels whose open state is the URL, so *which* acts an object
 // offers became an answer rather than a shape of markup — and it is the same three states
@@ -234,6 +243,105 @@ export function whatWritingAnIsbnDoes(volume: RecordedVolume): string {
   }
 
   return "Writing a different one takes the looked-up cover off with it: a jacket found against the old number still loads perfectly and is the wrong book.";
+}
+
+/**
+ * **What the catalogue of record answered when the ISBN was written**, in the owner's words.
+ *
+ * Four answers and not one, and it is read against this list rather than trusted: a
+ * hand-typed `?from=banana` says nothing at all, exactly as `?panel=banana` opens nothing.
+ *
+ * The three that are answers are three different things for the owner to do, and they are the
+ * one door's three sentences said from the other end (`../../add/door.ts`). *A record* means
+ * read it against the object in your hand — it is below, and none of it is written yet. *No
+ * record* means there is nothing to correct the object from, and is ordinary rather than
+ * wrong: SBN holds legal deposit, and a volume out this month may simply not be in it. *Could
+ * not be asked* means the number is recorded and the account of it is not, and that pressing
+ * again may well work — which a sentence about an absent book would have quietly denied.
+ */
+export function whatTheCatalogueAnswered(
+  said: string | undefined,
+  because?: string
+): string | null {
+  switch (said) {
+    case "a-record":
+      return "The ISBN is recorded, and SBN has a record under it. What the catalogue says is below: read it against the object in your hand, because nothing of it is written until you press.";
+    case "no-record":
+      return "The ISBN is recorded. SBN has no record under it, so there is nothing here to correct the object from — ordinary rather than wrong: a volume out this month may not be in the national catalogue yet.";
+    case "unanswered":
+      return `The ISBN is recorded, and nothing else was: ${
+        because ?? "SBN could not be reached."
+      } Pressing again may well reach it — its backend goes down and comes back.`;
+    default:
+      return null;
+  }
+}
+
+/** One field the catalogue named, as the panel stands it beside the record. */
+export type Proposed = {
+  /** The field of the Volume it is, which is what the form calls it. */
+  readonly field: "title" | "publisher";
+  /** What it is called where the owner reads it. */
+  readonly label: string;
+  /** What the catalogue says, which is what the box arrives filled in with. */
+  readonly says: string;
+  /** What stands on this library's record, in a clause under the box. */
+  readonly against: string;
+  /** Whether the two are different, which is what the panel leads with. */
+  readonly differs: boolean;
+};
+
+/**
+ * **What the catalogue offers to correct, field by field** — and this is the judgement the
+ * chosen shape of that panel rests on, so it is a function rather than two comparisons in a
+ * render.
+ *
+ * Two fields, because two are all a `BookRecord` has: a title and a publisher. Everything else
+ * the object carries — the Binding, the language, the edition line, the position in its line —
+ * is not in the answer at all and is therefore **not touched**, which is `amendVolume`'s own
+ * rule rather than this screen's: an amendment names the fields it proposes and leaves the
+ * rest standing.
+ *
+ * Three things it decides, in the order they matter:
+ *
+ * **A field the catalogue did not name is not offered.** A record with no readable imprint
+ * line carries no publisher, and an empty box standing there would read as *SBN says this
+ * object has no publisher* — which is a fact nobody stated and, written, would be a fact lost.
+ *
+ * **It says what stands on the record beside what is proposed**, because the owner is about to
+ * overwrite their own catalogue with a librarian's field and the two are not always
+ * improvements on each other: `One piece 100` is legal deposit's spelling of a title the spine
+ * prints as *One Piece 100*, and which of those this library wants is the owner's call, made
+ * while looking at both.
+ *
+ * **And it says which of them actually differ**, so a lookup that confirms the record reads as
+ * a confirmation rather than as work to do. That is the ordinary case once an ISBN has been
+ * scanned twice, and a panel that offered two boxes identical to the two facts behind it would
+ * be asking for a press that changes nothing.
+ */
+export function whatTheCatalogueOffers(
+  volume: Pick<RecordedVolume, "title" | "publisher">,
+  said: { title?: string; publisher?: string }
+): readonly Proposed[] {
+  return [
+    { field: "title", label: "Title", says: said.title, recorded: volume.title },
+    { field: "publisher", label: "Publisher", says: said.publisher, recorded: volume.publisher },
+  ].flatMap(({ field, label, says, recorded }) =>
+    says
+      ? [
+          {
+            field: field as Proposed["field"],
+            label,
+            says,
+            against:
+              says === recorded
+                ? "The same as what the record already says."
+                : `The record says ${recorded}.`,
+            differs: says !== recorded,
+          },
+        ]
+      : []
+  );
 }
 
 /** Whether the house holds it: the act this page is opened to perform. */

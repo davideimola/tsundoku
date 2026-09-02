@@ -13,6 +13,17 @@ import { Button } from "@/components/ui/button";
 // thirteen digits into that field, on the one device where the digits are printed on an object
 // the owner is holding.
 //
+// **It is in `src/components/` rather than beside a screen because two screens are now the same
+// gesture.** It began beside the one door (`app/(owner)/add/`), where a barcode is what an
+// object nobody has recorded is looked up by; the second is an object's own page, where the
+// barcode on the back of a thing already on the shelf is how its ISBN gets recorded and how a
+// wrong one is corrected. One camera, one field, two questions — and neither screen owns it, so
+// it lives with the cover, the spine and the drawer.
+//
+// It knows nothing about either question, which is what makes that move cheap: `into` is a
+// field id and the form that field is in is the one that gets submitted. What is being asked is
+// the form's, and what the answer means is the server's.
+//
 // So the button **is not rendered until a script is running**, and that is deliberate rather
 // than incidental: the finder's argument applies unchanged — *a button that did nothing on a
 // shop's signal was never an option* — and a scanner is the one control here that cannot have

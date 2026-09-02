@@ -195,7 +195,7 @@ Three rules follow, and each is a file:
 ### Where an ISBN goes, and what a camera is allowed to decide
 
 **`src/core/isbn.ts` reads it, `src/core/records.ts` asks about it, `src/core/queries/isbn.ts`
-is the one question both answer, and the browser decides nothing.** An ISBN used to arrive one
+holds the two questions both answer, and the browser decides nothing.** An ISBN used to arrive one
 way — typed at a desk from the object in hand — and now arrives a second, from a barcode read
 in a shop. The two fail differently, and that difference is the whole of this design: a typed
 ISBN is short a digit, where a *scanned* one is **the wrong barcode entirely** — the price
@@ -203,12 +203,37 @@ add-on printed beside it, the ISSN-derived EAN on a Bonelli monthly, the shop's 
 and a length check waves all three through. So `theIsbnItIs` answers with a **reading** rather
 than a boolean, and the refusal names which barcode the owner is holding.
 
-`whatIsOnThisIsbn` is the question, and its **order is the feature**: is this an ISBN at all,
-then *does the library already know it* — one round trip to Postgres, before anybody's network
-— and only then what the national catalogue says it is. The middle step short-circuits the
-third, which is worth more than the request it saves: a lookup that asked SBN first would spend
-a shop's signal to fill in a form for an object already on the shelf. It is a file named after
-the question rather than after an area, for `queries/finder.ts`'s reason.
+`whatIsOnThisIsbn` is the shop's question, and its **order is the feature**: is this an ISBN at
+all, then *does the library already know it* — one round trip to Postgres, before anybody's
+network — and only then what the national catalogue says it is. The middle step short-circuits
+the third, which is worth more than the request it saves: a lookup that asked SBN first would
+spend a shop's signal to fill in a form for an object already on the shelf. It is a file named
+after the question rather than after an area, for `queries/finder.ts`'s reason.
+
+**`whatIsPublishedUnderThisIsbn` is the second question, and it is the first with its middle
+step taken out.** It is asked from the page of an object the owner is already holding, where
+*does the library know this?* is not worth a round trip: the answer is yes, and it is the record
+on screen. Two exports over one shared step rather than one export with a flag, because the
+**answers** differ and not merely the work — an ISBN scanned in a shop can turn out to be an
+object already on the shelf, and an ISBN scanned off the object whose page you are standing on
+cannot.
+
+**A wrong fact is corrected from the object's own page, and the catalogue is asked in the same
+press that records the number** (`collection/[id]`). The gesture a barcode buys is *hold the
+object, point the phone*, so the moment the ISBN reaches the library is the moment there is
+something to check the record against; asking afterwards, from a second press, is a lookup
+nobody performs. **The write is the ISBN and nothing else.** What SBN answered rides back in the
+address (`collection/[id]/panels.ts`) and stands in the panel as a *proposal*, field by field,
+beside the two facts this library kept — and `correctWhatItIs` is the second press that writes
+as much of it as the owner wants. Three rules hold it: a field the catalogue never named is not
+a box at all, because an empty one would read as *SBN says this object has no publisher*;
+**clearing a box keeps what the record says**, which is the same sentence the ISBN field is held
+to and is the whole of the *keep mine* gesture, since a librarian's `One piece 100` is not
+always an improvement on the spine's *One Piece 100*; and what the catalogue's answer does not
+carry — the Binding, the language, the edition line, the position in a line — is not named in
+the amendment and is therefore left standing, which is `amendVolume`'s own rule and not the
+screen's. Which fields *differ* is `collection/[id]/standing.ts`'s, so a lookup that merely
+confirms the record reads as a confirmation rather than as work to do.
 
 **SBN is the source because it is the one that has manga.** Google Books v1 has the records and
 answers 429 keyless; Dynamic Links, the keyless path the covers use, carries no title at all;
@@ -217,12 +242,16 @@ Liferay XHR surface, and goes down — which is why *unanswered* is a third answ
 as it is for a cover.
 
 **The scanner is an enhancement over a field that already works, and it holds no derivation**
-(`src/app/(owner)/add/scan.tsx`). It is not rendered until a script is running, because
+(`src/components/scan.tsx` — in `components/` rather than beside a screen because two screens
+are now the same gesture: the one door, and an object's own ISBN panel). It is not rendered
+until a script is running, because
 a control that does nothing on a shop's signal was never an option (ADR-0010) — and unlike the
 finder it can have no unscripted twin, since a camera *is* a script. What it can have, and has,
 is a twin field: **the one door has one field, and a barcode and a title go in the same place**
 — typed, pasted or filled in by the phone's own text scanner, it posts with nothing running,
-and which of the two arrived is `add/door.ts`'s to read (#45). Safari has no `BarcodeDetector`, so the
+and which of the two arrived is `add/door.ts`'s to read (#45). The object's page has the same
+twin field for the same reason, and there the two things that go in it are a barcode and a
+barcode: the one on the back of the thing in your hand, read by the camera or typed off it. Safari has no `BarcodeDetector`, so the
 fallback is ZXing as WebAssembly, dynamically imported on the first press and served from our
 own origin — `public/decoder/zxing_reader.wasm`, pinned to the dependency by
 `src/app/vendored.test.ts`, which is the fourth wall.

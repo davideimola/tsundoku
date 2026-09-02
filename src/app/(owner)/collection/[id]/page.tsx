@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
+import { ScanAnIsbn } from "@/components/scan";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import { howTheRangeIsKept } from "../../stories/readings";
 import {
   acquire,
   carry,
+  correctWhatItIs,
   coverInstalments,
   forgetCover,
   lookUpCover,
@@ -38,6 +40,7 @@ import {
   useOwnImage,
   writeNote,
 } from "./actions";
+import { THE_ISBN_FIELD, WHAT_THE_CATALOGUE_SAID } from "./panels";
 import {
   type Act,
   facedWith,
@@ -47,6 +50,8 @@ import {
   theEditionNoteAct,
   theSplitAct,
   timesSaid,
+  whatTheCatalogueAnswered,
+  whatTheCatalogueOffers,
   whatTheHouseSays,
   whatTheLookupSaid,
   whatWritingAnIsbnDoes,
@@ -85,6 +90,18 @@ import {
 // wrong one is fixed. Correcting it takes the cover with it, because a looked-up cover is an
 // answer to the ISBN that stood on the record when it was asked for (ADR-0012, #32), and the
 // panel says so where the correction is made.
+//
+// **The camera is in that panel too, and the catalogue of record is asked in the same press.**
+// The gesture a barcode buys is *hold the object, point the phone* — so the moment the number
+// reaches the library is the moment there is something to check the record against, and a
+// lookup asked from a second press is a lookup nobody performs. The write is the ISBN and
+// nothing else: what SBN answered comes back in the address and stands in the panel as a
+// **proposal**, field by field, beside the two facts this library kept. The second form is
+// what writes them, an empty box keeps what the record says, and the fields the catalogue's
+// answer does not carry are not named in the amendment and are therefore left standing. It is
+// the one panel on this screen that reopens on a *success*, and `./actions.ts` says why: the
+// press has two answers, and the second one is a form to read rather than a report to print
+// behind a closed drawer.
 //
 // **The Stories are a list with a score column**, so *L'uomo che ride* prints three titles and
 // three different numbers under one object's title, and the thing the spreadsheet destroyed —
@@ -556,43 +573,22 @@ export default async function VolumePage({
       ) : null}
 
       {/* **The only place a human can put an ISBN on a Volume**, and after the Inbox starts
-          delivering them, the place a wrong one is fixed. */}
+          delivering them, the place a wrong one is fixed. It is also where the catalogue of
+          record is asked what the object is, which is why it is a component of its own. */}
       {acting?.panel === "isbn" ? (
-        <Drawer
-          title={acting.label}
+        <TheIsbn
+          act={acting}
+          volume={volume}
           refused={refused}
-          description="Ten or thirteen characters, no spaces and no dashes. It is what every cover source is keyed by, and the one fact the sheets had no column for."
           closesTo={closesTo}
-        >
-          <form action={recordIsbn} className="grid gap-4">
-            <input type="hidden" name="volumeId" value={volume.id} />
-            <div className="grid gap-1.5">
-              <Label htmlFor="volume-isbn" className="text-xs text-muted-foreground">
-                ISBN
-              </Label>
-              <Input
-                id="volume-isbn"
-                name="isbn"
-                defaultValue={volume.isbn ?? ""}
-                placeholder="9788828765431"
-                inputMode="numeric"
-                autoComplete="off"
-                required
-                className="h-11 font-mono sm:h-10"
-              />
-            </div>
-            <Button type="submit" className="h-11 w-full sm:h-10">
-              {volume.isbn ? "Correct it" : "Record it"}
-            </Button>
-            {/* Said where the correction is made rather than discovered afterwards: a
-                looked-up cover is an answer to the ISBN that stood here when it was asked
-                for, so writing a different one takes it off (ADR-0012, #32). Which of the
-                three sentences that is, is `./standing.ts`'s. */}
-            <p className="max-w-prose text-xs text-muted-foreground">
-              {whatWritingAnIsbnDoes(volume)}
-            </p>
-          </form>
-        </Drawer>
+          said={{
+            answered: asked(said, WHAT_THE_CATALOGUE_SAID.said),
+            because: asked(said, WHAT_THE_CATALOGUE_SAID.because),
+            title: asked(said, WHAT_THE_CATALOGUE_SAID.title),
+            publisher: asked(said, WHAT_THE_CATALOGUE_SAID.publishedBy),
+            typed: asked(said, THE_ISBN_FIELD.name),
+          }}
+        />
       ) : null}
 
       {acting?.panel === "cover" ? (
@@ -870,6 +866,161 @@ function TheEditionNote({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * THE ISBN, on the object's own page: the number, the camera that reads it off the back, and
+ * what the catalogue of record says is published under it.
+ *
+ * **One press does two things, and that is the design rather than a convenience.** The owner
+ * is holding the object — that is what a barcode means — so the moment the number reaches the
+ * library is the moment there is something to check the record against. The write is the
+ * ISBN and nothing else; what SBN answered comes back in the address (`./panels.ts`) and
+ * stands here as a **proposal**, field by field, beside the two facts this library kept. The
+ * second form is the one that writes them, and until it is pressed the catalogue has changed
+ * nothing.
+ *
+ * **The camera is an enhancement over a field that already works** (`@/components/scan`,
+ * ADR-0010). Typed, pasted, or filled in by the phone's own text scanner, this form posts and
+ * looks the object up with nothing running in the browser; the scanner is a faster way into
+ * the same field, rendered only where there is a script to honour it, and it submits the same
+ * form the button does. What a barcode buys is the typing, never a different act.
+ *
+ * **Why the record is offered as boxes rather than as a yes.** A librarian's field is not
+ * always an improvement on the spine: legal deposit spells *One Piece 100* as `One piece 100`,
+ * and which of the two this library wants is the owner's call, made while looking at both.
+ * So each field arrives filled in with the catalogue's answer and clearing it is how the owner
+ * keeps their own — the same sentence the ISBN box above is held to, and the reason no
+ * checkbox was needed to say *keep mine*. What the catalogue never named is not a box at all
+ * (`whatTheCatalogueOffers`), because an empty one there would read as the catalogue saying
+ * this object has no publisher.
+ */
+function TheIsbn({
+  act,
+  volume,
+  refused,
+  closesTo,
+  said,
+}: {
+  act: Act;
+  volume: RecordedVolume;
+  refused?: string;
+  closesTo: string;
+  said: {
+    /** Which of the three answers the catalogue gave, or nothing where it was not asked. */
+    answered: string | undefined;
+    because: string | undefined;
+    title: string | undefined;
+    publisher: string | undefined;
+    /** What was in the field, carried back so a misread digit is one keystroke from right. */
+    typed: string | undefined;
+  };
+}) {
+  // Read against the three answers rather than trusted: `?from=banana` says nothing at all,
+  // and so a hand-typed address cannot stand a proposal here that nobody looked up.
+  const answered = whatTheCatalogueAnswered(said.answered, said.because);
+  const offered = answered ? whatTheCatalogueOffers(volume, said) : [];
+  const differs = offered.some((field) => field.differs);
+
+  return (
+    <Drawer
+      title={act.label}
+      refused={refused}
+      description="Ten or thirteen characters. Writing it asks SBN, Italy's legal-deposit catalogue, what is published under it — and what it says is yours to accept or leave."
+      closesTo={closesTo}
+    >
+      <div className="grid gap-5">
+        <form action={recordIsbn} className="grid gap-4">
+          <input type="hidden" name="volumeId" value={volume.id} />
+          <div className="grid gap-1.5">
+            <Label htmlFor={THE_ISBN_FIELD.id} className="text-xs text-muted-foreground">
+              ISBN
+            </Label>
+            <Input
+              id={THE_ISBN_FIELD.id}
+              name={THE_ISBN_FIELD.name}
+              // What was typed, over what stands on the record: a refusal comes back with the
+              // digits the owner gave still in the box.
+              defaultValue={said.typed ?? volume.isbn ?? ""}
+              placeholder="9788828765431"
+              inputMode="numeric"
+              autoComplete="off"
+              required
+              className="h-11 font-mono sm:h-10"
+            />
+          </div>
+          <Button type="submit" className="h-11 w-full sm:h-10">
+            {volume.isbn ? "Correct it" : "Record it"}
+          </Button>
+
+          {/* The camera writes into the field above and submits this form. Under the button
+              rather than over the field, because the field is the thing that always works and
+              this is the shortcut. */}
+          <ScanAnIsbn into={THE_ISBN_FIELD.id} />
+
+          {/* Said where the correction is made rather than discovered afterwards: a
+              looked-up cover is an answer to the ISBN that stood here when it was asked
+              for, so writing a different one takes it off (ADR-0012, #32). Which of the
+              three sentences that is, is `./standing.ts`'s. */}
+          <p className="max-w-prose text-xs text-muted-foreground">
+            {whatWritingAnIsbnDoes(volume)}
+          </p>
+        </form>
+
+        {answered ? (
+          <div className="grid gap-4 border-t border-border pt-5">
+            <p role="status" className="max-w-prose text-pretty text-sm text-muted-foreground">
+              {answered}
+            </p>
+
+            {offered.length > 0 ? (
+              <form action={correctWhatItIs} className="grid gap-4">
+                <input type="hidden" name="volumeId" value={volume.id} />
+
+                {offered.map((field) => (
+                  <div key={field.field} className="grid gap-1.5">
+                    <Label
+                      htmlFor={`from-sbn-${field.field}`}
+                      className="text-xs text-muted-foreground"
+                    >
+                      {field.label}
+                    </Label>
+                    <Input
+                      id={`from-sbn-${field.field}`}
+                      name={field.field}
+                      defaultValue={field.says}
+                      autoComplete="off"
+                      className="h-11 sm:h-10"
+                    />
+                    {/* What stands on our own record, under the box that would replace it —
+                        and whether the two differ at all, which is the whole of what the
+                        owner is reading this panel to find out. */}
+                    <p className="text-pretty text-xs text-muted-foreground">{field.against}</p>
+                  </div>
+                ))}
+
+                <Button
+                  type="submit"
+                  variant={differs ? "default" : "outline"}
+                  className="h-11 w-full sm:h-10"
+                >
+                  {differs ? "Correct the record" : "Write it anyway"}
+                </Button>
+
+                <p className="max-w-prose text-xs text-muted-foreground">
+                  {differs
+                    ? "Only these two fields. The Binding, the language, the edition line and the line it stands in are not in the catalogue's answer and are left exactly as they are."
+                    : "Nothing here differs from the record: the catalogue and this library already say the same thing about this object, word for word."}{" "}
+                  Clear a box to keep what the record says — both cleared changes no field, and is
+                  refused.
+                </p>
+              </form>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </Drawer>
   );
 }
 
