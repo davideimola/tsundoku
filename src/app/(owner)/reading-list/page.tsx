@@ -320,7 +320,7 @@ function Entry({
 
                 return (
                   <li
-                    key={`${reason.because}:${reason.want?.id ?? reason.path?.id ?? reason.series?.id}`}
+                    key={`${reason.because}:${reason.want?.id ?? reason.path?.id ?? reason.series?.id ?? "run"}`}
                   >
                     <p className="text-sm">
                       {said.said}
