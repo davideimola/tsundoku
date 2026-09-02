@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { type CollectionVolume, searchCollection } from "@/core/queries/collection";
 import { type CreditRole, listCreditRoles } from "@/core/queries/credit";
+import type { SeriesLedger, SeriesPublishingNothing } from "@/core/queries/series";
+import { listSeriesPublishingNothing, listSeriesPublishingStory } from "@/core/queries/series";
 import type { FoundStory, StoryCredit, StoryRating, StoryReading } from "@/core/queries/story";
 import { findStory } from "@/core/queries/story";
 import { type CarryingVolume, listVolumesCarryingStory } from "@/core/queries/story-to-volume";
@@ -16,7 +18,11 @@ import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import { credit, uncredit } from "../../credits/actions";
 import { PersonPicker } from "../../credits/picker";
-import { REACHED, SERIALIZE, STRIKE } from "../panels";
+// The ledger's own caption, borrowed rather than written again: a Series named one way on its
+// own screen and another here would be two Series to the owner, and `4 of 27` is the answer
+// `core/queries/series.ts` already gives. Three screens print them now, for that one reason.
+import { Progress, SeriesName } from "../../series/ledger";
+import { PUBLISHES, REACHED, SERIALIZE, STRIKE } from "../panels";
 import {
   howFarItGot,
   howItWent,
@@ -35,6 +41,7 @@ import {
   giveUp,
   rate,
   sayWhereIGotTo,
+  sayWhichSeriesPublishesIt,
   serialize,
   startReading,
   strikeIt,
@@ -99,7 +106,7 @@ const RATE = "rate";
 // refused inside it. They are two panels rather than two buttons in one for the reason
 // finishing and giving up are — each asks for a field of its own.
 // `STRIKE` is the third of them (ADR-0015). The four that are this page's alone are above.
-const PANELS = [START, FINISHED, GAVE_UP, RATE, SERIALIZE, REACHED, STRIKE] as const;
+const PANELS = [START, FINISHED, GAVE_UP, RATE, SERIALIZE, REACHED, STRIKE, PUBLISHES] as const;
 
 /**
  * This screen's address with a panel open on it.
@@ -193,10 +200,14 @@ export default async function StoryPage({
   await requireOwner();
 
   const { id } = await params;
-  const [story, roles, carriedBy, want, owned, asked] = await Promise.all([
+  const [story, roles, carriedBy, publishedBy, want, owned, asked] = await Promise.all([
     findStory(id),
     listCreditRoles(),
     listVolumesCarryingStory(id),
+    // Which lines print this work, each with its own ledger. **Many Series may name one
+    // Story**, so it is a list and never a row — and what is printed beside each is the
+    // ledger's own answer rather than a count this screen took over the shelf.
+    listSeriesPublishingStory(id),
     // Its own question rather than a field on the Story: a Want is not a fact about a
     // narrative, it is a sentence the owner said about themselves and the Story is what it
     // names (`core/queries/want.ts`).
@@ -224,6 +235,11 @@ export default async function StoryPage({
   // a hand-edited `?reading=` naming nothing opens no panel, exactly as `?panel=banana` does.
   const judging = story.readings.find((reading) => reading.id === said(asked, "reading"));
   const closesTo = `/stories/${id}`;
+
+  // Read only where the panel that offers them is open, as the Series screen reads its
+  // placeable Volumes: the lines that name no Story are not on this page otherwise, and a
+  // page reading rows it will not show is what the filter rule in `AGENTS.md` is about.
+  const linesToChooseFrom = panel === PUBLISHES ? await listSeriesPublishingNothing() : [];
 
   return (
     <main className="px-5 py-8 sm:px-8 sm:py-12">
@@ -396,6 +412,8 @@ export default async function StoryPage({
 
         <div className="grid gap-6">
           <Carriers storyId={story.id} carriedBy={carriedBy} offerable={offerable} />
+
+          <PublishedBy storyId={story.id} ledgers={publishedBy} />
 
           <Instalments story={story} />
 
@@ -752,6 +770,77 @@ export default async function StoryPage({
         </Drawer>
       ) : null}
 
+      {/* **The arrow, set from the end the work is managed from** (#34, user stories 35 and 36).
+          The owner is standing on the Story and says which line prints it; the Series screen
+          stays a place they look. It asks for one field — which line — so it is a panel and not
+          a plain press, and what the press does is said in full above the button, because it is
+          the one act on this page that reaches records the owner cannot see from here. */}
+      {panel === PUBLISHES ? (
+        <Drawer
+          title="Say which Series publishes it"
+          description="A line prints one Story. Saying so is what makes a Volume joining that line attach to this work instead of minting a new narrative — so it is said once per Series and never again."
+          refused={refused}
+          closesTo={closesTo}
+        >
+          {linesToChooseFrom.length === 0 ? (
+            <p className="max-w-prose text-pretty text-sm text-muted-foreground">
+              No Series is waiting to be told what it prints. Every line the library knows either
+              publishes a Story already or has no object in it carrying a narrative yet. Declare the
+              Series and place its Volumes in it first.
+            </p>
+          ) : (
+            <form action={sayWhichSeriesPublishesIt} className="grid gap-5">
+              <input type="hidden" name="storyId" value={story.id} />
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="publishes-series" className="text-xs text-muted-foreground">
+                  Which Series
+                </Label>
+                {/* The two numbers travel in the option itself, because they are the whole of
+                    what the press does and nothing here runs in the browser to reveal them
+                    after a choice: *eighteen narratives across twenty objects become one*. */}
+                <select
+                  id="publishes-series"
+                  name="seriesId"
+                  required
+                  defaultValue=""
+                  className={PICKER}
+                >
+                  <option value="" disabled>
+                    Choose a Series
+                  </option>
+                  {linesToChooseFrom.map((line) => (
+                    <option key={line.id} value={line.id}>
+                      {whatTheLineIsCalled(line)} — {whatItWouldCollapse(line)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <Button type="submit" className="h-11 w-full sm:h-10">
+                Say it publishes this
+              </Button>
+
+              <div className="grid gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
+                <p className="max-w-prose text-pretty">
+                  Every object of that line carries <em>{story.title}</em> afterwards, and the
+                  narratives they stood for collapse onto it — any Rating, every Reading and every
+                  Credit come with them, and a route or a Want naming one of them comes to name this
+                  Story instead.
+                </p>
+                <p className="max-w-prose text-pretty">
+                  Nothing you own moves: the Volumes, the acquisitions and the count published are
+                  exactly as they are now. Nothing happens at all if the collapse would lose
+                  something — two scores that cannot both be this Story&apos;s one, a narrative an
+                  object outside the line carries too, or a pass counted in a narrative&apos;s own
+                  parts.
+                </p>
+              </div>
+            </form>
+          )}
+        </Drawer>
+      ) : null}
+
       {/* **The one panel here whose form has no field in it.** There is nothing to type: the
           whole of the act is the press, and the panel exists so that the press takes two
           deliberate taps and so that what the strike takes with it is read before the second
@@ -887,6 +976,104 @@ function Readings({ story }: { story: FoundStory }) {
       </CardContent>
     </Card>
   );
+}
+
+/**
+ * **The lines that print this work, and the one gesture that adds one** (#34, user stories 35
+ * and 36).
+ *
+ * The Story is the single place a work is managed, so the arrow is set here — *say which Series
+ * publishes it* — and `/series` stays a place the owner looks. The two are one decision: an
+ * editing control on the completeness ledger is the Series screen quietly becoming a second
+ * place a narrative is managed, and then *what am I missing* has an act standing beside it in a
+ * shop.
+ *
+ * **Many Series may name one Story**, and the card is a list for that reason rather than for
+ * tidiness: the standard printing and a deluxe line are two ledgers over one narrative, and the
+ * owner reads how far along each is without leaving the work. What each row says about
+ * completeness is the ledger's own answer, drawn with the ledger's own caption — a Series named
+ * one way here and another on its own screen would be two Series.
+ */
+function PublishedBy({ storyId, ledgers }: { storyId: string; ledgers: SeriesLedger[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Series publishing it</CardTitle>
+        <CardDescription className="text-pretty">
+          A Series says which Story it prints, and that lone arrow is the only thing a line and a
+          narrative say to each other. It is what makes a Volume joining the line attach to this
+          work instead of minting a new one.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {ledgers.length === 0 ? (
+          <p className="text-pretty text-sm text-muted-foreground">
+            No Series publishes this Story, which is the ordinary answer: most of what is on these
+            shelves is not a publisher's numbered line.
+          </p>
+        ) : (
+          <ul className="-my-1">
+            {ledgers.map((ledger) => (
+              <li key={ledger.id} className="border-t border-border first:border-t-0">
+                <Link
+                  href={`/series/${ledger.id}`}
+                  className="grid gap-1 py-3 outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="text-pretty">
+                    <SeriesName ledger={ledger} />
+                  </span>
+                  <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <Progress ledger={ledger} />
+                    {/* The missing read, and only where there is a project it is missing from:
+                        a hollow position of a Series nobody decided to complete is empty and
+                        never a shopping list (`series/positions.ts` decides that once). */}
+                    {ledger.missing === null ? null : ledger.missing.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">Complete</span>
+                    ) : (
+                      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                        Missing {ledger.missing.length} · next is {ledger.nextMissing}
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <p className="mt-6 border-t border-border pt-5">
+          <OpensDrawer href={panelled(storyId, PUBLISHES)}>
+            Say which Series publishes it
+          </OpensDrawer>
+        </p>
+        {/* One clause, and the panel says the rest. What the press does in full is read
+            beside the picker where the line is chosen, so that it is read once and about a
+            line the owner has actually picked. */}
+        <p className="mt-3 text-pretty text-xs leading-relaxed text-muted-foreground">
+          Its objects come to carry this work, and nothing you own moves.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** A Series as the picker names it: the line, and the edition that tells two of them apart. */
+function whatTheLineIsCalled(line: SeriesPublishingNothing): string {
+  return [line.name, line.editionLine].filter(Boolean).join(" ");
+}
+
+/**
+ * *20 objects, 18 narratives* — the whole of what one press does, said while the owner is still
+ * choosing.
+ *
+ * Written here rather than counted in the markup because both numbers are the core's answer and
+ * the singular is the only judgement in it: a picker that said *1 narratives* would be the one
+ * place on this screen the application does not speak.
+ */
+function whatItWouldCollapse(line: SeriesPublishingNothing): string {
+  const objects = `${line.objects} ${line.objects === 1 ? "object" : "objects"}`;
+  const narratives = `${line.narratives} ${line.narratives === 1 ? "narrative" : "narratives"}`;
+  return `${objects}, ${narratives}`;
 }
 
 /**

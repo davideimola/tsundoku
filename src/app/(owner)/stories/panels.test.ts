@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { carriedAs, NOTHING_ON_IT, REACHED, SERIALIZE, STRIKE, THE_WALLS_FILTERS } from "./panels";
+import {
+  carriedAs,
+  NOTHING_ON_IT,
+  PUBLISHES,
+  REACHED,
+  SERIALIZE,
+  STRIKE,
+  THE_WALLS_FILTERS,
+} from "./panels";
 
 // The Story wall's addresses, tested beside themselves under the licence `vitest.config.ts`
 // states: data in, data out, a function this application would still have if React were
@@ -38,15 +46,15 @@ describe("carrying the wall's filters through the form", () => {
   // A panel's name reaches the URL, so a space or an ampersand in it is a drawer that opens
   // on the way out of one browser and not the other.
   it("names each panel as a plain slug", () => {
-    for (const panel of [NOTHING_ON_IT, STRIKE, SERIALIZE, REACHED]) {
+    for (const panel of [NOTHING_ON_IT, STRIKE, SERIALIZE, REACHED, PUBLISHES]) {
       expect(panel).toMatch(/^[a-z-]+$/);
     }
   });
 
-  // A bulk delete and three forms. One name shared between any two of them would open the
+  // A bulk delete and four forms. One name shared between any two of them would open the
   // destructive one where the owner asked for something else entirely.
   it("gives each panel its own name", () => {
-    const panels = [NOTHING_ON_IT, STRIKE, SERIALIZE, REACHED];
+    const panels = [NOTHING_ON_IT, STRIKE, SERIALIZE, REACHED, PUBLISHES];
 
     expect(new Set(panels).size).toBe(panels.length);
   });

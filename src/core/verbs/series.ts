@@ -553,8 +553,17 @@ export async function placeVolumeInSeries(
 // object *outside* this line carries is not this line's to unmake — the same sentence
 // `splitVolumeIntoStories` refuses with, asked from the other end.
 //
-// **Not a tool, and it cannot become one**: it creates a Story, so an assistant may only
+// **Not a tool, and it cannot become one**: it can create a Story, so an assistant may only
 // propose one and the door for that is the Inbox (ADR-0005).
+//
+// **It takes the work rather than always making one** (#34's user stories 35 and 36). The
+// gesture is performed from the Story's page — *say which line publishes this* — and the work
+// the owner is standing on is the target, so the arrow is set where a narrative already exists
+// and a new one is minted only where none was named. That is one gesture with two ends and not
+// two gestures: the collapse, the refusals and everything carried across are the same in both
+// directions, and a second copy of them would drift the day either is touched. It is also what
+// keeps the Series screen a place the owner *looks*: the ledger answers *what am I missing* and
+// nothing on it edits a narrative.
 
 /** One narrative the objects of a line carry, and what stands in the way of collapsing it. */
 type NarrativeOfTheLine = {
@@ -574,39 +583,71 @@ const JUDGED_APART =
   "are judged apart, and a Story has one score to give. Merging would lose one of them. Nothing was merged.";
 
 /**
+ * What the line comes to publish: a Story that is already in the library, or a new one this
+ * gesture mints and names.
+ *
+ * Two fields rather than two functions, because **which end the owner performed the gesture
+ * from is the only difference between them**. Standing on a Story, they say *this line
+ * publishes this*; standing on nothing, the work has to be made before it can be published.
+ * Everything after that sentence — the collapse, the seven refusals, the Ratings and the
+ * Readings and the Credits and the stops carried across — is one piece of behaviour.
+ */
+export type TheWorkTheLinePrints = {
+  /**
+   * The Story the line comes to publish, where the owner is already standing on it. The
+   * gesture mints nothing and this work keeps its own title, its Type and its Instalments.
+   */
+  storyId?: string | null;
+  /**
+   * What a **new** work is called; the Series' own name where none is given. Spent only where
+   * no Story is named, since a Story already in the library is not renamed by being published.
+   */
+  title?: string | null;
+};
+
+/**
  * Merge the Volumes of a Series into one Story: the twenty tankōbon of *Slam Dunk* become one
  * work that all twenty objects carry, and there is finally somewhere to say *Slam Dunk is a 9*.
- * Returns the new Story's id.
+ * Returns the Story's id — the one that was given, or the one this made.
  *
- * **One gesture, and therefore one transaction** (`./README.md`): the work is created, every
+ * **One gesture, and therefore one transaction** (`./README.md`): the work is settled on, every
  * object of the line is recorded as carrying it, everything the collapsed narratives held is
  * moved onto it, the arrow is set and the collapsed narratives are dropped — together or not at
  * all. Half of it landing would be a line with two answers to what it prints.
  *
- * `title` is the work's, and the Series' own name is what it takes when none is given — *Slam
- * Dunk*, off the line that prints it. The Type comes from the narratives being collapsed, so
- * the gesture asks for nothing the owner would have to look up.
+ * **The work is the owner's where they name one**, which is how this reads from the Story's own
+ * page: *this line publishes this*. Nothing about that Story changes but what now points at it —
+ * its title, its Type and its Instalments are its own, and a narrative already published by a
+ * second Series is published by both afterwards, which is two ledgers over one narrative and
+ * exactly what the arrow is for.
  *
- * The work is **serialized to the length of the line**, because that is what the glossary says
- * a manga line's Instalments are: one part per Volume, so volume seven is instalment seven and
- * nobody types anything. It is the count published or the furthest position placed, whichever
- * is further, and `declareInstalments` is the correction where a line's parts are counted some
- * other way.
+ * Where no Story is named one is made: `title` is the work's, and the Series' own name is what
+ * it takes when none is given — *Slam Dunk*, off the line that prints it. The Type comes from
+ * the narratives being collapsed, so the gesture asks for nothing the owner would have to look
+ * up. And that work is **serialized to the length of the line**, because that is what the
+ * glossary says a manga line's Instalments are: one part per Volume, so volume seven is
+ * instalment seven and nobody types anything. It is the count published or the furthest
+ * position placed, whichever is further, and `declareInstalments` is the correction where a
+ * line's parts are counted some other way.
  *
  * **Nothing about the shelf changes.** Every Volume, every Acquisition and every number of the
  * completeness ledger is exactly as it was.
  *
  * Refused on a line that already publishes a Story — that is what makes this once per line —
- * on one with no objects in it or whose objects carry no narrative, on one carrying a narrative
- * an object outside the Series carries too, on one where two narratives are judged apart, since
- * a Story has one score to give, and on one where a pass counted its way through a narrative in
- * that narrative's own units, since those units are what the collapse replaces.
+ * on a Story the library does not know, on a line with no objects in it or whose objects carry
+ * no narrative, on one carrying a narrative an object outside the Series carries too, on one
+ * where two narratives are judged apart, since a Story has one score to give, and on one where
+ * a pass counted its way through a narrative in that narrative's own units, since those units
+ * are what the collapse replaces.
  */
 export async function mergeSeriesIntoOneStory(
   seriesId: string,
-  title?: string | null
+  work: TheWorkTheLinePrints = {}
 ): Promise<string> {
   if (!UUID.test(seriesId)) throw new Refusal("not-found", NO_SUCH_SERIES);
+  if (work.storyId != null && !UUID.test(work.storyId)) {
+    throw new Refusal("not-found", NO_SUCH_STORY);
+  }
 
   return transaction(async (run) => {
     // Locked, and read in the same transaction that is about to write: the arrow is what makes
@@ -626,6 +667,27 @@ export async function mergeSeriesIntoOneStory(
         "That Series already publishes a Story. A line is merged once, and what it prints is managed on that Story's own page."
       );
     }
+
+    // The work the owner named, read in the same transaction that is about to point a line at
+    // it: a Story struck a moment ago is not something a line can come to publish, and the
+    // `series_story_exists` constraint would answer that as a foreign key rather than as a
+    // sentence.
+    // It is read with its own judgement, because the work is one of the scores the collapse has
+    // to keep: see the refusal below.
+    const named = work.storyId
+      ? (
+          await run<{ id: string; title: string; judged: boolean }>(
+            `select s.id,
+                    s.title,
+                    exists (select 1 from rating g
+                             where g.story_id = s.id and g.reading_id is null) as judged
+               from story s
+              where s.id = $1`,
+            [work.storyId]
+          )
+        )[0]
+      : undefined;
+    if (work.storyId && !named) throw new Refusal("not-found", NO_SUCH_STORY);
 
     // How long the line is, in the only two ways it can be said: what the publisher has put
     // out, and how far the objects placed in it reach. The further of the two is what the work
@@ -679,7 +741,16 @@ export async function mergeSeriesIntoOneStory(
       );
     }
 
-    const outside = narratives.find((one) => one.elsewhere);
+    // **The work is not one of the things being collapsed onto it.** Where the owner named a
+    // Story their objects already carry — a second edition placed in a line that names nothing
+    // yet, and one of its volumes said by hand to carry the work — that narrative is the target
+    // and not a casualty, so it is taken out of the list before the refusals are read over it.
+    // Left in, the collapse would drop the very Story it was pointing the line at, and the
+    // *elsewhere* refusal below would fire on the objects of the line that already publishes
+    // it — which is the ordinary shape of a second ledger over one narrative.
+    const collapsing = narratives.filter((one) => one.id !== work.storyId);
+
+    const outside = collapsing.find((one) => one.elsewhere);
     if (outside) {
       throw new Refusal(
         "not-allowed",
@@ -691,7 +762,12 @@ export async function mergeSeriesIntoOneStory(
     // So two of them are two judgements the collapse cannot keep, and it is refused rather than
     // quietly keeping whichever Postgres reached first. A Rating that names a Reading travels
     // with that Reading and collides with nothing.
-    const judged = narratives.filter((one) => one.judged);
+    //
+    // **The work counts as one of the judgements**, and it leads them: a Story the owner has
+    // already scored, published by a line one of whose narratives is scored too, is two scores
+    // arriving at one work — the same loss, said from the other end. It is named first in the
+    // sentence because it is the one the owner is standing on.
+    const judged = [...(named?.judged ? [named] : []), ...collapsing.filter((one) => one.judged)];
     if (judged.length > 1) {
       const [one, two] = judged;
       throw new Refusal("not-allowed", `${one.title} and ${two.title} ${JUDGED_APART}`);
@@ -705,7 +781,7 @@ export async function mergeSeriesIntoOneStory(
     // gesture could write a wrong fact rather than move a true one. Renumbering it onto the
     // line is a rule nobody has written down (the volume's position is a guess, and an
     // omnibus has no single one), so it is refused and named instead of invented.
-    const counted = narratives.find((one) => one.counted);
+    const counted = collapsing.find((one) => one.counted);
     if (counted) {
       throw new Refusal(
         "not-allowed",
@@ -713,15 +789,23 @@ export async function mergeSeriesIntoOneStory(
       );
     }
 
-    const collapsing = narratives.map((one) => one.id);
-    const work = await createStory(
-      {
-        title: title?.trim() ? title.trim() : line.name,
-        typeId: first.typeId,
-        instalments: Math.max(line.publishedCount, held.furthest) || null,
-      },
-      run
-    );
+    const collapsed = collapsing.map((one) => one.id);
+
+    // **The work, and it is made only where the owner named none.** A Story they are already
+    // standing on keeps its own title, its own Type and its own Instalments: publishing it is a
+    // fact about the line, and a gesture that renamed or renumbered a narrative the owner has
+    // lived with would be doing something nobody asked for. Everything below this line is the
+    // same either way, which is the whole argument for one verb with two ends.
+    const printed =
+      named?.id ??
+      (await createStory(
+        {
+          title: work.title?.trim() ? work.title.trim() : line.name,
+          typeId: first.typeId,
+          instalments: Math.max(line.publishedCount, held.furthest) || null,
+        },
+        run
+      ));
 
     // Every object of the line, and not only the ones in the house: an object the owner let go
     // still carried this narrative, and the shelf is not what a merge is about.
@@ -731,7 +815,7 @@ export async function mergeSeriesIntoOneStory(
           `insert into volume_story (volume_id, story_id)
            select v.id, $2 from volume v where v.series_id = $1
            on conflict on constraint volume_story_is_said_once do nothing`,
-          [seriesId, work]
+          [seriesId, printed]
         ),
       () => "The objects of this Series could not be said to carry one Story."
     );
@@ -750,7 +834,7 @@ export async function mergeSeriesIntoOneStory(
              update rating set story_id = $1 where story_id = any($2::uuid[]) returning id
            )
            select count(*) from passes, judgements`,
-          [work, collapsing]
+          [printed, collapsed]
         ),
       (constraint) => {
         switch (constraint) {
@@ -773,7 +857,7 @@ export async function mergeSeriesIntoOneStory(
           `insert into credit (story_id, person_id, role_id)
            select $1, c.person_id, c.role_id from credit c where c.story_id = any($2::uuid[])
            on conflict on constraint credit_is_one_role_per_person_per_story do nothing`,
-          [work, collapsing]
+          [printed, collapsed]
         ),
       () => "The people credited on this line could not be credited on one Story."
     );
@@ -782,11 +866,15 @@ export async function mergeSeriesIntoOneStory(
     // Story *and* one Story per place: two stops that both named this line are one stop now, and
     // an update would have collided with itself. The place kept is the earlier of them, which is
     // where the owner had already decided this line comes.
+    //
+    // **The work's own stop is taken up and put back with them**, where the owner named a Story
+    // already on a route: it is one of the stops becoming one stop, and left standing it would
+    // have been the row the insert collided with.
     await refusing(
       () =>
         run(
           `with gone as (
-             delete from path_item where story_id = any($2::uuid[])
+             delete from path_item where story_id = any($2::uuid[]) or story_id = $1
              returning path_id, position, added_at
            ), kept as (
              select distinct on (path_id) path_id, position, added_at from gone
@@ -794,7 +882,7 @@ export async function mergeSeriesIntoOneStory(
            )
            insert into path_item (path_id, story_id, position, added_at)
            select path_id, $1, position, added_at from kept`,
-          [work, collapsing]
+          [printed, collapsed]
         ),
       () => "The routes naming this line could not be pointed at one Story."
     );
@@ -802,18 +890,21 @@ export async function mergeSeriesIntoOneStory(
     // One open Want per Story, so several become one — and it is the **most recent** of them
     // rather than the first. A Want falls quiet when a Reading began after it was opened, so
     // keeping the oldest could quiet an intention that was live a moment ago; keeping the newest
-    // never does, and a merge must not answer a Want the owner had not answered.
+    // never does, and a merge must not answer a Want the owner had not answered. The work's own
+    // open Want is one of them where the owner named a Story they already meant to read, and it
+    // wins on the same rule rather than being collided with.
     await refusing(
       () =>
         run(
           `with gone as (
-             delete from want where story_id = any($2::uuid[]) returning opened_at
+             delete from want where story_id = any($2::uuid[]) or story_id = $1
+             returning opened_at
            ), kept as (
              select max(opened_at) as opened_at from gone
            )
            insert into want (story_id, opened_at)
            select $1, opened_at from kept where opened_at is not null`,
-          [work, collapsing]
+          [printed, collapsed]
         ),
       () => "What you meant to read of this line could not be pointed at one Story."
     );
@@ -830,13 +921,14 @@ export async function mergeSeriesIntoOneStory(
       () =>
         run(
           `with gone as (
-             delete from reading_list_pin where story_id = any($2::uuid[]) returning pinned_at
+             delete from reading_list_pin where story_id = any($2::uuid[]) or story_id = $1
+             returning pinned_at
            ), kept as (
              select max(pinned_at) as pinned_at from gone
            )
            insert into reading_list_pin (story_id, pinned_at)
            select $1, pinned_at from kept where pinned_at is not null`,
-          [work, collapsing]
+          [printed, collapsed]
         ),
       () => "What you pinned of this line could not be pointed at one Story."
     );
@@ -846,19 +938,22 @@ export async function mergeSeriesIntoOneStory(
     // below silently empty it (`on delete set null`).
     await refusing(
       () =>
-        run("update series set story_id = $1 where story_id = any($2::uuid[])", [work, collapsing]),
+        run("update series set story_id = $1 where story_id = any($2::uuid[])", [
+          printed,
+          collapsed,
+        ]),
       () => "Another Series printing one of these narratives could not be pointed at the Story."
     );
 
-    await recordSeriesPublishesStory(seriesId, work, run);
+    await recordSeriesPublishesStory(seriesId, printed, run);
 
     // Last, and everything worth keeping is off them by now: what still points at one of these
     // narratives is the record of which objects carried it, which is the fact being replaced.
     await refusing(
-      () => run("delete from story where id = any($1::uuid[])", [collapsing]),
+      () => run("delete from story where id = any($1::uuid[])", [collapsed]),
       () => "The narratives of this line could not be replaced by the Story they print."
     );
 
-    return work;
+    return printed;
   });
 }

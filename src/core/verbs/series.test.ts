@@ -764,10 +764,11 @@ describe("merging a Series into one Story", () => {
    * A line of `volumes` tankōbon, each an object in the house standing for a narrative of its
    * own — which is the state the whole gesture exists to undo.
    */
-  async function aLineOfTankobon(volumes: number) {
+  async function aLineOfTankobon(volumes: number, editionLine?: string) {
     const series = await declareSeries({
       name: "Slam Dunk",
       publisher: "Planet Manga",
+      editionLine,
       publishedCount: volumes,
       status: "concluded",
     });
@@ -833,7 +834,7 @@ describe("merging a Series into one Story", () => {
   it("takes the title the owner gave it instead", async () => {
     const { series } = await aLineOfTankobon(2);
 
-    const work = await mergeSeriesIntoOneStory(series, "  Slam Dunk, the whole run  ");
+    const work = await mergeSeriesIntoOneStory(series, { title: "  Slam Dunk, the whole run  " });
 
     const [row] = await query<{ title: string }>("select title from story where id = $1", [work]);
     expect(row.title).toBe("Slam Dunk, the whole run");
@@ -1148,5 +1149,178 @@ describe("merging a Series into one Story", () => {
       work,
     ]);
     expect(Number(row.score)).toBe(9);
+  });
+
+  // THE ARROW SET FROM THE STORY'S END.
+  //
+  // The same gesture, performed from the page the work is managed on: the owner is standing on
+  // a Story and says *this line publishes this*. What is asserted here is that the collapse
+  // lands on the work they were already looking at rather than on a narrative minted under
+  // them, that the shelf and the ledger are as untouched as they are from the other end, and
+  // that every refusal the gesture carries still refuses.
+  describe("from the Story the owner is standing on", () => {
+    /** A Story with nothing on it, standing for the work the owner already has a page for. */
+    async function aWorkAlreadyInTheLibrary(title = "Slam Dunk"): Promise<string> {
+      return createStory({ title, typeId: "manga" });
+    }
+
+    it("collapses the line onto the work the owner was already looking at", async () => {
+      const work = await aWorkAlreadyInTheLibrary();
+      const { series, objects, narratives } = await aLineOfTankobon(4);
+
+      expect(await mergeSeriesIntoOneStory(series, { storyId: work })).toBe(work);
+
+      for (const volume of objects) expect(await carriedBy(volume)).toEqual([work]);
+      expect((await ledgerOf(series)).story_id).toBe(work);
+      const titles = await query<{ title: string }>("select title from story");
+      expect(titles).toEqual([{ title: "Slam Dunk" }]);
+      expect(narratives).toHaveLength(4);
+    });
+
+    it("mints nothing and renames nothing: the work keeps its own title and count", async () => {
+      const work = await aWorkAlreadyInTheLibrary("Slam Dunk, the whole run");
+      await declareInstalments(work, 31);
+      const { series } = await aLineOfTankobon(2);
+
+      await mergeSeriesIntoOneStory(series, { storyId: work, title: "Ignored" });
+
+      const [row] = await query<{ title: string; instalments: number | null }>(
+        "select title, instalments from story where id = $1",
+        [work]
+      );
+      expect(row).toEqual({ title: "Slam Dunk, the whole run", instalments: 31 });
+    });
+
+    it("leaves every Volume, every Acquisition and the ledger byte for byte as they were", async () => {
+      const work = await aWorkAlreadyInTheLibrary();
+      const { series } = await aLineOfTankobon(4);
+      await declareSeriesCollected(series);
+      const volumes = await snapshotOf("volume");
+      const acquisitions = await snapshotOf("acquisition");
+      const before = await ledgerOf(series);
+
+      await mergeSeriesIntoOneStory(series, { storyId: work });
+
+      expect(await snapshotOf("volume")).toEqual(volumes);
+      expect(await snapshotOf("acquisition")).toEqual(acquisitions);
+      expect(await ledgerOf(series)).toEqual({ ...before, story_id: work });
+    });
+
+    it("carries what the collapsed narratives held onto the work", async () => {
+      const work = await aWorkAlreadyInTheLibrary();
+      const { series, narratives } = await aLineOfTankobon(3);
+      await setRating({ storyId: narratives[1], score: 9, provenanceId: "remembered" });
+      await recordReading({
+        storyId: narratives[0],
+        medium: "paper",
+        provenanceId: "remembered",
+        outcome: "finished",
+      });
+      await openWant(narratives[2]);
+
+      await mergeSeriesIntoOneStory(series, { storyId: work });
+
+      expect(await query("select story_id from rating")).toEqual([{ story_id: work }]);
+      expect(await query("select story_id from reading")).toEqual([{ story_id: work }]);
+      expect(await query("select story_id from want")).toEqual([{ story_id: work }]);
+    });
+
+    it("keeps the work's own open Want rather than colliding with it", async () => {
+      const work = await aWorkAlreadyInTheLibrary();
+      await openWant(work);
+      const { series, narratives } = await aLineOfTankobon(2);
+      await openWant(narratives[0]);
+
+      await mergeSeriesIntoOneStory(series, { storyId: work });
+
+      expect(await query("select story_id from want")).toEqual([{ story_id: work }]);
+    });
+
+    it("keeps the work's own pin and its own stop rather than colliding with them", async () => {
+      const work = await aWorkAlreadyInTheLibrary();
+      const route = await definePath({ name: "Marvel" });
+      await placeStoriesOnPath(route, [work]);
+      await pinToReadingList({ kind: "story", id: work });
+      const { series, narratives } = await aLineOfTankobon(2);
+      await placeStoriesOnPath(route, [narratives[1]]);
+      await pinToReadingList({ kind: "story", id: narratives[1] });
+
+      await mergeSeriesIntoOneStory(series, { storyId: work });
+
+      // One stop, at the place the owner had already decided for it: their own was the
+      // earlier of the two, and the route holds one stop per Story either way.
+      expect(await query("select story_id from path_item")).toEqual([{ story_id: work }]);
+      expect(await query("select story_id from reading_list_pin")).toEqual([{ story_id: work }]);
+    });
+
+    it("is two ledgers over one narrative: a second line publishes it without minting anything", async () => {
+      const { series: standard } = await aLineOfTankobon(3);
+      const work = await mergeSeriesIntoOneStory(standard);
+      const { series: deluxe, objects } = await aLineOfTankobon(2, "Ultimate Deluxe Edition");
+
+      expect(await mergeSeriesIntoOneStory(deluxe, { storyId: work })).toBe(work);
+
+      const [count] = await query<{ count: string }>("select count(*) from story");
+      expect(count.count).toBe("1");
+      expect((await ledgerOf(standard)).story_id).toBe(work);
+      expect((await ledgerOf(deluxe)).story_id).toBe(work);
+      for (const volume of objects) expect(await carriedBy(volume)).toEqual([work]);
+    });
+
+    it("refuses when the work and a narrative of the line are judged apart", async () => {
+      const work = await aWorkAlreadyInTheLibrary();
+      await setRating({ storyId: work, score: 9, provenanceId: "remembered" });
+      const { series, narratives } = await aLineOfTankobon(2);
+      await setRating({ storyId: narratives[0], score: 6, provenanceId: "remembered" });
+
+      const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series, { storyId: work }));
+
+      expect(refusal.code).toBe("not-allowed");
+      expect(refusal.message).toMatch(/one score/i);
+      expect(refusal.message).toMatch(/Nothing was merged/);
+      const [count] = await query<{ count: string }>("select count(*) from story");
+      expect(count.count).toBe("3");
+      expect((await ledgerOf(series)).story_id).toBeNull();
+    });
+
+    it("refuses when a pass counted its way through one of the narratives", async () => {
+      const work = await aWorkAlreadyInTheLibrary();
+      const { series, narratives } = await aLineOfTankobon(2);
+      await declareInstalments(narratives[0], 5);
+      await recordReading({
+        storyId: narratives[0],
+        medium: "paper",
+        provenanceId: "remembered",
+        atInstalment: 3,
+      });
+
+      const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series, { storyId: work }));
+
+      expect(refusal.code).toBe("not-allowed");
+      expect(refusal.message).toMatch(/recorded how far it got/i);
+      expect((await ledgerOf(series)).story_id).toBeNull();
+    });
+
+    it("refuses a line that already publishes a Story, which is what the arrow is for", async () => {
+      const work = await aWorkAlreadyInTheLibrary();
+      const { series } = await aLineOfTankobon(2);
+      await mergeSeriesIntoOneStory(series, { storyId: work });
+
+      const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series, { storyId: work }));
+
+      expect(refusal.code).toBe("not-allowed");
+      expect(refusal.message).toMatch(/already publishes a Story/i);
+    });
+
+    it("refuses a Story the library does not know, and a malformed one alike", async () => {
+      const { series } = await aLineOfTankobon(2);
+
+      for (const storyId of ["00000000-0000-4000-8000-000000000000", "banana"]) {
+        const refusal = await refusalFrom(() => mergeSeriesIntoOneStory(series, { storyId }));
+        expect(refusal.code).toBe("not-found");
+        expect(refusal.message).toMatch(/not in the library/i);
+      }
+      expect((await ledgerOf(series)).story_id).toBeNull();
+    });
   });
 });

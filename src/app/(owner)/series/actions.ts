@@ -7,7 +7,6 @@ import {
   concludeSeries,
   declareSeries,
   declareSeriesCollected,
-  mergeSeriesIntoOneStory,
   placeVolumeInSeries,
   recordVolumesPublished,
   type SeriesStatus,
@@ -162,23 +161,5 @@ export async function place(form: FormData): Promise<void> {
         number,
       }),
     "place"
-  );
-}
-
-/**
- * Merge the Volumes of this Series into one Story.
- *
- * It lands back on the Series rather than on the work it just made, and that is the answer
- * being where the press was: the arrow appears in the hero the moment this returns, and it is
- * a link to the Story's own page — which is where the work is managed from now on.
- */
-export async function merge(form: FormData): Promise<void> {
-  await requireOwner();
-  const id = text(form, "seriesId") ?? "";
-  await saying(
-    `/series/${id}`,
-    new URLSearchParams({ merged: "1" }),
-    () => mergeSeriesIntoOneStory(id, text(form, "title")).then(() => undefined),
-    "merge"
   );
 }

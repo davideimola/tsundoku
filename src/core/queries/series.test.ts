@@ -17,6 +17,8 @@ import {
   findSeries,
   listMissingVolumes,
   listSeries,
+  listSeriesPublishingNothing,
+  listSeriesPublishingStory,
   listVolumesOutsideASeries,
   whatAMergeWouldCarry,
   whatAMergeWouldCollapse,
@@ -417,5 +419,97 @@ describe("what a merge would carry", () => {
   it("answers nothing for a Series the library does not know", async () => {
     expect(await whatAMergeWouldCarry("00000000-0000-4000-8000-000000000000")).toEqual([]);
     expect(await whatAMergeWouldCarry("banana")).toEqual([]);
+  });
+});
+
+// THE TWO QUESTIONS A STORY'S PAGE ASKS OF THE LEDGER (#34, user stories 35 and 36).
+//
+// The work is managed from the Story, so both are asked from the narrative's end: which lines
+// print it, and which lines could be said to.
+describe("the Series publishing one Story", () => {
+  it("answers every line that names it, each with its own ledger", async () => {
+    const work = await createStory({ title: "Death Note", typeId: "manga" });
+    const black = await deathNoteBlackEdition();
+    const standard = await declareSeries({
+      name: "Death Note",
+      publisher: "Panini Comics",
+      publishedCount: 12,
+      status: "concluded",
+    });
+    await recordSeriesPublishesStory(black, work);
+    await recordSeriesPublishesStory(standard, work);
+
+    const ledgers = await listSeriesPublishingStory(work);
+
+    // Two ledgers over one narrative, the standard printing first, each answering how far
+    // along it is and what is missing from it — the same answer `listSeries` gives.
+    expect(
+      ledgers.map((one) => [one.editionLine, one.ownedCount, one.publishedCount, one.missing])
+    ).toEqual([
+      [null, 0, 12, null],
+      ["Black Edition", 2, 6, [3, 4, 5, 6]],
+    ]);
+  });
+
+  it("answers nothing where no line names it, which is the ordinary case", async () => {
+    const work = await createStory({ title: "Daredevil: L'Uomo Senza Paura", typeId: "comic" });
+    await deathNoteBlackEdition();
+
+    expect(await listSeriesPublishingStory(work)).toEqual([]);
+    expect(await listSeriesPublishingStory("00000000-0000-4000-8000-000000000000")).toEqual([]);
+    expect(await listSeriesPublishingStory("banana")).toEqual([]);
+  });
+});
+
+describe("the Series that could be said to publish a Story", () => {
+  it("offers a line naming none, with what saying it would collapse", async () => {
+    const series = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    const [first, second] = await own(series, "Slam Dunk", [1, 2]);
+    const shared = await createStoryCarriedBy({ title: "Slam Dunk 1", typeId: "manga" }, first);
+    await recordVolumeCarriesStory(second, shared);
+
+    expect(await listSeriesPublishingNothing()).toEqual([
+      { id: series, name: "Slam Dunk", editionLine: null, objects: 2, narratives: 1 },
+    ]);
+  });
+
+  it("leaves out a line that already publishes one: a line is said to print a work once", async () => {
+    const series = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    const [first] = await own(series, "Slam Dunk", [1]);
+    const story = await createStoryCarriedBy({ title: "Slam Dunk 1", typeId: "manga" }, first);
+    await recordSeriesPublishesStory(series, story);
+
+    expect(await listSeriesPublishingNothing()).toEqual([]);
+  });
+
+  it("leaves out a line with nothing to collapse, so no choice is a refusal", async () => {
+    // Declared and empty, and declared with an object carrying no narrative: the gesture
+    // refuses both, so neither is offered.
+    await declareSeries({
+      name: "Naruto",
+      publisher: "Planet Manga",
+      publishedCount: 72,
+      status: "concluded",
+    });
+    const black = await declareSeries({
+      name: "Death Note",
+      publisher: "Panini Comics",
+      editionLine: "Black Edition",
+      publishedCount: 6,
+      status: "concluded",
+    });
+    await own(black, "Death Note Black Edition", [1]);
+
+    expect(await listSeriesPublishingNothing()).toEqual([]);
   });
 });
