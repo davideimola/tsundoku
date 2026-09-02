@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "../db.ts";
 import { Refusal, refusing } from "../refusal.ts";
+import type { Executor } from "../transaction.ts";
 
 // Writing a Reading: one act of reading a Story — when, by what medium, how it ended and
 // how it is known.
@@ -95,11 +96,15 @@ const NO_SUCH_READING = "That Reading is not in the library.";
  * Adds a Reading and changes nothing else. Recording a second one for the same Story
  * leaves the first exactly as it was, ratings included: that is the whole point of a
  * Reading being an event.
+ *
+ * `run` is how the one door calls this inside its own transaction (`what-happened.ts`): the
+ * owner says *I bought it* once, and the object, the acquisition and the narrative land
+ * together or not at all (see `../transaction.ts`).
  */
-export async function recordReading(reading: NewReading): Promise<string> {
+export async function recordReading(reading: NewReading, run: Executor = query): Promise<string> {
   const rows = await refusing(
     () =>
-      query<{ id: string }>(
+      run<{ id: string }>(
         `insert into reading
            (story_id, medium, outcome, started_on, ended_on, provenance_id, volume_id,
             at_instalment)
