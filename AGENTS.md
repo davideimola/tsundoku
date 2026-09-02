@@ -85,7 +85,12 @@ reaches a record the assistant cannot. A cross-entity question is the one case w
 is not named after an area, because the area it answers for is every area at once.
 
 `src/app/(owner)/finder.tsx` is the scripted half and **`/find` is the specification**
-(ADR-0010). The chrome carries a glyph beside the mark and that glyph is an
+(ADR-0010). The rail on a route is the other pair: `paths/[id]/rail.tsx` lets a stop be
+dragged into its gap at a desk, and the arrows and *first* on every row are the
+specification — the drag fills two fields into a form the server rendered and presses it,
+so there is one write and not two. It is offered only where a mouse can start it precisely
+(`(pointer: fine)` and `lg`), because on a phone a drag inside a scrolling column is worse
+than a tap and this application is used one-handed in a shop. The chrome carries a glyph beside the mark and that glyph is an
 `<a href="/find">`: with nothing running it is a link to that screen, and with a script it
 opens a palette over the window instead — so the suggestions, the arrow keys and `⌘K` are a
 shorter way to a place the owner can already get to, and a button that did nothing on a

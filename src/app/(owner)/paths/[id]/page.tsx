@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { StoryStateLabel } from "../../stories/story-state";
 import {
   makeFirst,
+  moveAfter,
   moveEarlier,
   moveLater,
   placeStories,
@@ -28,6 +29,7 @@ import {
 } from "../acts";
 import { DeclaredConstraints } from "../constraints";
 import { type Run, theRunsOnOffer, theWholeRunPress } from "./candidates";
+import { Rail, REORDERING } from "./rail";
 
 // ONE PATH, and **the screen where the order is made by hand**. Everything else in this
 // app derives; this is the one place the owner's judgement is typed in, so the order is
@@ -37,11 +39,16 @@ import { type Run, theRunsOnOffer, theWholeRunPress } from "./candidates";
 //   judgement, and they are the only thing on the page that could not have been derived.
 // - The next unread Story is **marked in the rail** rather than repeated somewhere else,
 //   because "what comes next" is a position on the route and not a separate fact.
-// - Re-ordering is two arrows, and they are **submit buttons in plain forms**. No
-//   JavaScript runs on this page: no drag handle, no client component, nothing to hydrate
-//   before the owner can move *Musashi* above *Vagabond* on a phone in a shop. A drag
-//   interaction would be the only thing in this repo that needed a bundle to work, and it
-//   would fail exactly where this app is used.
+// - Re-ordering is two arrows and *first*, and they are **submit buttons in plain forms**.
+//   Nothing the owner commits here waits for a bundle: they move *Musashi* above *Vagabond*
+//   on a phone in a shop, on the shop's signal, with nothing running in the browser. That is
+//   the rule (ADR-0010), and the arrows are the specification of it.
+// - **At a desk, a stop can also be dragged into its gap** (`./rail.tsx`). It is a shorter
+//   way to the write the arrows already have — one form, one verb, one row — and it is on
+//   only where a mouse can start it precisely and the route is long enough for *first* plus
+//   twenty ↑ to be the alternative. On a phone it is not offered at all: a thumb on a list
+//   that scrolls inside a column is exactly where a drag is worse than a tap. Every row
+//   keeps its four forms at every width, so the gesture adds a hand and takes nothing.
 // - **Stories arrive by the run, not one at a time.** The picker was a `<select>` of every
 //   Story in the library and a button, so a route through twenty tankōbon was twenty
 //   searches and twenty round trips — which is why nobody built one. It is now a banded
@@ -188,20 +195,37 @@ export default async function PathPage({
                 arrows move it.
               </p>
             ) : (
-              <ol className="mt-3">
-                {path.stops.map((stop, place) => (
-                  <Stop
-                    key={stop.storyId}
-                    stop={stop}
-                    place={place + 1}
-                    next={stop.storyId === path.next?.storyId}
-                    pathId={path.id}
-                    back={back}
-                    first={place === 0}
-                    last={place === path.stops.length - 1}
-                  />
-                ))}
-              </ol>
+              <>
+                <Rail className="mt-3">
+                  {path.stops.map((stop, place) => (
+                    <Stop
+                      key={stop.storyId}
+                      stop={stop}
+                      place={place + 1}
+                      next={stop.storyId === path.next?.storyId}
+                      pathId={path.id}
+                      back={back}
+                      first={place === 0}
+                      last={place === path.stops.length - 1}
+                    />
+                  ))}
+                </Rail>
+
+                {/* **What a drop presses.** The form, its action and the route it is about are
+                    the server's; a drop fills the two fields in and submits it, which is why
+                    dragging a stop is not a second way to write an order (`./rail.tsx`,
+                    ADR-0010). It carries no button and is hidden, because the press it exists
+                    for is a gesture — with no script running, nothing reaches it and the
+                    arrows above are the whole of the act. */}
+                <form id={REORDERING} action={moveAfter} hidden>
+                  <input type="hidden" name="pathId" value={path.id} />
+                  <input type="hidden" name="back" value={back} />
+                  {/* Uncontrolled on purpose: a drop writes these two through the DOM, and
+                      a write that came back re-renders them empty again. */}
+                  <input type="hidden" name="storyId" defaultValue="" />
+                  <input type="hidden" name="afterStoryId" defaultValue="" />
+                </form>
+              </>
             )}
 
             {path.stops.length > 0 && path.next === null ? (
@@ -487,10 +511,17 @@ export default async function PathPage({
 }
 
 /**
- * One stop on the route: its place, the Story, and the two arrows that change its place.
+ * One stop on the route: its place, the Story, and the forms that change its place.
  *
  * The place is printed in the rail and the next unread Story is marked there too, so the
  * order and the answer read as one thing rather than as a list plus a banner.
+ *
+ * **The row is also what a drag carries, and it says so in three data attributes read by the
+ * stylesheet rather than by a component.** `data-story-id` is what a drop names — the rail
+ * holds no React tree of stops that could disagree with this list — and `data-carried` and
+ * `data-drop` are the row being lifted and the gap it would fall into. All three are inert
+ * with no script running, and the grip is not shown at all until the rail says the gesture
+ * is on: an affordance for something that cannot happen is worse than no affordance.
  */
 function Stop({
   stop,
@@ -510,7 +541,24 @@ function Stop({
   last: boolean;
 }) {
   return (
-    <li className="flex items-baseline gap-3 border-t border-border py-3 first:border-t-0">
+    <li
+      data-story-id={stop.storyId}
+      className="flex items-baseline gap-3 border-t border-border py-3 first:border-t-0 data-[carried=true]:opacity-40 data-[drop=after]:shadow-[inset_0_-2px_0_0_currentColor] data-[drop=before]:shadow-[inset_0_2px_0_0_currentColor]"
+    >
+      {/* The one hand the drag adds, and the only thing on this row that needs a script. It
+          is hidden until the rail says the gesture is on, so a phone and a browser with
+          nothing running show the row the page always had. `aria-hidden`, and not focusable:
+          a keyboard re-orders with the arrows, which are buttons with names. */}
+      <span
+        data-grip
+        aria-hidden="true"
+        draggable="true"
+        title="Drag it into place"
+        className="-ml-1 shrink-0 cursor-grab select-none self-center font-mono text-xs leading-none text-muted-foreground/60 active:cursor-grabbing [[data-drag=off]_&]:hidden"
+      >
+        ⠿
+      </span>
+
       {/* The rail. Tabular so a two-digit route stays a straight line. The place is
           always printed — it is the judgement, and hiding it behind the marker would
           replace the one thing on the page that could not have been derived. */}

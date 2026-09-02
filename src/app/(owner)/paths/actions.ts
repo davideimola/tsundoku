@@ -35,7 +35,11 @@ import {
 // Collection's: a plain form and a redirect work with no JavaScript running at all.
 // **Re-ordering is what that buys here.** The arrows on a route are submit buttons, so
 // putting *Musashi* before *Vagabond* is a POST and a server render, and the owner
-// re-orders a route on a phone with no signal for a drag-and-drop bundle to arrive on.
+// re-orders a route on a phone with no signal for a drag-and-drop bundle to arrive on. At a
+// desk a stop can also be dragged into its gap, and that gesture reaches `moveAfter` below —
+// a plain form the server rendered, pressed by a script instead of by a thumb. There is no
+// second way to write an order: the drag fills in two fields and presses the form that was
+// already there (ADR-0010, `[id]/rail.tsx`).
 
 /** What a form's field held, or nothing where the owner left it empty. */
 function text(form: FormData, field: string): string | null {
@@ -227,6 +231,28 @@ export async function makeFirst(form: FormData): Promise<void> {
 
   await saying(form, () =>
     moveStoryOnPath(text(form, "pathId") ?? "", text(form, "storyId") ?? "", null)
+  );
+}
+
+/**
+ * Move a Story so that it follows another one on the route — or to the front, where the
+ * anchor is empty.
+ *
+ * **The verb behind the drag, and it is the verb behind *first*.** A stop dragged into a gap
+ * at a desk and a stop pressed to the front on a phone are one sentence with two ways of
+ * saying it — *this Story follows that one* — so they are one Server Function call and one
+ * row written (ADR-0010). The drop fills the two fields in; nothing about how it was pointed
+ * at reaches this file, and the form works pressed by hand.
+ */
+export async function moveAfter(form: FormData): Promise<void> {
+  await requireOwner();
+
+  await saying(form, () =>
+    moveStoryOnPath(
+      text(form, "pathId") ?? "",
+      text(form, "storyId") ?? "",
+      text(form, "afterStoryId")
+    )
   );
 }
 

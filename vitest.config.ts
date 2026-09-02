@@ -21,6 +21,13 @@ import { defineConfig } from "vitest/config";
 // actually changed is the *strength* of the claim, and that is what the rest of this
 // paragraph is.
 //
+// A second such control has since shipped and is held to the same rule: the rail on a
+// route (`src/app/(owner)/paths/[id]/rail.tsx`) lets a stop be dragged into its gap at a
+// desk. It holds a media query, a rectangle and six listeners; which gap the pointer let go
+// in is `landing.ts` below, and what a move writes is `moveStoryOnPath` in Seam 1. What it
+// submits is a form the server rendered, so the arrows beside it are still the
+// specification.
+//
 // The finder's field is the first control here that does something in the browser rather
 // than reading `usePathname()`: it suggests as the owner types, walks a list with the
 // arrow keys and takes `⌘K` from anywhere. None of that is tested, and the reason is not
@@ -73,6 +80,9 @@ import { defineConfig } from "vitest/config";
 // the owner stands with one object and therefore which acts its page offers,
 // `src/app/(owner)/reading-list/entry.ts`,
 // which says what a composed entry is called, where its tile leads and what its foot carries,
+// `src/app/(owner)/paths/[id]/landing.ts`, which says which gap a stop dragged on a route
+// falls into — the one piece of arithmetic the drag adds over the two arrows beside it, and
+// the order on a route is the one judgement in this application nothing derives —
 // `src/app/(owner)/wishes/shopping.ts`, which says the three steps a shopping list is bought
 // in — the Reading list's picker offers the same three words — and holds the banding to the
 // Wish's own rule that nothing silently disappears from what the owner meant to buy, and
