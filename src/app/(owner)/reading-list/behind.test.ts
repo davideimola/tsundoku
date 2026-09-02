@@ -16,9 +16,9 @@ import { theAddressWith, theReserveAsRows, theReserveIsSaid, theRoutesAskedFor }
 // is exactly the one the owner was going to pin — or it looks like a longer one, with a Story
 // drawn under two routes, which is the duplication the whole model refuses.
 
-/** A reason with everything absent, which the three sources fill differently. */
+/** A reason with everything absent, which the four sources fill differently. */
 function reason(said: Partial<ReadingListReason> = {}): ReadingListReason {
-  return { because: "path", want: null, path: null, series: null, ...said };
+  return { because: "path", want: null, path: null, run: null, series: null, ...said };
 }
 
 /** A stop of a route, as a reason. */
