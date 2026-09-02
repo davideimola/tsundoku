@@ -61,6 +61,17 @@ export const NAVIGATION: readonly Section[] = [
   {
     title: "Owning",
     destinations: [
+      // **The one door, and it is filed under a question it only half answers** (#45). Saying
+      // *I bought it*, *I read it* and *I want to read it* reaches all three sections, so on
+      // the face of it this belongs to none of them — but the sections are three questions the
+      // owner *asks* and the door is the one place they make a *statement*, and a fourth
+      // section for it would make the sidebar claim four questions where there are three. It
+      // goes under *Owning* because that is the moment it is opened in: standing in a
+      // fumetteria with an object in one hand. It is not on the bar because the bar is four
+      // chosen destinations and swapping one out is a decision about the phone rather than a
+      // line in a list — and the Collection, which is on the bar, carries this as the first
+      // control in its hero.
+      { href: "/add", label: "Add" },
       { href: "/collection", label: "Collection", onTheBar: true },
       { href: "/series", label: "Series" },
       { href: "/wishes", label: "Wishes" },

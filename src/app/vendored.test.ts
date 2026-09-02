@@ -35,7 +35,7 @@ import { describe, expect, it } from "vitest";
 // Text and bytes in, a verdict out: no DOM, no renderer, no database, and the same licence the
 // other three walls take.
 
-/** Where the scanner asks for it — `src/app/(owner)/collection/scan.tsx`'s `THE_DECODER`. */
+/** Where the scanner asks for it — `src/app/(owner)/add/scan.tsx`'s `THE_DECODER`. */
 const SERVED_AT = "/decoder/zxing_reader.wasm";
 
 const VENDORED = fileURLToPath(new URL(`../../public${SERVED_AT}`, import.meta.url));

@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { Barcode } from "@/components/barcode";
 import { Cover } from "@/components/cover";
-import { Drawer, OpensTwoDrawers } from "@/components/drawer";
+import { Drawer, OpensDrawer } from "@/components/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,24 +20,14 @@ import { coverStanding } from "@/core/queries/cover";
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { acquire, catalogue, findCovers, findCoversAgain, identify, strike } from "./actions";
+import { acquire, findCovers, findCoversAgain, strike } from "./actions";
 import {
   howFarTheCoversHaveGot,
   readCoverReport,
   whatNoLookupReaches,
   whatTheLookupFound,
 } from "./covers-found";
-import { whatFilledItIn } from "./identified";
-import {
-  CATALOGUE,
-  COVERS,
-  ELSEWHERE,
-  ISBN,
-  PANELS,
-  THE_ISBN_FIELD,
-  THE_WALLS_FILTERS,
-} from "./panels";
-import { ScanAnIsbn } from "./scan";
+import { COVERS, ELSEWHERE, PANELS, THE_WALLS_FILTERS } from "./panels";
 
 // THE COLLECTION WALL, and the screen this whole redesign exists for: *do I already have
 // this?* asked standing in a shop, one-handed, on the shop's signal. So the phone is the
@@ -99,9 +88,8 @@ function asked(params: Asked, name: string): string | undefined {
 // because a typo here is a checkbox that submits nothing and says nothing about it.
 const STRIKE = "strike-the-ticked";
 
-// The panels, the filters and the scanned field are `./panels.ts`: this file is not the only
-// one that spells them any more — a Server Function redirects to two of them — and each is a
-// string that fails silently when two files disagree about it.
+// The panels and the filters are `./panels.ts`: this file is not the only one that spells
+// them, and each is a string that fails silently when two files disagree about it.
 
 /**
  * This screen's address with a panel open on it, and **with every filter still on**.
@@ -186,15 +174,6 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   ]);
 
   const refused = asked(params, "refused");
-  // What a lookup by ISBN handed the catalogue form, and the sentence saying where it came
-  // from (`./identified.ts`). They are read under their own names rather than as `title` and
-  // `publisher`, which are two of this wall's five filters: a prefill sharing a name with a
-  // filter would narrow the shelf behind the panel and stay narrowed after it closed.
-  const scanned = asked(params, "isbn");
-  const named = asked(params, "named");
-  const publishedBy = asked(params, "publishedBy");
-  const filledIn = whatFilledItIn(asked(params, "from"));
-  const catalogued = asked(params, "catalogued");
   const acquired = asked(params, "acquired");
   const lookedUp = readCoverReport((name) => asked(params, name));
   const struck = asked(params, "struck");
@@ -202,28 +181,18 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
 
   return (
     <main className="px-5 pb-16 sm:px-8">
-      {/* **One act with two doors, and two things that are not acts at all** (#33).
-          This hero carried four triggers in a wrapping row, and on a phone that row was
-          `shrink-0` around its own widest line: it ran off the right edge of the screen and
-          took the last control with it. The controls were never four peers, which is what made
-          the row possible to write and impossible to lay out —
+      {/* **The primary act on this screen is not on this screen any more** (#45).
+          Cataloguing a Volume was a drawer here, recording its narrative a drawer on the Stories
+          wall, and joining the two a picker on the object's own page: three acts across two
+          screens, and the drift they produced is twenty-two Volumes against twenty-one Stories.
+          There is one door now, and this is a link to it — `/add`, where a title or a barcode
+          and one of three sentences record all of it at once.
 
-            *Catalogue a Volume* and *From an ISBN* are **the same act**: record what an object
-            is, reached by typing it or by pointing a camera at the barcode. So they are one
-            control with a seam down it, and the glyph is a barcode because that is the thing
-            the owner is about to aim at (`@/components/barcode`).
-
-            *Not in the house 19* is **a figure**, not a verb — the second register, which #18
-            put in the hero so the shelf and what is not on it are legible together on arrival.
-            A number reads as a number; dressed as a button it read as a fifth thing to press.
-
-            *Covers* is **housekeeping**, run once in a while at a desk, and it had been wearing
-            the same pill as the screen's primary act.
-
-          So the two facts became one quiet line under the control, which is what took the phone
-          back: one full-width act, one line of prose, and the wall starts where the fold used to
-          be. Everything is still a link to `?panel=…` and still costs no script
-          (`@/components/drawer`). */}
+          What is left in the hero is what was already not an act. *Not in the house 19* is **a
+          figure**, the second register #18 put here so the shelf and what is not on it are
+          legible together on arrival; *Covers* is **housekeeping**, run once in a while at a
+          desk. Both stay a quiet line under the control, which is what took the phone back: one
+          full-width act, one line of prose, and the wall starts where the fold used to be. */}
       <header className="pt-8 sm:flex sm:items-start sm:justify-between sm:gap-x-6 sm:pt-12">
         <div className="min-w-0">
           <h1 className="font-heading text-2xl sm:text-3xl">Collection</h1>
@@ -234,16 +203,13 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </div>
 
         <div className="mt-4 sm:mt-0 sm:shrink-0 sm:text-right">
-          <OpensTwoDrawers
-            href={panelled(params, CATALOGUE)}
-            second={{
-              href: panelled(params, ISBN),
-              label: "Catalogue a Volume from its barcode",
-              glyph: <Barcode />,
-            }}
-          >
-            Catalogue a Volume
-          </OpensTwoDrawers>
+          {/* A link to another screen rather than a drawer over this one, because what it
+              opens is not this screen's act: it records a narrative and a Want as readily as an
+              object, and a drawer on the Collection saying *I read it* would be a door in the
+              wrong wall. */}
+          <OpensDrawer href="/add" emphasis="loud">
+            Add to the library
+          </OpensDrawer>
 
           {/* The two facts, as a sentence. Each is a link with a thumb's worth of padding
               around it rather than a chip, because what is being offered is *a figure to read*
@@ -356,21 +322,12 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </form>
       </search>
 
-      {/* Not while the ISBN panel is open: that panel covers the screen and carries the
-          refusal itself, beside the field it is about, which is what `@/components/drawer`
-          asks of a screen that shows one — a refusal the owner cannot read is worse than
-          none. */}
-      {refused && panel !== ISBN ? (
+      {refused ? (
         <p
           role="alert"
           className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           {refused}
-        </p>
-      ) : null}
-      {catalogued ? (
-        <p role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm">
-          {catalogued} is in the catalogue. Say it is in the house when you have it.
         </p>
       ) : null}
       {acquired ? (
@@ -421,7 +378,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         <p className="mt-6 max-w-prose text-pretty text-sm text-muted-foreground">
           {narrowed
             ? "Nothing owned matches that. Which is the answer worth having in a shop — widen it to be sure, then buy it."
-            : "Nothing in the Collection yet. Catalogue the Volume in your hand below, then say it is in the house."}
+            : "Nothing in the Collection yet. Add to the library says what the object in your hand is, that it came home, and what it holds — in one act."}
         </p>
       ) : (
         /* As many covers as the window holds, at the width a title is legible across —
@@ -551,141 +508,6 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
               is recorded and asks the sources from scratch. It costs a request per object, so it is
               the slower of the two.
             </p>
-          </form>
-        </Drawer>
-      ) : null}
-
-      {panel === ISBN ? (
-        <Drawer
-          title="From an ISBN"
-          description="The barcode on the back, and what the library — yours first, then the national one — already knows about it."
-          refused={refused}
-          closesTo={unpanelled(params)}
-        >
-          {/* **One field, one plain form, and the scanner writes into it.** The camera is the
-              fastest way to fill this in and it is not the only one: typed, pasted, or read
-              out of the printed digits by the phone's own text scanner in the keyboard, this
-              posts and answers with no script running at all (ADR-0010). Which is why the
-              field is first and the camera is the button under it. */}
-          <form action={identify} className="grid gap-4">
-            {/* The wall's narrowing, carried by hand because a Server Function reads a
-                `FormData` and nothing else — no URL, no params. Without these the lookup would
-                come back over an un-narrowed shelf and the drawer would close to one, which is
-                the rule `panelled()` above exists to state. */}
-            {[...onlyTheFilters(params)].map(([name, value]) => (
-              <input key={name} type="hidden" name={name} value={value} />
-            ))}
-
-            <Field
-              name={THE_ISBN_FIELD.name}
-              label="ISBN"
-              idPrefix={THE_ISBN_FIELD.prefix}
-              defaultValue={scanned ?? ""}
-              placeholder="9788828765431"
-              inputMode="numeric"
-              autoComplete="off"
-              // **Not focused**, deliberately. Autofocus here would open the phone's keyboard
-              // on a panel whose other control is a camera button, and cover it — the field is
-              // one tap away for whoever means to type, and out of the way for whoever came to
-              // scan.
-              required
-            />
-
-            <div>
-              <Button type="submit" className="h-11 w-full sm:h-10">
-                Look it up
-              </Button>
-              <p className="mt-2 text-pretty text-xs text-muted-foreground">
-                Your own catalogue first: if this object is already recorded, this goes straight to
-                it. Then SBN, Italy&apos;s legal-deposit catalogue, for the title and the publisher.
-                Hyphens and spaces are fine here — this is the field that answers{" "}
-                <em>do I already have this?</em>
-              </p>
-            </div>
-          </form>
-
-          <div className="mt-6 border-t border-border pt-5">
-            <ScanAnIsbn into={THE_ISBN_FIELD.id} />
-            <p className="mt-2 text-pretty text-xs text-muted-foreground">
-              The camera reads the barcode and looks it up on its own. A Bonelli monthly has no ISBN
-              to read — its barcode is a periodical&apos;s — and neither has anything sold without
-              one, so those are catalogued by hand.
-            </p>
-          </div>
-        </Drawer>
-      ) : null}
-
-      {panel === CATALOGUE ? (
-        <Drawer
-          title="Catalogue a Volume"
-          description="What the object is. It does not say you have it — that is the next act, and a different one (ADR-0007)."
-          closesTo={unpanelled(params)}
-        >
-          {/* Two things this form deliberately does not ask for.
-              No medium, and there is none to ask for: digital ownership is not modelled, so
-              an owned ebook is not a thing this form could record even if it offered a box.
-              And no price and no day, because those are facts about an object *coming home*
-              and this form only says what the object is (ADR-0007) — they are asked for by
-              the row on the wall, at the moment they are true. */}
-          {/* **Where the fields came from, when they did not come from the owner.** Three
-              sentences for three states — filled in, nothing published under that ISBN, and
-              the catalogue could not be asked — because they are three different things to do
-              next, and `./identified.ts` is which is which. A form that silently arrived
-              half-filled would be a form the owner has no reason to check. */}
-          {filledIn ? (
-            <p className="mb-4 text-pretty text-sm text-muted-foreground">{filledIn}</p>
-          ) : null}
-
-          <form action={catalogue} className="grid gap-4">
-            <Field
-              name="title"
-              label="Title"
-              defaultValue={named ?? ""}
-              placeholder="Slam Dunk 1"
-              required
-            />
-            <Field
-              name="publisher"
-              label="Publisher"
-              defaultValue={publishedBy ?? ""}
-              placeholder="Planet Manga"
-              required
-            />
-            <Field name="editionLine" label="Edition line" placeholder="DC Must Have" />
-
-            <Picker id="catalogue-binding" name="binding" label="Binding" required>
-              {bindings.map((one: Binding) => (
-                <option key={one.id} value={one.id}>
-                  {one.name}
-                </option>
-              ))}
-            </Picker>
-
-            <Field name="language" label="Language" defaultValue="it" required />
-            {/* Carried from the lookup where there was one, and typed here otherwise — where
-                a printed ISBN's hyphens are refused by the column rather than laundered
-                (`volume_isbn_is_ten_or_thirteen_characters`). The panel that reads a barcode
-                is the lenient door, and what it hands over is already bare digits. */}
-            <Field
-              name="isbn"
-              label="ISBN"
-              defaultValue={scanned ?? ""}
-              placeholder="9788828765431"
-              inputMode="numeric"
-            />
-
-            <div>
-              <Button type="submit" className="h-11 w-full sm:h-10">
-                Catalogue it
-              </Button>
-              <p className="mt-2 text-pretty text-xs text-muted-foreground">
-                A language is a code — <code className="font-mono">it</code>,{" "}
-                <code className="font-mono">en</code>, <code className="font-mono">ja</code>.
-                Holding it already? Say so from <em>Known, not in the house</em> on the wall, with
-                what you paid. Which Series it belongs to, and where in it, is said from that
-                Series.
-              </p>
-            </div>
           </form>
         </Drawer>
       ) : null}
@@ -896,7 +718,7 @@ function Field({
   name,
   label,
   className,
-  idPrefix = "catalogue",
+  idPrefix = "acquire",
   ...props
 }: {
   name: string;
