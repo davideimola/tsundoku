@@ -7,7 +7,14 @@ import { setRating } from "../../src/core/verbs/rating.ts";
 import { recordReading } from "../../src/core/verbs/reading.ts";
 import { declareSeries, placeVolumeInSeries } from "../../src/core/verbs/series.ts";
 import { createStory, createStoryCarriedBy } from "../../src/core/verbs/story.ts";
-import { convertTheRuns, planTheConversion, Refused, THE_FIVE_RUNS } from "./runs.ts";
+import { recordVolumeCarriesStory } from "../../src/core/verbs/story-to-volume.ts";
+import {
+  convertTheRuns,
+  planTheConversion,
+  Refused,
+  StoppedPartway,
+  THE_FIVE_RUNS,
+} from "./runs.ts";
 
 // Seam 1, and the one place a `db/` script is tested at it: this composes core verbs and core
 // queries and holds no SQL of its own, so what is asserted is the same thing every other test
@@ -158,7 +165,7 @@ describe("converting the five runs", () => {
 });
 
 describe("the guard", () => {
-  it("refuses the whole run when a narrative it would collapse has been read", async () => {
+  it("refuses the whole conversion when a narrative it would collapse has been read", async () => {
     const { runs } = await theLibraryAsItStands();
     const opm = runs.get("One-Punch Man");
     if (!opm) throw new Error("One-Punch Man was not built");
@@ -247,7 +254,7 @@ describe("the guard", () => {
 });
 
 describe("running it twice", () => {
-  it("leaves the second run with nothing to do, and says so", async () => {
+  it("leaves the second press with nothing to do, and says so", async () => {
     await theLibraryAsItStands();
     await convertTheRuns();
     const after = await stories();
@@ -258,6 +265,98 @@ describe("running it twice", () => {
     expect(again.alreadyConverted.sort()).toEqual([...THE_FIVE_RUNS].sort());
     expect(again.pathStruck).toBeNull();
     expect(await stories()).toBe(after);
+  });
+
+  // The acceptance criterion this conversion exists for is *one score to give*, so the owner
+  // giving one is the likeliest thing to happen next — and the guard reading a converted line
+  // would then refuse everything, over a Rating that is on the work rather than lost to it.
+  it("is unbothered by a score given to a work it already made", async () => {
+    await theLibraryAsItStands();
+    const converted = await convertTheRuns();
+    for (const work of converted.works) {
+      await setRating({ storyId: work.storyId, score: 9, provenanceId: "remembered" });
+    }
+
+    const plan = await planTheConversion();
+
+    expect(plan.refusals).toEqual([]);
+    expect((await convertTheRuns()).alreadyConverted).toHaveLength(5);
+  });
+
+  it("stops and names what it converted when a merge refuses for its own reasons", async () => {
+    const { runs } = await theLibraryAsItStands();
+    const deathNote = runs.get("Death Note");
+    if (!deathNote) throw new Error("Death Note was not built");
+    // An omnibus outside the line carries one of Death Note's narratives, so that narrative
+    // runs past the line and `mergeSeriesIntoOneStory` refuses to collapse it — a refusal the
+    // guard does not foresee, reached after the four lines before it have landed.
+    const omnibus = await volumeInTheHouse({
+      title: "Death Note All-in-One",
+      publisher: "Planet Manga",
+      binding: "deluxe",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(omnibus, deathNote.narratives[0]);
+
+    const stopped = await convertTheRuns().then(
+      () => null,
+      (error: unknown) => error
+    );
+
+    expect(stopped).toBeInstanceOf(StoppedPartway);
+    expect((stopped as StoppedPartway).message).toMatch(/Death Note 1 stays/);
+    expect((stopped as StoppedPartway).converted.map((one) => one.line)).toEqual([
+      "One-Punch Man",
+      "Slam Dunk",
+      "La via del grembiule",
+      "Fullmetal Alchemist",
+    ]);
+    // And the four that landed are left as they are: running it again finishes the rest.
+    const plan = await planTheConversion();
+    expect(plan.lines.filter((line) => line.already)).toHaveLength(4);
+  });
+});
+
+// The mismatches are the signature of rows kept by hand: One-Punch Man is 22 objects and 21
+// narratives, Slam Dunk 20 and 18. The last object of such a line carries the narrative before
+// it rather than one of its own, and it must come out of the conversion carrying the work like
+// every other object of the line.
+describe("a line whose rows have drifted", () => {
+  it("collapses fewer narratives than objects, and every object carries the work", async () => {
+    const runs = new Map<string, { id: string; narratives: string[] }>();
+    for (const name of THE_FIVE_RUNS) runs.set(name, await aRun(name, VOLUMES[name]));
+    const opm = runs.get("One-Punch Man");
+    if (!opm) throw new Error("One-Punch Man was not built");
+    // A fourth object of the line, standing for the narrative the third already stood for.
+    const fourth = await volumeInTheHouse({
+      title: "One-Punch Man 4",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(fourth, opm.narratives[2]);
+    await placeVolumeInSeries({ volumeId: fourth, seriesId: opm.id, number: 4 });
+
+    const plan = await planTheConversion();
+    expect(plan.lines[0]).toMatchObject({ name: "One-Punch Man", objects: 4, narratives: 3 });
+
+    const converted = await convertTheRuns(plan);
+
+    const work = converted.works.find((one) => one.line === "One-Punch Man");
+    if (!work) throw new Error("One-Punch Man was not converted");
+    const carried = await query<{ story_id: string }>(
+      `select distinct vs.story_id
+         from volume_story vs join volume v on v.id = vs.volume_id
+        where v.series_id = $1`,
+      [opm.id]
+    );
+    expect(carried).toEqual([{ story_id: work.storyId }]);
+    // Serialized to the length of the line and not to the number of narratives it had.
+    const [row] = await query<{ instalments: number }>(
+      "select instalments from story where id = $1",
+      [work.storyId]
+    );
+    expect(row.instalments).toBe(4);
   });
 });
 

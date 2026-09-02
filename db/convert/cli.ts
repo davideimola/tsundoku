@@ -79,7 +79,7 @@ async function main(): Promise<void> {
   heading("the hand-made Path");
   out(
     plan.path
-      ? `  ${plan.path.name} — ${plan.path.stops} stop(s), struck by this run`
+      ? `  ${plan.path.name} — ${plan.path.stops} stop(s), struck by this conversion`
       : "  none: no Path is called Slam Dunk, so there is nothing to strike"
   );
 
@@ -102,7 +102,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  const converted = await convertTheRuns();
+  // The plan that was just printed, handed on: what the owner read is what is pressed.
+  const converted = await convertTheRuns(plan);
 
   heading("converted");
   for (const work of converted.works) out(`  ${work.line.padEnd(32)} ${work.storyId}`);

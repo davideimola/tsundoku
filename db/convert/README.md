@@ -29,22 +29,28 @@ Three reasons, at length in the header of [`runs.ts`](runs.ts), in short here:
 - **it is not schema.** Nothing here adds a column. The shape it moves the owner's rows onto
   was built by #35 to #41, and both shapes already exist in the database.
 
-The number `0014_` reserved for it therefore goes unused, and the journal still ends at 10.
+The owner reserved the number `0014_` for this in case it shipped as a migration. It does not,
+so that number goes unused and the journal still ends at 10.
 
 ## What it refuses
 
-The whole run, while **any** narrative it would collapse carries a Reading or a Rating — and it
-reads all five lines before it touches the first, so a refusal leaves nothing half done. On the
-live library today that count is zero, which is what makes this lossless; the guard is here so
-it stays true whenever it is actually run.
+The whole conversion, while **any** narrative it would collapse carries a Reading or a Rating — and it
+reads all five lines before it touches the first, so a foreseen refusal leaves nothing half
+done. On the live library today that count is zero, which is what makes this lossless; the
+guard is here so it stays true whenever the command is actually taken.
+
+What it does not promise is one transaction over all five: one verb is one transaction, and
+this presses six of them. A merge that refuses for one of its own reasons therefore stops the
+conversion and names the lines already converted, and running the command again finishes the
+rest.
 
 It also refuses a library that has no line of one of the five names, and one where two ledgers
 share a name — *Fullmetal Alchemist* standard and Ultimate Deluxe Edition — rather than
 guessing which run was meant.
 
 A line a previous run already converted is **left alone rather than refused**, which is what
-makes running it twice safe: each merge is its own transaction, so a run interrupted in the
-middle is finished by running it again.
+makes running it twice safe: each merge is its own transaction, so a conversion interrupted in
+the middle is finished by running the command again.
 
 ## Rehearsing it
 
