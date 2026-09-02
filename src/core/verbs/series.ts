@@ -66,6 +66,15 @@ function whySeriesRefused(
       return "A Series is either ongoing or concluded.";
     case "series_is_one_per_edition_line":
       return "That Series is already declared. The same name in another edition is a second Series.";
+    // **The two the count following the line brings back here** (#34). Where a Story takes its
+    // Instalments from this ledger, lowering the count published shortens the work — and 0007's
+    // trigger refuses a work shorter than what a pass has read of it or than what an object
+    // covers of it. The refusal arrives on the *ledger's* verb because that is the write the
+    // owner made, so it says which of the two facts is in the way and where to correct it.
+    case "story_instalments_still_hold_what_was_read":
+      return "The Story this line publishes takes its Instalments from it, and a pass through that work has got further than that. Correct the count on the Story first, which is also what takes it off the line.";
+    case "story_instalments_still_hold_what_is_covered":
+      return "The Story this line publishes takes its Instalments from it, and an object carrying that work covers further than that. Correct what that object covers first.";
     default:
       return otherwise;
   }
@@ -624,11 +633,12 @@ export type TheWorkTheLinePrints = {
  * Where no Story is named one is made: `title` is the work's, and the Series' own name is what
  * it takes when none is given — *Slam Dunk*, off the line that prints it. The Type comes from
  * the narratives being collapsed, so the gesture asks for nothing the owner would have to look
- * up. And that work is **serialized to the length of the line**, because that is what the
- * glossary says a manga line's Instalments are: one part per Volume, so volume seven is
- * instalment seven and nobody types anything. It is the count published or the furthest
- * position placed, whichever is further, and `declareInstalments` is the correction where a
- * line's parts are counted some other way.
+ * up. And that work is **serialized to the length of the line, by the line** (#34): the arrow
+ * this sets is what gives the count and what keeps it in step as the line grows, so the owner
+ * says how many Volumes are out once and is never asked the same number in the narrative's
+ * words. Where the shelf reaches past what the ledger says is published, the furthest position
+ * placed is written instead and it is the owner's word. `declareInstalments` is the correction
+ * where a line's parts are counted some other way, and it stops the following for good.
  *
  * **Nothing about the shelf changes.** Every Volume, every Acquisition and every number of the
  * completeness ledger is exactly as it was.
@@ -802,7 +812,18 @@ export async function mergeSeriesIntoOneStory(
         {
           title: work.title?.trim() ? work.title.trim() : line.name,
           typeId: first.typeId,
-          instalments: Math.max(line.publishedCount, held.furthest) || null,
+          // **The length of the line is the line's to give, and this gesture types nothing**
+          // (#34, ADR-0017). The arrow set at the foot of this transaction is what puts the
+          // count on the work, and it keeps it there as the line grows — which is the whole
+          // point: the owner says how many Volumes are out once, on the ledger, and is never
+          // asked the same number again in the narrative's words.
+          //
+          // The one number written here is the one no line will say: where the shelf reaches
+          // **past** what the ledger claims is published, the furthest position placed is the
+          // work's length and it is the owner's word, because a work shorter than the objects
+          // carrying it is not one. A ledger at nought says nobody filled it in, and then the
+          // work declares nothing at all, exactly as an unnumbered Story does.
+          instalments: held.furthest > line.publishedCount ? held.furthest : null,
         },
         run
       ));

@@ -871,6 +871,38 @@ describe("merging a Series into one Story", () => {
     expect(row.instalments).toBe(3);
   });
 
+  // **And the line is what said so, rather than the gesture typing it** (#34, ADR-0017). The
+  // owner records how many Volumes are out on the ledger, once, and is never asked the same
+  // number again in the narrative's words — which is what the arrow this sets buys.
+  it("leaves the length of the work to the line, so it grows with it", async () => {
+    const { series } = await aLineOfTankobon(3);
+
+    const work = await mergeSeriesIntoOneStory(series);
+    await recordVolumesPublished(series, 4);
+
+    const [row] = await query<{ instalments: number; instalments_said_by: string }>(
+      "select instalments, instalments_said_by from story where id = $1",
+      [work]
+    );
+    expect(row).toEqual({ instalments: 4, instalments_said_by: "line" });
+  });
+
+  // The one number this gesture still writes, because no line will say it: a ledger nobody has
+  // filled in cannot make the work shorter than the objects carrying it.
+  it("writes the furthest position placed where the shelf reaches past the ledger", async () => {
+    const { series, objects } = await aLineOfTankobon(3);
+    await recordVolumesPublished(series, 0);
+    expect(objects).toHaveLength(3);
+
+    const work = await mergeSeriesIntoOneStory(series);
+
+    const [row] = await query<{ instalments: number; instalments_said_by: string }>(
+      "select instalments, instalments_said_by from story where id = $1",
+      [work]
+    );
+    expect(row).toEqual({ instalments: 3, instalments_said_by: "owner" });
+  });
+
   it("leaves every Volume and every Acquisition byte for byte as it was", async () => {
     const { series } = await aLineOfTankobon(4);
     const volumes = await snapshotOf("volume");

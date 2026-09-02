@@ -26,10 +26,10 @@ import { PUBLISHES, REACHED, RENAME, SERIALIZE, STRIKE } from "../panels";
 import {
   howFarItGot,
   howItWent,
-  instalments,
   readingNow,
   SCORES,
   stillOpen,
+  theCountItDeclares,
   theOpenReading,
   whatItCovers,
   whenItHappened,
@@ -755,7 +755,14 @@ export default async function StoryPage({
       {panel === SERIALIZE ? (
         <Drawer
           title={story.instalments === null ? "Say how many parts it has" : "Correct the count"}
-          description="One numbered part of a serialized work — Slam Dunk's twenty. It belongs to the narrative and never to a printing, so it stays true however you read them. Leave it empty for a Story nobody numbers, which is most of them."
+          // **What pressing this costs is said in the drawer and not on the card** (#34): a
+          // count that follows the line stops following the moment the owner corrects it, and
+          // that is a consequence of the act rather than a fact about the work.
+          description={
+            story.instalmentsSaidBy === "line"
+              ? "This count comes from the line that publishes the work and grows with it. Correcting it here makes the number yours: it stops following the line, for good. Leave it empty for a Story nobody numbers."
+              : "One numbered part of a serialized work — Slam Dunk's twenty. It belongs to the narrative and never to a printing, so it stays true however you read them. Leave it empty for a Story nobody numbers, which is most of them."
+          }
           refused={refused}
           closesTo={closesTo}
         >
@@ -1201,7 +1208,20 @@ function Instalments({ story }: { story: FoundStory }) {
           </p>
         ) : (
           <p className="flex flex-wrap items-baseline gap-x-3">
-            <span className="font-mono text-sm tabular-nums">{instalments(story.instalments)}</span>
+            {/* **Where the count comes from the line, the number wears its provenance in the
+                eyebrow** the hero already sets a Type and a state in (#34) — three words, and
+                no card explaining the relation between a printing's count and a narrative's.
+                The owner's own count is a number and says so in the plain mono; there is no
+                label for *from you*. */}
+            <span
+              className={
+                story.instalmentsSaidBy === "line"
+                  ? "font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground"
+                  : "font-mono text-sm tabular-nums"
+              }
+            >
+              {theCountItDeclares(story.instalments, story.instalmentsSaidBy)}
+            </span>
             {story.howFarItGot ? (
               <span className="text-sm text-muted-foreground">
                 You are at {howFarItGot(story.howFarItGot)}.

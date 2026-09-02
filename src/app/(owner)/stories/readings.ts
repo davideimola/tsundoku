@@ -1,4 +1,4 @@
-import type { HowFarItGot, StoryReading } from "@/core/queries/story";
+import type { HowFarItGot, StoryReading, WhoseCountItIs } from "@/core/queries/story";
 import type { CarriedStory, CoveredInstalments } from "@/core/queries/story-to-volume";
 
 // HOW A READING IS SAID, and the one predicate the acts on a Story's page hang off.
@@ -93,6 +93,23 @@ export function howFarItGot(far: HowFarItGot): string {
  */
 export function instalments(howMany: number): string {
   return `${howMany} ${howMany === 1 ? "Instalment" : "Instalments"}`;
+}
+
+/**
+ * The count and, where it is not the owner's own, whose it is: *20 Instalments · From the
+ * line* (#34).
+ *
+ * Three words rather than a sentence, and they go in the mono eyebrow the page already sets
+ * a Type and a state in. The relation between a printing's count and the narrative's is
+ * argued in ADR-0017 and does not need arguing again on the card: what the owner wants to
+ * know standing here is that this number is not one of theirs to keep, and where it comes
+ * from when it moves.
+ *
+ * There is nothing to say where the count is the owner's word — a number they gave is a
+ * number, and *from you* is the case that needs no label.
+ */
+export function theCountItDeclares(count: number, saidBy: WhoseCountItIs | null): string {
+  return saidBy === "line" ? `${instalments(count)} · From the line` : instalments(count);
 }
 
 /**

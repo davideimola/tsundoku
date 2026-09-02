@@ -73,7 +73,13 @@ think of this?"*, because several Readings of one Story each keep the judgement 
 It carries what the owner's own tile shows as well: the line the objects carrying it stand in, the
 score most recently set, and the address of the jacket — which is a *reference* to somebody else's
 image and never a copy to keep (ADR-0013). A Story has no Series and no ISBN of its own; all three
-are borrowed from the Volumes that carry it.`,
+are borrowed from the Volumes that carry it.
+
+\`instalmentsSaidBy\` says whose word the count of Instalments is: \`line\` where it follows the one
+Series publishing the work and grows with it, \`owner\` where they gave or corrected it, null where
+nobody has numbered it (ADR-0017). Proposing a count on a work that is following one is proposing to
+take it off that line, permanently — so it is worth saying which you mean in the amendment's own
+words.`,
   inputSchema: {
     type: "object",
     properties: {

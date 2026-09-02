@@ -64,6 +64,13 @@
       "when": 1788474803156,
       "tag": "0010_a_pin_names_the_thing_to_read",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788650000000,
+      "tag": "0012_the_count_of_instalments_follows_the_line",
+      "breakpoints": true
     }
   ]
 }

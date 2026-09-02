@@ -10,6 +10,7 @@ import {
   readingNow,
   SCORES,
   stillOpen,
+  theCountItDeclares,
   theOpenReading,
   whatItCovers,
   whenItHappened,
@@ -152,6 +153,21 @@ describe("the count of Instalments", () => {
 
   it("says one of them in the singular", () => {
     expect(instalments(1)).toBe("1 Instalment");
+  });
+
+  // Whose number it is, in the eyebrow's three words (#34). The relation between a printing's
+  // count and the narrative's is ADR-0017's to argue; what the card owes the owner is that
+  // this one is not theirs to keep.
+  it("says where the count came from where it came from the line", () => {
+    expect(theCountItDeclares(6, "line")).toBe("6 Instalments · From the line");
+  });
+
+  it("says only the number where it is the owner's own word", () => {
+    expect(theCountItDeclares(160, "owner")).toBe("160 Instalments");
+  });
+
+  it("says only the number where nobody has said whose it is", () => {
+    expect(theCountItDeclares(20, null)).toBe("20 Instalments");
   });
 });
 

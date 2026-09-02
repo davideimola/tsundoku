@@ -4,7 +4,7 @@ import { query } from "../db.ts";
 import type { RatingScale } from "../verbs/rating.ts";
 import type { Medium, Outcome } from "../verbs/reading.ts";
 import { WHY_A_STORY_STANDS } from "../verbs/story.ts";
-import { THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN } from "./collection.ts";
+import { IN_THE_HOUSE, THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN } from "./collection.ts";
 import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
 
 // What the owner and an external reader ask about a Story.
@@ -91,6 +91,16 @@ const HOW_FAR_IT_GOT = `
 export type StoryType = { id: string; name: string };
 
 /**
+ * Whose word a Story's count of Instalments is (#34).
+ *
+ * A literal union rather than a data row, like `StoryState` above and unlike Type and
+ * Provenance: these two are not a vocabulary that could grow by an insert. There is the line
+ * that publishes the work and there is the owner, and a third answer would be a change to the
+ * rule rather than a row.
+ */
+export type WhoseCountItIs = "owner" | "line";
+
+/**
  * A Credit on a Story: a person's contribution in a named role.
  *
  * Part of the Story rather than a query of its own, because *who wrote it and who drew
@@ -173,6 +183,16 @@ export type Story = {
    * the ordinary case and asks nothing of anybody.
    */
   instalments: number | null;
+  /**
+   * Whose word that count is: the **line's** where it follows the one Series publishing this
+   * work and moves as that line grows, the **owner's** where they gave or corrected it, and
+   * `null` where nobody has numbered it at all (#34, ADR-0017).
+   *
+   * A stored fact rather than a derivation, and the one thing the following needs stored: a
+   * hand correction to the number a line happens to give is otherwise indistinguishable from
+   * the following itself, and the correction is what stops it for good.
+   */
+  instalmentsSaidBy: WhoseCountItIs | null;
   /**
    * *Seven of twenty*, or `null` where the work declares no Instalments — and `null` too where
    * nobody has opened it, because how far it got is a fact about a **pass**.
@@ -303,6 +323,7 @@ const STORY_COLUMNS = `
     jsonb_build_object('id', t.id, 'name', t.name) as type,
     ${STORY_STATE} as state,
     s.instalments,
+    s.instalments_said_by as "instalmentsSaidBy",
     ${HOW_FAR_IT_GOT} as "howFarItGot",
     coalesce((
       select jsonb_agg(
@@ -614,6 +635,36 @@ export async function listStoriesNothingHasHappenedTo(): Promise<StoryNothingHas
 // what comes next are facts about the narrative and its Readings. The Reading list asks it,
 // lays it beside the other three and adds the objects (`queries/reading-list.ts`).
 
+// **A run is all on the shelf**, as SQL: a line that publishes this work has put out more than
+// nought Volumes and the house holds at least that many of them.
+//
+// It is read through the arrow rather than over the objects carrying the Story, because the
+// arrow is what the count of Instalments itself follows (#34): the same Series that says how
+// long the work is says how many of it are out, and one question cannot be answered off the
+// ledger while the other is answered off the shelf. Two lines print one work where the owner
+// owns a second edition, and **either being whole is enough** — a work is on the shelf if any
+// printing of it is, since what is being asked is whether tonight's reading is in the house.
+//
+// `IN_THE_HOUSE` is spent rather than restated, so this agrees with the Collection about what
+// having something means (ADR-0007). It names the Volume `v`, and this fragment names the
+// Story `s`.
+// **Positions rather than objects**, which is what makes it *whole* and not merely *as many*:
+// the house can hold twenty volumes of a line of twenty and still be missing the first, if it
+// holds one that stands past the end of the ledger. So what is counted is the positions in the
+// line that the house holds, and a line is whole when every one of them is there — the same
+// question `queries/series.ts` asks the other way round when it names what is missing. One
+// owned Volume per position per Series is `volume_holds_one_position` from `0000`, and it is
+// what lets a count of rows answer a question about positions.
+const ALL_ON_THE_SHELF = `
+  exists (
+    select 1 from series se
+     where se.story_id = s.id
+       and se.published_count > 0
+       and (select count(*) from volume v
+             where v.series_id = se.id
+               and v.series_number between 1 and se.published_count
+               and ${IN_THE_HOUSE}) >= se.published_count)`;
+
 /** One run in progress: the work, where the pass stands, and the part that comes next. */
 export type RunInProgress = {
   story: { id: string; title: string; type: StoryType };
@@ -641,7 +692,7 @@ export type RunInProgress = {
 /**
  * **Every run with somewhere left to go.**
  *
- * Three conditions, and each of them is a sentence rather than a rule of this file's own:
+ * Four conditions, and each of them is a sentence rather than a rule of this file's own:
  *
  *   - the work is a **run** — it declares Instalments, which most Stories do not, and a Story
  *     with no parts to be at is not something to carry on with;
@@ -650,13 +701,30 @@ export type RunInProgress = {
  *     the run is done, and one that was abandoned says the owner gave up — being told to
  *     carry on with either is the recommendation this list exists not to make;
  *   - it has **somewhere left to go**. A pass standing at the last Instalment is still open —
- *     finishing is a separate act (`verbs/reading.ts`) — and there is nothing left to read.
+ *     finishing is a separate act (`verbs/reading.ts`) — and there is nothing left to read;
+ *   - and it is either **all on the shelf** or the owner has **begun it**.
  *
- * **A work nobody has opened contributes**, and that is the half the whole tracker exists for
- * (user story 14). *Slam Dunk* owned whole and unread is invisible to the Series source, which
- * names what is missing and finds nothing; requiring a pass — or a Want — would leave it
- * invisible. It reads *nought of twenty*, and what it asks for is starting rather than
- * carrying on.
+ * **The fourth is the one #34 was amended to add** (ADR-0017), and the reason is that
+ * declaring a run stopped being an act. While the count of Instalments was typed, a
+ * serialized Story was a Story the owner had said something about; now it *follows the line*,
+ * so nearly every work with a ledger behind it declares parts — and the three conditions above
+ * would put the whole shelf on the Reading list, Berserk at two of forty-three beside the
+ * twenty of *Slam Dunk* that are actually there.
+ *
+ * It is the reading that satisfies both halves of the tracker, which pull against each other.
+ * **All on the shelf** is user story 14: a run owned whole and never opened has to appear,
+ * because the Series source names what is *missing* and finds nothing, so *Slam Dunk* would
+ * otherwise be invisible for the very reason that nothing is missing. **Begun** is user story
+ * 31: a run in progress appears with no Series marked as anything and no Want opened, because
+ * starting it is the only signal needed. Nothing else is asked for — no flag to fill in, and
+ * the collecting project stays out of it: whether the owner means to complete a line says
+ * nothing about whether tonight's reading is in the house.
+ *
+ * *All on the shelf* is read against **the line's own count published** and through the arrow
+ * that says which line publishes the work — the same arrow the count itself comes from — and
+ * *in the house* is `IN_THE_HOUSE`, spent rather than restated. A ledger at nought means
+ * nobody filled it in, so it cannot say the shelf is complete: *One-Punch Man*, twenty-two
+ * held against a count nobody has given, reaches this list only once the owner has opened it.
  *
  * By title, like every other list here: the order is not an opinion this query was asked for.
  */
@@ -687,6 +755,7 @@ export async function listRunsInProgress(): Promise<RunInProgress[]> {
     where s.instalments is not null
       and (${STORY_STATE}) in ('to-read', 'reading')
       and pass.at_instalment < s.instalments
+      and (${ALL_ON_THE_SHELF} or (${STORY_STATE}) = 'reading')
     order by lower(s.title), s.id`
   );
 }
