@@ -97,7 +97,7 @@ export function whereATitleLeads(
  * back on a refusal so that a misread digit is one keystroke from right rather than a field to
  * fill in again. Every other destination gets the ISBN the core read and normalised.
  *
- * **Two of the five answers land back on the field rather than on the three sentences**, and
+ * **Two of the five answers land back on the field rather than on the four sentences**, and
  * that is the interesting half. A record filled the title in, so there is something to say
  * something about; no record and an unanswered source did not, so the owner is asked what the
  * object is called with the ISBN already remembered underneath — which is one question rather
@@ -177,12 +177,16 @@ export const THE_FIELDS_A_REFUSAL_CARRIES = [
   "seriesNumber",
   "pricePaid",
   "acquiredOn",
+  "priority",
+  "targetPrice",
+  "priceFound",
+  "shop",
 ] as const;
 
 /** One field a refused press carries, named by the list above rather than by hand. */
 export type CarriedField = (typeof THE_FIELDS_A_REFUSAL_CARRIES)[number];
 
-/** One of the three sentences, as the owner reads it and as the screen offers it. */
+/** One of the four sentences, as the owner reads it and as the screen offers it. */
 export type Sentence = {
   readonly said: WhatWasSaid;
   /** The owner's own words, set in the serif that is reserved for them. */
@@ -200,15 +204,17 @@ export type Sentence = {
 };
 
 /**
- * **The three sentences, in the order the door offers them.**
+ * **The four sentences, in the order the door offers them.**
  *
  * They are the screen's words and they live here for the reason every screen's words do: the
  * label on the press, the title of the panel it opens and the heading of the form inside it
- * are one vocabulary, and an act that is called three things is three acts to the owner.
+ * are one vocabulary, and an act that is called two things is two acts to the owner.
  *
- * The order is neither alphabetical nor the model's: *bought* leads because the door is opened
- * in a shop far more often than on a sofa, and *want* is last because it is the one sentence
- * that is about the future.
+ * The order is neither alphabetical nor the model's: it is **the two sentences about the object
+ * first and the two about the narrative after**, because the door is opened in a shop far more
+ * often than on a sofa and what is under the thumb there is a thing being held. Inside each
+ * pair the fact comes before the intention — *bought* before *want to buy*, *read* before *want
+ * to read* — so the last of the four is the one that is furthest from having happened.
  */
 export const THE_SENTENCES: readonly Sentence[] = [
   {
@@ -218,6 +224,14 @@ export const THE_SENTENCES: readonly Sentence[] = [
       "The object joins the catalogue and the house, and the narrative it carries appears with it.",
     atLength:
       "The object joins the catalogue and the house in one act. A line that names a work takes the object into that work; every other object gets its own narrative, which is the default and is never asked about. Leave the price and the day empty where the receipt is gone.",
+  },
+  {
+    said: "wished",
+    sentence: "I want to buy it.",
+    records:
+      "The object joins the catalogue without joining the house, and a Wish for it joins the shopping list.",
+    atLength:
+      "The object is recorded and the shopping list gains it — catalogued is not owned, so nothing here says it came home and there is nothing to undo when you decide against it. A line that names a work takes the object into that work, exactly as buying it would; which position it is waits until it is on the shelf. Nothing about reading follows either — wanting the object and wanting to read the work are two sentences, and this is the one about the object.",
   },
   {
     said: "read",

@@ -12,7 +12,7 @@ import { sayWhatHappened } from "./what-happened.ts";
 // exactly the drift this exists to end.
 
 beforeEach(async () => {
-  await query("truncate story, volume, series, want cascade");
+  await query("truncate story, volume, series, want, wish cascade");
 });
 
 const TANKOBON = {
@@ -56,6 +56,13 @@ async function readings(): Promise<
 
 async function wants(): Promise<{ story_id: string }[]> {
   return query("select story_id from want");
+}
+
+/** Every open intention to buy, as the shopping list reads it. */
+async function wishes(): Promise<
+  { volume_id: string; priority: number; price_found: string | null; shop: string | null }[]
+> {
+  return query("select volume_id, priority, price_found, shop from wish where closed_on is null");
 }
 
 describe("I bought it", () => {
@@ -286,5 +293,132 @@ describe("I want to read it", () => {
 
     expect(await query("select id from path")).toEqual([]);
     expect(await query("select id from wish")).toEqual([]);
+  });
+});
+
+describe("I want to buy it", () => {
+  it("catalogues the object without bringing it home, and opens a Wish on it", async () => {
+    const said = await sayWhatHappened({
+      title: "Vinland Saga 1",
+      typeId: "manga",
+      said: "wished",
+      object: {
+        ...TANKOBON,
+        priority: 1,
+        targetPrice: "15,00",
+        priceFound: "12,90",
+        shop: "Star Shop",
+      },
+    });
+
+    // Catalogued and not owned, which is the pair ADR-0007 keeps apart and the whole of this
+    // sentence: the object is a row the library knows and the house does not hold.
+    const [object] = await theObject("Vinland Saga 1");
+    expect(object).toMatchObject({ publisher: "Planet Manga", inTheHouse: false });
+    expect(said.volumeId).toBe(object.id);
+
+    expect(await wishes()).toEqual([
+      { volume_id: object.id, priority: 1, price_found: "12.90", shop: "Star Shop" },
+    ]);
+
+    // And the narrative, which nobody asked for here either.
+    expect(await stories()).toEqual([{ id: said.storyId, title: "Vinland Saga 1" }]);
+    expect(said.storyAppeared).toBe(true);
+    expect(await listStoriesInVolume(object.id)).toMatchObject([{ id: said.storyId }]);
+  });
+
+  it("says nothing about reading it: no Want, no Reading", async () => {
+    await sayWhatHappened({
+      title: "Vinland Saga 1",
+      typeId: "manga",
+      said: "wished",
+      object: { ...TANKOBON, priority: 2 },
+    });
+
+    expect(await wants()).toEqual([]);
+    expect(await readings()).toEqual([]);
+  });
+
+  // **The arrow is read on a line the object has not joined**, which is what keeps a wished-for
+  // twenty-first tankōbon from minting a twenty-first narrative. What is not written is the
+  // position: a position of a Series is filled by an object on the shelf.
+  it("joins the work its line publishes, and takes no position of it", async () => {
+    const slamDunk = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 21,
+      status: "concluded",
+    });
+    await recordSeriesPublishesStory(seriesId, slamDunk);
+
+    const said = await sayWhatHappened({
+      title: "Slam Dunk 21",
+      typeId: "manga",
+      said: "wished",
+      object: { ...TANKOBON, priority: 3, inSeries: { seriesId } },
+    });
+
+    expect(await stories()).toEqual([{ id: slamDunk, title: "Slam Dunk" }]);
+    expect(said.storyId).toBe(slamDunk);
+    expect(said.storyAppeared).toBe(false);
+
+    const [object] = await theObject("Slam Dunk 21");
+    expect(object.seriesNumber).toBeNull();
+    expect(object.inTheHouse).toBe(false);
+    expect(await listStoriesInVolume(object.id)).toMatchObject([{ id: slamDunk }]);
+  });
+
+  it("mints its own narrative where the line names no work", async () => {
+    const seriesId = await declareSeries({
+      name: "Naruto",
+      publisher: "Planet Manga",
+      publishedCount: 72,
+      status: "concluded",
+    });
+
+    const said = await sayWhatHappened({
+      title: "Naruto 1",
+      typeId: "manga",
+      said: "wished",
+      object: { ...TANKOBON, priority: 2, inSeries: { seriesId } },
+    });
+
+    expect(await stories()).toEqual([{ id: said.storyId, title: "Naruto 1" }]);
+    expect(said.storyAppeared).toBe(true);
+  });
+
+  it("refuses a line the library does not have, and catalogues nothing", async () => {
+    await expect(
+      sayWhatHappened({
+        title: "Naruto 1",
+        typeId: "manga",
+        said: "wished",
+        object: { ...TANKOBON, priority: 2, inSeries: { seriesId: "banana" } },
+      })
+    ).rejects.toMatchObject({ name: "Refusal", message: "No Series has that id." });
+
+    expect(await theObject("Naruto 1")).toEqual([]);
+    expect(await wishes()).toEqual([]);
+  });
+
+  // Half of this is worse than none, and the half that would be left is the worst kind of row:
+  // an object the library holds that nothing in it accounts for.
+  it("leaves no object behind when the Wish is refused", async () => {
+    await expect(
+      sayWhatHappened({
+        title: "Vinland Saga 1",
+        typeId: "manga",
+        said: "wished",
+        object: { ...TANKOBON, priority: 9 },
+      })
+    ).rejects.toMatchObject({
+      name: "Refusal",
+      message: "A priority is 1 (next), 2 (soon) or 3 (someday).",
+    });
+
+    expect(await theObject("Vinland Saga 1")).toEqual([]);
+    expect(await stories()).toEqual([]);
+    expect(await wishes()).toEqual([]);
   });
 });

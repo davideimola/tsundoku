@@ -9,6 +9,7 @@ import { placeVolumeInSeries } from "./series.ts";
 import { createStory } from "./story.ts";
 import { recordVolumeCarriesStory } from "./story-to-volume.ts";
 import { openWant } from "./want.ts";
+import { openWish } from "./wish.ts";
 
 // THE ONE DOOR: the owner says what happened, and the library works out what to record (#45).
 //
@@ -49,23 +50,41 @@ import { openWant } from "./want.ts";
 //
 // **Not a tool, and it never will be.** It creates a Story, so an assistant may only propose
 // one and the door for that is the Inbox (ADR-0005). Opening a Want on a Story that exists is
-// MCP's, and it is `want.ts`.
+// MCP's, and it is `want.ts`; opening a Wish on a Volume that exists is `wish.ts` and the
+// shopping list's own drawer. What is here is the case neither of those covers — the object
+// nobody has recorded yet, held in a shop and not paid for.
 
-/** The three sentences the door takes, and there is no fourth. */
-export type WhatWasSaid = "bought" | "read" | "wanted";
+/**
+ * The four sentences the door takes, and there is no fifth.
+ *
+ * **They are two pairs.** *Bought* and *wished* are about an object — one paid for and one
+ * not — and both catalogue a Volume, because the library's own rule is that being catalogued
+ * is not being owned (ADR-0007): the Wish names a Volume the owner does not have, and that is
+ * the whole reason a Volume can exist without an acquisition. *Read* and *wanted* are about a
+ * narrative and need no object at all.
+ */
+export type WhatWasSaid = "bought" | "read" | "wanted" | "wished";
+
+/**
+ * What an object is, whatever the owner said about it: `CataloguedVolume` **without its
+ * title**.
+ *
+ * Without, because the title is the one thing the door already heard — it is what the owner
+ * typed or what the barcode came back with — and a shape that asked for it twice would be a
+ * shape two callers could disagree with themselves in.
+ */
+type TheObjectItself = Omit<CataloguedVolume, "title">;
 
 /**
  * The object in the owner's hands: what it is, that it came home, and where it stands in a
  * line.
  *
- * It is `CataloguedVolume` **without its title** plus the two facts an acquisition carries.
- * Without, because the title is the one thing the door already heard — it is what the owner
- * typed or what the barcode came back with — and a shape that asked for it twice would be a
- * shape two callers could disagree with themselves in. And plus, because *I bought it* is one
- * sentence about an object and a day: the two acts ADR-0007 separated coincide precisely here,
- * which is what the drawer that asked for both in one breath already knew.
+ * It is `TheObjectItself` plus the two facts an acquisition carries, because *I bought it* is
+ * one sentence about an object and a day: the two acts ADR-0007 separated coincide precisely
+ * here, which is what the drawer that asked for both in one breath already knew — and they
+ * coincide **only** here, which is what the sentence beside it demonstrates.
  */
-export type TheObjectInHand = Omit<CataloguedVolume, "title"> & {
+export type TheObjectInHand = TheObjectItself & {
   /** The day it came home, `YYYY-MM-DD`. Absent where the receipt is gone. */
   acquiredOn?: string | null;
   /** What was paid, as the owner typed it: `6,50` or `6.50`. */
@@ -81,16 +100,60 @@ export type TheObjectInHand = Omit<CataloguedVolume, "title"> & {
 };
 
 /**
+ * The object the owner means to buy: what it is, how soon, and what it costs where they found
+ * it.
+ *
+ * **It is the same object as `TheObjectInHand` with the acquisition swapped for the
+ * intention**, and the swap is the whole difference between the two sentences. Nothing here
+ * says the object came home — a Wish names a Volume that is catalogued and not owned, which is
+ * the pair of facts ADR-0007 separated and the reason this sentence needs no new column
+ * anywhere.
+ *
+ * The prices are two and not one because a shop is two numbers: what it should cost, decided
+ * at a desk, and what it costs on the shelf in front of the owner.
+ *
+ * **The line is here and the position is not**, which is the one place the two object
+ * sentences genuinely differ about the arrow. A *position* of a Series is filled by an object
+ * on the shelf — the ledger is measured against what is in the house, and the schema says the
+ * same thing in `volume_in_a_series_has_a_number`, so a volume nobody owns yet holds neither
+ * half. But *which line this is* is known the moment the object is in front of the owner, and
+ * on a line that names a work that fact is what keeps a wished-for twenty-second tankōbon from
+ * minting a twenty-second narrative (#39). So the line is read for its arrow and written
+ * nowhere: the position, and with it the placement, waits for the object to come home.
+ */
+export type TheObjectToBuy = TheObjectItself & {
+  /** 1 next, 2 soon, 3 someday — the shopping list's own three, and the picker's. */
+  priority: number;
+  /** What it should cost, as the owner typed it: `15,00`. */
+  targetPrice?: string | null;
+  /** What it costs where they found it: `12,90`. */
+  priceFound?: string | null;
+  /** Where that price was — a name the owner reads, not a vocabulary. */
+  shop?: string | null;
+  /**
+   * Which line it is one of, where the owner knows.
+   *
+   * **The arrow and nothing else.** A line that names a Story hands the object that narrative
+   * exactly as buying it would; a line that names none changes nothing at all here, because
+   * there is no position to record until the object is on the shelf — which is why this is a
+   * Series and not a Series and a number.
+   */
+  inSeries?: { seriesId: string } | null;
+};
+
+/**
  * What the owner said about a title, and the whole of it.
  *
- * **The object belongs to one of the three sentences and the type says so.** *I bought it* is
- * about an object by definition; *I read it* and *I want to read it* are about a narrative and
- * need no object at all — which is not a limitation but the case that made this door worth
- * building, since a digital read and a borrowed one had nowhere to be said without inventing a
- * Volume nobody owns (ADR-0001, `CONTEXT.md`).
+ * **The object belongs to the two sentences that are about one, and the type says so.** *I
+ * bought it* and *I want to buy it* are about an object by definition — the first has paid for
+ * it and the second has not; *I read it* and *I want to read it* are about a narrative and need
+ * no object at all — which is not a limitation but the case that made this door worth building,
+ * since a digital read and a borrowed one had nowhere to be said without inventing a Volume
+ * nobody owns (ADR-0001, `CONTEXT.md`).
  */
 export type WhatHappened = { title: string; typeId: string } & (
   | { said: "bought"; object: TheObjectInHand }
+  | { said: "wished"; object: TheObjectToBuy }
   | { said: "read" | "wanted" }
 );
 
@@ -113,13 +176,22 @@ export type WhatWasRecorded = {
 /** The prose for a sentence with nothing in it. Every other refusal is a verb's own. */
 const NOTHING_WAS_SAID = "Say what it is called first — a title, or the barcode on the back.";
 
+// A Series id comes from a picker or from a line the owner declared, never typed, so a
+// malformed one is the same event as an unknown one — and `where id = 'banana'` on a uuid
+// column raises a syntax error, which is a 500 rather than an answer. The prose is
+// `series.ts`'s, verbatim, because the owner meets the same sentence whichever door refuses.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NO_SUCH_SERIES = "No Series has that id.";
+
 /**
  * Say what happened to a title, and let the library work out what to record.
  *
  * *I bought it* records the object, says it is in the house, places it in its line where the
- * owner named one, and the narrative appears by itself. *I read it* records a Reading and no
- * object. *I want to read it* opens a Want. All three end with a Story, because a Story is the
- * spine and nobody creates one on purpose.
+ * owner named one, and the narrative appears by itself. *I want to buy it* records the same
+ * object and opens a Wish on it instead of an acquisition: it is catalogued and it is not
+ * owned, which is the pair of facts ADR-0007 exists to keep apart. *I read it* records a
+ * Reading and no object. *I want to read it* opens a Want. All four end with a Story, because a
+ * Story is the spine and nobody creates one on purpose.
  *
  * Returns what was recorded. Refused by the verbs it composes, in their own words.
  */
@@ -131,31 +203,71 @@ export async function sayWhatHappened(happened: WhatHappened): Promise<WhatWasRe
     let volumeId: string | null = null;
     let storyId: string | null = null;
 
-    if (happened.said === "bought") {
+    // **The two sentences that are about an object catalogue one, and only one of them says it
+    // came home.** What a thing is does not depend on having been paid for — the same six facts
+    // either way — so the cataloguing is written once, and what parts the two sentences is the
+    // single act that follows it: an acquisition, or a Wish.
+    if (happened.said === "bought" || happened.said === "wished") {
       const object = happened.object;
-
       const catalogued = await catalogueVolume({ ...object, title }, run);
       volumeId = catalogued.id;
 
-      // Two acts in one breath, and this is the one place they genuinely coincide (ADR-0007):
-      // the object is in the house because the owner has just paid for it.
-      await acquireVolume(
-        { volumeId, acquiredOn: object.acquiredOn, pricePaid: object.pricePaid },
-        run
-      );
-
-      if (object.inSeries) {
-        await placeVolumeInSeries(
-          { volumeId, seriesId: object.inSeries.seriesId, number: object.inSeries.number },
+      if (happened.said === "wished") {
+        // **The whole of what makes this sentence different, and it is one act.** The Wish names
+        // the object just catalogued and nothing else follows: no acquisition, so the object is
+        // known and not owned (ADR-0007), and no Want either — wanting the object and wanting to
+        // read the work are the pair `CONTEXT.md` keeps apart, and saying one of them here would
+        // be this door deciding the other on the owner's behalf.
+        await openWish(
+          {
+            volumeId: catalogued.id,
+            priority: happened.object.priority,
+            targetPrice: happened.object.targetPrice,
+            priceFound: happened.object.priceFound,
+            shop: happened.object.shop,
+          },
           run
         );
 
-        // **The arrow, read back rather than reasoned about.** The placement attaches the
-        // line's Story where the line names one, and asking the row is how this verb finds out
-        // — a second copy of the condition here would be a rule in two files, and the one that
-        // matters is `series.story_id`, which the placement already read inside this
-        // transaction.
-        storyId = await theStoryTheObjectAlreadyCarries(volumeId, run);
+        // **The arrow, read on a line the object has not joined.** For *I bought it* the
+        // placement reads it, and there is no placement here — so it is asked directly, in the
+        // same transaction, and the answer is used for the same thing: the line's work rather
+        // than a new one, and the object recorded as carrying it. What is not written is the
+        // position, and that is the whole of the difference (`TheObjectToBuy`).
+        if (happened.object.inSeries) {
+          storyId = await theStoryTheLinePublishes(happened.object.inSeries.seriesId, run);
+          if (storyId) await recordVolumeCarriesStory(catalogued.id, storyId, run);
+        }
+      }
+
+      if (happened.said === "bought") {
+        // Two acts in one breath, and this is the one place they genuinely coincide (ADR-0007):
+        // the object is in the house because the owner has just paid for it.
+        await acquireVolume(
+          {
+            volumeId: catalogued.id,
+            acquiredOn: happened.object.acquiredOn,
+            pricePaid: happened.object.pricePaid,
+          },
+          run
+        );
+
+        // **The placement is read for its arrow**, which is the sentence above doing by hand
+        // what this one gets for free — and the reason that sentence has to: a position of a
+        // line is filled by an object on the shelf, so only what came home is placed.
+        if (happened.object.inSeries) {
+          const inSeries = happened.object.inSeries;
+          await placeVolumeInSeries(
+            { volumeId: catalogued.id, seriesId: inSeries.seriesId, number: inSeries.number },
+            run
+          );
+
+          // **Read back rather than reasoned about.** The placement attaches the line's Story
+          // where the line names one, and asking the row is how this verb finds out — a second
+          // copy of the condition here would be a rule in two files, and the one that matters is
+          // `series.story_id`, which the placement already read inside this transaction.
+          storyId = await theStoryTheObjectAlreadyCarries(catalogued.id, run);
+        }
       }
     }
 
@@ -189,6 +301,29 @@ export async function sayWhatHappened(happened: WhatHappened): Promise<WhatWasRe
 
     return { storyId, volumeId, storyAppeared: appeared };
   });
+}
+
+/**
+ * The narrative a line publishes, where it names one, and a refusal where the line is not one.
+ *
+ * **The second statement this file owns, and the same kind of question as the first**: what
+ * does the arrow point at. It is asked only by *I want to buy it*, because every other path to
+ * a line goes through `placeVolumeInSeries`, which reads it inside its own placement — and a
+ * verb that placed nothing had nothing to read it with.
+ *
+ * The refusal is `series.ts`'s own words, because it is the same event: a line the owner picked
+ * that the library does not have.
+ */
+async function theStoryTheLinePublishes(seriesId: string, run: Executor): Promise<string | null> {
+  if (!UUID.test(seriesId)) throw new Refusal("not-found", NO_SUCH_SERIES);
+
+  const [line] = await run<{ storyId: string | null }>(
+    `select story_id as "storyId" from series where id = $1`,
+    [seriesId]
+  );
+
+  if (!line) throw new Refusal("not-found", NO_SUCH_SERIES);
+  return line.storyId;
 }
 
 /** The narrative this object is already recorded as carrying, where a line handed it one. */

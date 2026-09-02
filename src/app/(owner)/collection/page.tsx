@@ -186,7 +186,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           wall, and joining the two a picker on the object's own page: three acts across two
           screens, and the drift they produced is twenty-two Volumes against twenty-one Stories.
           There is one door now, and this is a link to it — `/add`, where a title or a barcode
-          and one of three sentences record all of it at once.
+          and one of four sentences record all of it at once.
 
           What is left in the hero is what was already not an act. *Not in the house 19* is **a
           figure**, the second register #18 put here so the shelf and what is not on it are

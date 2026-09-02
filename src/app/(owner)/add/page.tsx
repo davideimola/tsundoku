@@ -8,14 +8,16 @@ import { type Binding, listBindings } from "@/core/queries/binding";
 import { type Finding, findInTheLibrary } from "@/core/queries/finder";
 import { listSeries } from "@/core/queries/series";
 import { listTypes, type Type } from "@/core/queries/type";
+import type { WhatWasSaid } from "@/core/verbs/what-happened";
 import { requireOwner } from "@/lib/auth/owner";
-import { bought, identify, read, wanted } from "./actions";
+import { PRIORITIES } from "../wishes/shopping";
+import { bought, identify, read, wanted, wished } from "./actions";
 import { type CarriedField, THE_SENTENCES, theSentence, whatFilledItIn } from "./door";
 import { ASKED, THE_FIELD } from "./panels";
 
-// THE ONE DOOR (#45). The owner writes a title or scans a barcode and says one of three
-// things — *I bought it*, *I read it*, *I want to read it* — and the library works out what to
-// record. Nobody is asked whether they are creating a Story or a Volume, because the answer is
+// THE ONE DOOR (#45). The owner writes a title or scans a barcode and says one of four
+// things — *I bought it*, *I want to buy it*, *I read it*, *I want to read it* — and the
+// library works out what to record. Nobody is asked whether they are creating a Story or a Volume, because the answer is
 // always both and `CONTEXT.md` already decided it: the default is one Volume, one Story.
 //
 // **What this screen replaced.** Recording an object was a drawer on the Collection, recording
@@ -26,18 +28,18 @@ import { ASKED, THE_FIELD } from "./panels";
 //
 // **It is two halves at one address, and which half it is is whether a title is known.** The
 // first is one field and a camera. The second is that title, set in the serif the owner's own
-// prose is reserved for, over the three sentences they may say about it.
+// prose is reserved for, over the four sentences they may say about it.
 //
 // Four things are decided here.
 //
-//   1. **The three sentences are the screen.** They are not a row of buttons under a form:
-//      they are three full-width statements in the owner's voice, hairline-ruled, each one a
+//   1. **The sentences are the screen.** They are not a row of buttons under a form:
+//      they are four full-width statements in the owner's voice, hairline-ruled, each one a
 //      press the size of a thumb. That is the whole of the interface, because that is the
 //      whole of the decision — everything else on this screen is either the title they are
 //      about or the fields one of them needs.
 //   2. **An act that needs a field is a panel of its own** (`@/components/drawer`, #29). Only
-//      *I bought it* has fields worth the name, and all three open a drawer anyway, because
-//      three acts that behave three ways are three things to learn. Every panel's state is the
+//      the two sentences about an object have fields worth the name, and all four open a
+//      drawer anyway, because acts that behave four ways are four things to learn. Every panel's state is the
 //      URL, so the whole screen works with nothing running in the browser and the back button
 //      closes what the last tap opened (ADR-0010).
 //   3. **The camera is an enhancement over a field that already works** (`@/components/scan`). Typed,
@@ -68,8 +70,8 @@ const A_FEW = 4;
  * **What the door has heard so far**, as an address: the title, the barcode it arrived with,
  * where the answer came from and the publisher that answer named.
  *
- * It is a function because five places compose it — the three sentences, the way back to the
- * field, and the way out of every panel — and a press that dropped one of the four would answer
+ * It is a function because every address on this screen composes it — the four sentences, the
+ * way back to the field, and the way out of every panel — and a press that dropped one of the four would answer
  * the owner by throwing away work they had already given the door. It is this screen's version
  * of the Collection's `panelled()`, and the rule is the same one.
  */
@@ -83,6 +85,25 @@ function theDoorHeard(params: Asked, title?: string): URLSearchParams {
   }
 
   return asking;
+}
+
+/**
+ * **The Server Function behind each sentence**, as a map rather than as a chain of ternaries.
+ *
+ * It is `Record<WhatWasSaid, …>`, so a fifth sentence added to the model is a type error here
+ * rather than a press that quietly posts the wrong verb — which is what the third arm of a
+ * chain of ternaries would have done, silently, to whichever sentence was added last.
+ */
+const THE_ACT: Record<WhatWasSaid, (form: FormData) => Promise<void>> = {
+  bought,
+  wished,
+  read,
+  wanted,
+};
+
+/** Whether a sentence is about an object, and therefore whether it asks what the object is. */
+function aboutAnObject(said: WhatWasSaid): said is "bought" | "wished" {
+  return said === "bought" || said === "wished";
 }
 
 export default async function AddPage({ searchParams }: { searchParams: Promise<Asked> }) {
@@ -123,7 +144,7 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
       </header>
 
       {title ? (
-        <TheThreeSentences
+        <TheSentences
           title={title}
           isbn={isbn}
           filledIn={filledIn}
@@ -148,15 +169,14 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
           closesTo={`/add?${theDoorHeard(params, title)}`}
         >
           {/* Every panel carries the same two hidden facts and the same Type picker, because
-              all three sentences end in a Story and a Story has a Type. Nothing else is
-              shared: the object's fields belong to the one sentence that is about an object. */}
-          <form
-            action={saying.said === "bought" ? bought : saying.said === "read" ? read : wanted}
-            className="grid gap-4"
-          >
+              all four sentences end in a Story and a Story has a Type. Nothing else is shared:
+              the object's fields belong to the two sentences that are about an object. */}
+          <form action={THE_ACT[saying.said]} className="grid gap-4">
             <input type="hidden" name="title" value={title} />
             <input type="hidden" name="from" value={asked(params, "from") ?? ""} />
-            {saying.said !== "bought" && isbn ? (
+            {/* The two sentences about an object show the ISBN as a field the owner can
+                correct; the two about a narrative have nowhere to show it and carry it. */}
+            {!aboutAnObject(saying.said) && isbn ? (
               <input type="hidden" name="isbn" value={isbn} />
             ) : null}
 
@@ -182,8 +202,9 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
               ))}
             </Picker>
 
-            {saying.said === "bought" ? (
-              <TheObjectInHand
+            {aboutAnObject(saying.said) ? (
+              <TheObject
+                said={saying.said}
                 bindings={bindings}
                 series={series}
                 isbn={isbn}
@@ -206,22 +227,31 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
 }
 
 /**
- * The long half of the sentence *I bought it*: what the object is, what was paid, and where it
- * stands in a line.
+ * The long half of the two sentences about an object: what the object is, where it stands in a
+ * line, and then either what was paid for it or what is meant to be.
+ *
+ * **One component for both, because it is one object.** What a thing is does not depend on
+ * whether the owner has paid for it, and a second form spelling the publisher, the binding and
+ * the ISBN again would be the same six fields drifting apart at the speed of two files. What
+ * differs is the last block, and only the last block: *I bought it* ends in a receipt, *I want
+ * to buy it* ends in a shopping list.
  *
  * **The Series picker is the one control on this screen that changes what gets recorded**, and
  * it is here rather than on the Series screen because this is the moment the owner knows the
- * answer — the object is in their hand and its number is on its spine. Where the line they
- * choose names a Story, the object joins that work and no narrative is minted (#39); where it
- * names none, the default applies and the object gets its own.
+ * answer — the object is in front of them and its line is on its spine, paid for or not. Where
+ * the line they choose names a Story, the object joins that work and no narrative is minted
+ * (#39); where it names none, the default applies and the object gets its own. Both sentences
+ * ask it. What only *I bought it* asks is the position, for the reason written beside it.
  */
-function TheObjectInHand({
+function TheObject({
+  said,
   bindings,
   series,
   isbn,
   typed,
   publishedBy,
 }: {
+  said: "bought" | "wished";
   bindings: Binding[];
   series: Awaited<ReturnType<typeof listSeries>>;
   isbn: string | undefined;
@@ -277,7 +307,15 @@ function TheObjectInHand({
         inputMode="numeric"
       />
 
-      <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-[1fr_7rem]">
+      {/* **Both sentences ask which line, and only one of them asks which position.** The line
+          is asked for its arrow, which is a fact about the work and true whether or not the
+          object has been paid for. A position is a place on the shelf — the core refuses to
+          place a Volume the house does not hold, and the ledger is measured against the shelf —
+          so an object only wished for is placed when it comes home, and the box for it is not
+          drawn here. */}
+      <div
+        className={`grid gap-4 border-t border-border pt-4 ${said === "bought" ? "sm:grid-cols-[1fr_7rem]" : ""}`}
+      >
         <Picker
           id="say-series"
           name="seriesId"
@@ -292,28 +330,93 @@ function TheObjectInHand({
             </option>
           ))}
         </Picker>
-        <Field
-          name="seriesNumber"
-          label="Position"
-          defaultValue={typed("seriesNumber") ?? ""}
-          placeholder="21"
-          inputMode="numeric"
-        />
+        {said === "bought" ? (
+          <Field
+            name="seriesNumber"
+            label="Position"
+            defaultValue={typed("seriesNumber") ?? ""}
+            placeholder="21"
+            inputMode="numeric"
+          />
+        ) : (
+          <p className="text-pretty text-xs text-muted-foreground">
+            A line that names a work takes the object into that work rather than minting a second
+            one. Which position it is waits until it comes home: a position of a Series is filled by
+            what is on the shelf.
+          </p>
+        )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {said === "bought" ? (
+        <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+          <Field
+            name="pricePaid"
+            label="Price paid"
+            defaultValue={typed("pricePaid") ?? ""}
+            placeholder="6,50"
+            inputMode="decimal"
+          />
+          <Field
+            name="acquiredOn"
+            label="Came home"
+            type="date"
+            defaultValue={typed("acquiredOn") ?? ""}
+          />
+        </div>
+      ) : (
+        <div className="grid gap-4 border-t border-border pt-4">
+          <TheIntentionToBuy typed={typed} />
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * The end of *I want to buy it*: how soon, what it should cost, and what it costs where the
+ * owner is standing.
+ *
+ * **The three labels are the shopping list's own** (`../wishes/shopping`), read rather than
+ * written down again, for the reason every vocabulary on this screen is read (ADR-0006): a
+ * priority called *Next* here and *Buying this* on the list it lands on would be one intention
+ * with two names. The default is *Soon*, which is the shopping list's default and the honest
+ * answer for an object the owner is looking at and has not picked up.
+ *
+ * Two prices and not one, because a shop is two numbers — what it should cost, decided at a
+ * desk, and what it costs on the shelf — and the list bands on the first while the owner acts
+ * on the second.
+ */
+function TheIntentionToBuy({ typed }: { typed: (name: CarriedField) => string | undefined }) {
+  return (
+    <>
+      <Picker id="say-priority" name="priority" label="Priority" chosen={typed("priority") ?? "2"}>
+        {PRIORITIES.map((priority) => (
+          <option key={priority.value} value={priority.value}>
+            {priority.name} — {priority.hint}
+          </option>
+        ))}
+      </Picker>
+
+      <div className="grid gap-4 sm:grid-cols-3">
         <Field
-          name="pricePaid"
-          label="Price paid"
-          defaultValue={typed("pricePaid") ?? ""}
-          placeholder="6,50"
+          name="targetPrice"
+          label="Target price"
+          defaultValue={typed("targetPrice") ?? ""}
+          placeholder="15,00"
           inputMode="decimal"
         />
         <Field
-          name="acquiredOn"
-          label="Came home"
-          type="date"
-          defaultValue={typed("acquiredOn") ?? ""}
+          name="priceFound"
+          label="Price found"
+          defaultValue={typed("priceFound") ?? ""}
+          placeholder="12,90"
+          inputMode="decimal"
+        />
+        <Field
+          name="shop"
+          label="Shop"
+          defaultValue={typed("shop") ?? ""}
+          placeholder="Star Shop"
         />
       </div>
     </>
@@ -407,14 +510,14 @@ function TheField({
 }
 
 /**
- * The second half: the title, and the three things that can be said about it.
+ * The second half: the title, and the four things that can be said about it.
  *
- * **The signature of this screen, and deliberately not a row of buttons.** Three statements in
+ * **The signature of this screen, and deliberately not a row of buttons.** Four statements in
  * the owner's own voice, in the face reserved for their prose, one under the other with a
  * hairline between them: the screen reads as a sentence being finished rather than as a form
  * being filled in, and every one of them is a full-width press on a phone held one-handed.
  */
-function TheThreeSentences({
+function TheSentences({
   title,
   isbn,
   filledIn,

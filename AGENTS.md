@@ -54,9 +54,12 @@ column.
 ### Where a new record enters the library
 
 **Through the one door, `/add`, and nowhere else** (#45). The owner writes a title or scans a
-barcode and says one of three things — *I bought it*, *I read it*, *I want to read it* — and
-`sayWhatHappened` in `src/core/verbs/what-happened.ts` works out what to record. There is no
-screen that catalogues a Volume on its own, no screen that records a Story on its own, and
+barcode and says one of four things — *I bought it*, *I want to buy it*, *I read it*, *I want to
+read it* — and `sayWhatHappened` in `src/core/verbs/what-happened.ts` works out what to record.
+The four are two pairs: the first two are about an object and both catalogue a Volume, parting
+only on the act underneath — an acquisition, or a Wish on an object that is therefore catalogued
+and not owned (ADR-0007) — and the last two are about a narrative and record no object. There is
+no screen that catalogues a Volume on its own, no screen that records a Story on its own, and
 there must not be one again: those were three acts across two screens, and the drift they
 produced is on the shelves — twenty-two Volumes against twenty-one Stories.
 
@@ -65,8 +68,10 @@ never something the owner creates**: it appears because something was said about
 the default is one Volume, one Story and nobody is ever asked which of the two they are
 recording. And **the one thing that overrides that default is the owner's own arrow**: a Series
 that says which Story it publishes takes a joining object into that work rather than minting a
-twenty-first narrative (#39), which is why the Series picker is on the *bought* panel — the
-moment the object is in hand is the moment its position is known.
+twenty-first narrative (#39), which is why the Series picker is on both object panels — the
+moment the object is in front of the owner is the moment its line is known, paid for or not.
+The *position* is the half only *I bought it* asks for: a position of a Series is filled by what
+is on the shelf, so a volume only wished for reads the arrow and is placed when it comes home.
 
 The verb is a file named after the sentence rather than after an area, for `queries/finder.ts`'s
 reason: it reaches the Collection, the Story and the Want at once, and it composes those areas'

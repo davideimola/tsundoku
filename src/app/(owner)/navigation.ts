@@ -105,8 +105,8 @@ export const THE_FINDER: Destination = { href: "/find", label: "Find" };
  * destination** (#45, placed here).
  *
  * It was a line in *Owning* for one release, and it read as a misfiling because it was one.
- * Saying *I bought it*, *I read it* and *I want to read it* reaches all three sections at
- * once, so the door belongs to none of them — and the reason is sharper than that. The three
+ * Saying *I bought it*, *I want to buy it*, *I read it* and *I want to read it* reaches all
+ * three sections at once, so the door belongs to none of them — and the reason is sharper than that. The three
  * sections are three questions the owner **asks**: what am I in the middle of, do I have
  * this, what needs repairing. The door is the one place they make a **statement**. A
  * statement filed among questions is a category error, and it is what a fourth section would

@@ -20,8 +20,8 @@ import { ASKED } from "./panels";
 // database's no into a `Refusal` carrying prose the verb wrote, and this file only decides
 // where the owner lands with it.
 //
-// **Four functions and three of them are one sentence each**, which is what a door with three
-// verbs behind it should look like. The fourth is the lookup, and it writes nothing.
+// **Five functions and four of them are one sentence each**, which is what a door with four
+// verbs behind it should look like. The fifth is the lookup, and it writes nothing.
 //
 // The answer travels in the URL rather than in React state, because this screen is used
 // one-handed in a shop on whatever signal the shop has: a plain form and a redirect work with
@@ -46,7 +46,7 @@ function text(form: FormData, field: string): string | null {
  * that is not there in a shop.
  *
  * It writes nothing. What it does is answer *do I already have this?* against Postgres before
- * anybody's network is involved, and then hand the three sentences a title that arrived filled
+ * anybody's network is involved, and then hand the sentences a title that arrived filled
  * in. Where each answer leads is `./door.ts` — a screen's own derivation, and the reason this
  * function is six lines.
  */
@@ -75,12 +75,12 @@ export async function identify(form: FormData): Promise<void> {
  * Say *I bought it*: the object joins the catalogue and the house, and the narrative appears
  * with it.
  *
- * The one act on this screen that has fields, and therefore the one whose refusals are worth
- * anything — a Binding nobody knows, a blank publisher, a position of the line the house
- * already holds. Every one of those sentences is the core verb's own.
+ * One of the two acts on this screen that have fields, and therefore one of the two whose
+ * refusals are worth anything — a Binding nobody knows, a blank publisher, a position of the
+ * line the house already holds. Every one of those sentences is the core verb's own.
  */
 export async function bought(form: FormData): Promise<void> {
-  const seriesId = text(form, "seriesId");
+  const seriesId = aLine(form);
   const number = text(form, "seriesNumber");
 
   return saying(form, "bought", (title, typeId) =>
@@ -89,11 +89,7 @@ export async function bought(form: FormData): Promise<void> {
       typeId,
       said: "bought",
       object: {
-        publisher: text(form, "publisher") ?? "",
-        editionLine: text(form, "editionLine"),
-        binding: text(form, "binding") ?? "",
-        language: text(form, "language") ?? "",
-        isbn: text(form, "isbn"),
+        ...theObject(form),
         pricePaid: text(form, "pricePaid"),
         acquiredOn: text(form, "acquiredOn"),
         // **Either half means the owner meant to place it**, and the verb refuses the half
@@ -114,6 +110,65 @@ export async function bought(form: FormData): Promise<void> {
   );
 }
 
+/**
+ * Say *I want to buy it*: the object joins the catalogue without joining the house, and a Wish
+ * for it joins the shopping list.
+ *
+ * The same object as the sentence above it, and the same refusals — it is one form with the
+ * acquisition swapped for the intention, which is the whole difference between having paid and
+ * meaning to. The Wish's own refusals are `openWish`'s: a priority that is not one of the
+ * three, a negative price, a blank shop.
+ */
+export async function wished(form: FormData): Promise<void> {
+  const theLine = aLine(form);
+
+  return saying(form, "wished", (title, typeId) =>
+    sayWhatHappened({
+      title,
+      typeId,
+      said: "wished",
+      object: {
+        ...theObject(form),
+        // A picker offers three values, so anything else is not a priority the owner chose;
+        // `NaN` is not an integer and the verb refuses it in the picker's own three words.
+        priority: Number(text(form, "priority")),
+        targetPrice: text(form, "targetPrice"),
+        priceFound: text(form, "priceFound"),
+        shop: text(form, "shop"),
+        // The line and no position, which is the panel's own shape: an object nobody owns yet
+        // fills no position of a Series, and what the line is asked for is its arrow.
+        inSeries: theLine ? { seriesId: theLine } : null,
+      },
+    })
+  );
+}
+
+/**
+ * What the object is — the half the two sentences about an object share, read off the one form
+ * both of them post. The line is not in here, because the two sentences ask for different
+ * amounts of it: a position and a line where it came home, and the line alone where it has
+ * only been wished for.
+ *
+ * It is a function for the reason `THE_FIELDS_A_REFUSAL_CARRIES` is a list: the fields are
+ * spelled in `page.tsx` too, and a name read here that the page never renders is a fact
+ * quietly dropped rather than a type error. One reader for both sentences is one place for it
+ * to be wrong in.
+ */
+function theObject(form: FormData) {
+  return {
+    publisher: text(form, "publisher") ?? "",
+    editionLine: text(form, "editionLine"),
+    binding: text(form, "binding") ?? "",
+    language: text(form, "language") ?? "",
+    isbn: text(form, "isbn"),
+  };
+}
+
+/** Which line the owner picked, where they picked one. */
+function aLine(form: FormData): string | null {
+  return text(form, "seriesId");
+}
+
 /** Say *I read it*: a pass through the narrative, and no object at all. */
 export async function read(form: FormData): Promise<void> {
   return saying(form, "read", (title, typeId) => sayWhatHappened({ title, typeId, said: "read" }));
@@ -127,14 +182,14 @@ export async function wanted(form: FormData): Promise<void> {
 }
 
 /**
- * The shared body of the three sentences: gate, read the two fields every one of them has,
+ * The shared body of the four sentences: gate, read the two fields every one of them has,
  * say it, and land.
  *
- * The gate is called **here**, which is on the only path the three exports have — a Server
+ * The gate is called **here**, which is on the only path the four exports have — a Server
  * Function that delegated its authorisation to a caller would be a Server Function anybody
  * could POST to. `src/app/gated.test.ts` checks the file; this is the reason it passes.
  *
- * **Where it lands is one rule for all three, and it is the Story.** Everything that follows
+ * **Where it lands is one rule for all four, and it is the Story.** Everything that follows
  * saying anything about a title lives on the Story's own page — the pass that is open, the
  * score, which Volumes carry it, what the line is still missing — so landing there is the
  * whole of the confirmation and a banner announcing the write would be the screen talking
@@ -159,11 +214,12 @@ async function saying(
     const { storyId } = await work(title, text(form, "type") ?? "");
     where = `/stories/${storyId}`;
 
-    // Three walls may have gained a tile, and which of them did depends on the sentence.
-    // Saying all three is cheaper than a rule about which, and none of them is wrong.
+    // Saying all of them is cheaper than a rule about which, and none of them is wrong.
+    // Four walls may have gained a tile, and which of them did depends on the sentence.
     revalidatePath("/stories");
     revalidatePath("/collection");
     revalidatePath("/reading-list");
+    revalidatePath("/wishes");
   } catch (error) {
     // Anything that is not a refusal is a bug rather than an answer and stays unhandled: it
     // becomes a 500, and nobody dresses a broken query up as advice.

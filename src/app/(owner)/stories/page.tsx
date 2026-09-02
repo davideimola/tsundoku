@@ -124,7 +124,8 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           was a drawer here, recording a Volume a drawer on the Collection, and joining the two a
           picker on a third screen — and a narrative that only ever appears because the owner
           said something about a title has no business having a door of its own. There is one
-          door now: a title or a barcode, and *I bought it* / *I read it* / *I want to read it*.
+          door now: a title or a barcode, and *I bought it* / *I want to buy it* / *I read it* /
+          *I want to read it*.
           It is a link rather than a drawer because it is another screen, and it carries no
           filter through because it is not this wall's act. */}
       <header className="flex flex-wrap items-start justify-between gap-4">

@@ -45,7 +45,7 @@ describe("what the one field held", () => {
 });
 
 describe("where a title leads", () => {
-  it("goes to the three sentences", () => {
+  it("goes to the sentences", () => {
     expect(whereATitleLeads("Slam Dunk 21")).toBe("/add?title=Slam+Dunk+21");
   });
 
@@ -67,7 +67,7 @@ describe("where a barcode leads", () => {
     ).toBe("/collection/9f2c");
   });
 
-  it("goes to the three sentences with the title SBN gave, and says where it came from", () => {
+  it("goes to the sentences with the title SBN gave, and says where it came from", () => {
     const where = whereTheBarcodeLeads(ONE_PIECE, {
       it: "a-record",
       isbn: ONE_PIECE,
@@ -127,9 +127,11 @@ describe("what filled it in", () => {
   });
 });
 
-describe("the three sentences", () => {
-  it("offers three, and every one of them says what it writes at two lengths", () => {
-    expect(THE_SENTENCES.map((one) => one.said)).toEqual(["bought", "read", "wanted"]);
+describe("the sentences", () => {
+  // The object first and the narrative after, and inside each pair the fact before the
+  // intention: what the door is opened for in a shop is under the thumb.
+  it("offers four, and every one of them says what it writes at two lengths", () => {
+    expect(THE_SENTENCES.map((one) => one.said)).toEqual(["bought", "wished", "read", "wanted"]);
 
     for (const one of THE_SENTENCES) {
       expect(one.records).not.toBe("");

@@ -3,6 +3,7 @@ import "server-only";
 import { query } from "../db.ts";
 import { priceAsTyped } from "../money.ts";
 import { Refusal, refusing } from "../refusal.ts";
+import type { Executor } from "../transaction.ts";
 
 /**
  * What the owner decides when they mean to buy something: a named Volume, how soon, what
@@ -51,8 +52,13 @@ const NOT_A_PRIORITY = "A priority is 1 (next), 2 (soon) or 3 (someday).";
  *
  * Refused where there is already an open Wish for that Volume, so that the list cannot say
  * *buy this* twice for one object.
+ *
+ * `run` is how the one door runs this inside its own transaction (`what-happened.ts`, and
+ * `../transaction.ts` for why a verb takes one at all): *I want to buy it* catalogues the
+ * object and wishes for it in one breath, and an object catalogued with no Wish on it is a row
+ * about nothing.
  */
-export async function openWish(wish: ProposedWish): Promise<{ id: string }> {
+export async function openWish(wish: ProposedWish, run: Executor = query): Promise<{ id: string }> {
   if (!UUID.test(wish.volumeId)) {
     throw new Refusal("not-found", NO_SUCH_VOLUME);
   }
@@ -64,7 +70,7 @@ export async function openWish(wish: ProposedWish): Promise<{ id: string }> {
 
   const rows = await refusing(
     () =>
-      query<{ id: string }>(
+      run<{ id: string }>(
         `insert into wish (volume_id, priority, target_price, price_found, shop)
          values ($1, $2, $3, $4, $5)
          returning id`,
