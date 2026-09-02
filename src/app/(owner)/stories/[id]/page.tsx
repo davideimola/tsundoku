@@ -22,7 +22,7 @@ import { PersonPicker } from "../../credits/picker";
 // own screen and another here would be two Series to the owner, and `4 of 27` is the answer
 // `core/queries/series.ts` already gives. Three screens print them now, for that one reason.
 import { Progress, SeriesName } from "../../series/ledger";
-import { PUBLISHES, REACHED, SERIALIZE, STRIKE } from "../panels";
+import { PUBLISHES, REACHED, RENAME, SERIALIZE, STRIKE } from "../panels";
 import {
   howFarItGot,
   howItWent,
@@ -40,6 +40,7 @@ import {
   finishIt,
   giveUp,
   rate,
+  rename,
   sayWhereIGotTo,
   sayWhichSeriesPublishesIt,
   serialize,
@@ -106,7 +107,17 @@ const RATE = "rate";
 // refused inside it. They are two panels rather than two buttons in one for the reason
 // finishing and giving up are — each asks for a field of its own.
 // `STRIKE` is the third of them (ADR-0015). The four that are this page's alone are above.
-const PANELS = [START, FINISHED, GAVE_UP, RATE, SERIALIZE, REACHED, STRIKE, PUBLISHES] as const;
+const PANELS = [
+  START,
+  FINISHED,
+  GAVE_UP,
+  RATE,
+  SERIALIZE,
+  REACHED,
+  RENAME,
+  STRIKE,
+  PUBLISHES,
+] as const;
 
 /**
  * This screen's address with a panel open on it.
@@ -504,7 +515,19 @@ export default async function StoryPage({
           exists and the answer is the verb's own sentence, which names what the owner has lived
           with. That is the whole reason this door is here at all: the wall's list holds only
           Stories nothing has happened to, so no refusal is reachable from it. */}
-      <div className="mt-10 border-t border-border pt-4">
+      {/* **The two acts about the record rather than about the reading**, lightest first. They
+          are one strip because they are one thought asked at two strengths — *this is wrong*
+          — and putting the rename up in the hero would have set a maintenance act beside the
+          three that are about tonight. */}
+      <div className="mt-10 grid gap-3 border-t border-border pt-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <p className="max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
+            The work's name is the work's own. A line that came to publish it left it whatever it
+            was called as one object, so this is where the two are said the same way again.
+          </p>
+          <OpensDrawer href={panelled(id, RENAME)}>Correct the title</OpensDrawer>
+        </div>
+
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <p className="max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
             If this narrative was never real — the same title twice, a proposal approved in a hurry
@@ -685,6 +708,46 @@ export default async function StoryPage({
           The count is the narrative's and never a printing's, so it is on this page and not on
           any of the objects: an omnibus and a tankōbon carrying the same work carry the same
           twenty. */}
+      {/* **Correcting the title**, which is the one field on this page that writes over
+          something the owner wrote rather than adding a record beside it. The box arrives
+          holding what it is about to replace, the way the Rating's does, because that is what
+          makes it a correction and not a fresh answer to the same question. */}
+      {panel === RENAME ? (
+        <Drawer
+          title="Correct the title"
+          description="The name of the work, which belongs to the narrative and not to any printing. One Volume records one Story, so a work a line was pointed at may still be carrying the name it had as a single object."
+          refused={refused}
+          closesTo={closesTo}
+        >
+          <form action={rename} className="grid gap-4">
+            <input type="hidden" name="storyId" value={story.id} />
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="story-title" className="text-xs text-muted-foreground">
+                Title
+              </Label>
+              <input
+                id="story-title"
+                name="title"
+                type="text"
+                required
+                defaultValue={story.title}
+                autoComplete="off"
+                className={PICKER}
+              />
+              <p className="text-xs text-muted-foreground">
+                Nothing else moves: the objects carrying it, what you read and what you thought of
+                it are all about this same record.
+              </p>
+            </div>
+
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Correct it
+            </Button>
+          </form>
+        </Drawer>
+      ) : null}
+
       {panel === SERIALIZE ? (
         <Drawer
           title={story.instalments === null ? "Say how many parts it has" : "Correct the count"}

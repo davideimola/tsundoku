@@ -231,8 +231,13 @@ export async function amendStory(
   const changed = await refusing(
     () =>
       run<{ id: string }>(
+        // `btrim` on the title for the reason `createStory` has it: the constraint is
+        // `title = btrim(title)`, so a name pasted with a trailing space is *refused* rather
+        // than tidied, and the sentence it comes back with is "A Story needs a title" — which
+        // is true of nothing the owner typed. Trimming here is what makes the two verbs agree
+        // about what a title is.
         `update story
-            set title       = coalesce($2, title),
+            set title       = coalesce(btrim($2), title),
                 type_id     = coalesce($3, type_id),
                 instalments = coalesce($4, instalments)
           where id = $1

@@ -13,11 +13,11 @@ import {
   recordReading,
 } from "@/core/verbs/reading";
 import { mergeSeriesIntoOneStory } from "@/core/verbs/series";
-import { declareInstalments, strikeStories } from "@/core/verbs/story";
+import { amendStory, declareInstalments, strikeStories } from "@/core/verbs/story";
 import { recordVolumeCarriesStory } from "@/core/verbs/story-to-volume";
 import { openWant, strikeWant } from "@/core/verbs/want";
 import { requireOwner } from "@/lib/auth/owner";
-import { PUBLISHES, REACHED, SERIALIZE, STRIKE } from "../panels";
+import { PUBLISHES, REACHED, RENAME, SERIALIZE, STRIKE } from "../panels";
 
 // The writes on a Story's page, and **#29 is where the web stopped being a read-only view of
 // the thing it exists to record**. The assistant could already say *I've started the Batman
@@ -335,4 +335,39 @@ export async function sayWhichSeriesPublishesIt(form: FormData): Promise<void> {
   await saying(storyId, () => mergeSeriesIntoOneStory(text(form, "seriesId") ?? "", { storyId }), {
     panel: PUBLISHES,
   });
+}
+
+/**
+ * **Correct the work's own title.**
+ *
+ * The one field on this page that overwrites a fact the owner wrote, and it is here because
+ * nothing else could say the work's real name: `amendStory` has carried the title since the
+ * Inbox, and until now the only door onto it was an Amendment an assistant proposed — the
+ * owner could approve a rename and could not type one.
+ *
+ * What made that a hazard rather than an omission is the arrow. One Volume mints one Story, so
+ * a line collapsing onto a work lands on whatever that work was called when it was one object
+ * — *Slam Dunk 1*, as often as not — and the gesture deliberately leaves the target's title
+ * standing rather than renaming something the owner has lived with. So the name the shelf uses
+ * and the name the work carries can part, and this is what closes them again.
+ *
+ * It sends the title alone. The Type and the Instalment count travel through the same verb and
+ * are asked for in their own places — `serialize` below, and the picker on the wall — because a
+ * drawer called *Correct the title* that quietly also wrote the Type would be two acts wearing
+ * one name.
+ */
+export async function rename(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  // The raw field rather than `text()`, which answers `null` for an empty one. `null` means
+  // *leave the title standing* to `amendStory`, so an emptied box would come back as *an
+  // amendment changes at least one field* — true of the verb and beside the point to someone
+  // who has just deleted a name. Sent as the empty string it reaches
+  // `story_title_is_not_blank` instead, and the sentence that comes back is *A Story needs a
+  // title*, in the field it is about.
+  const title = String(form.get("title") ?? "");
+
+  await saying(storyId, () => amendStory(storyId, { title }), { panel: RENAME });
 }

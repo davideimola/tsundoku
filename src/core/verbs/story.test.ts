@@ -195,6 +195,72 @@ describe("amending a Story", () => {
       message: "That is not a Type this library knows.",
     });
   });
+
+  // The owner's own door onto the title, which until now only an assistant's Amendment could
+  // reach. The case it exists for is the arrow: one Volume mints one Story, so a line
+  // collapsing onto a work lands on the name that work had as a single object, and the gesture
+  // leaves it standing rather than renaming something the owner has lived with.
+  it("says the work's real name where a line left it the name of one object", async () => {
+    const work = await createStory({ title: "Slam Dunk 1", typeId: "manga" });
+
+    await amendStory(work, { title: "Slam Dunk" });
+
+    expect(await findStory(work)).toMatchObject({ title: "Slam Dunk" });
+  });
+
+  // Everything the record is *about* is about this same row, so renaming reaches all of it and
+  // moves none of it. Asserted because the alternative — a rename that minted a second Story
+  // and left the Readings on the first — is exactly the drift the one door was built to end.
+  it("leaves the Readings, the Rating and the objects on the record it renamed", async () => {
+    const work = await createStory({ title: "Slam Dunk 1", typeId: "manga" });
+    const { id: volumeId } = await catalogueVolume({
+      title: "Slam Dunk 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(volumeId, work);
+    const readingId = await recordReading({
+      storyId: work,
+      medium: "paper",
+      provenanceId: "remembered",
+    });
+    await setRating({ storyId: work, readingId, score: 9, provenanceId: "remembered" });
+
+    await amendStory(work, { title: "Slam Dunk" });
+
+    expect(await findStory(work)).toMatchObject({
+      title: "Slam Dunk",
+      latestScore: 9,
+      readings: [{ id: readingId }],
+    });
+    expect(await query("select count(*)::int as n from story")).toEqual([{ n: 1 }]);
+  });
+
+  // A name is trimmed rather than refused, which is `createStory`'s own behaviour: the
+  // constraint is `title = btrim(title)`, so a title pasted with a trailing space used to come
+  // back as *A Story needs a title* — a sentence about nothing the owner typed.
+  it("trims a name pasted with space around it rather than refusing it", async () => {
+    const storyId = await createStory({ title: "Slamdunk", typeId: "manga" });
+
+    await amendStory(storyId, { title: "  Slam Dunk  " });
+
+    expect(await findStory(storyId)).toMatchObject({ title: "Slam Dunk" });
+  });
+
+  // What an emptied box has to come back with. The screen sends the empty string rather than
+  // `null`, because `null` means *leave it standing* to this verb and would answer someone who
+  // has just deleted a name with *an amendment changes at least one field*.
+  it("refuses a title emptied to nothing, in the words the owner needs to read", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+
+    await expect(amendStory(storyId, { title: "   " })).rejects.toMatchObject({
+      name: "Refusal",
+      message: "A Story needs a title.",
+    });
+
+    expect(await findStory(storyId)).toMatchObject({ title: "Slam Dunk" });
+  });
 });
 
 // **Striking a Story from the library**, and what makes it not a delete of the owner's past:

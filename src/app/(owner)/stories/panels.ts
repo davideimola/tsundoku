@@ -60,6 +60,30 @@ export const REACHED = "at";
 export const PUBLISHES = "publishes";
 
 /**
+ * **Correcting the Story's own title.**
+ *
+ * Here for the reason the others are: the page opens the drawer and `[id]/actions.ts` reopens
+ * it to print a refusal inside it. `amendStory` refuses a blank one — by the
+ * `story_title_is_not_blank` constraint, in the prose the verb already maps it to — and a
+ * field the owner emptied has to come back with the sentence beside it rather than as a
+ * screen that looks like it worked.
+ *
+ * It does **not** refuse a title the library already holds, and deliberately: a title is not
+ * unique in this schema, `Batman: Anno Uno` is legitimately two records in two lines, and the
+ * one door's own advisory list is where a duplicate is noticed. Renaming cannot be the place
+ * that argument is had.
+ *
+ * Why the act exists at all. `amendStory` has carried the title since the Inbox was built, and
+ * for three releases the only door onto it was an assistant's Amendment — the owner could
+ * approve a rename they were offered and could not type one. The gap only became a hazard
+ * when a line came to publish a work: the default mints one Story per object, so the work a
+ * line collapses onto is as likely as not to be called *Slam Dunk 1*, and the arrow
+ * deliberately leaves the target's own title standing rather than renaming what the owner has
+ * lived with. Something has to be able to say the work's real name, and it is this.
+ */
+export const RENAME = "title";
+
+/**
  * What the owner has narrowed the *wall* to, in the order the controls stand in.
  *
  * `page.tsx` puts these in the form as hidden fields and `actions.ts` reads them back off it,
