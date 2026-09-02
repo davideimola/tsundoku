@@ -131,6 +131,50 @@ describe("I bought it", () => {
     expect((await stories()).map((one) => one.title)).toEqual(["Naruto 1", "Naruto 2"]);
   });
 
+  // **The half-placement, and it is the case this door exists to prevent.** A line chosen with
+  // no position in it used to be a placement quietly dropped — and on a line that names a work
+  // that is a second narrative minted for a volume that already had one, which is exactly the
+  // drift the whole ticket is about. Either half means the owner meant to place it, and the
+  // verb refuses the half that is missing.
+  it("refuses a line chosen with no position rather than minting a second narrative", async () => {
+    const slamDunk = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 21,
+      status: "concluded",
+    });
+    await recordSeriesPublishesStory(seriesId, slamDunk);
+
+    await expect(
+      sayWhatHappened({
+        title: "Slam Dunk 21",
+        typeId: "manga",
+        said: "bought",
+        object: { ...TANKOBON, inSeries: { seriesId, number: Number.NaN } },
+      })
+    ).rejects.toMatchObject({
+      name: "Refusal",
+      message: "A position in a Series is a whole number: 1, 2, 3.",
+    });
+
+    expect(await stories()).toEqual([{ id: slamDunk, title: "Slam Dunk" }]);
+    expect(await theObject("Slam Dunk 21")).toEqual([]);
+  });
+
+  it("refuses a position given with no line", async () => {
+    await expect(
+      sayWhatHappened({
+        title: "Slam Dunk 21",
+        typeId: "manga",
+        said: "bought",
+        object: { ...TANKOBON, inSeries: { seriesId: "", number: 21 } },
+      })
+    ).rejects.toMatchObject({ name: "Refusal", message: "No Series has that id." });
+
+    expect(await theObject("Slam Dunk 21")).toEqual([]);
+  });
+
   it("leaves nothing behind when one half of it is refused", async () => {
     await expect(
       sayWhatHappened({

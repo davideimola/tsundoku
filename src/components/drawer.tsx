@@ -20,8 +20,8 @@ import { cn } from "@/lib/utils";
 // available because a drawer's state is genuinely one bit of navigation.
 //
 // Three things follow, and each is a property the scripted version would have had to earn:
-// the open drawer is **linkable** (`/collection?panel=catalogue` is a bookmark for *add a
-// book*), it **survives a refresh**, and the back button closes it because closing it is what
+// the open drawer is **linkable** (`/add?title=Slam+Dunk+21&panel=bought` is a bookmark for
+// *say I bought this*), it **survives a refresh**, and the back button closes it because closing it is what
 // going back means.
 //
 // What it does not have is a focus trap and an escape key. `<Escape>` is the browser's back

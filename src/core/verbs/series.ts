@@ -436,9 +436,8 @@ export type VolumePlacement = {
  * Refused on a Volume the house does not hold — let go, or catalogued and never had: it
  * fills no position, and the ledger is measured against what is on the shelf.
  *
- * `run` is how the one door calls this inside its own transaction (`what-happened.ts`): the
- * owner says *I bought it* once, and the object, the acquisition and the narrative land
- * together or not at all (see `../transaction.ts`).
+ * `run` is how the one door runs this inside its own transaction (`what-happened.ts`, and
+ * `../transaction.ts` for why a verb takes one at all).
  */
 export async function placeVolumeInSeries(
   placement: VolumePlacement,

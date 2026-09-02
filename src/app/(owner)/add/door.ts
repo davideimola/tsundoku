@@ -7,7 +7,7 @@ import { ASKED } from "./panels";
 // file rather than a lump inside `page.tsx` so that it can be tested beside itself.
 //
 // The door has **one field** and the owner may put two quite different things in it: what a
-// book is called, or the thirteen digits under the barcode on its back. Telling those apart is
+// title is, or the thirteen digits under the barcode on the object's back. Telling those apart is
 // not the core's question — the core answers *what is on this ISBN* and deliberately does not
 // know what a URL or a form field is — so it is decided here, and three of the decisions are
 // worth stating out loud because all three were arguable.
@@ -189,6 +189,14 @@ export type Sentence = {
   readonly sentence: string;
   /** What the library will record, in one line, because none of it is asked for. */
   readonly records: string;
+  /**
+   * The same thing at length, read under the press that does it.
+   *
+   * Two lengths and not one, because they are read at two moments: `records` is what the owner
+   * chooses between, on a screen holding all three, and this is what they check before pressing,
+   * in a panel holding only one. Both are here so that one act cannot come to say two things.
+   */
+  readonly atLength: string;
 };
 
 /**
@@ -208,16 +216,22 @@ export const THE_SENTENCES: readonly Sentence[] = [
     sentence: "I bought it.",
     records:
       "The object joins the catalogue and the house, and the narrative it carries appears with it.",
+    atLength:
+      "The object joins the catalogue and the house in one act. A line that names a work takes the object into that work; every other object gets its own narrative, which is the default and is never asked about. Leave the price and the day empty where the receipt is gone.",
   },
   {
     said: "read",
     sentence: "I read it.",
     records: "A pass through it, and no object at all — the digital case needs nothing more.",
+    atLength:
+      "A finished pass, first-hand, through no object — which is what a digital read is. Read it on somebody else's paperback? Say it here and correct the medium on the Story, which is one press.",
   },
   {
     said: "wanted",
     sentence: "I want to read it.",
     records: "A Want, which joins the Reading list and falls quiet by itself once you have.",
+    atLength:
+      "It joins the Reading list and nothing else follows: no Path, no order, no Wish. Nobody closes a Want — it falls quiet by itself once a Reading has begun since.",
   },
 ];
 

@@ -96,10 +96,19 @@ export async function bought(form: FormData): Promise<void> {
         isbn: text(form, "isbn"),
         pricePaid: text(form, "pricePaid"),
         acquiredOn: text(form, "acquiredOn"),
-        // Both or neither: a line with no position in it is not a placement, and the number
-        // reaches the verb as it was typed so that *seven and a half* is refused in the
-        // owner's words rather than laundered into seven here.
-        inSeries: seriesId && number ? { seriesId, number: Number(number) } : null,
+        // **Either half means the owner meant to place it**, and the verb refuses the half
+        // that is missing in its own words — an empty position on a chosen line is *a position
+        // in a Series is a whole number*, and a position with no line is *no Series has that
+        // id*. Requiring both here instead would drop the placement silently, and on a line
+        // that names a work that is a second narrative minted for a volume that had one:
+        // exactly the drift this door exists to end.
+        // `NaN` and not `0` for a blank position: `Number(null)` is zero, which is a number the
+        // owner never typed and which comes back as *a Series starts at 1*. A field they left
+        // empty is not a number at all, and the verb says exactly that.
+        inSeries:
+          seriesId || number
+            ? { seriesId: seriesId ?? "", number: Number(number ?? Number.NaN) }
+            : null,
       },
     })
   );

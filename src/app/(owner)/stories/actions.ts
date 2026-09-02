@@ -41,18 +41,13 @@ function text(form: FormData, field: string): string | null {
  * to read — `../collection/actions.ts` threads them the same way for the same reason. Dropping
  * them would answer a refused write by silently throwing away the search behind it.
  *
- * The panel is an argument because it was two acts once: a refused Story reopened the form it
- * was typed into, and a strike — refused or done — reopens the list it was ticked from.
- * Recording a Story is the one door's now (#45) and only the strike is left, but the shape is
- * kept: the next act on this wall will come back to its own drawer, not to the strike's.
+ * The panel it reopens is the strike's, because the strike is the one act this wall has left:
+ * recording a Story went to the one door (#45), and a refusal or a count is only useful beside
+ * the ticks it is about.
  */
-function asItWasNarrowed(
-  form: FormData,
-  panel: string,
-  said: Record<string, string>
-): URLSearchParams {
+function asItWasNarrowed(form: FormData, said: Record<string, string>): URLSearchParams {
   const asking = new URLSearchParams(said);
-  asking.set("panel", panel);
+  asking.set("panel", NOTHING_ON_IT);
 
   for (const name of THE_WALLS_FILTERS) {
     // Read under the prefix it travelled as, never under its own name: `type` is also the
@@ -94,9 +89,9 @@ export async function strike(form: FormData): Promise<void> {
     // Anything that is not a refusal is a bug rather than an answer and stays unhandled.
     if (!isRefusal(error)) throw error;
     revalidatePath("/stories");
-    redirect(`/stories?${asItWasNarrowed(form, NOTHING_ON_IT, { refused: error.message })}`);
+    redirect(`/stories?${asItWasNarrowed(form, { refused: error.message })}`);
   }
 
   revalidatePath("/stories");
-  redirect(`/stories?${asItWasNarrowed(form, NOTHING_ON_IT, { struck: String(struck) })}`);
+  redirect(`/stories?${asItWasNarrowed(form, { struck: String(struck) })}`);
 }

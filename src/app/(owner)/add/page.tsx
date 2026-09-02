@@ -196,9 +196,7 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
               <Button type="submit" className="h-11 w-full sm:h-10">
                 {saying.sentence}
               </Button>
-              <p className="mt-2 text-pretty text-xs text-muted-foreground">
-                {WHAT_IT_WILL_RECORD[saying.said]}
-              </p>
+              <p className="mt-2 text-pretty text-xs text-muted-foreground">{saying.atLength}</p>
             </div>
           </form>
         </Drawer>
@@ -321,15 +319,6 @@ function TheObjectInHand({
     </>
   );
 }
-
-/** What each sentence writes, said under the press that writes it. */
-const WHAT_IT_WILL_RECORD: Record<string, string> = {
-  bought:
-    "The object joins the catalogue and the house in one act. A line that names a work takes the object into that work; every other object gets its own narrative, which is the default and is never asked about. Leave the price and the day empty where the receipt is gone.",
-  read: "A finished pass, first-hand, through no object — which is what a digital read is. Read it on somebody else's paperback? Say it here and correct the medium on the Story, which is one press.",
-  wanted:
-    "It joins the Reading list and nothing else follows: no Path, no order, no Wish. Nobody closes a Want — it falls quiet by itself once a Reading has begun since.",
-};
 
 /**
  * The first half: one field, and a camera under it.

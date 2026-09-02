@@ -97,9 +97,8 @@ const NO_SUCH_READING = "That Reading is not in the library.";
  * leaves the first exactly as it was, ratings included: that is the whole point of a
  * Reading being an event.
  *
- * `run` is how the one door calls this inside its own transaction (`what-happened.ts`): the
- * owner says *I bought it* once, and the object, the acquisition and the narrative land
- * together or not at all (see `../transaction.ts`).
+ * `run` is how the one door runs this inside its own transaction (`what-happened.ts`, and
+ * `../transaction.ts` for why a verb takes one at all).
  */
 export async function recordReading(reading: NewReading, run: Executor = query): Promise<string> {
   const rows = await refusing(

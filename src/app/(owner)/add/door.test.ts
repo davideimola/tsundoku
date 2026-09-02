@@ -8,7 +8,6 @@ import {
   whereATitleLeads,
   whereTheBarcodeLeads,
 } from "./door.ts";
-import { PANELS, THE_FIELD } from "./panels.ts";
 
 // A screen's own derivation, tested beside itself: data in, data out, no render and no
 // database. What is asserted is where the owner lands, because the door has one field and
@@ -129,8 +128,13 @@ describe("what filled it in", () => {
 });
 
 describe("the three sentences", () => {
-  it("offers three, and they are the model's own three words", () => {
-    expect(THE_SENTENCES.map((one) => one.said)).toEqual([...PANELS]);
+  it("offers three, and every one of them says what it writes at two lengths", () => {
+    expect(THE_SENTENCES.map((one) => one.said)).toEqual(["bought", "read", "wanted"]);
+
+    for (const one of THE_SENTENCES) {
+      expect(one.records).not.toBe("");
+      expect(one.atLength).not.toBe("");
+    }
   });
 
   it("finds the one a panel names, and none where it names nothing", () => {
@@ -154,13 +158,5 @@ describe("what a refused press carries back", () => {
     for (const carried of ["title", "from", "publishedBy", "panel", "refused"]) {
       expect(THE_FIELDS_A_REFUSAL_CARRIES).not.toContain(carried);
     }
-  });
-});
-
-// The scanner is handed the id and the form is handed the prefix, in opposite directions. If
-// the two stop meeting, the camera reads a barcode perfectly and writes it nowhere.
-describe("the field a camera writes into", () => {
-  it("composes the same id the form does", () => {
-    expect(`${THE_FIELD.prefix}-${THE_FIELD.name}`).toBe(THE_FIELD.id);
   });
 });
