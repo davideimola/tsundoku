@@ -58,6 +58,7 @@ export const story = pgTable("story", {
 	typeId: text("type_id").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	instalments: integer(),
+	instalmentsSaidBy: text("instalments_said_by"),
 }, (table) => [
 	index("story_by_type").using("btree", table.typeId.asc().nullsLast()),
 	foreignKey({
@@ -67,6 +68,9 @@ export const story = pgTable("story", {
 		}),
 	check("story_title_is_not_blank", sql`(title = btrim(title)) AND (title <> ''::text)`),
 	check("story_instalments_are_positive", sql`(instalments IS NULL) OR (instalments > 0)`),
+	check("story_instalments_are_said_by_the_owner_or_the_line", sql`(instalments_said_by IS NULL) OR (instalments_said_by = ANY (ARRAY['owner'::text, 'line'::text]))`),
+	check("story_instalments_carry_whose_word_they_are", sql`(instalments IS NULL) OR (instalments_said_by IS NOT NULL)`),
+	check("story_the_lines_count_is_a_number", sql`(instalments_said_by IS DISTINCT FROM 'line'::text) OR (instalments IS NOT NULL)`),
 ]);
 
 export const provenance = pgTable("provenance", {

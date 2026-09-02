@@ -43,7 +43,13 @@ export async function createStory(story: NewStory, run: Executor = query): Promi
   const rows = await refusing(
     () =>
       run<{ id: string }>(
-        "insert into story (title, type_id, instalments) values (btrim($1), $2, $3) returning id",
+        // **A count given here is the owner's word**, and that is what stops a line from
+        // moving it afterwards (#34). Absent, the column stays empty and a Series naming this
+        // work comes to answer for it — which is how the merge gesture leaves the length of a
+        // line to the line.
+        `insert into story (title, type_id, instalments, instalments_said_by)
+         values (btrim($1), $2, $3, case when $3::integer is null then null else 'owner' end)
+         returning id`,
         [story.title, story.typeId, story.instalments ?? null]
       ),
     (constraint) => whyStoryRefused(constraint, "That Story could not be added.")
@@ -132,10 +138,17 @@ export async function declareInstalments(
 
   const changed = await refusing(
     () =>
-      query<{ id: string }>("update story set instalments = $2 where id = $1 returning id", [
-        storyId,
-        instalments,
-      ]),
+      query<{ id: string }>(
+        // **Saying it by hand is what stops the following, permanently** (#34, ADR-0017). A
+        // count that came from the line is the library keeping a printing's number and the
+        // narrative's in step; the moment the owner corrects it, the number is theirs and no
+        // line moves it again — including where they take the numbering back off with `null`,
+        // which is a correction like any other.
+        `update story set instalments = $2, instalments_said_by = 'owner'
+          where id = $1
+          returning id`,
+        [storyId, instalments]
+      ),
     (constraint) => whyStoryRefused(constraint, "That Story could not be serialized.")
   );
 
@@ -239,7 +252,16 @@ export async function amendStory(
         `update story
             set title       = coalesce(btrim($2), title),
                 type_id     = coalesce($3, type_id),
-                instalments = coalesce($4, instalments)
+                instalments = coalesce($4, instalments),
+                -- An approved Amendment is the owner's decision reached through the Inbox
+                -- (ADR-0005, ADR-0011), so a count arriving this way is their word and stops
+                -- the count following the line, exactly as saying it by hand does (#34). An
+                -- amendment naming no count leaves whose word it is alone, as it leaves the
+                -- number.
+                instalments_said_by = case
+                  when $4::integer is null then instalments_said_by
+                  else 'owner'
+                end
           where id = $1
           returning id`,
         [storyId, amendment.title ?? null, amendment.typeId ?? null, amendment.instalments ?? null]

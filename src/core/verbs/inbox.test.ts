@@ -19,7 +19,7 @@ import {
   proposeVolume,
   rejectInboxEntry,
 } from "./inbox.ts";
-import { declareSeries } from "./series.ts";
+import { declareSeries, recordSeriesPublishesStory, recordVolumesPublished } from "./series.ts";
 import { createStory } from "./story.ts";
 
 // Seam 1: the Inbox and the boundary it exists to hold, against a real Postgres.
@@ -1031,6 +1031,38 @@ describe("proposing how many Instalments a Story has", () => {
     await approveInboxEntry(id, { instalments: 20 });
 
     expect(await findStory(storyId)).toMatchObject({ instalments: 20 });
+  });
+
+  // Once a count can come from the line (#34, ADR-0017), an approval has to be the *owner's*
+  // word — otherwise the number the owner confirmed would be moved by the next ledger edit,
+  // silently, which is the exact risk this door exists to close.
+  it("writes the approved count as the owner's word, and the line stops moving it", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    await recordSeriesPublishesStory(seriesId, storyId);
+    // The count follows the line, so the owner has typed nothing and the work says twenty.
+    expect(await findStory(storyId)).toMatchObject({ instalments: 20, instalmentsSaidBy: "line" });
+
+    const { id } = await proposeAmendment({
+      reported: "Slam Dunk is 276 chapters",
+      amends: "story",
+      subjectId: storyId,
+      proposed: { instalments: 276 },
+    });
+    await approveInboxEntry(id);
+
+    expect(await findStory(storyId)).toMatchObject({
+      instalments: 276,
+      instalmentsSaidBy: "owner",
+    });
+
+    await recordVolumesPublished(seriesId, 21);
+    expect(await findStory(storyId)).toMatchObject({ instalments: 276 });
   });
 
   it("is refused with the Story's own prose when the count is not a number of parts", async () => {

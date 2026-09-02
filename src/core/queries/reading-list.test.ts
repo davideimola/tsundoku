@@ -10,7 +10,12 @@ import {
   recordReading,
 } from "../verbs/reading.ts";
 import { pinToReadingList, unpinFromReadingList } from "../verbs/reading-list.ts";
-import { declareSeries, declareSeriesCollected, placeVolumeInSeries } from "../verbs/series.ts";
+import {
+  declareSeries,
+  declareSeriesCollected,
+  placeVolumeInSeries,
+  recordSeriesPublishesStory,
+} from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import { openWant } from "../verbs/want.ts";
@@ -289,16 +294,35 @@ describe("what a Want puts on the list", () => {
 // say about it, and without the hand-made Path the run was invisible. The run itself is the
 // signal: no route minted for it, no flag on the line, and no Want required.
 describe("what a run puts on the list", () => {
-  /** *Slam Dunk*: twenty Instalments, wholly on the shelf, and a pass that has read seven. */
+  /**
+   * *Slam Dunk*: a concluded line of twenty, all twenty on the shelf, and the count of
+   * Instalments following the line rather than typed (#34).
+   *
+   * Wholly held is what puts it here at all since that amendment: a run reaches the list when
+   * it is all on the shelf, or when the owner has begun it (ADR-0017). Nothing is *missing*, so
+   * the Series source still has nothing to say about it — which is the case the tracker exists
+   * for — and the line is marked as nothing, because there is nothing to mark.
+   */
   async function slamDunk(): Promise<string> {
-    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
-    const volumeId = await volumeInTheHouse({
-      title: "Slam Dunk 1",
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
       publisher: "Planet Manga",
-      binding: "tankobon",
-      language: "it",
+      publishedCount: 20,
+      status: "concluded",
     });
-    await recordVolumeCarriesStory(volumeId, storyId);
+    await recordSeriesPublishesStory(seriesId, storyId);
+
+    for (let number = 1; number <= 20; number += 1) {
+      const volumeId = await volumeInTheHouse({
+        title: `Slam Dunk ${number}`,
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      });
+      await placeVolumeInSeries({ volumeId, seriesId, number });
+    }
+
     return storyId;
   }
 

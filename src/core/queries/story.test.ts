@@ -9,8 +9,8 @@ import {
   recordInstalmentReached,
   recordReading,
 } from "../verbs/reading.ts";
-import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
-import { createStory } from "../verbs/story.ts";
+import { declareSeries, placeVolumeInSeries, recordSeriesPublishesStory } from "../verbs/series.ts";
+import { createStory, declareInstalments } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import {
   findStory,
@@ -101,10 +101,13 @@ describe("a Story's state, derived from its Readings", () => {
     // `instalments` is here and is not a crack in that: it says how long the work is, which
     // is a fact about the narrative and true whether anybody has read it or not. **How far a
     // pass got is on the pass**, which is what keeps the ban on a progress field honest.
+    // `instalments_said_by` is the same kind of fact one step back — whose word that length is,
+    // the line's or the owner's (#34) — and it says nothing about reading either.
     expect(columns.map((column) => column.column_name).sort()).toEqual([
       "created_at",
       "id",
       "instalments",
+      "instalments_said_by",
       "title",
       "type_id",
     ]);
@@ -305,8 +308,9 @@ describe("what the owner has read", () => {
         type: { id: "manga", name: "Manga" },
         state: "read",
         // Not serialized, which is the ordinary Story: no count, and therefore no fraction
-        // to be at (#37).
+        // to be at (#37) and nobody whose word the count is (#34).
         instalments: null,
+        instalmentsSaidBy: null,
         howFarItGot: null,
         credits: [
           {
@@ -724,8 +728,38 @@ describe("a run with somewhere left to go", () => {
     expect(await listRunsInProgress()).toEqual([]);
   });
 
-  it("names a run nobody has opened at all, which is the Slam Dunk case", async () => {
-    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
+  /**
+   * A line and the work it prints: `published` Volumes out, `owned` of them in the house, and
+   * the count of Instalments following the line as #34 was amended to have it.
+   *
+   * The arrow is set, which is what makes the work a run at all — the count follows the line
+   * from it — and what *all on the shelf* is read through.
+   */
+  async function aLine(title: string, published: number, owned: number): Promise<string> {
+    const storyId = await createStory({ title, typeId: "manga" });
+    const seriesId = await declareSeries({
+      name: title,
+      publisher: "Planet Manga",
+      publishedCount: published,
+      status: "ongoing",
+    });
+    await recordSeriesPublishesStory(seriesId, storyId);
+
+    for (let number = 1; number <= owned; number += 1) {
+      const volumeId = await volumeInTheHouse({
+        title: `${title} ${number}`,
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      });
+      await placeVolumeInSeries({ volumeId, seriesId, number });
+    }
+
+    return storyId;
+  }
+
+  it("names a run owned whole and never opened, which is the Slam Dunk case", async () => {
+    const storyId = await aLine("Slam Dunk", 20, 20);
 
     // The row the whole tracker exists for (user story 14). Owned whole and unread, it is
     // invisible to the Series source — which names what is *missing*, and nothing is — so
@@ -737,6 +771,76 @@ describe("a run with somewhere left to go", () => {
         nextInstalment: 1,
       },
     ]);
+  });
+
+  it("names a short run owned whole, which is Your Name.", async () => {
+    await aLine("Your Name.", 3, 3);
+
+    // Three of three, never opened: the same case as Slam Dunk at a size that fits on a
+    // shelf beside it, and it is on the list for the same reason.
+    expect((await listRunsInProgress()).map((run) => run.story.title)).toEqual(["Your Name."]);
+  });
+
+  it("says nothing about a line the owner holds two of and has not begun, which is Berserk", async () => {
+    await aLine("Berserk", 43, 2);
+
+    // Two of forty-three and never opened. This is the row that made the condition necessary
+    // (ADR-0017): once the count follows the line, a work like this declares parts without the
+    // owner having said anything at all about reading it, and the list would fill with lines
+    // they own a corner of.
+    expect(await listRunsInProgress()).toEqual([]);
+  });
+
+  it("says nothing about a part-owned line even where the line is short, which is Death Note Black Edition", async () => {
+    await aLine("Death Note Black Edition", 6, 2);
+
+    // Two of six. *Nearly* whole is not whole, and the proportion is not the question: what
+    // reaches the list is what can be read through to the end tonight, or what the owner has
+    // already started.
+    expect(await listRunsInProgress()).toEqual([]);
+  });
+
+  it("waits for the owner to begin a line whose published count nobody filled in, which is One-Punch Man", async () => {
+    const storyId = await aLine("One-Punch Man", 0, 2);
+    // Nought published means nobody filled it in rather than nothing published (#34), so the
+    // count does not follow the line and the owner's own is what stands there.
+    await declareInstalments(storyId, 22);
+
+    expect(await listRunsInProgress()).toEqual([]);
+
+    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 3 });
+
+    // Begun, and that is the only signal needed (user story 31): no flag on the line, no Want
+    // opened, and the ledger still says nothing about how long the line is.
+    expect(await listRunsInProgress()).toMatchObject([
+      { story: { title: "One-Punch Man" }, howFarItGot: { atInstalment: 3, instalments: 22 } },
+    ]);
+  });
+
+  it("says nothing about a run with no objects at all that nobody has opened", async () => {
+    await createStory({ title: "Vagabond", typeId: "manga", instalments: 37 });
+
+    // Deliberate: the owner reads digitally sometimes and says a Story is read without wanting
+    // progress tracked, so a work the house holds none of asks for nothing until they open it.
+    expect(await listRunsInProgress()).toEqual([]);
+  });
+
+  it("still says nothing about a whole shelf once the pass through it has finished", async () => {
+    const storyId = await aLine("Slam Dunk", 20, 20);
+    await finishReading(
+      await recordReading({
+        storyId,
+        medium: "paper",
+        provenanceId: "remembered",
+        atInstalment: 12,
+      }),
+      "2026-03-03"
+    );
+
+    // Owned whole and closed. `STORY_STATE` is what decides that and it is unchanged (#34):
+    // being told to carry on with something finished — or given up on — is the recommendation
+    // this list exists not to make.
+    expect(await listRunsInProgress()).toEqual([]);
   });
 
   it("says nothing about a Story that declares no Instalments, open pass or not", async () => {

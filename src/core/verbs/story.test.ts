@@ -10,7 +10,13 @@ import { creditStory } from "./credit.ts";
 import { definePath, placeStoriesOnPath } from "./path.ts";
 import { setRating } from "./rating.ts";
 import { recordInstalmentReached, recordReading } from "./reading.ts";
-import { declareSeries, placeVolumeInSeries } from "./series.ts";
+import {
+  declareSeries,
+  placeVolumeInSeries,
+  recordSeriesNoLongerPublishesStory,
+  recordSeriesPublishesStory,
+  recordVolumesPublished,
+} from "./series.ts";
 import {
   amendStory,
   createStory,
@@ -777,6 +783,188 @@ describe("declaring how many Instalments a Story has", () => {
     await expect(declareInstalments(storyId, null)).rejects.toMatchObject({
       name: "Refusal",
       code: "invalid",
+    });
+  });
+});
+
+// THE COUNT FOLLOWS THE LINE (#34, ADR-0017).
+//
+// Setting a Series' published count and then being asked *again* how many Instalments the work
+// has is two questions about one number. They are not the same fact — one is a printing's and
+// one is the narrative's — but on these shelves the two coincide for almost every record, so
+// the second question reads as a re-ask.
+//
+// So the count follows the line, and `instalments_said_by` is the one fact that makes the rule
+// tellable: the line's word moves as the line grows, and the owner's word moves for nobody. It
+// is a column kept by a trigger rather than a derivation, because the two invariants over
+// `story.instalments` — a pass cannot stand past the end of the work, an object cannot cover
+// past it — are triggers themselves, and they must bite on a count nobody typed.
+describe("the count of Instalments following the line", () => {
+  /** A line of `published` Volumes, and the work it publishes. Nothing is typed on the work. */
+  async function aLinePublishing(
+    title: string,
+    published: number
+  ): Promise<{ storyId: string; seriesId: string }> {
+    const storyId = await createStory({ title, typeId: "manga" });
+    const seriesId = await declareSeries({
+      name: title,
+      publisher: "Planet Manga",
+      publishedCount: published,
+      status: "ongoing",
+    });
+    await recordSeriesPublishesStory(seriesId, storyId);
+    return { storyId, seriesId };
+  }
+
+  it("takes the count from the one line that publishes the work, so nobody types it", async () => {
+    const { storyId } = await aLinePublishing("La via del grembiule", 6);
+
+    expect(await findStory(storyId)).toMatchObject({
+      instalments: 6,
+      instalmentsSaidBy: "line",
+    });
+  });
+
+  it("moves as the line grows: an ongoing line gains volumes, and the work gains parts", async () => {
+    const { storyId, seriesId } = await aLinePublishing("Berserk", 42);
+
+    await recordVolumesPublished(seriesId, 43);
+
+    expect(await findStory(storyId)).toMatchObject({ instalments: 43, instalmentsSaidBy: "line" });
+  });
+
+  it("leaves the work declaring nothing where the count published is nought", async () => {
+    const { storyId, seriesId } = await aLinePublishing("One-Punch Man", 0);
+
+    // Nought is *the owner never filled it in*, not *zero parts*, so there is nothing to
+    // follow and the work is an ordinary unnumbered Story.
+    expect(await findStory(storyId)).toMatchObject({
+      instalments: null,
+      instalmentsSaidBy: null,
+      howFarItGot: null,
+    });
+
+    // And it begins following the day the number is filled in.
+    await recordVolumesPublished(seriesId, 22);
+    expect(await findStory(storyId)).toMatchObject({ instalments: 22, instalmentsSaidBy: "line" });
+  });
+
+  it("stops following for good once the owner has corrected the count by hand", async () => {
+    const { storyId, seriesId } = await aLinePublishing("Ultimate Spider-Man", 20);
+
+    // The line prints twenty volumes and the work is a hundred and sixty issues. From here the
+    // number is the owner's word.
+    await declareInstalments(storyId, 160);
+    expect(await findStory(storyId)).toMatchObject({
+      instalments: 160,
+      instalmentsSaidBy: "owner",
+    });
+
+    await recordVolumesPublished(seriesId, 21);
+
+    expect(await findStory(storyId)).toMatchObject({ instalments: 160 });
+  });
+
+  it("stops following where the owner takes the numbering off, and the line growing does not put it back", async () => {
+    const { storyId, seriesId } = await aLinePublishing("Batman: L'uomo che ride", 3);
+
+    // Taking the numbering off is a correction like any other: this line collects tales that
+    // are judged apart and nobody numbers.
+    await declareInstalments(storyId, null);
+    await recordVolumesPublished(seriesId, 4);
+
+    expect(await findStory(storyId)).toMatchObject({
+      instalments: null,
+      instalmentsSaidBy: "owner",
+    });
+  });
+
+  it("stops following where two lines publish one work, and hands the standing number to the owner", async () => {
+    const { storyId, seriesId } = await aLinePublishing("Fullmetal Alchemist", 27);
+    const deluxe = await declareSeries({
+      name: "Fullmetal Alchemist",
+      publisher: "Planet Manga",
+      editionLine: "Ultimate Deluxe Edition",
+      publishedCount: 18,
+      status: "ongoing",
+    });
+
+    await recordSeriesPublishesStory(deluxe, storyId);
+
+    // Two ledgers over one narrative is exactly what the arrow is for, and which of them says
+    // how long the work is, is not this library's to decide. The number stands where it stood.
+    expect(await findStory(storyId)).toMatchObject({
+      instalments: 27,
+      instalmentsSaidBy: "owner",
+    });
+
+    await recordVolumesPublished(seriesId, 28);
+    expect(await findStory(storyId)).toMatchObject({ instalments: 27 });
+  });
+
+  it("freezes the number rather than taking it away when the line stops naming the work", async () => {
+    const { storyId, seriesId } = await aLinePublishing("Death Note", 12);
+
+    await recordSeriesNoLongerPublishesStory(seriesId);
+
+    // A fraction the owner has been reading against must not vanish because an arrow was taken
+    // back, so what was the line's word becomes theirs.
+    expect(await findStory(storyId)).toMatchObject({
+      instalments: 12,
+      instalmentsSaidBy: "owner",
+    });
+  });
+
+  // The reason the count is a column and not a read-time derivation: 0007's triggers over
+  // `story.instalments` have to bite on a number nobody typed, and here they do — the refusal
+  // arrives on the ledger's own verb, because that is the write the owner made.
+  it("refuses lowering the count published under a pass that has read further", async () => {
+    const { storyId, seriesId } = await aLinePublishing("Slam Dunk", 20);
+    const readingId = await recordReading({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+    });
+    await recordInstalmentReached(readingId, 7);
+
+    await expect(recordVolumesPublished(seriesId, 5)).rejects.toMatchObject({
+      name: "Refusal",
+      message:
+        "The Story this line publishes takes its Instalments from it, and a pass through that work has got further than that. Correct the count on the Story first, which is also what takes it off the line.",
+    });
+
+    expect(await findStory(storyId)).toMatchObject({ instalments: 20 });
+    const [ledger] = await query<{ published_count: number }>(
+      "select published_count from series where id = $1",
+      [seriesId]
+    );
+    expect(ledger.published_count).toBe(20);
+  });
+
+  // The Inbox's door, once a count can be following (ADR-0005): an assistant proposes the
+  // count and the owner's approval writes it — and an approval is the owner's word, so it
+  // stops the following exactly as saying it by hand does.
+  it("takes the count off the line when an approved Amendment gives one", async () => {
+    const { storyId, seriesId } = await aLinePublishing("Vagabond", 37);
+
+    await amendStory(storyId, { instalments: 327 });
+    await recordVolumesPublished(seriesId, 38);
+
+    expect(await findStory(storyId)).toMatchObject({
+      instalments: 327,
+      instalmentsSaidBy: "owner",
+    });
+  });
+
+  it("leaves whose word the count is alone where an Amendment names no count", async () => {
+    const { storyId } = await aLinePublishing("Pluto", 8);
+
+    await amendStory(storyId, { title: "Pluto: Urasawa x Tezuka" });
+
+    expect(await findStory(storyId)).toMatchObject({
+      title: "Pluto: Urasawa x Tezuka",
+      instalments: 8,
+      instalmentsSaidBy: "line",
     });
   });
 });
