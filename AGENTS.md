@@ -59,6 +59,18 @@ The two project files an assistant is actually handed — `docs/assistant-projec
 same instruction in the same words, because they are read by the same assistant before it ever
 sees a tool description.
 
+**A proposal may name records other than the one it proposes, and only ever by id** (#52). A
+proposed Volume says which Stories are inside it, because an object catalogued carrying no
+narrative made every approval the first half of a repair — the owner went to the object's page
+afterwards to type what the assistant already knew. The argument is a list of plain strings and
+nothing else, and that shape is the rule rather than the prose beside it: an id is verifiable, so
+one naming no Story refuses the **whole** entry, where a title in there would be a second proposal
+hidden inside the first — a second place duplicates are born, which is the failure the section
+above exists to stop. So **no argument anywhere in `tools/` names a record rather than finding
+one**, `src/lib/mcp/tools/inbox.test.ts` holds that shape, and the works an object carries are
+absent from `PROPOSAL_FIELDS` and `AMENDABLE_FIELDS` on purpose: a link is a record of its own
+rather than a column on either end of it, which is the line ADR-0012 drew through a Credit.
+
 The screen is the other half, and it is what makes the instruction checkable rather than
 hopeful: an Inbox entry carries its **namesakes** (`src/core/queries/inbox.ts`), the records the
 library already holds under the name the entry proposes, and the Inbox reads a creation against

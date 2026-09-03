@@ -90,6 +90,37 @@ export function stringArgument(input: Record<string, unknown>, key: string): str
 }
 
 /**
+ * The optional list of strings at `key`, or `undefined` where nothing was sent.
+ *
+ * The one argument on this door that is a list, and it is a list of **ids** (#52): the
+ * Stories a proposed object carries. So the reading is deliberately generous in one
+ * direction and strict in the other.
+ *
+ * Generous: **a lone string counts as a list of one**, for `numberArgument`'s reason — an
+ * assistant filling in a schema sends the scalar often enough to matter, and the alternative
+ * is a proposal that quietly carries nothing.
+ *
+ * Strict: **nothing is silently dropped.** Anything that was said reaches the verb as text,
+ * malformed ids included, because the approval is what verifies them and an id thrown away
+ * here would catalogue an object carrying less than the assistant claimed — which is the
+ * silent half of the failure this argument exists to fix. Only what says nothing at all goes
+ * — a blank, a null, and a nested object, which is not a thing anybody meant as an id.
+ */
+export function stringsArgument(input: Record<string, unknown>, key: string): string[] | undefined {
+  const value = input[key];
+  if (typeof value === "string") {
+    const said = value.trim();
+    return said === "" ? [] : [said];
+  }
+  if (!Array.isArray(value)) return undefined;
+
+  return value
+    .filter((said) => said !== null && said !== undefined && typeof said !== "object")
+    .map((said) => String(said).trim())
+    .filter((said) => said !== "");
+}
+
+/**
  * The optional number at `key`, or `undefined`.
  *
  * A string is accepted, because an assistant filling in a schema that says `number` sends
