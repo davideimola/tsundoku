@@ -10,17 +10,24 @@ spreadsheet by hand.
 **Story**:
 The narrative unit the owner reads and forms an opinion about, and there is **one test for
 what counts as one**: *a Story is what you would give a score to.* It is not decided case by
-case — that was the sentence that quietly made this word mean two things — and it is never
-asked at the moment of cataloguing: the default is **one Volume, one Story**, and two
-deliberate gestures carry the exceptions. *Batman: L'uomo che ride* holds **three** Stories in
-one object, because the three tales are judged apart. *Slam Dunk* is **one** Story across
-twenty tankōbon, because volume 7 is not a thing that gets a score.
+case — that was the sentence that quietly made this word mean two things — and at the moment
+of cataloguing the owner is **not asked to decide it: they are shown the answer already
+written**. The default is still **one Volume, one Story**, and it still costs nothing, but it
+arrives as a line standing in front of them — the volume's title, or the Story the **Series**
+already publishes — rather than as a row written behind their back. A default that is shown is
+a default that can be corrected in the one case it was always wrong: *Batman: L'uomo che ride*
+holds **three** Stories in one object, because the three tales are judged apart. *Slam Dunk*
+is **one** Story across twenty tankōbon, because volume 7 is not a thing that gets a score.
 A story needs **no volume at all** — read digitally, borrowed, read on someone else's shelf,
 or recorded only as Goodreads history — because being read and being owned are two unrelated
 facts.
 It is the **spine**: a Volume is an object that attaches to it, a Reading an act, a Rating a
 judgement. Only the spine is always there, which is why nobody creates one on purpose — a
-Story appears because the owner said something about a title.
+Story appears because the owner said something about a title. The two things they can say are
+the two halves of the door: **an object they have or want**, which is a Volume and names the
+Stories it carries, or **a narrative they read or mean to read**, which is a Story and owes no
+object to anybody. That is the **Wish/Want** distinction standing where the owner first meets
+it, and it is why a Story with nothing said about it has no way in.
 _Avoid_: work, title, entry, arc, and **book** unqualified — book names the object, not
 the narrative.
 
@@ -50,6 +57,10 @@ it in a shop, or because it is on the shelf, and which of those is true is a sep
 an **acquisition** says it is in the house, from a day and at a price, and until when. So a
 Volume the owner has never had is an ordinary Volume, and one sold and bought again is one
 object acquired twice rather than two objects.
+**A Volume carrying no Story is possible and is a gap rather than a state**: nothing refuses
+it — an object proposed from outside arrives with none, and one catalogued from a photograph
+may wait for its contents — but it stands in no Reading list and takes no judgement, so the
+library shows it until it carries something.
 **Digital ownership is deliberately not modelled**: an ebook is a Reading with a digital
 medium and no Volume. The owner's reason is that a file is not something they collect
 and not something they forget they have.
@@ -132,6 +143,9 @@ reading medium in another, and served neither.
 **Many-to-many, in both directions.** One volume holds several stories — *L'uomo che
 ride* holds three — and one story spans several volumes. Never write "the volume's
 story" or "the story's volume": what is stored is which stories a volume carries.
+It is **said when the object is catalogued and said again whenever the owner looks at it**, by
+the same gesture in both places: the Stories a Volume carries are named where the Volume is,
+never by visiting each narrative in turn.
 
 **Series**:
 A publisher's ordered line of Volumes for one edition, and a **completeness ledger

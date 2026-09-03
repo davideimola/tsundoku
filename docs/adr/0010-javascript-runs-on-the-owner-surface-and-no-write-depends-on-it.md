@@ -1,5 +1,8 @@
 # JavaScript runs on the owner surface, and no write depends on it
 
+Status: **superseded by ADR-0020** — the fumetteria the rule was protecting is not a
+place this app is used, and the ISBN scanner on that very screen was always a client script.
+
 The `(owner)` screens may run client JavaScript. What survives of the old stance is the
 half that was load-bearing: **no write depends on it.** Every form stays a plain `POST` to
 a Server Function, and the page after a write stays a normal server render — so the screens
