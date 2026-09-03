@@ -1,7 +1,9 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import { WHY_A_CARRIED_STORY_STANDS } from "../verbs/story.ts";
 import { IN_THE_HOUSE, THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN } from "./collection.ts";
+import { type StoryType, THE_LINE_IT_STANDS_IN } from "./story.ts";
 
 // The many-to-many, read from both ends (ADR-0001). One stored fact, two questions:
 //
@@ -59,6 +61,21 @@ export type CarriedStory = {
   instalments: number | null;
   /** Which of them are inside this object, written or followed from the line. */
   covers: CoveredInstalments | null;
+  /**
+   * **Why this narrative stands**, in the owner's words, or `null` where nothing holds it
+   * and it may be unmade from in here (#47).
+   *
+   * The row under this object's title offers two acts and they are different sizes: the
+   * cross says *this object does not hold that*, and the bin says *the library stops knowing
+   * it*. The second is drawn only where it would be allowed, and this is what says so —
+   * `WHY_A_CARRIED_STORY_STANDS` read the other way round, so the row and
+   * `strikeStoryCarriedBy` cannot come to answer *may this record be unmade* differently.
+   *
+   * It is prose rather than a boolean because the four ways a narrative stands are four
+   * different sentences, and the day one of them is worth printing beside a row the words are
+   * already here — written where the act is, which is the verb (`verbs/README.md`).
+   */
+  whyItStands: string | null;
 };
 
 /** A Volume as a Story's carriers show it: the object, and whether the house holds it. */
@@ -140,7 +157,8 @@ const CARRIED_STORY = `
          and elsewhere.volume_id <> vs.volume_id
     ),
     'instalments', s.instalments,
-    'covers', ${WHAT_IT_COVERS}
+    'covers', ${WHAT_IT_COVERS},
+    'whyItStands', ${WHY_A_CARRIED_STORY_STANDS}
   )`;
 
 /**
@@ -231,3 +249,82 @@ export async function listStoriesInVolumes(
   for (const row of rows) held[row.volumeId] = row.stories;
   return held;
 }
+
+// **THE ONE FIELD UNDER THE ROWS**, as a question (#47, ADR-0019).
+//
+// It is the many-to-many read as an *absence*: what the library holds and this object does
+// not. The picker it replaces was a native `<select>` over every Story there is, so an
+// omnibus of three was three round trips and a run of twenty was twenty acts of looking —
+// and the answer to both is the same one the route picker found (`queries/path.ts`): narrow
+// as the owner types, and hand the line each Story stands in back with it, so the screen can
+// band a run into one block with one press over it.
+//
+// **The order is this query's and the banding is the screen's** — the same division the
+// route's candidates are under, and for the sharper of its two reasons: what comes out here
+// in the order the objects stand on the shelf (1, 2, 10) is what the owner reads as a run,
+// and a band that re-sorted its rows would offer a run nobody recognises.
+
+/** A Story the field can offer: enough to read it, band it and add it. */
+export type StoryOnOffer = {
+  id: string;
+  title: string;
+  type: StoryType;
+  /**
+   * The line it stands in, which is the band it goes in and the only thing a colour is ever
+   * derived from (`@/lib/tint`). `null` for a narrative in no line — the novel and the
+   * omnibus, which is routinely the biggest band there is.
+   */
+  series: { id: string; name: string; editionLine: string | null } | null;
+  /** Where the objects carrying it stand in that line, which is the order of a run. */
+  standsAt: number | null;
+};
+
+/**
+ * The Stories this object does not carry, narrowed by what the owner has typed.
+ *
+ * Standing in the order a run is read in: the line, its edition, the position, then the
+ * title. What is in no line comes last, which is where it stands on a shelf too.
+ *
+ * An object the library does not know answers with nothing rather than with the whole
+ * catalogue — *not in that* is not an answer about an object that is not there — and a
+ * malformed id is the same event, for the reason every verb here gives.
+ */
+export async function listStoriesNotInVolume(
+  volumeId: string,
+  filter: { title?: string } = {}
+): Promise<StoryOnOffer[]> {
+  if (!UUID.test(volumeId)) return [];
+
+  return query<StoryOnOffer>(
+    `select c.*
+       from (
+         select s.id,
+                s.title,
+                jsonb_build_object('id', t.id, 'name', t.name) as type,
+                ${THE_LINE_IT_STANDS_IN} as series,
+                (select min(v.series_number)::int
+                   from volume_story vs
+                   join volume v on v.id = vs.volume_id
+                  where vs.story_id = s.id) as "standsAt"
+           from story s
+           join type t on t.id = s.type_id
+          -- The object has to exist for *not in it* to be an answer. Uncorrelated, so it is
+          -- decided once rather than per Story.
+          where exists (select 1 from volume v where v.id = $1)
+            and not exists (select 1 from volume_story vs
+                             where vs.volume_id = $1 and vs.story_id = s.id)
+            and ($2::text is null
+                 or strpos(lower(unaccent(s.title)), lower(unaccent($2))) > 0)
+       ) c
+      order by lower(c.series->>'name') nulls last,
+               c.series->>'editionLine' nulls first,
+               c."standsAt" nulls last,
+               lower(c.title)`,
+    [volumeId, filter.title ?? null]
+  );
+}
+
+// An id is generated, so what arrives here came from a screen the caller was just looking at
+// — a malformed one is the same event as an unknown one, and `where id = $1` on a uuid column
+// raises a *syntax* error for `"banana"` that would reach an adapter as a 500.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

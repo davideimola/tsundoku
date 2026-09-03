@@ -190,6 +190,7 @@ describe("where a covered range came from", () => {
     latestScore: null,
     instalments: 20,
     alsoCarriedElsewhere: false,
+    whyItStands: null,
   };
 
   it("offers to hand a written range back to the line", () => {

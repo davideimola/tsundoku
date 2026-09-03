@@ -24,6 +24,7 @@ import {
   declareInstalments,
   splitVolumeIntoStories,
   strikeStories,
+  strikeStoryCarriedBy,
 } from "./story.ts";
 import { recordVolumeCarriesStory } from "./story-to-volume.ts";
 
@@ -983,5 +984,158 @@ describe("the count of Instalments following the line", () => {
       instalments: 8,
       instalmentsSaidBy: "line",
     });
+  });
+});
+
+// STRIKING THE NARRATIVE AN OBJECT CARRIES, which is the bin on a row of the object's own
+// contents (#47, ADR-0019).
+//
+// It exists because the cross beside it is only half an answer: a default that minted
+// *Batman: Il lungo Halloween* from a jacket is corrected by taking that row off, and taking
+// it off leaves the wrong narrative standing in the library with nothing carrying it. So the
+// row offers both, and this is the second one.
+//
+// **Three of striking's four questions, and the fourth deliberately not asked** — which is
+// the posture `splitVolumeIntoStories` above already takes, for the same reason. *An object
+// in the house carries it* is true by construction here: the object doing the striking is
+// one. What replaces it is the question that is worth asking from a row — *does anything
+// **else** carry it* — because a work running across twenty tankōbon is not one volume's to
+// unmake.
+describe("striking a narrative from the object that carries it", () => {
+  const NO_SUCH_ID = "00000000-0000-4000-8000-000000000000";
+
+  /** The object, and the narrative the default made of its jacket. */
+  async function ilLungoHalloween(): Promise<{ volumeId: string; storyId: string }> {
+    const volumeId = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+    const storyId = await createStoryCarriedBy(
+      { title: "Batman: Il lungo Halloween", typeId: "comic" },
+      volumeId
+    );
+    return { volumeId, storyId };
+  }
+
+  it("unmakes the narrative and the link in one act", async () => {
+    const { volumeId, storyId } = await ilLungoHalloween();
+
+    await strikeStoryCarriedBy(volumeId, storyId);
+
+    expect(await findStory(storyId)).toBeNull();
+    expect(await listStoriesInVolume(volumeId)).toEqual([]);
+  });
+
+  // The whole reason it is a verb of its own rather than `strikeStories` called from a row:
+  // the object is in the house, which is the first thing striking refuses on.
+  it("strikes it while the object carrying it is in the house", async () => {
+    const { volumeId, storyId } = await ilLungoHalloween();
+
+    expect(await findVolume(volumeId)).toMatchObject({ title: "Batman: Il lungo Halloween" });
+    await strikeStoryCarriedBy(volumeId, storyId);
+    expect(await findVolume(volumeId)).toMatchObject({ title: "Batman: Il lungo Halloween" });
+  });
+
+  it("leaves the object exactly where it stands", async () => {
+    const { volumeId, storyId } = await ilLungoHalloween();
+    const series = await declareSeries({
+      name: "Batman",
+      publisher: "Panini Comics",
+      publishedCount: 3,
+      status: "ongoing",
+    });
+    await placeVolumeInSeries({ volumeId, seriesId: series, number: 1 });
+
+    await strikeStoryCarriedBy(volumeId, storyId);
+
+    expect(await findVolume(volumeId)).toMatchObject({
+      series: { id: series },
+      seriesNumber: 1,
+    });
+    expect(await listAcquisitions(volumeId)).toHaveLength(1);
+  });
+
+  it("refuses a narrative another object carries too, because a line is not one volume's to unmake", async () => {
+    const { volumeId, storyId } = await ilLungoHalloween();
+    const second = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween 2",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(second, storyId);
+
+    await expect(strikeStoryCarriedBy(volumeId, storyId)).rejects.toSatisfy(
+      (error) => isRefusal(error) && /other objects carry it/.test(error.message)
+    );
+    expect(await findStory(storyId)).not.toBeNull();
+  });
+
+  it("refuses a narrative a Reading went through", async () => {
+    const { volumeId, storyId } = await ilLungoHalloween();
+    await recordReading({
+      storyId,
+      medium: "paper",
+      volumeId,
+      outcome: "finished",
+      provenanceId: "remembered",
+    });
+
+    await expect(strikeStoryCarriedBy(volumeId, storyId)).rejects.toSatisfy(
+      (error) => isRefusal(error) && /a Reading went through it/.test(error.message)
+    );
+    expect(await findStory(storyId)).not.toBeNull();
+  });
+
+  it("refuses a narrative the owner judged", async () => {
+    const { volumeId, storyId } = await ilLungoHalloween();
+    await setRating({ storyId, score: 8, provenanceId: "remembered" });
+
+    await expect(strikeStoryCarriedBy(volumeId, storyId)).rejects.toSatisfy(
+      (error) => isRefusal(error) && /you judged it/.test(error.message)
+    );
+  });
+
+  // The fourth question, and the one the split next door deliberately does not ask. Here it
+  // is asked, because this is striking rather than a replacement: the narrative goes and
+  // nothing takes its place, so a route naming it would silently lose a stop.
+  it("refuses a narrative a Path names as a stop", async () => {
+    const { volumeId, storyId } = await ilLungoHalloween();
+    const path = await definePath({ name: "Recupero Batman" });
+    await placeStoriesOnPath(path, [storyId]);
+
+    await expect(strikeStoryCarriedBy(volumeId, storyId)).rejects.toSatisfy(
+      (error) => isRefusal(error) && /a Path names it as a stop/.test(error.message)
+    );
+  });
+
+  it("takes the Credits on it and leaves the people standing", async () => {
+    const { volumeId, storyId } = await ilLungoHalloween();
+    await creditStory({ storyId, person: "Jeph Loeb", roleId: "writer" });
+
+    await strikeStoryCarriedBy(volumeId, storyId);
+
+    expect(await query("select 1 from credit where story_id = $1", [storyId])).toEqual([]);
+    expect(await query("select 1 from person where name = $1", ["Jeph Loeb"])).toHaveLength(1);
+  });
+
+  it("refuses where this object does not carry that narrative", async () => {
+    const { volumeId } = await ilLungoHalloween();
+    const elsewhere = await createStory({ title: "Batman: Anno Uno", typeId: "comic" });
+
+    await expect(strikeStoryCarriedBy(volumeId, elsewhere)).rejects.toSatisfy(
+      (error) => isRefusal(error) && /does not carry that Story/.test(error.message)
+    );
+    expect(await findStory(elsewhere)).not.toBeNull();
+  });
+
+  it("refuses an id that names nothing, and one that is not an id at all", async () => {
+    const { volumeId, storyId } = await ilLungoHalloween();
+
+    await expect(strikeStoryCarriedBy(NO_SUCH_ID, storyId)).rejects.toSatisfy(isRefusal);
+    await expect(strikeStoryCarriedBy(volumeId, "banana")).rejects.toSatisfy(isRefusal);
+    expect(await findStory(storyId)).not.toBeNull();
   });
 });

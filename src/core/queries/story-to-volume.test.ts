@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { releaseVolume } from "../verbs/collection.ts";
+import { definePath, placeStoriesOnPath } from "../verbs/path.ts";
 import { setRating } from "../verbs/rating.ts";
 import { recordReading } from "../verbs/reading.ts";
 import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
@@ -10,6 +11,7 @@ import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import {
   listStoriesInVolume,
   listStoriesInVolumes,
+  listStoriesNotInVolume,
   listVolumesCarryingStory,
 } from "./story-to-volume.ts";
 
@@ -19,7 +21,7 @@ import {
 // and the owner's own numbers, because a made-up fixture would prove a shape and these
 // prove the cases.
 beforeEach(async () => {
-  await query("truncate story, volume, series cascade");
+  await query("truncate story, volume, series, path cascade");
 });
 
 describe("one Volume holding three Stories: L'uomo che ride", () => {
@@ -360,5 +362,166 @@ describe("what a page's worth of Volumes hold", () => {
 
   it("answers nothing for no Volumes, without asking the database", async () => {
     expect(await listStoriesInVolumes([])).toEqual({});
+  });
+});
+
+// **WHY A ROW DRAWS ITS BIN**, which is the same expression `strikeStoryCarriedBy` refuses
+// with, read the other way round (#47). The row cannot come to offer a press the verb would
+// refuse, because the row and the verb read one answer.
+describe("what stands in the way of unmaking a narrative from the object carrying it", () => {
+  async function ilLungoHalloween(): Promise<{ volumeId: string; storyId: string }> {
+    const volumeId = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+    const storyId = await createStory({ title: "Batman: Il lungo Halloween", typeId: "comic" });
+    await recordVolumeCarriesStory(volumeId, storyId);
+    return { volumeId, storyId };
+  }
+
+  it("says nothing stands in the way of a narrative this object alone holds", async () => {
+    const { volumeId } = await ilLungoHalloween();
+
+    expect(await listStoriesInVolume(volumeId)).toEqual([
+      expect.objectContaining({ whyItStands: null }),
+    ]);
+  });
+
+  it("names the other objects carrying it, because a line is not one volume's to unmake", async () => {
+    const { volumeId, storyId } = await ilLungoHalloween();
+    const second = await volumeInTheHouse({
+      title: "Slam Dunk 2",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(second, storyId);
+
+    const [carried] = await listStoriesInVolume(volumeId);
+    expect(carried?.whyItStands).toMatch(/other objects carry it too/);
+  });
+
+  it("names a Reading, a Rating and a Path, each in its own words", async () => {
+    const read = await ilLungoHalloween();
+    await recordReading({
+      storyId: read.storyId,
+      medium: "paper",
+      outcome: "finished",
+      provenanceId: "remembered",
+    });
+    expect((await listStoriesInVolume(read.volumeId))[0]?.whyItStands).toMatch(
+      /a Reading went through it/
+    );
+
+    const judged = await ilLungoHalloween();
+    await setRating({ storyId: judged.storyId, score: 8, provenanceId: "remembered" });
+    expect((await listStoriesInVolume(judged.volumeId))[0]?.whyItStands).toMatch(/you judged it/);
+
+    const routed = await ilLungoHalloween();
+    const path = await definePath({ name: "Recupero Batman" });
+    await placeStoriesOnPath(path, [routed.storyId]);
+    expect((await listStoriesInVolume(routed.volumeId))[0]?.whyItStands).toMatch(
+      /a Path names it as a stop/
+    );
+  });
+});
+
+// **THE ONE FIELD UNDER THE ROWS**, asked of the catalogue as the owner types (#47,
+// ADR-0019). It is the many-to-many read as an absence: the Stories this object does *not*
+// carry, so the field can only ever propose something that would change the record.
+describe("the Stories an object does not carry", () => {
+  async function slamDunk(): Promise<{ volumeId: string; seriesId: string }> {
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    const volumeId = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+
+    for (const number of [2, 10, 1]) {
+      const tankobon = await volumeInTheHouse({
+        title: `Slam Dunk ${number}`,
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      });
+      await placeVolumeInSeries({ volumeId: tankobon, seriesId, number });
+      const storyId = await createStory({ title: `Slam Dunk ${number}`, typeId: "manga" });
+      await recordVolumeCarriesStory(tankobon, storyId);
+    }
+
+    return { volumeId, seriesId };
+  }
+
+  it("offers what the library holds and this object does not", async () => {
+    const { volumeId } = await slamDunk();
+
+    expect((await listStoriesNotInVolume(volumeId)).map((story) => story.title)).toEqual([
+      "Slam Dunk 1",
+      "Slam Dunk 2",
+      "Slam Dunk 10",
+    ]);
+  });
+
+  it("never offers one the object already carries", async () => {
+    const { volumeId } = await slamDunk();
+    const held = await createStory({ title: "Gotham Noir", typeId: "comic" });
+    await recordVolumeCarriesStory(volumeId, held);
+
+    expect((await listStoriesNotInVolume(volumeId)).map((story) => story.title)).not.toContain(
+      "Gotham Noir"
+    );
+  });
+
+  it("narrows to what was typed, folding accents and ignoring case", async () => {
+    const { volumeId } = await slamDunk();
+    await createStory({ title: "Perché no", typeId: "novel" });
+
+    expect(
+      (await listStoriesNotInVolume(volumeId, { title: "slam dunk 1" })).map((s) => s.title)
+    ).toEqual(["Slam Dunk 1", "Slam Dunk 10"]);
+    expect(
+      (await listStoriesNotInVolume(volumeId, { title: "perche" })).map((s) => s.title)
+    ).toEqual(["Perché no"]);
+  });
+
+  // **The band is the line**, and the order inside it is the order the objects stand on the
+  // shelf — 1, 2, 10 — because that is how the owner reads a run and how they add one.
+  it("carries the line each Story stands in, and where it stands in it", async () => {
+    const { volumeId, seriesId } = await slamDunk();
+
+    expect(await listStoriesNotInVolume(volumeId)).toEqual([
+      expect.objectContaining({ series: expect.objectContaining({ id: seriesId }), standsAt: 1 }),
+      expect.objectContaining({ standsAt: 2 }),
+      expect.objectContaining({ standsAt: 10 }),
+    ]);
+  });
+
+  it("stands what is in no line after what is, and says so with nothing", async () => {
+    const { volumeId } = await slamDunk();
+    await createStory({ title: "Neuromancer", typeId: "novel" });
+
+    const offered = await listStoriesNotInVolume(volumeId);
+    expect(offered.at(-1)).toMatchObject({
+      title: "Neuromancer",
+      series: null,
+      standsAt: null,
+      type: { id: "novel", name: "Novel" },
+    });
+  });
+
+  it("offers nothing for an id that names no object, and for one that is not an id", async () => {
+    await slamDunk();
+
+    expect(await listStoriesNotInVolume("00000000-0000-4000-8000-000000000000")).toEqual([]);
+    expect(await listStoriesNotInVolume("banana")).toEqual([]);
   });
 });

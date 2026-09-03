@@ -409,6 +409,104 @@ export async function strikeStories(storyIds: readonly string[]): Promise<number
   });
 }
 
+// STRIKING THE NARRATIVE AN OBJECT CARRIES, which is the bin on a row of the object's own
+// contents (#47, ADR-0019).
+//
+// **It is the other half of the cross beside it.** Taking a row off says *this object does
+// not hold that narrative*, and where the narrative was minted from the object's own jacket
+// — *Batman: Il lungo Halloween*, which holds several tales named nothing like it — taking
+// it off leaves a wrong narrative standing in the library with nothing carrying it. So the
+// row offers both acts, and this is the one that unmakes the record.
+//
+// **Three of striking's four questions, and the fourth deliberately not asked.** *An object
+// in the house carries it* is true by construction here: the object doing the striking is
+// one, which is exactly the posture the split below already takes and for the same reason.
+// What stands in its place is the question worth asking from a row — *does anything **else**
+// carry it* — because a work running across twenty tankōbon is not one volume's to unmake.
+// The other three are `strikeStories`' own, spent from its own fragment so that the two acts
+// cannot come to answer *may this record be unmade* differently.
+//
+// **Not a tool, and it cannot become one**, for `strikeStories`' reason: the party that files
+// a hallucinated Story is exactly the party that must not be able to delete rows to tidy up
+// after itself (ADR-0005).
+
+/**
+ * **Why a narrative one object carries stands**, as SQL — the three of striking's four
+ * branches that can be asked from a row, and the one that replaces the fourth.
+ *
+ * Exported for `WHY_A_STORY_STANDS`' reason: the row that draws the bin and the verb that
+ * presses it are two readers, and a second copy of these branches would be a second answer.
+ * `listStoriesInVolume` reads it to decide whether the bin is drawn at all, so the screen
+ * cannot come to offer a press this verb would refuse.
+ *
+ * It names the Story `s` and the carrying link `vs`, so a statement spending it joins both,
+ * and it answers `null` for a narrative this object alone holds and nothing has touched.
+ */
+export const WHY_A_CARRIED_STORY_STANDS = `
+  case
+    when exists (select 1 from volume_story elsewhere
+                  where elsewhere.story_id = s.id
+                    and elsewhere.volume_id <> vs.volume_id)
+      then 'other objects carry it too, and a work running across a line is not one volume''s to unmake. Say this object no longer carries it instead.'
+    ${WHAT_THE_OWNER_HAS_LIVED_WITH}
+    when exists (select 1 from path_item i where i.story_id = s.id)
+      then 'a Path names it as a stop. Take it off the Path first.'
+  end`;
+
+/** The one sentence both halves of a missing link are said in. */
+const THIS_OBJECT_DOES_NOT_CARRY_IT = "That Volume does not carry that Story.";
+
+/**
+ * Strike the narrative this object carries: the library stops knowing it, and the link goes
+ * with it.
+ *
+ * The case is the default that was wrong about an object. *Batman: Il lungo Halloween* was
+ * minted from a jacket for a book holding three tales named nothing like it; the owner names
+ * the three in the field under the list and unmakes the one that was never a narrative.
+ *
+ * **One gesture, one transaction**: the link and the Story go together, and nothing can be
+ * read, judged or placed on a route between the check and the act.
+ *
+ * Refused where anything else carries it, where a Reading went through it, where the owner
+ * judged it, and where a Path names it as a stop — each in the words that say which. Nothing
+ * about the object changes either way: it keeps its acquisitions, its place in a line and
+ * everything else it holds.
+ */
+export async function strikeStoryCarriedBy(volumeId: string, storyId: string): Promise<void> {
+  // An unreadable id is the same event as an unknown one, and saying so here is what keeps a
+  // `where id = 'banana'` on a uuid column from reaching an adapter as a 500.
+  if (!UUID.test(volumeId) || !UUID.test(storyId)) {
+    throw new Refusal("not-found", THIS_OBJECT_DOES_NOT_CARRY_IT);
+  }
+
+  return transaction(async (run) => {
+    const [carried] = await run<WhyItStands>(
+      `select s.title, ${WHY_A_CARRIED_STORY_STANDS} as because
+         from volume_story vs
+         join story s on s.id = vs.story_id
+        where vs.volume_id = $1 and vs.story_id = $2`,
+      [volumeId, storyId]
+    );
+
+    if (!carried) throw new Refusal("not-found", THIS_OBJECT_DOES_NOT_CARRY_IT);
+    if (carried.because) {
+      throw new Refusal(
+        "not-allowed",
+        `${carried.title} stays: ${carried.because} Nothing was struck.`
+      );
+    }
+
+    // The link, the Credits and everything else pointing at the narrative cascade out with
+    // it; the two references that would matter refused the gesture above. Wrapped like every
+    // other statement that can be refused, so a reference the schema stops cascading one day
+    // reaches the owner as a sentence rather than as a 500.
+    await refusing(
+      () => run("delete from story where id = $1", [storyId]),
+      () => `${carried.title} could not be struck from the library.`
+    );
+  });
+}
+
 // SPLITTING AN OBJECT INTO THE STORIES IT HOLDS, which is the second of the two gestures that
 // carry the exceptions to *one Volume, one Story* — and the one this library has exactly one
 // case of: *Batman: L'uomo che ride* holds three tales the owner scores apart.

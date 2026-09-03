@@ -6,6 +6,7 @@ import { recordReading } from "./reading.ts";
 import { declareSeries, placeVolumeInSeries } from "./series.ts";
 import { createStory, declareInstalments } from "./story.ts";
 import {
+  recordVolumeCarriesStories,
   recordVolumeCarriesStory,
   recordVolumeCoversInstalments,
   recordVolumeNoLongerCarriesStory,
@@ -325,6 +326,70 @@ describe("what a Volume covers of a Story", () => {
       code: "invalid",
       message:
         "An object carrying this Story covers further than that. Correct what it covers first.",
+    });
+  });
+});
+
+// **A WHOLE BAND IN ONE PRESS** (#47), which is the run the owner is working through poured
+// into an object in one gesture rather than twenty. It is one verb rather than the singular
+// one called twenty times, because twenty calls from an adapter would invent a transaction
+// that does not exist (`./README.md`).
+describe("recording that a Volume carries several Stories", () => {
+  it("records the whole band in one act, and answers with how many were new", async () => {
+    const volumeId = await aVolume("Slam Dunk, the lot");
+    const band = [];
+    for (const number of [1, 2, 3]) {
+      band.push(await createStory({ title: `Slam Dunk ${number}`, typeId: "manga" }));
+    }
+
+    expect(await recordVolumeCarriesStories(volumeId, band)).toBe(3);
+    expect((await listStoriesInVolume(volumeId)).map((story) => story.title)).toEqual([
+      "Slam Dunk 1",
+      "Slam Dunk 2",
+      "Slam Dunk 3",
+    ]);
+  });
+
+  it("says the same true thing twice without refusing, like the singular one", async () => {
+    const volumeId = await aVolume("L'uomo che ride");
+    const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
+
+    await recordVolumeCarriesStories(volumeId, [storyId, storyId]);
+    await recordVolumeCarriesStories(volumeId, [storyId]);
+
+    expect(await listStoriesInVolume(volumeId)).toHaveLength(1);
+  });
+
+  it("lands whole or not at all, so one unknown id records none of them", async () => {
+    const volumeId = await aVolume("L'uomo che ride");
+    const known = await createStory({ title: "Gotham Noir", typeId: "comic" });
+
+    await expect(recordVolumeCarriesStories(volumeId, [known, NO_SUCH_ID])).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
+    });
+    expect(await listStoriesInVolume(volumeId)).toEqual([]);
+  });
+
+  it("refuses an empty band rather than reporting that nothing happened", async () => {
+    const volumeId = await aVolume("L'uomo che ride");
+
+    await expect(recordVolumeCarriesStories(volumeId, [])).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+    });
+  });
+
+  it("refuses an object the library does not know", async () => {
+    const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
+
+    await expect(recordVolumeCarriesStories(NO_SUCH_ID, [storyId])).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
+    });
+    await expect(recordVolumeCarriesStories("banana", [storyId])).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
     });
   });
 });

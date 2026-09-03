@@ -73,6 +73,59 @@ export async function recordVolumeCarriesStory(
   );
 }
 
+/**
+ * Record that a Volume carries several Stories, in one act: **the whole band in one press**
+ * (#47). Returns how many of them were not already in there.
+ *
+ * The case is the run. A field that answered with twenty titles and a press on each would be
+ * the native picker with a search box in front of it, so the band the answer comes in carries
+ * one press over the whole of it — and this is what that press calls. It is a verb rather than
+ * the singular one called twenty times, because twenty calls from an adapter would invent a
+ * transaction that does not exist (`./README.md`).
+ *
+ * **It lands whole or not at all**: one id naming nothing refuses the band and records none of
+ * it, so the owner is never left working out which half went in. Saying the same true thing
+ * twice is still the same fact, exactly as it is one at a time.
+ *
+ * Safe for the MCP door for the singular verb's reason: it acts on entities that already
+ * exist and creates neither a Story nor a Volume (ADR-0005).
+ */
+export async function recordVolumeCarriesStories(
+  volumeId: string,
+  storyIds: readonly string[]
+): Promise<number> {
+  if (!UUID.test(volumeId)) throw new Refusal("not-found", NO_VOLUME);
+  for (const storyId of storyIds) {
+    if (!UUID.test(storyId)) throw new Refusal("not-found", NO_STORY);
+  }
+
+  // The same Story named twice is one intention, deduplicated here rather than left to the
+  // constraint — the insert would swallow it anyway, and the count answered back should say
+  // what changed rather than what was asked.
+  const asked = [...new Set(storyIds)];
+  if (asked.length === 0) {
+    throw new Refusal("invalid", "Say which narratives are inside this object first.");
+  }
+
+  const written = await refusing(
+    () =>
+      query<{ story_id: string }>(
+        `insert into volume_story (volume_id, story_id)
+         select $1, id from unnest($2::uuid[]) as id
+         on conflict on constraint volume_story_is_said_once do nothing
+         returning story_id`,
+        [volumeId, asked]
+      ),
+    (constraint) => {
+      if (constraint === "volume_story_volume_exists") return NO_VOLUME;
+      if (constraint === "volume_story_story_exists") return NO_STORY;
+      return "That Volume could not be recorded as carrying those Stories.";
+    }
+  );
+
+  return written.length;
+}
+
 /** The range of a work one object collects, in the work's own units. */
 export type CoveredRange = {
   /** The first Instalment inside this object. */

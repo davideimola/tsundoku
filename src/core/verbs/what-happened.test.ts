@@ -11,8 +11,12 @@ import { sayWhatHappened } from "./what-happened.ts";
 // that three records land together, and a test that only read one of them back would pass on
 // exactly the drift this exists to end.
 
+// `path` joins the list because one test below asserts that the door says nothing about a
+// route, and *nothing about a route* is a claim about an empty table: a Path left standing by
+// an earlier file would fail it, which is a fact about the run order rather than about the
+// door. Every other file that reads that table clears it the same way.
 beforeEach(async () => {
-  await query("truncate story, volume, series, want, wish cascade");
+  await query("truncate story, volume, series, want, wish, path cascade");
 });
 
 const TANKOBON = {
