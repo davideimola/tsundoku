@@ -128,14 +128,14 @@ export function facedWith(volume: RecordedVolume): string {
 
 /**
  * A panel on the object's page: a form the owner opened deliberately, and its open state is
- * this screen's URL (`@/components/drawer`, ADR-0010).
+ * this screen's URL (`@/components/drawer`).
  *
  * The names are a closed set because the page reads what was asked for **against** them, the
  * way every filter on every wall is read: `?panel=banana` opens nothing. And it reads it
- * against the **acts** rather than against this list — `theActsOnTheObject`,
- * `theEditionNoteAct` name every panel there is, and the page opens none they did not name — so an `?panel=acquire` hand-typed onto an object already in the house
- * opens nothing either, and the two halves of ADR-0007 cannot be made to disagree by editing
- * an address.
+ * against the **acts** rather than against this list — `theActsOnTheObject` and
+ * `theEditionNoteAct` name every panel there is, and the page opens none they did not name —
+ * so an `?panel=acquire` hand-typed onto an object already in the house opens nothing either,
+ * and the two halves of ADR-0007 cannot be made to disagree by editing an address.
  */
 export type Panel = "acquire" | "release" | "isbn" | "cover" | "note";
 

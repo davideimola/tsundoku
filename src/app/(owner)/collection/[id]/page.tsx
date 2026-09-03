@@ -29,13 +29,13 @@ import {
   carryStories,
   correctWhatItIs,
   coverInstalments,
-  dropStory,
   forgetCover,
   lookUpCover,
   mintStory,
   recordIsbn,
   release,
   removeOwnImage,
+  stopCarrying,
   strikeStory,
   suggestStories,
   useOwnImage,
@@ -113,8 +113,8 @@ import {
 // library, one choice and one submit, so an omnibus of three was three round trips; a panel
 // beside it for a narrative the library had never heard of; and a third panel with one title
 // per line, for the case where the default had minted a narrative out of a jacket. They are
-// one field now — `@/components/stories-it-holds`, mounted here and again at cataloguing time
-// — where typing searches the library, the answers arrive banded by the line each Story
+// one field now — `@/components/stories-it-holds`, mounted here and, when #48 lands, at
+// cataloguing time as well — where typing searches the library, the answers arrive banded by the line each Story
 // stands in, a whole band is taken in one press, and enter mints what the library does not
 // know. Two panels went with them, which is why `./standing.ts` names four acts and not six.
 //
@@ -368,7 +368,7 @@ export default async function VolumePage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* **The component the whole of #46 is about** (`@/components/stories-it-holds`),
+            {/* **The component the whole of #47 is about** (`@/components/stories-it-holds`),
                 mounted here in the place the pain was reported. What this page hands it is the
                 rows it already drew and the four acts it already had: the list, the Types, the
                 Type the box arrives holding, and an adapter of Server Functions that write at
@@ -400,9 +400,9 @@ export default async function VolumePage({
               refused={refused}
               holds={{
                 find: suggestStories.bind(null, volume.id),
-                add: carryStories.bind(null, volume.id),
+                carry: carryStories.bind(null, volume.id),
                 mint: mintStory.bind(null, volume.id),
-                drop: dropStory.bind(null, volume.id),
+                stopCarrying: stopCarrying.bind(null, volume.id),
                 strike: strikeStory.bind(null, volume.id),
               }}
             />

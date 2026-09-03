@@ -84,8 +84,11 @@ export function theStoriesOnOffer(found: readonly StoryOnOffer[]): Band[] {
  *
  * It carries the number because that is the whole of what it promises — *Add all 20* is a
  * press the owner can weigh before making it, where *Add them all* is one they have to count
- * first. Two says *both*, which is what a person says about two things; one says *Add it*,
- * because *Add all 1* is a sentence no screen should print.
+ * first. Two says *both*, which is what a person says about two things.
+ *
+ * A band of one is **drawn without this press at all**, because its single row is already one
+ * press: the sentence for it is here so that the function is total and never so that a second
+ * control appears over one row.
  */
 export function theWholeBandPress(band: Band): string {
   if (band.stories.length === 1) return "Add it";
@@ -95,13 +98,17 @@ export function theWholeBandPress(band: Band): string {
 
 /**
  * What enter on the field does: add the Story the library already holds under exactly that
- * title, or mint the one it does not. Nothing at all on an empty field.
+ * title, or mint the one it does not. Nothing at all on an empty field, and nothing on a
+ * title the object is already holding.
  *
  * **Minting is the point of the key** (ADR-0019) — a narrative the library has never heard of
- * used to be a trip to another screen and back — and the one case it would be wrong is the
- * one where the owner has typed the whole of a title standing in the answer underneath. A
- * second *Gotham Noir* is exactly the duplicate this slice exists to stop being made, so the
- * exact match wins the key and every other title is added by its own press.
+ * used to be a trip to another screen and back — and there are two cases where it would be
+ * wrong, which is why this takes both lists. The owner may have typed the whole of a title
+ * standing in the answer underneath, and they may have typed the whole of a title already in
+ * the rows above: the answer never offers what the object holds, so without the rows a second
+ * *Gotham Noir* would be minted over the *Gotham Noir* already in there. A duplicate is
+ * exactly what this slice exists to stop being made, so an exact match wins the key from
+ * whichever of the two lists it is in.
  *
  * Matched on the title with its surrounding space taken off and its case folded, which is how
  * a person reads two titles as the same one. Nothing more clever than that: a title that
@@ -109,12 +116,15 @@ export function theWholeBandPress(band: Band): string {
  */
 export function whatEnterDoes(
   typed: string,
-  bands: readonly Band[]
+  bands: readonly Band[],
+  held: readonly { title: string }[] = []
 ): { add: string } | { mint: string } | null {
   const term = typed.trim();
   if (term === "") return null;
 
   const same = (title: string) => title.trim().toLowerCase() === term.toLowerCase();
+  if (held.some((story) => same(story.title))) return null;
+
   for (const band of bands) {
     const already = band.stories.find((story) => same(story.title));
     if (already) return { add: already.id };

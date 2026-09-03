@@ -182,7 +182,7 @@ export async function mintStory(volumeId: string, title: string, typeId: string)
 }
 
 /** Take that back: this Volume does not carry that Story after all. */
-export async function dropStory(volumeId: string, storyId: string): Promise<void> {
+export async function stopCarrying(volumeId: string, storyId: string): Promise<void> {
   await requireOwner();
 
   return saying(volumeId, new URLSearchParams({ uncarried: "1" }), () =>

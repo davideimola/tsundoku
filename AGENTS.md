@@ -354,8 +354,9 @@ merely how they are read;
 people it does *not* take (ADR-0012) — which is the half of a bulk delete a count cannot say;
 `components/stories-on-offer.ts` bands what the field under an object's contents found by the
 line each Story stands in, and says what the press over a whole band promises and what enter
-on a typed title does — the one derivation of a **shared** component rather than of a screen,
-which is why it sits beside the component in `components/` and not beside a page;
+on a typed title does — the one derivation belonging to a **component** rather than to a
+screen, because that component is written to be mounted on two of them (#47, and #48 for the
+second), which is why it sits beside the component in `components/` and not beside a page;
 `stories/story-state.tsx` and `reading-list/entry.ts` are the same thing at a smaller size. It
 is the screen's because banding is the screen's (see the next section), and it is a *file*
 rather than a lump inside `page.tsx` because it can then be tested beside itself — which

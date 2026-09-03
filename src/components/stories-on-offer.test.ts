@@ -132,4 +132,24 @@ describe("enter on what was typed", () => {
   it("does nothing at all on an empty field", () => {
     expect(whatEnterDoes("   ", bands)).toBeNull();
   });
+
+  // **The duplicate the answer alone cannot see.** What the field offers is what the object
+  // does *not* hold, so a title already in the rows above is in no band — and enter would mint
+  // a second narrative of that name inside the object that already carries the first.
+  it("does nothing on a title the object is already holding", () => {
+    expect(
+      whatEnterDoes("Batman: Il lungo Halloween", bands, [{ title: "Batman: Il lungo Halloween" }])
+    ).toBeNull();
+    expect(
+      whatEnterDoes("  batman: il lungo halloween ", bands, [
+        { title: "Batman: Il lungo Halloween" },
+      ])
+    ).toBeNull();
+  });
+
+  it("still mints beside rows it is not the same as", () => {
+    expect(whatEnterDoes("Uomo di legno", [], [{ title: "Gotham Noir" }])).toEqual({
+      mint: "Uomo di legno",
+    });
+  });
 });

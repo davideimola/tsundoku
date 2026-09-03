@@ -90,8 +90,9 @@ import { defineConfig } from "vitest/config";
 // along the role they held on it, over an answer the core hands over split by whether it was
 // read, and `src/components/stories-on-offer.ts`, which bands what the field under an object's
 // contents found by the line each Story stands in and says what enter on a typed title does —
-// the one of these that belongs to a **component** rather than to a screen, because that
-// component is mounted on two of them (#47).
+// the one of these that belongs to a **component** rather than to a screen, because the
+// component it is beside is written to be mounted on two of them (#47, and #48 for the
+// second).
 //
 // **The third client component carrying a write is the first**, and the licence above is what
 // keeps it from being a third seam. `src/components/stories-it-holds.tsx` names the Stories an

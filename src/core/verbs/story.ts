@@ -541,6 +541,14 @@ export async function strikeStoryCarriedBy(volumeId: string, storyId: string): P
 //
 // **Not a tool, and it cannot become one**: it creates Stories, so an assistant may only
 // propose them and the door for that is the Inbox (ADR-0005).
+//
+// **It has had no door since #47, and it is left standing deliberately.** The panel that
+// called it — a box with one title per line — is gone, because the field under an object's
+// contents does the same work in the same place: the three titles are typed one at a time and
+// the narrative the object stood for is unmade with the bin beside it, which asks this verb's
+// own two questions plus two more. ADR-0019 says what replaces the panel and does not say to
+// unmake the verb, so unmaking it is the owner's call and not this slice's, and the tests
+// below keep it honest until they give one.
 
 /** What has attached to the narrative an object stands for, in the owner's words. */
 const WHAT_HAS_ATTACHED_TO_A_STORY = `case ${WHAT_THE_OWNER_HAS_LIVED_WITH} end`;

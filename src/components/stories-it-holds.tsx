@@ -11,9 +11,10 @@ import { type Band, theWholeBandPress, whatEnterDoes } from "./stories-on-offer"
 //
 // The component the whole tracker is about, and it is here in `components/` rather than
 // beside one screen because two screens are the same gesture: the Volume's page, where each
-// row acts at once through the verbs that already exist, and the moment an object is
-// catalogued, where the rows are held until one submission. What differs between them is the
-// **adapter** and nothing else — see `WhatAnObjectHolds` below.
+// row acts at once through the verbs that already exist, and — when #48 lands — the moment an
+// object is catalogued, where the rows are held until one submission. **One screen mounts it
+// today**; what will differ between the two is the **adapter** and nothing else, which is what
+// `WhatAnObjectHolds` below is for and why it was written before its second caller exists.
 //
 // **The rows are the list the page already is**: a hairline, the title in the heading face,
 // the Type beside it, the acts at the right. Its way in is a **single field** underneath,
@@ -80,14 +81,14 @@ export type WhatAnObjectHolds = {
   /** Ask the catalogue what it holds under what has been typed, banded by line. */
   find: (term: string) => Promise<Band[]>;
   /** Say this object carries these — one row, or a whole band in one press. */
-  add: (storyIds: string[]) => Promise<void>;
+  carry: (storyIds: string[]) => Promise<void>;
   /** Mint a narrative the library does not hold, of this Type, inside this object. */
   mint: (title: string, typeId: string) => Promise<void>;
   /** Take a row off: the object does not hold that after all. */
-  drop: (storyId: string) => Promise<void>;
+  stopCarrying: (storyId: string) => Promise<void>;
   /**
-   * Unmake the narrative itself. **Absent while cataloguing**, where nothing has been written
-   * to strike, and the bin is then drawn on no row at all.
+   * Unmake the narrative itself. **Optional because cataloguing has nothing to strike** — the
+   * object is not written yet — and the bin is then drawn on no row at all (ADR-0019).
    */
   strike?: (storyId: string) => Promise<void>;
 };
@@ -123,9 +124,16 @@ export function TheStoriesItHolds({
 
   const [term, setTerm] = useState("");
   const [bands, setBands] = useState<Band[]>([]);
+  // **What the bands are an answer to.** Enter acts on the answer and never on the field, so
+  // it has to know whether the two agree: a key pressed inside the settling delay, or while a
+  // request is still out, would be enter deciding *the library does not hold this* against a
+  // list of the previous word — and minting the duplicate this whole slice exists to prevent.
+  const [answered, setAnswered] = useState("");
   const [asking, setAsking] = useState(false);
   const [working, setWorking] = useState(false);
   const [armed, setArmed] = useState<string | null>(null);
+  /** What this component has to say about the last key, as opposed to what a verb refused. */
+  const [said, setSaid] = useState<string | null>(null);
   // The Type every narrative minted from this field takes: **one choice for the whole
   // object**, because three tales inside one comic are comics. It stays a property of the
   // narrative — the Volume gains no Type of its own (ADR-0019).
@@ -139,6 +147,7 @@ export function TheStoriesItHolds({
   useEffect(() => {
     if (typed === "") {
       setBands([]);
+      setAnswered("");
       setAsking(false);
       return;
     }
@@ -148,10 +157,14 @@ export function TheStoriesItHolds({
     const timer = setTimeout(async () => {
       try {
         const found = await holds.find(typed);
-        if (current) setBands(found);
+        if (current) {
+          setBands(found);
+          setAnswered(typed);
+        }
       } catch {
-        // An answer that did not arrive is an empty answer. Nothing has been written and the
-        // field still holds what was typed, so the way through is to type another letter.
+        // An answer that did not arrive is **not** an empty answer, and the difference
+        // matters at exactly one key: the bands are cleared and `answered` is not set, so
+        // enter stays quiet rather than minting against a list that never came.
         if (current) setBands([]);
       } finally {
         if (current) setAsking(false);
@@ -178,6 +191,8 @@ export function TheStoriesItHolds({
       await work();
       setTerm("");
       setBands([]);
+      setAnswered("");
+      setSaid(null);
       setArmed(null);
       asked.current?.focus();
     } finally {
@@ -196,10 +211,21 @@ export function TheStoriesItHolds({
     // text field submits the one it is in. This field submits nothing: it is the act.
     event.preventDefault();
 
-    const does = whatEnterDoes(typed, bands);
+    // The answer has to be an answer to *this* word. Until it is, the key does nothing at
+    // all rather than guessing — which is a fifth of a second of nothing, against a narrative
+    // recorded twice.
+    if (typed !== answered) return;
+
+    const does = whatEnterDoes(typed, bands, held);
     if (!does) return;
-    if ("add" in does) return void act(() => holds.add([does.add]));
-    if (typeId === "") return;
+    if ("add" in does) return void act(() => holds.carry([does.add]));
+
+    // Said out loud rather than swallowed: a key that does nothing is a key the owner presses
+    // again. It happens on a library with no Story in it yet and no Binding that decides one.
+    if (typeId === "") {
+      setSaid("Choose a Type first: a narrative is recorded as one of the five.");
+      return;
+    }
     void act(() => holds.mint(does.mint, typeId));
   }
 
@@ -219,7 +245,7 @@ export function TheStoriesItHolds({
               armed={armed === story.id}
               onArm={() => setArmed(story.id)}
               onDisarm={() => setArmed(null)}
-              onDrop={() => act(() => holds.drop(story.id))}
+              onDrop={() => act(() => holds.stopCarrying(story.id))}
               onStrike={holds.strike ? () => act(() => unmake(story.id)) : undefined}
               working={working}
             />
@@ -285,8 +311,8 @@ export function TheStoriesItHolds({
           created and put inside this object in one act.
         </p>
 
-        {refused ? (
-          <p className="mt-3 max-w-prose text-pretty text-sm text-destructive">{refused}</p>
+        {refused || said ? (
+          <p className="mt-3 max-w-prose text-pretty text-sm text-destructive">{said ?? refused}</p>
         ) : null}
 
         <div id={answer} aria-live="polite">
@@ -297,8 +323,8 @@ export function TheStoriesItHolds({
                   key={band.seriesId ?? band.name}
                   band={band}
                   working={working}
-                  onAddAll={() => act(() => holds.add(band.stories.map((story) => story.id)))}
-                  onAdd={(storyId) => act(() => holds.add([storyId]))}
+                  onAddAll={() => act(() => holds.carry(band.stories.map((story) => story.id)))}
+                  onAdd={(storyId) => act(() => holds.carry([storyId]))}
                 />
               ))}
             </ul>
@@ -371,20 +397,20 @@ function Row({
             {story.score === null ? "—" : story.score.toFixed(1)}
           </span>
 
-          <Act label={`${story.title} is not in here`} onPress={onDrop} disabled={working}>
+          <RowPress label={`${story.title} is not in here`} onPress={onDrop} disabled={working}>
             <Cross />
-          </Act>
+          </RowPress>
 
           {/* Drawn only where the row already knows striking is allowed, so the owner never
               meets a press that answers with a refusal. */}
           {onStrike && story.whyItStands === null ? (
-            <Act
+            <RowPress
               label={`Strike ${story.title} from the library`}
               onPress={onArm}
               disabled={working}
             >
               <Bin />
-            </Act>
+            </RowPress>
           ) : null}
         </span>
       </div>
@@ -426,8 +452,13 @@ function Row({
   );
 }
 
-/** A glyph that does one thing to a row, at a size a thumb can find. */
-function Act({
+/**
+ * A glyph that does one thing to a row, at a size a thumb can find.
+ *
+ * Not called an *act*: on this screen that word is a panel the owner opens
+ * (`collection/[id]/standing.ts`), and these two are the opposite of one.
+ */
+function RowPress({
   label,
   disabled,
   onPress,
