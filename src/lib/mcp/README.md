@@ -104,8 +104,8 @@ and they are the whole of it:
 
 **A tool that proposes says two things, and it says them from one place.** *Search first, with
 the tool to search with named*, and *what a wrong proposal costs the owner* — `SEARCH_FIRST` and
-`WHAT_A_WRONG_ONE_COSTS` in `tools/inbox.ts`, spent by all four rather than written out again
-per tool. The door had every read tool needed to avoid a duplicate and assistants proposed them
+`WHAT_A_WRONG_ONE_COSTS` (or `READ_BY_HAND`, the half of it that is not about a duplicate) in
+`tools/inbox.ts`, spent by all four rather than written out again per tool. The door had every read tool needed to avoid a duplicate and assistants proposed them
 anyway (#53): the gap was the prose, and a fifth proposing tool wording it its own way reopens
 it. `AGENTS.md` states the same rule beside the others.
 

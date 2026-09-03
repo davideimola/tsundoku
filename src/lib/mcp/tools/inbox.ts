@@ -48,14 +48,18 @@ import { type McpTool, numberArgument, stringArgument } from "../tool.ts";
  * answers over Stories, Volumes and Series at once: an assistant that searched the wrong
  * area and found nothing has *not* searched. The area's own list is named beside it, per
  * tool, where reading the whole of one is the better call.
+ *
+ * **All four proposing tools spend it, the amendment included**: the amendment's search is
+ * how it reaches the record's id at all, and the entry it would duplicate is in the same
+ * Inbox as everybody else's.
  */
 const SEARCH_FIRST = `**Search before you propose, and say what you searched for.** \`finder_search\`
 is the call: one term, and everything in the library called that comes back — Stories, Volumes,
-Series — matched on a fragment of the name, ignoring case and accents. Search the words the owner
-used *and* the words a catalogue would use, because the record is often already there under a title
-said differently, and an absence you did not look for is not an absence. Then \`inbox_waiting\`, for
-what has already been proposed and not decided: a second entry for one thing is one more thing to
-turn down.`;
+Series — with the id every other tool wants, matched on a fragment of the name, ignoring case and
+accents. Search the words the owner used *and* the words a catalogue would use, because the record
+is often already there under a title said differently, and an absence you did not look for is not
+an absence. Then \`inbox_waiting\`, for what has already been proposed and not decided: a second
+entry for one thing is one more thing to turn down.`;
 
 /**
  * What it costs the owner to be wrong, in the owner's own consequences.
@@ -367,12 +371,14 @@ rather than a formality — a wrong ISBN is silent, is never read back, and quie
 book's cover for as long as the record stands, which is the opposite of a Reading recorded on the
 wrong day.
 
+${SEARCH_FIRST} \`collection_search\`, \`stories_all\` and \`series_list\` are the areas' own lists,
+where you want the whole of one.
+
 ${READ_BY_HAND} And a wrong ISBN or a wrong count is not obvious: nobody reads one back, so it is
 found years later or never.
 
 \`amends\` says which kind of record it is about, and \`subject_id\` is that record's own id, **found
-rather than composed**: \`finder_search\` answers with the id of everything called what you type, and
-\`collection_search\`, \`stories_all\` and \`series_list\` are the areas' own lists. The record has to exist — there is nothing else to amend — and a
+rather than composed** — from the search above, never assembled yourself. The record has to exist — there is nothing else to amend — and a
 Volume's id is not a Story's, so an id of the wrong kind is refused rather than guessed at.
 
 **Name only what changes.** What an amendment does not name is left standing, so filling in an

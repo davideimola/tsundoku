@@ -52,17 +52,14 @@ describe("every tool that proposes", () => {
   );
 
   it("says both of those in one place rather than four", () => {
-    // The instructions are constants spent by the tools, so the descriptions carry them
+    // The instructions are constants spent by all four, so the descriptions carry them
     // **verbatim**. A tool that reworded one would fail this, which is the whole point: the
     // weakest description in the list is the one an assistant finds a way to read as
     // permission.
     const said = (fragment: string) =>
       proposing.filter((tool) => tool.description.includes(fragment)).length;
 
-    // Three creations, and the amendment is deliberately not one of them: it searches to
-    // find the record it is about, which is a different instruction and not a weaker
-    // wording of this one. What it must not have is a second version of the sentence below.
-    expect(said("**Search before you propose, and say what you searched for.**")).toBe(3);
+    expect(said("**Search before you propose, and say what you searched for.**")).toBe(4);
     expect(said("every entry in this Inbox is read by hand")).toBe(4);
   });
 });

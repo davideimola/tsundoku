@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
 import { catalogueVolume } from "../verbs/collection.ts";
-import { proposeAmendment, proposeSeries, proposeStory, proposeVolume } from "../verbs/inbox.ts";
+import {
+  proposeAmendment,
+  proposeSeries,
+  proposeStory,
+  proposeVolume,
+  rejectInboxEntry,
+} from "../verbs/inbox.ts";
 import { declareSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
-import { listWaitingInboxEntries } from "./inbox.ts";
+import { listDecidedInboxEntries, listWaitingInboxEntries } from "./inbox.ts";
 
 // Seam 1: what an Inbox entry is read against, against a real Postgres.
 //
@@ -106,6 +112,31 @@ describe("a creation is read against what the library already holds", () => {
     // this library is meant to hold all three (ADR-0001), and a screen that warned about
     // them would be a screen crying wolf on the ordinary case.
     expect(await listWaitingInboxEntries()).toMatchObject([{ proposes: "volume", namesakes: [] }]);
+  });
+
+  it("holds a short name to an exact match, so it is not a coincidence generator", async () => {
+    await createStory({ title: "It", typeId: "novel" });
+
+    // *It* stands inside *Vinland Saga* the way it stands inside half the titles in this
+    // library, and a namesake nobody would call a namesake opens a group the owner folded
+    // shut. A record called exactly that is another matter.
+    await proposeStory({ reported: "…", title: "Vinland Saga" });
+    await proposeStory({ reported: "…", title: "It" });
+
+    expect(await listWaitingInboxEntries()).toMatchObject([
+      { reference: "Vinland Saga", namesakes: [] },
+      { reference: "It", namesakes: [{ name: "It" }] },
+    ]);
+  });
+
+  it("carries none once the entry has been decided", async () => {
+    await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const { id } = await proposeStory({ reported: "…", title: "Slam Dunk" });
+    await rejectInboxEntry(id);
+
+    // An approved creation's namesake would be the record its own approval made, so the
+    // decided list asks the question of nobody: it is the waiting list's alone.
+    expect(await listDecidedInboxEntries()).toMatchObject([{ namesakes: [] }]);
   });
 
   it("carries none on an amendment, which is read against its own record", async () => {

@@ -37,8 +37,8 @@ list, so the route handler is never edited and there is no barrel to conflict in
 
 ### What a tool that proposes has to say, and where that sentence lives
 
-**In `SEARCH_FIRST` and `WHAT_A_WRONG_ONE_COSTS` in `src/lib/mcp/tools/inbox.ts`, and in no
-second place.** An assistant may not create a Story, a Volume or a Series and may not write a
+**In `SEARCH_FIRST` and the cost sentence beside it in `src/lib/mcp/tools/inbox.ts`, and in no
+second wording.** An assistant may not create a Story, a Volume or a Series and may not write a
 field onto one: it proposes, and the owner approving is the act (ADR-0005, ADR-0011). The door
 has had every tool needed to avoid a duplicate since the finder shipped — `finder_search` over
 the whole library, `stories_all`, `collection_search`, `series_list`, `inbox_waiting` — and
@@ -48,9 +48,16 @@ the prose is now one instruction rather than four descriptions each saying it th
 search first, with the tool named, and what a wrong one costs the person who reads every entry
 by hand.
 
-A tool that proposes spends both constants. It does not rewrite them, and a fifth proposing
-tool that says it more weakly than the four is the failure this section exists to stop — the
-weakest description in the list is the one an assistant will find a way to read as permission.
+A tool that proposes spends `SEARCH_FIRST` and one of the two cost sentences —
+`WHAT_A_WRONG_ONE_COSTS` where a duplicate is the risk, and `READ_BY_HAND`, which is the half
+they share, where it is not. It does not rewrite them, and a fifth proposing tool that says it
+more weakly than the four is the failure this section exists to stop: the weakest description in
+the list is the one an assistant will find a way to read as permission.
+`src/lib/mcp/tools/inbox.test.ts` is what holds them there.
+
+The two project files an assistant is actually handed — `docs/assistant-projects/` — say the
+same instruction in the same words, because they are read by the same assistant before it ever
+sees a tool description.
 
 The screen is the other half, and it is what makes the instruction checkable rather than
 hopeful: an Inbox entry carries its **namesakes** (`src/core/queries/inbox.ts`), the records the

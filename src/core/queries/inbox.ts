@@ -136,8 +136,18 @@ const STANDING = `
 const A_FEW = 5;
 
 /**
- * Where the records of one kind stand, as the fragment below needs them: the table, what
- * the record is called, and what qualifies it.
+ * A name shorter than this is only a namesake of a record called **exactly** that.
+ *
+ * Without it the containment below is a coincidence generator: a Story called *It* or *Ai*
+ * stands inside half the titles in the library, every one of those false matches opens a
+ * group the owner had folded shut, and a screen that cries wolf on the ordinary case is a
+ * screen they stop reading — which is the failure this whole thing exists to fix.
+ */
+const A_SCRAP_OF_A_NAME = 4;
+
+/**
+ * Where the records of one kind are, as the fragment below needs them: the table, what the
+ * record is called, and what qualifies it.
  *
  * A table rather than three hand-written branches, for `finder.ts`'s reason — the three
  * have to be matched the *same* way, and an accent fold applied to two of them and
@@ -145,7 +155,7 @@ const A_FEW = 5;
  * too, because this asks the finder's question about one kind of record: *what in this
  * library is called that?*
  */
-type Shelf = {
+type Named = {
   proposes: ProposedEntity;
   /** The table and whatever it must be joined to for its qualifier, aliased. */
   from: string;
@@ -156,7 +166,7 @@ type Shelf = {
   qualifier: string;
 };
 
-const SHELVES: readonly Shelf[] = [
+const NAMED: readonly Named[] = [
   {
     proposes: "story",
     from: "story s join type t on t.id = s.type_id",
@@ -186,14 +196,19 @@ const SHELVES: readonly Shelf[] = [
 /**
  * The records already called what one creation proposes.
  *
- * Three decisions, and each one is about the mistake this is for — an assistant proposing
- * a record the library already holds (#53):
+ * Four decisions, and each one is about the mistake this is for — an assistant proposing a
+ * record the library already holds (#53):
  *
  *   - **the match runs both ways.** A name containing the proposal *and* a proposal
  *     containing the name, because the two duplicates that actually arrive are *Slam Dunk*
  *     proposed over *Slam Dunk 1* and *Slam Dunk 1* proposed over *Slam Dunk*. A screen
  *     showing only the first would be silent on the twenty-first narrative named after a
  *     volume, which is the one this library already has on its shelves;
+ *   - **and only where the shorter of the two is a name rather than a scrap.** Containment
+ *     both ways is a coincidence generator over short names, so under
+ *     `A_SCRAP_OF_A_NAME` characters nothing but an exact match counts — where the finder
+ *     answers a question the owner asked and can retype, this speaks unbidden and is read
+ *     as a warning;
  *   - **`strpos` over `unaccent`, both sides**, which is `finder.ts`'s matching and not a
  *     second one: `perche` finds *Perché*, and `%` is an ordinary character in *100%
  *     Doraemon* rather than a wildcard;
@@ -204,17 +219,20 @@ const SHELVES: readonly Shelf[] = [
  *
  * The name it matches exactly comes first, and the rest read alphabetically.
  */
-function namesakesOn(shelf: Shelf): string {
-  const folded = `lower(unaccent(${shelf.name}))`;
+function namesakesOn(named: Named): string {
+  const folded = `lower(unaccent(${named.name}))`;
 
-  return `when '${shelf.proposes}' then (
+  return `when '${named.proposes}' then (
       select coalesce(jsonb_agg(jsonb_build_object(
                'id', found.id, 'name', found.name, 'qualifier', found.qualifier)), '[]'::jsonb)
-        from (select ${shelf.id}::text as id, ${shelf.name} as name, ${shelf.qualifier} as qualifier
-                from ${shelf.from}
-               where strpos(${folded}, proposed.name) > 0
-                  or strpos(proposed.name, ${folded}) > 0
-               order by case when ${folded} = proposed.name then 0 else 1 end, ${shelf.name}
+        from (select ${named.id}::text as id, ${named.name} as name, ${named.qualifier} as qualifier
+                from ${named.from}
+               where ${folded} = proposed.name
+                  or (length(proposed.name) >= ${A_SCRAP_OF_A_NAME}
+                      and strpos(${folded}, proposed.name) > 0)
+                  or (length(${folded}) >= ${A_SCRAP_OF_A_NAME}
+                      and strpos(proposed.name, ${folded}) > 0)
+               order by case when ${folded} = proposed.name then 0 else 1 end, ${named.name}
                limit ${A_FEW}) as found)`;
 }
 
@@ -229,7 +247,7 @@ function namesakesOn(shelf: Shelf): string {
 const NAMESAKES = `
   case when entry.act = 'create' and btrim(entry.reference) <> '' then (
     select case entry.proposes
-             ${SHELVES.map(namesakesOn).join("\n             ")}
+             ${NAMED.map(namesakesOn).join("\n             ")}
            end
       from (select lower(unaccent(entry.reference)) as name) as proposed)
   end`;
@@ -243,7 +261,6 @@ const ENTRY = `
   entry.subject_id                                       as "subjectId",
   entry.details,
   ${STANDING}                                            as standing,
-  coalesce(${NAMESAKES}, '[]'::jsonb)                    as namesakes,
   to_char(entry.proposed_at, 'YYYY-MM-DD HH24:MI')       as "proposedAt",
   coalesce(entry.outcome, 'waiting')                     as state,
   to_char(entry.decided_at, 'YYYY-MM-DD HH24:MI')        as "decidedAt",
@@ -258,7 +275,8 @@ const ENTRY = `
  */
 export async function listWaitingInboxEntries(): Promise<InboxEntry[]> {
   return query<InboxEntry>(
-    `select ${ENTRY}
+    `select ${ENTRY},
+            coalesce(${NAMESAKES}, '[]'::jsonb) as namesakes
        from inbox_entry as entry
       where entry.decided_at is null
       order by entry.proposed_at, entry.id`
@@ -274,7 +292,11 @@ export async function listWaitingInboxEntries(): Promise<InboxEntry[]> {
  */
 export async function listDecidedInboxEntries(): Promise<InboxEntry[]> {
   return query<InboxEntry>(
-    `select ${ENTRY}
+    // **Namesakes are the waiting list's alone**, and not to save the three subqueries: an
+    // approved creation's namesake is the record its own approval made, so reading them
+    // here would answer *there is already one of these* about a decision the owner took and
+    // a row they now own.
+    `select ${ENTRY}, '[]'::jsonb as namesakes
        from inbox_entry as entry
       where entry.decided_at is not null
       order by entry.decided_at desc, entry.id`
