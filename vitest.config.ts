@@ -88,7 +88,17 @@ import { defineConfig } from "vitest/config";
 // Wish's own rule that nothing silently disappears from what the owner meant to buy, and
 // `src/app/(owner)/credits/body-of-work.ts`, which cuts everything a person is credited on
 // along the role they held on it, over an answer the core hands over split by whether it was
-// read.
+// read, and `src/components/stories-on-offer.ts`, which bands what the field under an object's
+// contents found by the line each Story stands in and says what enter on a typed title does —
+// the one of these that belongs to a **component** rather than to a screen, because that
+// component is mounted on two of them (#47).
+//
+// **The third client component carrying a write is the first**, and the licence above is what
+// keeps it from being a third seam. `src/components/stories-it-holds.tsx` names the Stories an
+// object holds and writes through an adapter of Server Functions (ADR-0020, which supersedes
+// ADR-0010 and no longer asks a control for an unscripted twin). What is left in the component
+// is a field, a settling timer, a stale answer dropped and one armed press; what it *derives*
+// is the file named in the paragraph above, and what it writes is Seam 1.
 //
 // It is the same rule and not a wider one: data in, data out, a function
 // this application would still have if React were replaced, and never a component, a render

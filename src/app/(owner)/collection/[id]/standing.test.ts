@@ -4,10 +4,8 @@ import type { RecordedVolume } from "@/core/queries/collection";
 
 import {
   facedWith,
-  THE_STORY_ACT,
   theActsOnTheObject,
   theEditionNoteAct,
-  theSplitAct,
   timesSaid,
   whatTheCatalogueAnswered,
   whatTheCatalogueOffers,
@@ -265,28 +263,6 @@ describe("the Edition note's own act", () => {
   });
 });
 
-// The fifth act, which is neither in the hero nor a fact about the object. What is worth
-// asserting is the address: five panels are named by three different exports, and two of them
-// agreeing on a name would be one form standing over another with no error anywhere.
-describe("recording a Story from inside the object", () => {
-  it("takes an address none of the object's own acts is using", () => {
-    for (const standing of [{}, { inTheHouse: true }, { releasedOn: "2024-01-05" }]) {
-      const taken = [
-        ...theActsOnTheObject(volume(standing)).map((act) => act.panel),
-        theEditionNoteAct(null).panel,
-      ];
-
-      expect(taken).not.toContain(THE_STORY_ACT.panel);
-    }
-  });
-
-  // The press beside it in the list also says *record*, and what tells the two apart is that
-  // one names a Story and the other makes one exist.
-  it("says that the library has not got it, which is the whole of what it adds", () => {
-    expect(THE_STORY_ACT.label.toLowerCase()).toContain("not in the library");
-  });
-});
-
 describe("what writing an ISBN costs", () => {
   const jacket = { url: "https://books.google.com/x", from: "google-books" as const };
   const asked = { source: "google-books", reference: "abc", infoUrl: null, at: "2026-08-31" };
@@ -326,57 +302,6 @@ describe("what writing an ISBN costs", () => {
     // An empty box is not a way to empty the field: that is a different act, and there is no
     // verb for it here.
     expect(said).toContain("records nothing");
-  });
-});
-
-// The sixth act, and the one the screen decides whether to offer. What is asserted is the
-// decision rather than the label: an object with no narrative and an object already holding
-// several are both presses that could never mean anything, and the verb's own refusals — a
-// work other objects carry, a Reading, a Rating — are deliberately *not* second-guessed here.
-describe("splitting an object into the Stories it holds", () => {
-  const carries = (...titles: string[]) =>
-    titles.map((title, at) => ({
-      id: `s${at}`,
-      title,
-      type: { id: "comic", name: "Comic" },
-      latestScore: null,
-      alsoCarriedElsewhere: false,
-      instalments: null,
-      covers: null,
-    }));
-
-  /** One of twenty tankōbon: the object carries one narrative, and it is not its own. */
-  const aVolumeOfAWork = carries("Slam Dunk").map((story) => ({
-    ...story,
-    alsoCarriedElsewhere: true,
-  }));
-
-  it("is offered on an object standing for one narrative, which is what the default makes", () => {
-    expect(theSplitAct(carries("Batman: L'uomo che ride"))).toMatchObject({ panel: "split" });
-  });
-
-  it("is not offered where there is nothing to split", () => {
-    expect(theSplitAct([])).toBeNull();
-  });
-
-  it("is not offered on an object that already holds several", () => {
-    expect(theSplitAct(carries("Gotham Noir", "Uomo di legno"))).toBeNull();
-  });
-
-  // The case that is most of this library once a line is merged: a work across twenty
-  // objects is not one volume's to unmake, so the act is not offered rather than refused.
-  it("is not offered on one volume of a work other objects carry too", () => {
-    expect(theSplitAct(aVolumeOfAWork)).toBeNull();
-  });
-
-  it("takes an address none of the object's other acts is using", () => {
-    const taken = [
-      ...theActsOnTheObject(volume({ inTheHouse: true })).map((act) => act.panel),
-      theEditionNoteAct(null).panel,
-      THE_STORY_ACT.panel,
-    ];
-
-    expect(taken).not.toContain(theSplitAct(carries("Batman: L'uomo che ride"))?.panel);
   });
 });
 

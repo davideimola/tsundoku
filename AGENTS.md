@@ -290,9 +290,11 @@ works once a bundle has parsed is not a write this application has.
 The Volume's page and the two Series screens are the rest of it (#30), and between them they
 say where the line is. **A press that asks for nothing is a plain form and not a panel** —
 *Collect this Series* takes no field, and a drawer in front of it would be a door in front of
-a door. **A picker under the list it corrects is not a panel either**: a drawer is for a form
+a door. **A field under the list it corrects is not a panel either**: a drawer is for a form
 the owner *opened*, where saying which Story is inside this object is a correction made while
-reading the list above it. And **a record the owner reads is on the page even when writing it
+reading the list above it — which is why the one field the contents of an object are named in
+stands under those rows and not behind a press (#47, `src/components/stories-it-holds.tsx`).
+And **a record the owner reads is on the page even when writing it
 is a panel** — the Edition note is prose in the serif with *Rewrite the Edition note* beside
 it, the way a Rating's prose is read back on the Story, because what was written is the record
 and the box is the act.
@@ -350,6 +352,10 @@ order in and between the bands, since that order is what the stops are *placed* 
 merely how they are read;
 `stories/nothing-on-it.ts` says what a strike takes with a Story — the Credits, and the
 people it does *not* take (ADR-0012) — which is the half of a bulk delete a count cannot say;
+`components/stories-on-offer.ts` bands what the field under an object's contents found by the
+line each Story stands in, and says what the press over a whole band promises and what enter
+on a typed title does — the one derivation of a **shared** component rather than of a screen,
+which is why it sits beside the component in `components/` and not beside a page;
 `stories/story-state.tsx` and `reading-list/entry.ts` are the same thing at a smaller size. It
 is the screen's because banding is the screen's (see the next section), and it is a *file*
 rather than a lump inside `page.tsx` because it can then be tested beside itself — which
