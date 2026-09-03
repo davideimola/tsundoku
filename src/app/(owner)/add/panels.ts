@@ -25,3 +25,31 @@ export const ASKED = "asked";
  * the reason there is no assertion about it.
  */
 export const THE_FIELD = { name: ASKED, id: "door-asked" } as const;
+
+/**
+ * **The two fields the narratives inside an object arrive in**, and they are repeated rather
+ * than one: the object half of this door names as many as the owner said, and a name spelled
+ * one way by the form and another by the action is a narrative quietly dropped from an object
+ * that was catalogued anyway (which is the whole failure this file exists against).
+ *
+ * Two fields and not one encoded field, because there are two kinds of answer and only one of
+ * them creates a record: a Story the library holds arrives as an id, and a title it has never
+ * heard of arrives as prose. A single field with a prefix to parse would put a parsing rule
+ * between the owner's press and the transaction, on a value that can contain anything a title
+ * can contain.
+ */
+export const THE_NARRATIVES_INSIDE = {
+  /** A Story the library already holds, by id — the row the field found, or the line's work. */
+  story: "holdsStory",
+  /**
+   * What that Story is called, beside the id and in the same order.
+   *
+   * It is carried so that a **refused** press can put the rows back as the owner read them: a
+   * refusal is a sentence about one field and every other answer was right, and a list of
+   * three narratives that came back as three uuids would be worse than a list that came back
+   * empty. Nothing is ever written from it — the id is the fact, and this is the word.
+   */
+  storyTitle: "holdsStoryTitle",
+  /** A title the library does not hold, to be minted inside the object at submit. */
+  newStory: "holdsNewStory",
+} as const;

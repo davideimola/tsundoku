@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { type Band, theStoriesOnOffer } from "@/components/stories-on-offer";
 import { whatIsOnThisIsbn } from "@/core/queries/isbn";
+import { listStoriesToOffer } from "@/core/queries/story-to-volume";
 import { isRefusal } from "@/core/refusal";
+import type { ANarrativeItHolds, WhatWasRecorded } from "@/core/verbs/what-happened";
 import { sayWhatHappened, type WhatWasSaid } from "@/core/verbs/what-happened";
 import { requireOwner } from "@/lib/auth/owner";
 import {
@@ -12,7 +15,7 @@ import {
   whereATitleLeads,
   whereTheBarcodeLeads,
 } from "./door";
-import { ASKED } from "./panels";
+import { ASKED, THE_NARRATIVES_INSIDE } from "./panels";
 
 // The write side of the one door, and a thin adapter like the page beside it (ADR-0002): it
 // reads a form, calls one verb, and says what the verb said. No SQL, no rule about what a
@@ -20,8 +23,9 @@ import { ASKED } from "./panels";
 // database's no into a `Refusal` carrying prose the verb wrote, and this file only decides
 // where the owner lands with it.
 //
-// **Five functions and four of them are one sentence each**, which is what a door with four
-// verbs behind it should look like. The fifth is the lookup, and it writes nothing.
+// **Six functions and four of them are one sentence each**, which is what a door with four
+// verbs behind it should look like. The other two write nothing: the ISBN lookup, and the
+// search under the field that names what is inside an object.
 //
 // The answer travels in the URL rather than in React state, because this screen is used
 // one-handed in a shop on whatever signal the shop has: a plain form and a redirect work with
@@ -72,8 +76,54 @@ export async function identify(form: FormData): Promise<void> {
 }
 
 /**
- * Say *I bought it*: the object joins the catalogue and the house, and the narrative appears
- * with it.
+ * What the catalogue holds under what the owner has typed into the field that names what is
+ * inside the object, banded by the line each Story stands in.
+ *
+ * **The same question the same field asks on a Volume's page** (`../collection/[id]/actions.ts`),
+ * at the moment there is no Volume to ask it about — so what it excludes is nothing, and the
+ * rows the browser is holding are what keeps a narrative from being offered twice
+ * (`@/components/stories-it-holds` never offers what the list already has).
+ *
+ * Banding is the screen's (`AGENTS.md`) and it is done here rather than in the browser for the
+ * finder's reason: what arrives at a client component is drawn, so the component holds no
+ * derivation (`vitest.config.ts`). It writes nothing, so there is no `revalidatePath` and no
+ * redirect — the only function on this screen that answers with an answer.
+ */
+export async function suggestStories(term: string): Promise<Band[]> {
+  await requireOwner();
+
+  return theStoriesOnOffer(await listStoriesToOffer({ title: term }));
+}
+
+/**
+ * **The narratives the owner named as being inside the object**, read off the two repeated
+ * fields the object half posts (`./panels.ts`).
+ *
+ * A Story arrives as an id and a title it has never heard of arrives as prose, which is the
+ * shape the verb takes: the id is linked, the title is minted and then linked, in one
+ * transaction. Nothing here refuses an empty list — that sentence is the core's, in the core's
+ * own words, and a door with its own copy of it would be two answers to one press.
+ *
+ * The names beside the ids are not read at all. They are carried for a refused press to put
+ * the rows back with (`THE_NARRATIVES_INSIDE.storyTitle`), and what is recorded is the id.
+ */
+function theNarrativesInside(form: FormData): ANarrativeItHolds[] {
+  const named = (field: string) =>
+    form
+      .getAll(field)
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => value.trim())
+      .filter((value) => value !== "");
+
+  return [
+    ...named(THE_NARRATIVES_INSIDE.story).map((storyId) => ({ storyId })),
+    ...named(THE_NARRATIVES_INSIDE.newStory).map((title) => ({ title })),
+  ];
+}
+
+/**
+ * Say *I bought it*: the object joins the catalogue and the house, and the narratives it holds
+ * are recorded with it.
  *
  * One of the two acts on this screen that have fields, and therefore one of the two whose
  * refusals are worth anything — a Binding nobody knows, a blank publisher, a position of the
@@ -120,8 +170,6 @@ export async function bought(form: FormData): Promise<void> {
  * three, a negative price, a blank shop.
  */
 export async function wished(form: FormData): Promise<void> {
-  const theLine = aLine(form);
-
   return saying(form, "wished", (title, typeId) =>
     sayWhatHappened({
       title,
@@ -135,9 +183,10 @@ export async function wished(form: FormData): Promise<void> {
         targetPrice: text(form, "targetPrice"),
         priceFound: text(form, "priceFound"),
         shop: text(form, "shop"),
-        // The line and no position, which is the panel's own shape: an object nobody owns yet
-        // fills no position of a Series, and what the line is asked for is its arrow.
-        inSeries: theLine ? { seriesId: theLine } : null,
+        // **No line, which is #48's doing.** An object nobody owns yet fills no position of a
+        // Series, so there was never a placement here; the line was read for its *arrow*, and
+        // the owner now hands over the answer to it in the list of what the object holds. The
+        // picker still stands in the panel, deciding what that list says.
       },
     })
   );
@@ -161,6 +210,10 @@ function theObject(form: FormData) {
     binding: text(form, "binding") ?? "",
     language: text(form, "language") ?? "",
     isbn: text(form, "isbn"),
+    // **What is inside it, which is the half of an object that used to be guessed at.** It is
+    // here rather than in each sentence for this function's own reason: both sentences ask it,
+    // in the same words, off the same rows.
+    holds: theNarrativesInside(form),
   };
 }
 
@@ -189,12 +242,14 @@ export async function wanted(form: FormData): Promise<void> {
  * Function that delegated its authorisation to a caller would be a Server Function anybody
  * could POST to. `src/app/gated.test.ts` checks the file; this is the reason it passes.
  *
- * **Where it lands is one rule for all four, and it is the Story.** Everything that follows
- * saying anything about a title lives on the Story's own page — the pass that is open, the
- * score, which Volumes carry it, what the line is still missing — so landing there is the
- * whole of the confirmation and a banner announcing the write would be the screen talking
- * about itself. It is also the answer to the thing this door exists to prove: the narrative
- * was recorded too, and here it is.
+ * **Where it lands is the record the sentence was about**, and since #48 that is two rules
+ * rather than one. A sentence about a *narrative* lands on the Story: everything that follows
+ * saying you read something lives there — the pass that is open, the score, which Volumes
+ * carry it — so landing there is the whole of the confirmation, and a banner announcing the
+ * write would be the screen talking about itself. A sentence about an *object* lands on the
+ * object, because an object may now hold three narratives and there is no one Story to land
+ * on: the Volume's page is where the three of them are listed, under the same field that named
+ * them, which is both the confirmation and the place the next correction is made.
  *
  * A refusal is the other direction. It is a sentence about what was typed, so it comes back to
  * the door with the panel standing open over it and the prose inside the panel, carrying
@@ -203,7 +258,7 @@ export async function wanted(form: FormData): Promise<void> {
 async function saying(
   form: FormData,
   said: WhatWasSaid,
-  work: (title: string, typeId: string) => Promise<{ storyId: string }>
+  work: (title: string, typeId: string) => Promise<WhatWasRecorded>
 ): Promise<void> {
   await requireOwner();
 
@@ -211,8 +266,13 @@ async function saying(
   let where: string;
 
   try {
-    const { storyId } = await work(title, text(form, "type") ?? "");
-    where = `/stories/${storyId}`;
+    const recorded = await work(title, text(form, "type") ?? "");
+    // The object where there was one, and the narrative otherwise. `storyIds` is never empty —
+    // every one of the four sentences ends with a Story — and the verb says so rather than
+    // this door assuming it.
+    where = recorded.volumeId
+      ? `/collection/${recorded.volumeId}`
+      : `/stories/${recorded.storyIds[0]}`;
 
     // Saying all of them is cheaper than a rule about which, and none of them is wrong.
     // Four walls may have gained a tile, and which of them did depends on the sentence.
@@ -244,6 +304,19 @@ function asItStood(form: FormData, said: WhatWasSaid, refused: string): URLSearc
   for (const carried of ["title", "from", "publishedBy", ...THE_FIELDS_A_REFUSAL_CARRIES]) {
     const value = text(form, carried);
     if (value) asking.set(carried, value);
+  }
+
+  // **And the narratives, which are the most expensive answer on the screen** (#48): three
+  // tales of an omnibus, named one at a time. They are repeated fields rather than single ones,
+  // so they are appended rather than set — the page reads every value under each name.
+  for (const field of [
+    THE_NARRATIVES_INSIDE.story,
+    THE_NARRATIVES_INSIDE.storyTitle,
+    THE_NARRATIVES_INSIDE.newStory,
+  ]) {
+    for (const value of form.getAll(field)) {
+      if (typeof value === "string" && value.trim() !== "") asking.append(field, value.trim());
+    }
   }
 
   return asking;

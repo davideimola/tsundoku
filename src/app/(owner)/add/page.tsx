@@ -4,16 +4,23 @@ import { ScanAnIsbn } from "@/components/scan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { type Binding, listBindings } from "@/core/queries/binding";
+import { listBindings } from "@/core/queries/binding";
 import { type Finding, findInTheLibrary } from "@/core/queries/finder";
 import { listSeries } from "@/core/queries/series";
-import { listTypes, type Type } from "@/core/queries/type";
+import { listTypes, type Type, theTypeEachBindingOffers } from "@/core/queries/type";
 import type { WhatWasSaid } from "@/core/verbs/what-happened";
 import { requireOwner } from "@/lib/auth/owner";
-import { PRIORITIES } from "../wishes/shopping";
-import { bought, identify, read, wanted, wished } from "./actions";
-import { type CarriedField, THE_SENTENCES, theSentence, whatFilledItIn } from "./door";
-import { ASKED, THE_FIELD } from "./panels";
+import { bought, identify, read, suggestStories, wanted, wished } from "./actions";
+import {
+  type CarriedField,
+  THE_SENTENCES,
+  theNarrativesNamedBefore,
+  theSentence,
+  whatFilledItIn,
+} from "./door";
+import { Picker } from "./fields";
+import { ASKED, THE_FIELD, THE_NARRATIVES_INSIDE } from "./panels";
+import { TheObject } from "./the-object";
 
 // THE ONE DOOR (#45). The owner writes a title or scans a barcode and says one of four
 // things — *I bought it*, *I want to buy it*, *I read it*, *I want to read it* — and the
@@ -61,6 +68,19 @@ type Asked = Record<string, string | string[] | undefined>;
 function asked(params: Asked, name: string): string | undefined {
   const value = params[name];
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
+}
+
+/**
+ * Every value under one name, which is what the narratives inside an object come back as.
+ *
+ * A repeated parameter arrives as an array, and as a bare string where there is one of it —
+ * which is the case an object holding a single narrative is, and therefore very nearly all of
+ * them. Both are one list here, so nothing downstream has to know.
+ */
+function askedAll(params: Asked, name: string): string[] {
+  const value = params[name];
+  if (Array.isArray(value)) return value;
+  return typeof value === "string" ? [value] : [];
 }
 
 /** How many Stories by that name are worth offering before the owner records another one. */
@@ -115,6 +135,11 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
     listBindings(),
     listSeries(),
   ]);
+
+  // Which Type a new narrative arrives as, for each Binding and for none at all. The whole
+  // table, because the Binding it depends on is a picker in the panel below rather than a fact
+  // about an object that already exists (`theTypeEachBindingOffers`, #48).
+  const typeEachBindingOffers = await theTypeEachBindingOffers(bindings.map((one) => one.id));
 
   const title = asked(params, "title");
   const isbn = asked(params, "isbn");
@@ -186,32 +211,47 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
                 refusal is a sentence about one field and every other field was right; a panel
                 that reopened empty would answer a duplicate position by making the owner fill
                 the object in again, standing in a shop. `./actions.ts` sends them, this reads
-                them back, and `THE_FIELDS_A_REFUSAL_CARRIES` is the one list both spell. */}
-            <Picker
-              id="say-type"
-              name="type"
-              label="Type"
-              chosen={asked(params, "type")}
-              required
-              any="Which kind?"
-            >
-              {types.map((one: Type) => (
-                <option key={one.id} value={one.id}>
-                  {one.name}
-                </option>
-              ))}
-            </Picker>
+                them back, and `THE_FIELDS_A_REFUSAL_CARRIES` is the one list both spell.
 
+                **The Type is asked here only by the two sentences about a narrative**, which
+                end in exactly one Story and no object. The two about an object ask it once for
+                the whole object, beside the field that names what is inside it (ADR-0019), so
+                a second box up here would be the same question twice on one form — and the two
+                answers could differ. */}
             {aboutAnObject(saying.said) ? (
               <TheObject
                 said={saying.said}
+                title={title}
                 bindings={bindings}
-                series={series}
+                lines={series}
+                types={types}
+                typeEachBindingOffers={typeEachBindingOffers}
+                named={theNarrativesNamedBefore(
+                  askedAll(params, THE_NARRATIVES_INSIDE.story),
+                  askedAll(params, THE_NARRATIVES_INSIDE.storyTitle),
+                  askedAll(params, THE_NARRATIVES_INSIDE.newStory)
+                )}
                 isbn={isbn}
                 typed={(name: CarriedField) => asked(params, name)}
                 publishedBy={asked(params, "publishedBy")}
+                find={suggestStories}
               />
-            ) : null}
+            ) : (
+              <Picker
+                id="say-type"
+                name="type"
+                label="Type"
+                chosen={asked(params, "type")}
+                required
+                any="Which kind?"
+              >
+                {types.map((one: Type) => (
+                  <option key={one.id} value={one.id}>
+                    {one.name}
+                  </option>
+                ))}
+              </Picker>
+            )}
 
             <div>
               <Button type="submit" className="h-11 w-full sm:h-10">
@@ -223,203 +263,6 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
         </Drawer>
       ) : null}
     </main>
-  );
-}
-
-/**
- * The long half of the two sentences about an object: what the object is, where it stands in a
- * line, and then either what was paid for it or what is meant to be.
- *
- * **One component for both, because it is one object.** What a thing is does not depend on
- * whether the owner has paid for it, and a second form spelling the publisher, the binding and
- * the ISBN again would be the same six fields drifting apart at the speed of two files. What
- * differs is the last block, and only the last block: *I bought it* ends in a receipt, *I want
- * to buy it* ends in a shopping list.
- *
- * **The Series picker is the one control on this screen that changes what gets recorded**, and
- * it is here rather than on the Series screen because this is the moment the owner knows the
- * answer — the object is in front of them and its line is on its spine, paid for or not. Where
- * the line they choose names a Story, the object joins that work and no narrative is minted
- * (#39); where it names none, the default applies and the object gets its own. Both sentences
- * ask it. What only *I bought it* asks is the position, for the reason written beside it.
- */
-function TheObject({
-  said,
-  bindings,
-  series,
-  isbn,
-  typed,
-  publishedBy,
-}: {
-  said: "bought" | "wished";
-  bindings: Binding[];
-  series: Awaited<ReturnType<typeof listSeries>>;
-  isbn: string | undefined;
-  /**
-   * What this field held on a press that came back refused, where there was one.
-   *
-   * Its argument is `CarriedField` rather than a string, so a field prefilled here and left off
-   * the list `actions.ts` sends is a type error rather than a box that quietly comes back empty.
-   */
-  typed: (name: CarriedField) => string | undefined;
-  publishedBy: string | undefined;
-}) {
-  return (
-    <>
-      <Field
-        name="publisher"
-        label="Publisher"
-        defaultValue={typed("publisher") ?? publishedBy ?? ""}
-        placeholder="Planet Manga"
-        required
-      />
-      <Field
-        name="editionLine"
-        label="Edition line"
-        defaultValue={typed("editionLine") ?? ""}
-        placeholder="DC Must Have"
-      />
-
-      <Picker
-        id="say-binding"
-        name="binding"
-        label="Binding"
-        chosen={typed("binding")}
-        required
-        any="How is it bound?"
-      >
-        {bindings.map((one) => (
-          <option key={one.id} value={one.id}>
-            {one.name}
-          </option>
-        ))}
-      </Picker>
-
-      <Field name="language" label="Language" defaultValue={typed("language") ?? "it"} required />
-      {/* Carried from the lookup where there was one, and typed here otherwise — where a
-          printed ISBN's hyphens are refused by the column rather than laundered. The field
-          that reads a barcode is the lenient door, and what it hands over is bare digits. */}
-      <Field
-        name="isbn"
-        label="ISBN"
-        defaultValue={typed("isbn") ?? isbn ?? ""}
-        placeholder="9788828765431"
-        inputMode="numeric"
-      />
-
-      {/* **Both sentences ask which line, and only one of them asks which position.** The line
-          is asked for its arrow, which is a fact about the work and true whether or not the
-          object has been paid for. A position is a place on the shelf — the core refuses to
-          place a Volume the house does not hold, and the ledger is measured against the shelf —
-          so an object only wished for is placed when it comes home, and the box for it is not
-          drawn here. */}
-      <div
-        className={`grid gap-4 border-t border-border pt-4 ${said === "bought" ? "sm:grid-cols-[1fr_7rem]" : ""}`}
-      >
-        <Picker
-          id="say-series"
-          name="seriesId"
-          label="Series"
-          chosen={typed("seriesId")}
-          any="In no Series"
-        >
-          {series.map((one) => (
-            <option key={one.id} value={one.id}>
-              {[one.name, one.editionLine].filter(Boolean).join(", ")}
-              {one.publishes ? ` — ${one.publishes.title}` : ""}
-            </option>
-          ))}
-        </Picker>
-        {said === "bought" ? (
-          <Field
-            name="seriesNumber"
-            label="Position"
-            defaultValue={typed("seriesNumber") ?? ""}
-            placeholder="21"
-            inputMode="numeric"
-          />
-        ) : (
-          <p className="text-pretty text-xs text-muted-foreground">
-            A line that names a work takes the object into that work rather than minting a second
-            one. Which position it is waits until it comes home: a position of a Series is filled by
-            what is on the shelf.
-          </p>
-        )}
-      </div>
-
-      {said === "bought" ? (
-        <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
-          <Field
-            name="pricePaid"
-            label="Price paid"
-            defaultValue={typed("pricePaid") ?? ""}
-            placeholder="6,50"
-            inputMode="decimal"
-          />
-          <Field
-            name="acquiredOn"
-            label="Came home"
-            type="date"
-            defaultValue={typed("acquiredOn") ?? ""}
-          />
-        </div>
-      ) : (
-        <div className="grid gap-4 border-t border-border pt-4">
-          <TheIntentionToBuy typed={typed} />
-        </div>
-      )}
-    </>
-  );
-}
-
-/**
- * The end of *I want to buy it*: how soon, what it should cost, and what it costs where the
- * owner is standing.
- *
- * **The three labels are the shopping list's own** (`../wishes/shopping`), read rather than
- * written down again, for the reason every vocabulary on this screen is read (ADR-0006): a
- * priority called *Next* here and *Buying this* on the list it lands on would be one intention
- * with two names. The default is *Soon*, which is the shopping list's default and the honest
- * answer for an object the owner is looking at and has not picked up.
- *
- * Two prices and not one, because a shop is two numbers — what it should cost, decided at a
- * desk, and what it costs on the shelf — and the list bands on the first while the owner acts
- * on the second.
- */
-function TheIntentionToBuy({ typed }: { typed: (name: CarriedField) => string | undefined }) {
-  return (
-    <>
-      <Picker id="say-priority" name="priority" label="Priority" chosen={typed("priority") ?? "2"}>
-        {PRIORITIES.map((priority) => (
-          <option key={priority.value} value={priority.value}>
-            {priority.name} — {priority.hint}
-          </option>
-        ))}
-      </Picker>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field
-          name="targetPrice"
-          label="Target price"
-          defaultValue={typed("targetPrice") ?? ""}
-          placeholder="15,00"
-          inputMode="decimal"
-        />
-        <Field
-          name="priceFound"
-          label="Price found"
-          defaultValue={typed("priceFound") ?? ""}
-          placeholder="12,90"
-          inputMode="decimal"
-        />
-        <Field
-          name="shop"
-          label="Shop"
-          defaultValue={typed("shop") ?? ""}
-          placeholder="Star Shop"
-        />
-      </div>
-    </>
   );
 }
 
@@ -617,68 +460,4 @@ function asking(heard: URLSearchParams, changes: Record<string, string | null>):
   }
 
   return asked;
-}
-
-/**
- * A picker over a vocabulary — Type, Binding, Series.
- *
- * A native select rather than a scripted one: on a phone it opens the platform picker, and it
- * submits whether JavaScript ran or not. Every vocabulary here is read rather than written
- * down (ADR-0006), so a seventh Binding appears on this screen without this file being touched.
- */
-function Picker({
-  id,
-  name,
-  label,
-  chosen,
-  any,
-  required,
-  children,
-}: {
-  id: string;
-  name: string;
-  label: string;
-  /** What was chosen on a press that came back refused, where there was one. */
-  chosen?: string;
-  /** The wording for "none in particular", or for the choice nobody has made yet. */
-  any?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
-        {label}
-      </Label>
-      <select
-        id={id}
-        name={name}
-        defaultValue={chosen ?? ""}
-        required={required}
-        className="h-11 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30"
-      >
-        {any ? <option value="">{any}</option> : null}
-        {children}
-      </select>
-    </div>
-  );
-}
-
-function Field({
-  name,
-  label,
-  ...props
-}: { name: string; label: string } & React.ComponentProps<typeof Input>) {
-  const fieldId = `say-${name}`;
-
-  return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={fieldId} className="text-xs text-muted-foreground">
-        {label}
-      </Label>
-      {/* 44px under a thumb, and the desk's own 40px from `sm` up. Every control the owner
-          reaches for one-handed in a shop is drawn at this height. */}
-      <Input id={fieldId} name={name} className="h-11 sm:h-10" {...props} />
-    </div>
-  );
 }

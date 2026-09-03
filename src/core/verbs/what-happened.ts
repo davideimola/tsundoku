@@ -7,10 +7,7 @@ import { acquireVolume, type CataloguedVolume, catalogueVolume } from "./collect
 import { recordReading } from "./reading.ts";
 import { placeVolumeInSeries } from "./series.ts";
 import { createStory } from "./story.ts";
-import {
-  recordVolumeCarriesStory,
-  recordVolumeNoLongerCarriesStory,
-} from "./story-to-volume.ts";
+import { recordVolumeCarriesStory, recordVolumeNoLongerCarriesStory } from "./story-to-volume.ts";
 import { openWant } from "./want.ts";
 import { openWish } from "./wish.ts";
 

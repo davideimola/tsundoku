@@ -45,8 +45,15 @@ import { type Band, theWholeBandPress, whatEnterDoes } from "./stories-on-offer"
 export type HeldStory = {
   id: string;
   title: string;
-  /** The Type by name, which is what stands beside the title. */
-  type: string;
+  /**
+   * The Type by name, which is what stands beside the title.
+   *
+   * **Absent where the screen has not been told it** (#48). At cataloguing time the row that
+   * arrives already standing is the work a line publishes, read off the line rather than off
+   * the narrative — the picker knows what it prints and not what kind of thing that is — and a
+   * word invented to fill the gap would be the screen saying something it was never told.
+   */
+  type?: string;
   /**
    * The score the owner set most recently, or `null`. It is the **Story's** and never the
    * object's: three narratives in one book have three of these, and this is the one place
@@ -58,6 +65,19 @@ export type HeldStory = {
    * here. The row draws its bin off this and decides nothing itself.
    */
   whyItStands: string | null;
+  /**
+   * Whether the title in this row is **the owner's to correct here** (#48).
+   *
+   * True only for a narrative the library does not hold yet: the shown default at cataloguing
+   * time, which is the volume's own title waiting to be minted at submit. That is the one case
+   * the default was always wrong in — *Batman: Il lungo Halloween* holds three tales named
+   * nothing like the jacket — so the row it stands in is the row that has to be correctable.
+   *
+   * Never true of a Story the library holds. Correcting one of those is an Amendment on the
+   * narrative itself (ADR-0011), and it would be the same word meaning two very different
+   * acts on two rows of one list.
+   */
+  rename?: boolean;
   /** Where the title leads, where there is a page to lead to. */
   href?: string;
   /**
@@ -91,6 +111,14 @@ export type WhatAnObjectHolds = {
    * object is not written yet — and the bin is then drawn on no row at all (ADR-0019).
    */
   strike?: (storyId: string) => Promise<void>;
+  /**
+   * Correct the title of a narrative that is not in the library yet (#48).
+   *
+   * **The mirror of `strike`**: optional because a Volume's own page has nothing to rename —
+   * every row on it is a Story the library holds, and correcting one of those is an Amendment.
+   * At cataloguing time it is the whole point of showing the default rather than writing it.
+   */
+  rename?: (storyId: string, title: string) => Promise<void>;
 };
 
 /** How long the owner has to stop typing before the library is asked. */
@@ -102,6 +130,7 @@ export function TheStoriesItHolds({
   typeToOffer,
   holds,
   refused,
+  type,
 }: {
   /** What the object holds now, in the order the screen answers with. */
   held: readonly HeldStory[];
@@ -117,6 +146,17 @@ export function TheStoriesItHolds({
   holds: WhatAnObjectHolds;
   /** What the last act was refused with, in the verb's own words. */
   refused?: string;
+  /**
+   * Where the Type lives, when the screen around this component is the one that submits it
+   * (#48).
+   *
+   * Given, the box is controlled from out there and this component keeps no Type of its own;
+   * absent, it holds its own and starts at `typeToOffer`, which is a Volume's page. The reason
+   * the second caller needs the first shape is that **the Type it offers follows a Binding
+   * being chosen in the same form**: the guess changes under the owner's hand, and a box
+   * holding its own answer would ignore it.
+   */
+  type?: { chosen: string; choose: (typeId: string) => void };
 }) {
   const field = useId();
   const answer = useId();
@@ -137,7 +177,9 @@ export function TheStoriesItHolds({
   // The Type every narrative minted from this field takes: **one choice for the whole
   // object**, because three tales inside one comic are comics. It stays a property of the
   // narrative — the Volume gains no Type of its own (ADR-0019).
-  const [typeId, setTypeId] = useState(typeToOffer ?? "");
+  const [ownTypeId, setOwnTypeId] = useState(typeToOffer ?? "");
+  const typeId = type ? type.chosen : ownTypeId;
+  const setTypeId = type ? type.choose : setOwnTypeId;
 
   const typed = term.trim();
 
@@ -247,6 +289,11 @@ export function TheStoriesItHolds({
               onDisarm={() => setArmed(null)}
               onDrop={() => act(() => holds.stopCarrying(story.id))}
               onStrike={holds.strike ? () => act(() => unmake(story.id)) : undefined}
+              onRename={
+                holds.rename && story.rename
+                  ? (title: string) => holds.rename?.(story.id, title)
+                  : undefined
+              }
               working={working}
             />
           ))}
@@ -360,6 +407,7 @@ function Row({
   onDisarm,
   onDrop,
   onStrike,
+  onRename,
 }: {
   story: HeldStory;
   armed: boolean;
@@ -368,20 +416,45 @@ function Row({
   onDisarm: () => void;
   onDrop: () => void;
   onStrike?: () => void;
+  /** Correct the title standing here, where it is the owner's to correct (#48). */
+  onRename?: (title: string) => void;
 }) {
-  const title = (
+  const type = story.type ? (
+    <span className="whitespace-nowrap font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+      {story.type}
+    </span>
+  ) : null;
+
+  // **The shown default, and it is shown as a word rather than as a box** (#48, ADR-0019).
+  // The one case the old silent default was always wrong in is an object whose jacket names
+  // none of the tales inside it, so the row it stands in has to be the row that can be typed
+  // over — in the same face and at the same size the settled row reads in, with a dashed rule
+  // under it saying that it is the owner's. A field with a label would answer *the default is
+  // already right* with a form to fill in, which is the tax ADR-0019 refused to charge.
+  const title = onRename ? (
+    <span className="flex min-w-0 flex-1 basis-full items-baseline gap-2 sm:basis-auto">
+      <input
+        type="text"
+        value={story.title}
+        disabled={working}
+        onChange={(event) => onRename(event.target.value)}
+        aria-label="What this narrative is called"
+        className="min-w-0 flex-1 border-b border-dashed border-muted-foreground/60 bg-transparent pb-0.5 font-heading text-base outline-none focus-visible:border-solid focus-visible:border-ring disabled:opacity-50 sm:text-sm"
+      />
+      {type}
+    </span>
+  ) : (
     <>
-      <span className="font-heading">{story.title}</span>{" "}
-      <span className="whitespace-nowrap font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-        {story.type}
-      </span>
+      <span className="font-heading">{story.title}</span> {type}
     </>
   );
 
   return (
     <li className="border-t border-border py-3 first:border-t-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        {story.href ? (
+        {onRename ? (
+          title
+        ) : story.href ? (
           <a
             href={story.href}
             className="min-w-0 flex-1 basis-full underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring sm:basis-auto"
