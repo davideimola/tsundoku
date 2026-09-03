@@ -284,7 +284,7 @@ export type StoryOnOffer = {
 // the position, then the title, with what is in no line last, which is where it stands on a
 // shelf too. `$1` is the title typed, or null; what is left out is the caller's own `where`,
 // because that is the only thing the two moments disagree about.
-function theStoriesOnOffer(unless: string, values: readonly unknown[]): Promise<StoryOnOffer[]> {
+function whatTheFieldOffers(unless: string, values: readonly unknown[]): Promise<StoryOnOffer[]> {
   return query<StoryOnOffer>(
     `select c.*
        from (
@@ -323,7 +323,7 @@ export async function listStoriesNotInVolume(
 ): Promise<StoryOnOffer[]> {
   if (!UUID.test(volumeId)) return [];
 
-  return theStoriesOnOffer(
+  return whatTheFieldOffers(
     // The object has to exist for *not in it* to be an answer. Uncorrelated, so it is
     // decided once rather than per Story.
     `exists (select 1 from volume v where v.id = $2)
@@ -354,7 +354,7 @@ export async function listStoriesToOffer(
 ): Promise<StoryOnOffer[]> {
   const named = (filter.except ?? []).filter((storyId) => UUID.test(storyId));
 
-  return theStoriesOnOffer("not (s.id = any ($2::uuid[]))", [filter.title ?? null, named]);
+  return whatTheFieldOffers("not (s.id = any ($2::uuid[]))", [filter.title ?? null, named]);
 }
 
 // An id is generated, so what arrives here came from a screen the caller was just looking at

@@ -15,18 +15,26 @@ import {
   type CarriedField,
   THE_FIELDS_A_REFUSAL_CARRIES,
   THE_SENTENCES,
-  theNarrativesNamedBefore,
   theSentence,
   whatFilledItIn,
 } from "./door";
 import { Picker } from "./fields";
+import { theNarrativesNamedBefore } from "./inside";
 import { ASKED, THE_FIELD, THE_NARRATIVES_INSIDE } from "./panels";
 import { TheObject } from "./the-object";
 
 // THE ONE DOOR (#45). The owner writes a title or scans a barcode and says one of four
 // things — *I bought it*, *I want to buy it*, *I read it*, *I want to read it* — and the
 // library works out what to record. Nobody is asked whether they are creating a Story or a Volume, because the answer is
-// always both and `CONTEXT.md` already decided it: the default is one Volume, one Story.
+// always both and `CONTEXT.md` already decided it.
+//
+// **What used to be silent about that is now shown** (#48, ADR-0019). The default was still one
+// Volume, one Story, and the verb wrote it from the volume's *title* whenever no line had named
+// a work — which on an omnibus is a narrative named after the jacket. The two sentences about an
+// object now name what is inside it, in a list that arrives with that same default standing in
+// it, and the owner corrects the one case it was always wrong in. The object half is
+// `./the-object.tsx` and runs in the browser (ADR-0020); the two sentences about a narrative are
+// unchanged and still need no object at all.
 //
 // **What this screen replaced.** Recording an object was a drawer on the Collection, recording
 // its narrative was a drawer on the Stories wall, and joining the two was a picker on a third
@@ -72,13 +80,6 @@ function asked(params: Asked, name: string): string | undefined {
 }
 
 /**
- * Every value under one name, which is what the narratives inside an object come back as.
- *
- * A repeated parameter arrives as an array, and as a bare string where there is one of it —
- * which is the case an object holding a single narrative is, and therefore very nearly all of
- * them. Both are one list here, so nothing downstream has to know.
- */
-/**
  * **Every field a refused press came back carrying**, as a table.
  *
  * A table rather than a reader because the object half runs in the browser and a function
@@ -92,6 +93,13 @@ function whatWasTypedBefore(params: Asked): Record<CarriedField, string | undefi
   ) as Record<CarriedField, string | undefined>;
 }
 
+/**
+ * Every value under one name, which is what the narratives inside an object come back as.
+ *
+ * A repeated parameter arrives as an array, and as a bare string where there is one of it —
+ * which is the case an object holding a single narrative is, and therefore very nearly all of
+ * them. Both are one list here, so nothing downstream has to know.
+ */
 function askedAll(params: Asked, name: string): string[] {
   const value = params[name];
   if (Array.isArray(value)) return value;
@@ -178,8 +186,9 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
       <header className="pt-8 sm:pt-12">
         <h1 className="font-heading text-2xl sm:text-3xl">Add to the library</h1>
         <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          Say what happened to a title. The object, the narrative and the link between them are the
-          library&apos;s to work out — you are never asked which of them you are recording.
+          Say what happened to a title. You are never asked whether you are recording an object or a
+          narrative — the library works that out, and what an object holds it shows you rather than
+          deciding behind your back.
         </p>
       </header>
 

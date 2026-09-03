@@ -80,19 +80,22 @@ export async function identify(form: FormData): Promise<void> {
  * inside the object, banded by the line each Story stands in.
  *
  * **The same question the same field asks on a Volume's page** (`../collection/[id]/actions.ts`),
- * at the moment there is no Volume to ask it about — so what it excludes is nothing, and the
- * rows the browser is holding are what keeps a narrative from being offered twice
- * (`@/components/stories-it-holds` never offers what the list already has).
+ * at the moment there is no Volume to ask it about. On that page the answer leaves out what the
+ * object carries, and it is the links that say so; here there are no links yet, so the rows the
+ * browser is holding are handed over and the answer leaves out the same thing. It is the same
+ * promise either way — **the field never offers what the list already has** — and it is kept in
+ * the query rather than in the browser, which is where every other narrowing on this screen is
+ * kept.
  *
  * Banding is the screen's (`AGENTS.md`) and it is done here rather than in the browser for the
  * finder's reason: what arrives at a client component is drawn, so the component holds no
  * derivation (`vitest.config.ts`). It writes nothing, so there is no `revalidatePath` and no
  * redirect — the only function on this screen that answers with an answer.
  */
-export async function suggestStories(term: string): Promise<Band[]> {
+export async function suggestStories(term: string, alreadyNamed: string[]): Promise<Band[]> {
   await requireOwner();
 
-  return theStoriesOnOffer(await listStoriesToOffer({ title: term }));
+  return theStoriesOnOffer(await listStoriesToOffer({ title: term, except: alreadyNamed }));
 }
 
 /**
@@ -107,7 +110,7 @@ export async function suggestStories(term: string): Promise<Band[]> {
  * The names beside the ids are not read at all. They are carried for a refused press to put
  * the rows back with (`THE_NARRATIVES_INSIDE.storyTitle`), and what is recorded is the id.
  */
-function theNarrativesInside(form: FormData): ANarrativeItHolds[] {
+function whatTheFormSaysIsInside(form: FormData): ANarrativeItHolds[] {
   const named = (field: string) =>
     form
       .getAll(field)
@@ -213,7 +216,7 @@ function theObject(form: FormData) {
     // **What is inside it, which is the half of an object that used to be guessed at.** It is
     // here rather than in each sentence for this function's own reason: both sentences ask it,
     // in the same words, off the same rows.
-    holds: theNarrativesInside(form),
+    holds: whatTheFormSaysIsInside(form),
   };
 }
 

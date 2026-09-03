@@ -117,8 +117,12 @@ export type WhatAnObjectHolds = {
    * **The mirror of `strike`**: optional because a Volume's own page has nothing to rename —
    * every row on it is a Story the library holds, and correcting one of those is an Amendment.
    * At cataloguing time it is the whole point of showing the default rather than writing it.
+   *
+   * The row is named by `HeldStory.id` like every other act here, and that id is deliberately
+   * **not** a Story's: nothing this reaches is in the library yet, so what identifies the row is
+   * the screen's own name for it.
    */
-  rename?: (storyId: string, title: string) => Promise<void>;
+  rename?: (row: string, title: string) => Promise<void>;
 };
 
 /** How long the owner has to stop typing before the library is asked. */

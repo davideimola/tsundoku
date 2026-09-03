@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  A_NARRATIVE_WITH_NO_NAME,
   THE_FIELDS_A_REFUSAL_CARRIES,
   THE_SENTENCES,
-  theNarrativeAlreadyStanding,
-  theNarrativesInside,
-  theNarrativesNamedBefore,
   theSentence,
   whatFilledItIn,
   whatWasTyped,
@@ -164,110 +160,5 @@ describe("what a refused press carries back", () => {
     for (const carried of ["title", "from", "publishedBy", "panel", "refused"]) {
       expect(THE_FIELDS_A_REFUSAL_CARRIES).not.toContain(carried);
     }
-  });
-});
-
-// **The default is shown rather than written** (#48, ADR-0019). What used to be a Story minted
-// from the volume's title behind the owner's back is now a row standing in a list in front of
-// them, and this is the function that decides what that row says.
-describe("the narrative an object is shown as holding", () => {
-  it("is the work the chosen line publishes, and not a new title", () => {
-    expect(
-      theNarrativeAlreadyStanding("Slam Dunk 21", { id: "a-story-id", title: "Slam Dunk" })
-    ).toEqual({ it: "a-story", storyId: "a-story-id", title: "Slam Dunk" });
-  });
-
-  // The case the whole slice is about: the omnibus, the graphic novel and the novel are the
-  // only objects the silent default ever reached, and on a novel it is right.
-  it("is the volume's own title where the line names no work, or there is no line", () => {
-    expect(theNarrativeAlreadyStanding("Neuromancer", null)).toMatchObject({
-      it: "a-title",
-      title: "Neuromancer",
-    });
-    expect(theNarrativeAlreadyStanding("Neuromancer", undefined)).toMatchObject({
-      it: "a-title",
-      title: "Neuromancer",
-    });
-  });
-
-  it("stands nothing at all where the door has heard no title", () => {
-    expect(theNarrativeAlreadyStanding("   ", null)).toBeNull();
-  });
-
-  // A line wins over the title even before a title is typed, because the arrow is a fact about
-  // the object in front of the owner and the title is what they are still deciding.
-  it("lets the line answer even with nothing typed", () => {
-    expect(theNarrativeAlreadyStanding("", { id: "a-story-id", title: "Slam Dunk" })).toMatchObject(
-      { it: "a-story" }
-    );
-  });
-});
-
-describe("what the object half submits about what is inside it", () => {
-  it("splits the rows into the Stories to link and the titles to mint", () => {
-    expect(
-      theNarrativesInside([
-        { it: "a-story", storyId: "gotham", title: "Gotham Noir" },
-        { it: "a-title", key: "one", title: "L'uomo che ride" },
-        { it: "a-title", key: "two", title: "Uomo di legno" },
-      ])
-    ).toEqual({
-      stories: [{ storyId: "gotham", title: "Gotham Noir" }],
-      newStories: ["L'uomo che ride", "Uomo di legno"],
-    });
-  });
-
-  // A row typed over to nothing is a row on its way to saying something else, not a refusal.
-  // What is refused is nothing being left at all, and the core says that in its own words.
-  it("drops a title with nothing in it, and trims the rest", () => {
-    expect(
-      theNarrativesInside([
-        { it: "a-title", key: "one", title: "   " },
-        { it: "a-title", key: "two", title: "  Uomo di legno " },
-      ])
-    ).toEqual({ stories: [], newStories: ["Uomo di legno"] });
-  });
-
-  it("says the same narrative once however many rows say it", () => {
-    expect(
-      theNarrativesInside([
-        { it: "a-story", storyId: "gotham", title: "Gotham Noir" },
-        { it: "a-story", storyId: "gotham", title: "Gotham Noir" },
-        { it: "a-title", key: "one", title: "Uomo di legno" },
-        { it: "a-title", key: "two", title: "uomo di legno" },
-      ])
-    ).toEqual({
-      stories: [{ storyId: "gotham", title: "Gotham Noir" }],
-      newStories: ["Uomo di legno"],
-    });
-  });
-
-  // The two directions are one list, and they are written and read by two different files: a
-  // refused press that lost an omnibus's three tales would answer the owner by asking for the
-  // most expensive thing on the screen again.
-  it("comes back off a refused press as the rows it was", () => {
-    const named = [
-      { it: "a-story", storyId: "gotham", title: "Gotham Noir" },
-      { it: "a-title", key: "one", title: "Uomo di legno" },
-    ] as const;
-
-    const sent = theNarrativesInside(named);
-    const back = theNarrativesNamedBefore(
-      sent.stories.map((one) => one.storyId),
-      sent.stories.map((one) => one.title),
-      sent.newStories
-    );
-
-    expect(theNarrativesInside(back)).toEqual(sent);
-    expect(back).toMatchObject([
-      { it: "a-story", storyId: "gotham", title: "Gotham Noir" },
-      { it: "a-title", title: "Uomo di legno" },
-    ]);
-  });
-
-  it("reads a row back under a name rather than under an id where the pair came apart", () => {
-    expect(theNarrativesNamedBefore(["gotham"], [], [])).toEqual([
-      { it: "a-story", storyId: "gotham", title: A_NARRATIVE_WITH_NO_NAME },
-    ]);
   });
 });

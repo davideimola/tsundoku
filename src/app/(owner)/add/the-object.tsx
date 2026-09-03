@@ -4,14 +4,18 @@ import { useId, useMemo, useRef, useState } from "react";
 import { type HeldStory, TheStoriesItHolds } from "@/components/stories-it-holds";
 import type { Band } from "@/components/stories-on-offer";
 import { PRIORITIES } from "../wishes/shopping";
+import type { CarriedField } from "./door";
+import { Field, Picker } from "./fields";
 import {
-  A_NARRATIVE_WITH_NO_NAME,
-  type CarriedField,
   type NamedNarrative,
   theNarrativeAlreadyStanding,
   theNarrativesInside,
-} from "./door";
-import { Field, Picker } from "./fields";
+  theRowsAfterAdding,
+  theRowsAfterMinting,
+  theRowsAfterRenaming,
+  theRowsAfterTakingOneOff,
+  whatIdentifiesARow,
+} from "./inside";
 import { THE_NARRATIVES_INSIDE } from "./panels";
 
 // **THE OBJECT HALF OF THE DOOR** (#48, ADR-0019): what the object is, where it stands in a
@@ -99,21 +103,17 @@ export function TheObject({
    */
   typed: Record<CarriedField, string | undefined>;
   publishedBy: string | undefined;
-  /** What the catalogue holds under what has been typed, banded by line — a Server Function. */
-  find: (term: string) => Promise<Band[]>;
+  /**
+   * What the catalogue holds under what has been typed, banded by line — a Server Function.
+   *
+   * It is asked what the list is already holding, because at cataloguing time nothing else can
+   * say so: on a Volume's page the links leave those Stories out of the answer, and here the
+   * links do not exist yet.
+   */
+  find: (term: string, alreadyNamed: string[]) => Promise<Band[]>;
 }) {
-  // **What the field last answered with, kept because a row is added by id and read by name.**
-  // The component's own adapter hands over the ids the owner pressed (`carry`), which is right
-  // on a Volume's page — the answer to a write there is the page re-reading its list. Here
-  // nothing is written yet, so the list *is* the answer, and it has to be able to print the
-  // titles the owner just pressed. The alternative is a second question to the library for
-  // names it has already sent.
+  /** What the field last answered with, which is where a pressed id finds its name. */
   const answered = useRef<Band[]>([]);
-  const search = async (term: string) => {
-    const bands = await find(term);
-    answered.current = bands;
-    return bands;
-  };
 
   const chosenLine = typed.seriesId ?? "";
   const chosenBinding = typed.binding ?? "";
@@ -153,6 +153,23 @@ export function TheObject({
 
   const inside = theNarrativesInside(rows);
   const typeName = types.find((one) => one.id === typeId)?.name;
+
+  /**
+   * Ask the library, and remember the answer.
+   *
+   * It is remembered because a row is added by id and read by name: the component hands over the
+   * ids the owner pressed, which is right on a Volume's page — the answer to a write there is
+   * the page re-reading its list — and here the list *is* the answer, so it has to be able to
+   * print the titles they just pressed (`theRowsAfterAdding`).
+   */
+  const search = async (term: string) => {
+    const bands = await find(
+      term,
+      inside.stories.map((story) => story.storyId)
+    );
+    answered.current = bands;
+    return bands;
+  };
 
   /** Say the list, from wherever it stood before the owner touched it. */
   function say(work: (standing: readonly NamedNarrative[]) => NamedNarrative[]) {
@@ -369,14 +386,14 @@ function TheNarrativesInside({
             (row): HeldStory =>
               row.it === "a-story"
                 ? {
-                    id: row.storyId,
+                    id: whatIdentifiesARow(row),
                     title: row.title,
                     type: row.type,
                     score: null,
                     whyItStands: null,
                   }
                 : {
-                    id: row.key,
+                    id: whatIdentifiesARow(row),
                     title: row.title,
                     // The Type the box above is holding, because that is the Type this row will
                     // be recorded as. It is read back rather than stored on the row: one choice
@@ -392,45 +409,16 @@ function TheNarrativesInside({
           type={{ chosen: typeId, choose: setTypeId }}
           holds={{
             find,
+            // **Every one of these is a list becoming another list**, and every one of them is
+            // `./inside.ts` — the component draws the answer and decides none of it, which is
+            // the rule `vitest.config.ts` states about a client component holding no derivation.
             carry: async (storyIds) =>
-              say((standing) => {
-                const offered = new Map(
-                  answered.current.flatMap((band) => band.stories.map((story) => [story.id, story]))
-                );
-
-                return [
-                  ...standing,
-                  ...storyIds
-                    .filter(
-                      (storyId) =>
-                        !standing.some((row) => row.it === "a-story" && row.storyId === storyId)
-                    )
-                    .map((storyId): NamedNarrative => {
-                      const story = offered.get(storyId);
-                      return {
-                        it: "a-story",
-                        storyId,
-                        // Named off the answer the owner pressed. A press that outlived its
-                        // answer cannot happen from the field — it clears on every act — and
-                        // the row reads under a name rather than a uuid if it ever did.
-                        title: story?.title ?? A_NARRATIVE_WITH_NO_NAME,
-                        type: story?.type.name,
-                      };
-                    }),
-                ];
-              }),
+              say((standing) => theRowsAfterAdding(standing, storyIds, answered.current)),
             mint: async (title) =>
-              say((standing) => [...standing, { it: "a-title", key: newKey(), title }]),
-            stopCarrying: async (id) =>
-              say((standing) =>
-                standing.filter((row) => (row.it === "a-story" ? row.storyId : row.key) !== id)
-              ),
+              say((standing) => theRowsAfterMinting(standing, newKey(), title)),
+            stopCarrying: async (id) => say((standing) => theRowsAfterTakingOneOff(standing, id)),
             rename: async (id, title) =>
-              say((standing) =>
-                standing.map((row) =>
-                  row.it === "a-title" && row.key === id ? { ...row, title } : row
-                )
-              ),
+              say((standing) => theRowsAfterRenaming(standing, id, title)),
           }}
         />
       </div>
