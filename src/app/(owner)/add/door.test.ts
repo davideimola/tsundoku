@@ -141,6 +141,24 @@ describe("the sentences", () => {
     }
   });
 
+  // #50: the narrative half asks the medium, so the sentence that records a pass stops
+  // promising the digital case at both lengths. What is asserted is the promise rather than
+  // the wording — a sentence saying *this is what a digital read is* under a form offering
+  // paper is one act described two ways.
+  it("promises no medium in the sentence that asks for one", () => {
+    const read = theSentence("read");
+
+    expect(`${read?.records} ${read?.atLength}`).toMatch(/paper/i);
+    expect(read?.records).not.toMatch(/the digital case needs nothing more/i);
+    expect(read?.atLength).not.toMatch(/which is what a digital read is/i);
+  });
+
+  // And it still promises no object, because that is the half's own fact and the one thing
+  // this door does not ask: a pass knows the object it went through only if there was one.
+  it("still says the pass went through no object", () => {
+    expect(theSentence("read")?.records).toMatch(/no object/i);
+  });
+
   it("finds the one a panel names, and none where it names nothing", () => {
     expect(theSentence("read")?.sentence).toBe("I read it.");
     expect(theSentence("banana")).toBeUndefined();
@@ -197,6 +215,13 @@ describe("the two halves the sentences stand in", () => {
 describe("what a refused press carries back", () => {
   it("names each field once", () => {
     expect(new Set(THE_FIELDS_A_REFUSAL_CARRIES).size).toBe(THE_FIELDS_A_REFUSAL_CARRIES.length);
+  });
+
+  // #50. The medium is a field like the Type beside it: a press refused for a blank title or
+  // a Type nobody chose comes back with the radio the owner pressed still pressed, because a
+  // refusal is a sentence about one field and every other answer was right.
+  it("carries the medium a pass was said to have gone by", () => {
+    expect(THE_FIELDS_A_REFUSAL_CARRIES).toContain("medium");
   });
 
   // The door carries the title itself, and sending it twice would put two fields called

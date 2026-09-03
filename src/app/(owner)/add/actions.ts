@@ -6,6 +6,7 @@ import { type Band, theStoriesOnOffer } from "@/components/stories-on-offer";
 import { whatIsOnThisIsbn } from "@/core/queries/isbn";
 import { listStoriesToOffer } from "@/core/queries/story-to-volume";
 import { isRefusal } from "@/core/refusal";
+import type { Medium } from "@/core/verbs/reading";
 import type { ANarrativeItHolds, WhatWasRecorded } from "@/core/verbs/what-happened";
 import { sayWhatHappened, type WhatWasSaid } from "@/core/verbs/what-happened";
 import { requireOwner } from "@/lib/auth/owner";
@@ -225,9 +226,29 @@ function aLine(form: FormData): string | null {
   return text(form, "seriesId");
 }
 
-/** Say *I read it*: a pass through the narrative, and no object at all. */
+/**
+ * Say *I read it*: a pass through the narrative by the medium the owner pressed, and no object
+ * at all.
+ *
+ * **The medium is handed over as it arrives** (#50). The verb refuses one that is not one of
+ * its two, in prose the owner reads, so nothing here filters the vocabulary — that would be a
+ * second place the model lives, and the sentence a hand-made POST meets would be this door's
+ * rather than the Reading's. It is the same reading `../stories/[id]/actions.ts` does of the
+ * same field.
+ *
+ * **And no object, which is what this sentence means.** Nothing on the form names a Volume, so
+ * there is nothing to read: a Reading knows the object if there was one, and here there was
+ * not.
+ */
 export async function read(form: FormData): Promise<void> {
-  return saying(form, "read", (title, typeId) => sayWhatHappened({ title, typeId, said: "read" }));
+  return saying(form, "read", (title, typeId) =>
+    sayWhatHappened({
+      title,
+      typeId,
+      said: "read",
+      medium: (text(form, "medium") ?? "") as Medium,
+    })
+  );
 }
 
 /** Say *I want to read it*: a Want, and nothing else follows from it. */

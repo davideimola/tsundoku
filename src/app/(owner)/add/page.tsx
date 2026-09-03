@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { listBindings } from "@/core/queries/binding";
 import { type Finding, findInTheLibrary } from "@/core/queries/finder";
 import { listSeries } from "@/core/queries/series";
-import { listTypes, type Type, theTypeEachBindingOffers } from "@/core/queries/type";
+import { listTypes, theTypeEachBindingOffers } from "@/core/queries/type";
 import type { WhatWasSaid } from "@/core/verbs/what-happened";
 import { requireOwner } from "@/lib/auth/owner";
 import { bought, identify, read, suggestStories, wanted, wished } from "./actions";
@@ -20,9 +20,9 @@ import {
   theSentence,
   whatFilledItIn,
 } from "./door";
-import { Picker } from "./fields";
 import { theNarrativesNamedBefore } from "./inside";
 import { ASKED, THE_FIELD, THE_NARRATIVES_INSIDE } from "./panels";
+import { TheNarrative } from "./the-narrative";
 import { TheObject } from "./the-object";
 
 // THE ONE DOOR (#45). The owner writes a title or scans a barcode and says one of four
@@ -35,8 +35,9 @@ import { TheObject } from "./the-object";
 // a work — which on an omnibus is a narrative named after the jacket. The two sentences about an
 // object now name what is inside it, in a list that arrives with that same default standing in
 // it, and the owner corrects the one case it was always wrong in. The object half is
-// `./the-object.tsx` and runs in the browser (ADR-0020); the two sentences about a narrative are
-// unchanged and still need no object at all.
+// `./the-object.tsx` and runs in the browser (ADR-0020); the narrative half is
+// `./the-narrative.tsx`, runs on the server, and still needs no object at all — what it gained
+// in #50 is the medium of the pass, which was the other thing being written silently.
 //
 // **What this screen replaced.** Recording an object was a drawer on the Collection, recording
 // its narrative was a drawer on the Stories wall, and joining the two was a picker on a third
@@ -74,6 +75,11 @@ import { TheObject } from "./the-object";
 //      choices, and the two headings name *what the half is about* and never the records it
 //      writes. A fork above them was refused, because after choosing the owner would still
 //      have to say bought-or-wished or read-or-wanted, and that is a screen for nothing.
+//   6. **A half that is a door asks what only it can ask** (#50). Naming the narrative half
+//      made it one, and the first thing it owes is the medium: a pass through no object was
+//      recorded as digital whatever the owner had in their hands, which is a paperback off
+//      somebody else's shelf filed as a file. It asks that and stops there — never *through
+//      which object*, which is the round trip this screen exists to end.
 //
 // A thin adapter over the core like every page here (ADR-0002): it calls queries and one
 // Server Function, lays out the answer, and holds no SQL, no rule about what may be recorded
@@ -249,11 +255,13 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
                 the object in again, standing in a shop. `./actions.ts` sends them, this reads
                 them back, and `THE_FIELDS_A_REFUSAL_CARRIES` is the one list both spell.
 
-                **The Type is asked here only by the two sentences about a narrative**, which
-                end in exactly one Story and no object. The two about an object ask it once for
-                the whole object, beside the field that names what is inside it (ADR-0019), so
-                a second box up here would be the same question twice on one form — and the two
-                answers could differ. */}
+                **The Type is asked by the two sentences about a narrative**, which end in
+                exactly one Story and no object, and by the two about an object once for the
+                whole object beside the field that names what is inside it (ADR-0019) — so it
+                stands in each half's own form rather than up here, where it would be the same
+                question twice on one form with two answers that could differ. The medium is
+                the narrative half's alone, and only the sentence that records a pass asks
+                it. */}
             {aboutAnObject(saying.said) ? (
               <TheObject
                 said={saying.said}
@@ -273,20 +281,12 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
                 find={suggestStories}
               />
             ) : (
-              <Picker
-                id="say-type"
-                name="type"
-                label="Type"
-                chosen={asked(params, "type")}
-                required
-                any="Which kind?"
-              >
-                {types.map((one: Type) => (
-                  <option key={one.id} value={one.id}>
-                    {one.name}
-                  </option>
-                ))}
-              </Picker>
+              <TheNarrative
+                said={saying.said}
+                types={types}
+                chosenType={asked(params, "type")}
+                chosenMedium={asked(params, "medium")}
+              />
             )}
 
             <div>

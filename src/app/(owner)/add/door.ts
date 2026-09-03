@@ -168,6 +168,11 @@ export function whatFilledItIn(from: string | undefined): string | null {
  */
 export const THE_FIELDS_A_REFUSAL_CARRIES = [
   "type",
+  // The medium of a pass, which is the narrative half's only field (#50). It is in the same
+  // list as the object's fourteen for the same reason: the two sentences about a narrative can
+  // be refused too — a blank title, a Type nobody chose — and a panel that reopened with the
+  // radio back on its default would answer that by quietly changing what the owner said.
+  "medium",
   "publisher",
   "editionLine",
   "binding",
@@ -255,9 +260,13 @@ export const THE_SENTENCES = [
     said: "read",
     about: "a-narrative",
     sentence: "I read it.",
-    records: "A pass through it, and no object at all — the digital case needs nothing more.",
+    // **Neither length promises the digital case any more** (#50). Both used to: the panel
+    // recorded a file whatever the owner had in their hands, and the copy said so honestly.
+    // Now the panel asks, so what these two say is that no object is recorded — which is the
+    // half's own fact and stays true on paper.
+    records: "A pass through it, on paper or digital, and no object at all.",
     atLength:
-      "A finished pass, first-hand, through no object — which is what a digital read is. Read it on somebody else's paperback? Say it here and correct the medium on the Story, which is one press.",
+      "A finished pass, first-hand, by whichever medium you say — a file, or somebody else's paperback. No object is recorded either way, and you are not asked which one it went through: a pass knows the object only if there was one, and naming it here would send you back round the shelf to say you read something.",
   },
   {
     said: "wanted",
@@ -283,6 +292,20 @@ export const THE_SENTENCES = [
 export type AnObjectsSentence = Extract<
   (typeof THE_SENTENCES)[number],
   { about: "an-object" }
+>["said"];
+
+/**
+ * **The two sentences that are about a narrative**, derived the same way and for the same
+ * reason.
+ *
+ * It is here because that half now has a form of its own (`./the-narrative.tsx`, #50) rather
+ * than a lone picker inline in the page, and a component drawing one half of a door has to be
+ * unable to be handed the other half's sentence: *I bought it* reaching the panel that asks
+ * the medium would be a Reading offered for an object nobody said they had read.
+ */
+export type ANarrativesSentence = Extract<
+  (typeof THE_SENTENCES)[number],
+  { about: "a-narrative" }
 >["said"];
 
 /** The sentence a `?panel=…` names, or nothing where it names none. */
