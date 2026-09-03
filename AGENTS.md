@@ -95,7 +95,21 @@ dragged into its gap at a desk, and the arrows and *first* on every row are the
 specification — the drag fills two fields into a form the server rendered and presses it,
 so there is one write and not two. It is offered only where a mouse can start it precisely
 (`(pointer: fine)` and `lg`), because on a phone a drag inside a scrolling column is worse
-than a tap and this application is used one-handed in a shop. The chrome carries a glyph beside the mark and that glyph is an
+than a tap and this application is used one-handed in a shop.
+
+**The span on a Volume is the third pair, and it is the one that says the rail's limit was
+about the *axis* rather than about the phone.** `collection/[id]/span.tsx` lets the owner
+sweep across the parts of a work to say which of them are inside this object, and press one
+part to say it holds only that; the two number boxes beside it are the specification, and the
+sweep fills them in and presses that same form. It is **not** held to a desk: the rail's
+gesture is vertical inside a column that scrolls vertically, which a browser cannot reliably
+tell apart, where this one is horizontal inside a page that scrolls vertically — so
+`touch-action: pan-y` separates them outright, and it is Pointer Events rather than HTML5 drag
+for exactly that reason. The object it exists for is the omnibus, and an omnibus is bought
+standing in a shop. Its arithmetic is `span-of-the-work.ts`, tested beside itself, for the
+reason the rail's `landing.ts` is.
+
+The chrome carries a glyph beside the mark and that glyph is an
 `<a href="/find">`: with nothing running it is a link to that screen, and with a script it
 opens a palette over the window instead — so the suggestions, the arrow keys and `⌘K` are a
 shorter way to a place the owner can already get to, and a button that did nothing on a

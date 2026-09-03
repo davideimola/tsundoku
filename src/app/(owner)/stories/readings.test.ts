@@ -13,7 +13,9 @@ import {
   theCountItDeclares,
   theOpenReading,
   whatItCovers,
+  whatThisObjectHolds,
   whenItHappened,
+  whoSaidTheRange,
 } from "./readings";
 
 // A screen's own derivation, tested beside itself under the licence `vitest.config.ts`
@@ -182,6 +184,42 @@ describe("what a Volume covers of a Story", () => {
   });
 });
 
+describe("what an object holds of a work, read back", () => {
+  const slamDunk = {
+    id: "s",
+    title: "Slam Dunk",
+    type: { id: "manga", name: "Manga" },
+    latestScore: null,
+    instalments: 20,
+    alsoCarriedElsewhere: false,
+  };
+
+  it("says one part as one part", () => {
+    expect(whatThisObjectHolds({ ...slamDunk, covers: { from: 7, to: 7, written: false } })).toBe(
+      "It holds Instalment 7 of 20 — from its place in the line."
+    );
+  });
+
+  it("says a span as a span, which is the omnibus the sentence exists for", () => {
+    expect(whatThisObjectHolds({ ...slamDunk, covers: { from: 1, to: 12, written: true } })).toBe(
+      "It holds Instalments 1–12 of 20 — you wrote it."
+    );
+  });
+
+  // Saying nothing is a state and not a blank: an object nobody has placed in a line, and
+  // nobody has typed a range onto, is answering the question rather than failing to.
+  it("says so where nothing says which parts are in there", () => {
+    expect(whatThisObjectHolds({ ...slamDunk, covers: null })).toBe(
+      "It doesn't say which of the 20 Instalments it holds."
+    );
+  });
+
+  it("names which of the two said it", () => {
+    expect(whoSaidTheRange({ from: 1, to: 12, written: true })).toBe("you wrote it");
+    expect(whoSaidTheRange({ from: 7, to: 7, written: false })).toBe("from its place in the line");
+  });
+});
+
 describe("where a covered range came from", () => {
   const slamDunk = {
     id: "s",
@@ -193,19 +231,30 @@ describe("where a covered range came from", () => {
   };
 
   it("offers to hand a written range back to the line", () => {
-    expect(howTheRangeIsKept({ ...slamDunk, covers: { from: 1, to: 12, written: true } })).toBe(
-      "Of 20. Empty both to follow this object's place in its line again."
+    expect(
+      howTheRangeIsKept({ ...slamDunk, covers: { from: 1, to: 12, written: true } }, true)
+    ).toBe("Empty both to follow this object's place in its line again.");
+  });
+
+  // The case production had on it and this sentence used to get wrong: an All-Star Superman
+  // special edition, in no Series, with a range typed by hand — offered a line to fall back
+  // to that it does not stand in. Emptying the boxes there leaves it saying nothing.
+  it("does not offer a line to an object that stands in none", () => {
+    expect(
+      howTheRangeIsKept({ ...slamDunk, covers: { from: 1, to: 1, written: true } }, false)
+    ).toBe(
+      "This object stands in no line, so emptying both leaves it saying nothing about which parts it holds."
     );
   });
 
-  it("says what the line is supplying while the boxes stand empty", () => {
-    expect(howTheRangeIsKept({ ...slamDunk, covers: { from: 7, to: 7, written: false } })).toBe(
-      "Empty, so it follows this object's place in its line: Instalment 7 of 20."
-    );
+  it("says the boxes are empty because the line is answering", () => {
+    expect(
+      howTheRangeIsKept({ ...slamDunk, covers: { from: 7, to: 7, written: false } }, true)
+    ).toBe("Empty, so it follows this object's place in its line. Type here to say otherwise.");
   });
 
   it("says there is nothing to follow where the object stands in no line", () => {
-    expect(howTheRangeIsKept({ ...slamDunk, covers: null })).toBe(
+    expect(howTheRangeIsKept({ ...slamDunk, covers: null }, false)).toBe(
       "Of 20. Empty until you say so, and this object stands in no line to follow."
     );
   });

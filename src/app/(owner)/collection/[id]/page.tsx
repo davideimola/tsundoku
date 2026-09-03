@@ -23,7 +23,7 @@ import { tint } from "@/lib/tint";
 // The words a covered range is said in, spent from the Story's own derivation rather than
 // written again here: the object says the same thing whichever end the owner is standing at,
 // and the Reading list's picker borrows the Wishes' three words for the same reason.
-import { howTheRangeIsKept } from "../../stories/readings";
+import { howTheRangeIsKept, whatThisObjectHolds } from "../../stories/readings";
 import {
   acquire,
   carry,
@@ -41,6 +41,7 @@ import {
   writeNote,
 } from "./actions";
 import { THE_ISBN_FIELD, WHAT_THE_CATALOGUE_SAID } from "./panels";
+import { Span } from "./span";
 import {
   type Act,
   facedWith,
@@ -167,6 +168,11 @@ const PICKER =
 // The same look at the size a number wants: two boxes standing in a sentence rather than a
 // field filling a column, which is what an Instalment range is — *1 to 35*, read left to
 // right, beside the Story it is about.
+// The work drawn as its own parts. It is a rule on the page until a script attaches the
+// gesture to it, and then it grows into something a thumb can hit — which is the same
+// progressive line the rail's grips are on: nothing suggests a gesture that is not there.
+const PARTS = "flex h-1.5 items-stretch gap-px data-[gesture=on]:h-5";
+
 const NUMBER =
   "h-9 rounded-lg border border-input bg-transparent px-2 text-center font-mono text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
@@ -430,7 +436,11 @@ export default async function VolumePage({
                         object's position in its line, so the boxes stand empty for every
                         tankōbon and are typed for the omnibus they exist for. */}
                     {story.instalments === null ? null : (
-                      <CoveredRange volumeId={volume.id} story={story} />
+                      <CoveredRange
+                        volumeId={volume.id}
+                        story={story}
+                        inALine={volume.seriesNumber !== null}
+                      />
                     )}
                   </li>
                 ))}
@@ -750,67 +760,124 @@ export default async function VolumePage({
 }
 
 /**
- * Which Instalments of one Story are inside this object.
+ * Which Instalments of one Story are inside this object — **drawn, read back, and swept**.
  *
  * **The default is the whole reason Instalments cost nothing**: where a line prints one part
  * per Volume the range follows the volumes, so this reads back *follows the line* and the
- * owner types nothing. The omnibus is what the boxes are for — one object collecting
- * thirty-five parts of a work — and emptying them hands the answer back to the line.
+ * owner types nothing. The omnibus is what the rest of it is for — one object collecting
+ * thirty-five parts of a work — and emptying the boxes hands the answer back to the line.
+ *
+ * Three things stand here and each is a different register of one fact. **The work is drawn
+ * as its own parts**, filled where this object reaches: one tick lit out of twelve and twelve
+ * lit out of twelve are two different pictures before either is read, which is the whole
+ * complaint this section was built to answer — a special edition holding Instalment 1 and an
+ * omnibus holding 1 to 12 used to look identical until the boxes were read. A written range
+ * is solid and one followed from the line is outlined, so **where the fact came from is in
+ * the drawing** rather than only in a word. **The sentence under it says the same thing in
+ * English**, because the record belongs on the page and not inside the controls offering to
+ * change it (#30, #31) — and it names which of the two said so, since *1 to 12 because I said
+ * so* and *1 to 12 because that is where this object stands* are two different things to know
+ * about a shelf. **And the boxes are the act**, unchanged and still the specification.
+ *
+ * The span is a control on top of them where a script is running (`./span.tsx`): sweep across
+ * the parts to say which are in here, press one to say it holds only that. It fills those two
+ * fields and presses this form, so it is a shorter way to the write rather than a second one.
  *
  * A correction made while reading the list above it rather than a form the owner opened, so
  * it is inline and not a drawer — the same judgement the Story picker under this list is made
  * on.
  */
-function CoveredRange({ volumeId, story }: { volumeId: string; story: CarriedStory }) {
+/** The parts of a work, counted from one — the numbers the ticks stand for. */
+function theParts(instalments: number | null): number[] {
+  return Array.from({ length: instalments ?? 0 }, (_, before) => before + 1);
+}
+
+function CoveredRange({
+  volumeId,
+  story,
+  inALine,
+}: {
+  volumeId: string;
+  story: CarriedStory;
+  inALine: boolean;
+}) {
   const covers = story.covers;
+  const posting = `covers-${story.id}`;
 
   return (
-    <form
-      action={coverInstalments}
-      className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5"
-    >
-      <input type="hidden" name="volumeId" value={volumeId} />
-      <input type="hidden" name="storyId" value={story.id} />
+    <div className="mt-2">
+      <Span form={posting} label={whatThisObjectHolds(story)} className={PARTS}>
+        {/* Drawn from one to the last, so the tick a pointer is over is the Instalment it
+            stands for and the component attaching the gesture reads a number rather than
+            working one out. Under `aria-hidden` because the sentence below says it in words:
+            a screen reader that met these would meet thirty-five empty boxes first. */}
+        {theParts(story.instalments).map((part) => (
+          <span
+            key={`${story.id}-${part}`}
+            data-part={part}
+            title={`Instalment ${part}`}
+            className={`flex-1 rounded-xs ${
+              covers && part >= covers.from && part <= covers.to
+                ? covers.written
+                  ? "bg-foreground"
+                  : "border border-foreground"
+                : "bg-muted"
+            } data-[asked=in]:bg-foreground`}
+            aria-hidden
+          />
+        ))}
+      </Span>
 
-      <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-        Instalments
-      </span>
-      <label className="sr-only" htmlFor={`covers-from-${story.id}`}>
-        First Instalment of {story.title} in this object
-      </label>
-      <input
-        id={`covers-from-${story.id}`}
-        name="coversFrom"
-        type="number"
-        min={1}
-        max={story.instalments ?? undefined}
-        step={1}
-        inputMode="numeric"
-        defaultValue={covers?.written ? covers.from : ""}
-        placeholder={covers ? String(covers.from) : "1"}
-        className={`${NUMBER} w-16`}
-      />
-      <span className="text-sm text-muted-foreground">to</span>
-      <label className="sr-only" htmlFor={`covers-to-${story.id}`}>
-        Last Instalment of {story.title} in this object
-      </label>
-      <input
-        id={`covers-to-${story.id}`}
-        name="coversTo"
-        type="number"
-        min={1}
-        max={story.instalments ?? undefined}
-        step={1}
-        inputMode="numeric"
-        defaultValue={covers?.written ? covers.to : ""}
-        placeholder={covers ? String(covers.to) : String(story.instalments)}
-        className={`${NUMBER} w-16`}
-      />
-      <Button type="submit" variant="ghost" size="sm" className="h-8 text-xs">
-        Record it
-      </Button>
-      <span className="basis-full text-xs text-muted-foreground">{howTheRangeIsKept(story)}</span>
-    </form>
+      <form
+        id={posting}
+        action={coverInstalments}
+        className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1.5"
+      >
+        <input type="hidden" name="volumeId" value={volumeId} />
+        <input type="hidden" name="storyId" value={story.id} />
+
+        <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+          Instalments
+        </span>
+        <label className="sr-only" htmlFor={`covers-from-${story.id}`}>
+          First Instalment of {story.title} in this object
+        </label>
+        <input
+          id={`covers-from-${story.id}`}
+          name="coversFrom"
+          type="number"
+          min={1}
+          max={story.instalments ?? undefined}
+          step={1}
+          inputMode="numeric"
+          defaultValue={covers?.written ? covers.from : ""}
+          placeholder={covers ? String(covers.from) : "1"}
+          className={`${NUMBER} w-16`}
+        />
+        <span className="text-sm text-muted-foreground">to</span>
+        <label className="sr-only" htmlFor={`covers-to-${story.id}`}>
+          Last Instalment of {story.title} in this object
+        </label>
+        <input
+          id={`covers-to-${story.id}`}
+          name="coversTo"
+          type="number"
+          min={1}
+          max={story.instalments ?? undefined}
+          step={1}
+          inputMode="numeric"
+          defaultValue={covers?.written ? covers.to : ""}
+          placeholder={covers ? String(covers.to) : String(story.instalments)}
+          className={`${NUMBER} w-16`}
+        />
+        <Button type="submit" variant="ghost" size="sm" className="h-8 text-xs">
+          Record it
+        </Button>
+        <span className="basis-full text-xs text-muted-foreground">
+          {howTheRangeIsKept(story, inALine)}
+        </span>
+      </form>
+    </div>
   );
 }
 

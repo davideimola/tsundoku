@@ -132,23 +132,63 @@ export function whatItCovers(covers: CoveredInstalments): string {
 const INSTALMENT = "Instalment";
 
 /**
- * The sentence under the two boxes on a Volume's page: where this range came from, and what
- * emptying them would do.
+ * What this object holds of the work, read back as a fact rather than out of a form: *It
+ * holds Instalment 1 of 12*, or *Instalments 1–12 of 12*.
  *
- * It is three sentences rather than one with a blank in it, because the three cases are
- * genuinely different facts — the owner wrote the range, the line supplied it, or there is
- * nothing to supply it because the object stands in no line.
+ * **The record is on the page and the boxes are only the act**, which is the clause the
+ * Edition note and a Path's intent already say on their own screens (#30, #31). Until this
+ * existed the only place the range lived on a Volume's page was two input boxes, so the one
+ * thing the section is for — seeing whether this object takes Instalment 1 or takes 1 to 12
+ * — was something the owner had to read out of controls offering to change it.
+ *
+ * The absent case is a sentence too, and deliberately not a blank: an object that says
+ * nothing about which parts it holds is a state, not a gap.
  */
-export function howTheRangeIsKept(story: CarriedStory): string {
-  const outOf = `Of ${story.instalments}.`;
+export function whatThisObjectHolds(story: CarriedStory): string {
+  if (!story.covers) {
+    return `It doesn't say which of the ${story.instalments} Instalments it holds.`;
+  }
+  // One sentence and not two joined by the screen, so the dash and the full stop are decided
+  // here with the words rather than by whoever renders them.
+  return `It holds ${whatItCovers(story.covers)} of ${story.instalments} — ${whoSaidTheRange(story.covers)}.`;
+}
 
+/**
+ * Where that answer came from: the owner's own hand, or the object's place in its line.
+ *
+ * It is a clause of its own because it is a second fact and not a shade of the first. *1 to
+ * 12 because I said so* and *1 to 12 because that is where this object stands* are two
+ * different things to know about a shelf, and the one the owner is checking when a range
+ * looks wrong is this one.
+ */
+export function whoSaidTheRange(covers: CoveredInstalments): string {
+  return covers.written ? "you wrote it" : "from its place in the line";
+}
+
+/**
+ * The sentence under the boxes on a Volume's page: what emptying them would do.
+ *
+ * **Four cases, and the fourth is the one this used to get wrong.** It read `covers` and
+ * nothing else, so an object with a written range was always told *empty both to follow this
+ * object's place in its line again* — including an object that stands in no line, where
+ * emptying them leaves it saying nothing at all. Production had exactly that object on it:
+ * an All-Star Superman special edition, in no Series, offered a line to fall back to that
+ * does not exist.
+ *
+ * So it takes the one fact it was missing. `inALine` is the Volume's, off `seriesNumber`,
+ * because whether there is a line to follow is a fact about the **object** and never about
+ * the link — which is why it is an argument here rather than something read off the Story.
+ */
+export function howTheRangeIsKept(story: CarriedStory, inALine: boolean): string {
   if (story.covers?.written) {
-    return `${outOf} Empty both to follow this object's place in its line again.`;
+    return inALine
+      ? "Empty both to follow this object's place in its line again."
+      : "This object stands in no line, so emptying both leaves it saying nothing about which parts it holds.";
   }
   if (story.covers) {
-    return `Empty, so it follows this object's place in its line: ${whatItCovers(story.covers)} of ${story.instalments}.`;
+    return "Empty, so it follows this object's place in its line. Type here to say otherwise.";
   }
-  return `${outOf} Empty until you say so, and this object stands in no line to follow.`;
+  return `Of ${story.instalments}. Empty until you say so, and this object stands in no line to follow.`;
 }
 
 /**
