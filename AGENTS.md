@@ -35,6 +35,29 @@ barrel index to edit.
 list, so the route handler is never edited and there is no barrel to conflict in.
 `src/lib/mcp/README.md` is the contract, including what a tool may not do.
 
+### What a tool that proposes has to say, and where that sentence lives
+
+**In `SEARCH_FIRST` and `WHAT_A_WRONG_ONE_COSTS` in `src/lib/mcp/tools/inbox.ts`, and in no
+second place.** An assistant may not create a Story, a Volume or a Series and may not write a
+field onto one: it proposes, and the owner approving is the act (ADR-0005, ADR-0011). The door
+has had every tool needed to avoid a duplicate since the finder shipped — `finder_search` over
+the whole library, `stories_all`, `collection_search`, `series_list`, `inbox_waiting` — and
+assistants proposed duplicates anyway, until the owner stopped using the Inbox and went back to
+typing the records in by hand (#53). **The gap was never a capability. It was the prose**, so
+the prose is now one instruction rather than four descriptions each saying it their own way:
+search first, with the tool named, and what a wrong one costs the person who reads every entry
+by hand.
+
+A tool that proposes spends both constants. It does not rewrite them, and a fifth proposing
+tool that says it more weakly than the four is the failure this section exists to stop — the
+weakest description in the list is the one an assistant will find a way to read as permission.
+
+The screen is the other half, and it is what makes the instruction checkable rather than
+hopeful: an Inbox entry carries its **namesakes** (`src/core/queries/inbox.ts`), the records the
+library already holds under the name the entry proposes, and the Inbox reads a creation against
+them exactly as it reads an amendment against the record it names. A duplicate is spotted rather
+than remembered.
+
 ### Where a page goes
 
 **`src/app/(owner)/`, and it calls `requireOwner()` before it reads anything.** The

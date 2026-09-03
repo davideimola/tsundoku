@@ -31,6 +31,47 @@ import { type McpTool, numberArgument, stringArgument } from "../tool.ts";
 // Every description below says that out loud, in the second person, because the assistant
 // is the one that has to understand it: the honest thing to tell the owner after calling
 // one of these is *"I have put it in your Inbox"* and never *"I have added it"*.
+//
+// **And each one says the same two things, from one place rather than four** (#53). The
+// door already had every tool an assistant needs to avoid a duplicate — `finder_search`,
+// `stories_all`, `collection_search`, `series_list` — and assistants proposed duplicates
+// anyway, until the owner went back to filling this Inbox by hand and now only asks for
+// advice. So the gap was never a capability; it was this prose. `SEARCH_FIRST` and
+// `WHAT_A_WRONG_ONE_COSTS` below are that instruction said once and spent by every tool
+// that proposes, so a fifth one cannot ship saying it more weakly — and `AGENTS.md` says
+// the same thing to whoever writes that fifth one.
+
+/**
+ * The instruction the whole area exists to give, and the tool that carries it out.
+ *
+ * It names `finder_search` rather than an area's list because that is the one call that
+ * answers over Stories, Volumes and Series at once: an assistant that searched the wrong
+ * area and found nothing has *not* searched. The area's own list is named beside it, per
+ * tool, where reading the whole of one is the better call.
+ */
+const SEARCH_FIRST = `**Search before you propose, and say what you searched for.** \`finder_search\`
+is the call: one term, and everything in the library called that comes back — Stories, Volumes,
+Series — matched on a fragment of the name, ignoring case and accents. Search the words the owner
+used *and* the words a catalogue would use, because the record is often already there under a title
+said differently, and an absence you did not look for is not an absence. Then \`inbox_waiting\`, for
+what has already been proposed and not decided: a second entry for one thing is one more thing to
+turn down.`;
+
+/**
+ * What it costs the owner to be wrong, in the owner's own consequences.
+ *
+ * Not *this is a permanent fact* — an assistant reads that as a policy — but what actually
+ * happens to the person on the other side of the Inbox: they read it, they turn it down by
+ * hand, and the one that slips through cannot be taken back out (ADR-0014, ADR-0015).
+ */
+const READ_BY_HAND = `**What a wrong one costs the owner:** every entry in this Inbox is read by hand
+and turned down one at a time, so a proposal the library can already answer is work taken off you
+and handed to them. They abandoned this Inbox once over exactly that, and went back to typing the
+records in themselves.`;
+
+const WHAT_A_WRONG_ONE_COSTS = `${READ_BY_HAND} One approved in a hurry is worse than one rejected:
+it is a permanent duplicate, and a record they have read, rated, shelved or put on a route **refuses
+to be struck**, so they carry it for years.`;
 
 const PROPOSED_ID = `Returns the Inbox entry's id, and nothing else exists yet. Tell the owner it is
 waiting in their Inbox for them to approve, and do not claim to have added anything. Nothing can be
@@ -50,9 +91,13 @@ const story: McpTool = {
   description: `Ask the owner to add a **Story** — the narrative unit they read and form an opinion
 about, at whatever granularity they chose for that one: a single volume, an arc, or a whole series.
 
-**You cannot create a Story, and this tool does not create one.** Use it when the owner talks about
-something \`stories_all\` does not list. Search first: the Story may be there under a title they said
-differently, and a duplicate is the one mistake this boundary exists to prevent.
+**You cannot create a Story, and this tool does not create one.** Use it only for a narrative the
+library does not hold.
+
+${SEARCH_FIRST} \`stories_all\` is the other call worth making here: it is every Story by title, so it
+is what tells you the library has this one under a title the owner says differently.
+
+${WHAT_A_WRONG_ONE_COSTS}
 
 ${PROPOSED_ID}`,
   inputSchema: {
@@ -88,10 +133,15 @@ const volume: McpTool = {
   description: `Ask the owner to catalogue a **Volume** — one object as a library catalogues it: a
 tankōbon, an omnibus, a novel, with its publisher, edition line, Binding, language and ISBN.
 
-**You cannot catalogue a Volume, and this tool does not catalogue one.** Use it when the owner
-mentions an object \`collection_search\` does not answer with. Note that search answers with the
-objects in the house, which are a subset of the ones the library knows — so an absence there is not
-proof the Volume is missing from the catalogue, and proposing a duplicate is worse than asking.
+**You cannot catalogue a Volume, and this tool does not catalogue one.** Use it only for an object
+the library has not catalogued.
+
+${SEARCH_FIRST} Here it is the search that matters most, and the reason is a trap: \`collection_search\`
+answers with the objects **in the house**, which are a subset of the ones the library knows, so an
+absence there is no proof at all. \`finder_search\` reads the whole catalogue, wished-for and let-go
+objects included, and it is the one that answers this question.
+
+${WHAT_A_WRONG_ONE_COSTS}
 
 Approving this records the object; it does **not** say it is in the house. Those are two separate
 facts, so once the owner has approved it, \`collection_acquire\` is the second thing to say.
@@ -143,9 +193,14 @@ const series: McpTool = {
 edition, and a completeness ledger rather than a narrative: how many Volumes are out, whether the
 publisher is done, which one comes next.
 
-**You cannot declare a Series, and this tool does not declare one.** Check \`series_list\` first: the
-same name in another edition is a *different* Series with a different volume count, which is a
-distinction worth getting right rather than a duplicate worth making.
+**You cannot declare a Series, and this tool does not declare one.** Use it only for a line the
+library does not know.
+
+${SEARCH_FIRST} \`series_list\` is the other call here, and read what it answers carefully: the same
+name in another edition is a *different* Series with a different volume count, which is a
+distinction worth getting right — but the same name in the *same* edition is the duplicate.
+
+${WHAT_A_WRONG_ONE_COSTS}
 
 Approving this declares the Series. It does **not** start a collecting project — that is a separate
 decision only the owner makes, and holding some of a Series is not it.
@@ -312,9 +367,12 @@ rather than a formality — a wrong ISBN is silent, is never read back, and quie
 book's cover for as long as the record stands, which is the opposite of a Reading recorded on the
 wrong day.
 
-\`amends\` says which kind of record it is about, and \`subject_id\` is that record's own id, from a
-read tool in this conversation: \`collection_search\` for a Volume, \`stories_all\` for a Story,
-\`series_list\` for a Series. The record has to exist — there is nothing else to amend — and a
+${READ_BY_HAND} And a wrong ISBN or a wrong count is not obvious: nobody reads one back, so it is
+found years later or never.
+
+\`amends\` says which kind of record it is about, and \`subject_id\` is that record's own id, **found
+rather than composed**: \`finder_search\` answers with the id of everything called what you type, and
+\`collection_search\`, \`stories_all\` and \`series_list\` are the areas' own lists. The record has to exist — there is nothing else to amend — and a
 Volume's id is not a Story's, so an id of the wrong kind is refused rather than guessed at.
 
 **Name only what changes.** What an amendment does not name is left standing, so filling in an
@@ -331,9 +389,6 @@ quietly dropped — a Type is a Story's and an ISBN a Volume's:
 A **Credit** is not among them. It is a record of its own — a person in a role on a Story — and
 \`credit_attribute\` is its door; a misattribution is undone by removing the Credit rather than by
 amending the Story.
-
-Read \`inbox_waiting\` first: the same amendment may already be sitting there, and a second entry
-for it is work the owner has to reject one by one.
 
 Returns the entry's id, and the record is exactly as it was. Tell the owner it is **waiting in
 their Inbox**, never that you have corrected anything — and if they asked for something that
