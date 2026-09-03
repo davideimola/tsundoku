@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
 import { ScanAnIsbn } from "@/components/scan";
+import { type HeldStory, TheStoriesItHolds } from "@/components/stories-it-holds";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,9 +16,8 @@ import {
   type RecordedVolume,
 } from "@/core/queries/collection";
 import { type EditionNote, findEditionNote } from "@/core/queries/edition-note";
-import { listStories } from "@/core/queries/story";
 import { type CarriedStory, listStoriesInVolume } from "@/core/queries/story-to-volume";
-import { listTypes } from "@/core/queries/type";
+import { listTypes, theTypeToOffer } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 // The words a covered range is said in, spent from the Story's own derivation rather than
@@ -26,17 +26,18 @@ import { tint } from "@/lib/tint";
 import { howTheRangeIsKept } from "../../stories/readings";
 import {
   acquire,
-  carry,
+  carryStories,
   correctWhatItIs,
   coverInstalments,
   forgetCover,
   lookUpCover,
+  mintStory,
   recordIsbn,
-  recordStory,
   release,
   removeOwnImage,
-  split,
   stopCarrying,
+  strikeStory,
+  suggestStories,
   useOwnImage,
   writeNote,
 } from "./actions";
@@ -45,10 +46,8 @@ import {
   type Act,
   facedWith,
   type Panel,
-  THE_STORY_ACT,
   theActsOnTheObject,
   theEditionNoteAct,
-  theSplitAct,
   timesSaid,
   whatTheCatalogueAnswered,
   whatTheCatalogueOffers,
@@ -109,23 +108,22 @@ import {
 // and are shown here only because this is where the mismatch is legible; nothing on this page
 // attaches a number to the object.
 //
-// **And a narrative the library has never held can be recorded from in here** (#33). The picker
-// under that list names a Story that exists; the panel beside it creates one and records it
-// inside this object in one act, because the owner reading a contents page off the back of a
-// volume is stating both facts at once. It replaced the sentence *record the Story first if it
-// is not in the list*, which described a trip to another screen and back — and that trip is
-// where the second narrative of a volume stopped being recorded at all.
+// **And what the object holds is said here, in one gesture** (#47, ADR-0019). Three screens
+// worth of errand used to live under that list: a native `<select>` over every Story in the
+// library, one choice and one submit, so an omnibus of three was three round trips; a panel
+// beside it for a narrative the library had never heard of; and a third panel with one title
+// per line, for the case where the default had minted a narrative out of a jacket. They are
+// one field now — `@/components/stories-it-holds`, mounted here and, when #48 lands, at
+// cataloguing time as well — where typing searches the library, the answers arrive banded by the line each Story
+// stands in, a whole band is taken in one press, and enter mints what the library does not
+// know. Two panels went with them, which is why `./standing.ts` names four acts and not six.
 //
-// **And where the default was wrong about an object, it is corrected from beside the list that
-// says so** (#38). One Volume, one Story is right for nearly everything on these shelves and
-// wrong for *Batman: L'uomo che ride*, which holds three tales the owner scores apart. The
-// press under the list opens a box with one title per line — a contents page, typed as one —
-// and the narrative the object stood for is replaced by the three in a single act. It is the
-// only act on this screen the page decides whether to *offer*: an object with nothing in it
-// has nothing to split, and one already holding several has been split. Everything else the
-// gesture refuses is the verb's own prose, read in the panel beside the titles that were typed,
-// because a Reading or a Rating is a sentence the owner needs rather than a control they never
-// see.
+// **The row is where the default is corrected, and it offers two acts of two sizes.** The
+// cross says this object does not hold that narrative; the bin says the library stops knowing
+// it, which is what an auto-minted *Batman: Il lungo Halloween* needs and what a work running
+// across twenty tankōbon must never be offered. The bin is drawn only where striking would be
+// allowed, off the same expression the verb refuses with (`whyItStands`), so a press the owner
+// can see is a press that works.
 //
 // **The Edition note sits beside them, and says in its own words that it is not one of those
 // numbers.** Two judgements, in two places, in two registers — a column of digits, and prose
@@ -134,9 +132,12 @@ import {
 // **read back** on the page and written in a panel, the way a Rating's prose is read back on
 // the Story and written in one — what the owner wrote is the record, and the box is the act.
 //
-// A thin adapter over the core (ADR-0002): four queries, ten verbs behind the forms, and no
-// SQL. Nothing runs in the browser — every write is a plain form post and every drawer is a
-// link, so the page works one-handed on a shop's signal with no JavaScript executing.
+// A thin adapter over the core (ADR-0002): five queries, twelve verbs behind the acts, and no
+// SQL. Every panel is still a link and every act outside the contents is still a plain form
+// post; **the contents are a client component and carry writes of their own** (ADR-0020, which
+// supersedes ADR-0010 and is what let the one field exist at all). Its adapter is five Server
+// Functions in `./actions.ts` — the same shape as every other write on this page, minus the
+// form.
 export const dynamic = "force-dynamic";
 
 type Asked = Record<string, string | string[] | undefined>;
@@ -159,11 +160,6 @@ function panelled(volumeId: string, panel: Panel): string {
   return `/collection/${volumeId}?panel=${panel}`;
 }
 
-// shadcn's own input look, borrowed by hand for the native pickers this screen is made of —
-// its select is a scripted component and every control here has to work with nothing running.
-const PICKER =
-  "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:h-10 md:text-sm dark:bg-input/30";
-
 // The same look at the size a number wants: two boxes standing in a sentence rather than a
 // field filling a column, which is what an Instalment range is — *1 to 35*, read left to
 // right, beside the Story it is about.
@@ -183,33 +179,27 @@ export default async function VolumePage({
   const volume = await findVolume(id);
   if (!volume) notFound();
 
-  const [carried, note, stories, history, types] = await Promise.all([
+  const [carried, note, history, types, typeToOffer] = await Promise.all([
     listStoriesInVolume(volume.id),
     findEditionNote(volume.id),
-    listStories(),
     listAcquisitions(volume.id),
-    // A Type is a data row and never an enum in code (ADR-0006), so the panel that records a
+    // A Type is a data row and never an enum in code (ADR-0006), so the field that records a
     // narrative reads the vocabulary rather than carrying a copy of it.
     listTypes(),
+    // And the one of them the box arrives holding: guessed from the Binding where the Binding
+    // decides, and otherwise the last one the owner used (ADR-0019).
+    theTypeToOffer(volume.binding.id),
   ]);
 
   const said = await searchParams;
   const refused = asked(said, "refused");
   const cover = asked(said, "cover");
-  // Every Story is offerable: a Story the object already carries is filtered out here, so
-  // the picker only ever proposes something that would change the record.
-  const held = new Set(carried.map((story) => story.id));
-  const offerable = stories.filter((story) => !held.has(story.id));
 
   // **What this object can have done to it**, which is the core's three states turned into
   // two forms of one act plus two repairs (`./standing.ts`) — and the Edition note's, which is
   // an act like the rest and is only opened from somewhere else: beside the prose it replaces.
   const acts = theActsOnTheObject(volume);
   const noting = theEditionNoteAct(note);
-  // **The one act this screen decides whether to offer** (`./standing.ts`): an object standing
-  // for exactly one narrative is the state a split is *from*. `null` where there is nothing to
-  // split or nothing single to replace, and the lookup below then opens no panel for it.
-  const splitting = theSplitAct(carried);
 
   // **The act being performed, read against the ones this object has** rather than trusted:
   // `?panel=banana` opens nothing, and neither does a panel naming an act this object does not
@@ -217,9 +207,7 @@ export default async function VolumePage({
   // itself and not just its name, because a panel's title is the label of the press that
   // opened it and nothing on this page recomputes that sentence.
   const asking = asked(said, "panel");
-  const acting = [...acts, noting, THE_STORY_ACT, ...(splitting ? [splitting] : [])].find(
-    (act) => act.panel === asking
-  );
+  const acting = [...acts, noting].find((act) => act.panel === asking);
   const closesTo = `/collection/${volume.id}`;
 
   return (
@@ -380,138 +368,49 @@ export default async function VolumePage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {carried.length === 0 ? (
-              <p className="max-w-prose text-pretty text-sm text-muted-foreground">
-                Nothing recorded yet. Say what is inside this object below, and it appears on each
-                Story too — it is one fact, read from both ends.
-              </p>
-            ) : (
-              <ul className="-my-1">
-                {carried.map((story) => (
-                  <li key={story.id} className="border-t border-border py-3 first:border-t-0">
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                      <Link
-                        href={`/stories/${story.id}`}
-                        className="min-w-0 flex-1 basis-full outline-none focus-visible:ring-2 focus-visible:ring-ring sm:basis-auto"
-                      >
-                        <span className="font-heading underline decoration-border underline-offset-4 hover:decoration-foreground">
-                          {story.title}
-                        </span>{" "}
-                        <span className="whitespace-nowrap font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-                          {story.type.name}
-                        </span>
-                      </Link>
+            {/* **The component the whole of #47 is about** (`@/components/stories-it-holds`),
+                mounted here in the place the pain was reported. What this page hands it is the
+                rows it already drew and the four acts it already had: the list, the Types, the
+                Type the box arrives holding, and an adapter of Server Functions that write at
+                once. The same component is mounted at cataloguing time with an adapter that
+                holds each row until one submission (ADR-0019), and the difference between the
+                two moments is that object and nothing else.
 
-                      <span className="flex items-baseline gap-3">
-                        {/* Tabular, so three judgements of three narratives in one object line
-                          up under each other and read as the three different numbers they
-                          are. An em dash where the owner has judged nothing yet. */}
-                        <span className="w-10 text-right font-mono text-xs tabular-nums text-muted-foreground">
-                          {story.latestScore === null ? "—" : story.latestScore.toFixed(1)}
-                        </span>
-                        <form action={stopCarrying}>
-                          <input type="hidden" name="volumeId" value={volume.id} />
-                          <input type="hidden" name="storyId" value={story.id} />
-                          <Button
-                            type="submit"
-                            variant="ghost"
-                            size="sm"
-                            className="-mr-2.5 h-8 text-xs text-muted-foreground"
-                          >
-                            Not in here
-                          </Button>
-                        </form>
-                      </span>
-                    </div>
-
-                    {/* **What of the work is in this object**, and only where the work is
-                        numbered at all — which is the minority of Stories and none of the
-                        three in *L'uomo che ride*. Left to itself the range follows the
-                        object's position in its line, so the boxes stand empty for every
-                        tankōbon and are typed for the omnibus they exist for. */}
-                    {story.instalments === null ? null : (
+                The Instalment range keeps its own place: **nothing asks for one while
+                linking**, and it is drawn under the row it qualifies, by this screen, as a
+                plain form. It is the omnibus's field and the omnibus is the only object that
+                wants it. */}
+            <TheStoriesItHolds
+              held={carried.map(
+                (story): HeldStory => ({
+                  id: story.id,
+                  title: story.title,
+                  type: story.type.name,
+                  score: story.latestScore,
+                  whyItStands: story.whyItStands,
+                  href: `/stories/${story.id}`,
+                  beneath:
+                    story.instalments === null ? null : (
                       <CoveredRange volumeId={volume.id} story={story} />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+                    ),
+                })
+              )}
+              types={types}
+              typeToOffer={typeToOffer}
+              refused={refused}
+              holds={{
+                find: suggestStories.bind(null, volume.id),
+                carry: carryStories.bind(null, volume.id),
+                mint: mintStory.bind(null, volume.id),
+                stopCarrying: stopCarrying.bind(null, volume.id),
+                strike: strikeStory.bind(null, volume.id),
+              }}
+            />
 
-            {/* **The gesture the default is wrong about, offered from beside the list that is
-                wrong** (#38). One Volume, one Story is right for nearly every object here and
-                wrong for *L'uomo che ride*, which holds three tales scored apart — and the
-                only way to say so used to end at a strike, which is refused on a narrative an
-                object in the house carries. It is a link and not a press, because what it does
-                is open a form. */}
-            {splitting ? (
-              <p className="mt-5 max-w-prose text-pretty text-sm text-muted-foreground">
-                Three tales in one book, judged apart?{" "}
-                <Link
-                  href={panelled(volume.id, splitting.panel)}
-                  className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {splitting.label}.
-                </Link>
-              </p>
-            ) : null}
-
-            {/* **A picker under the list it changes, and deliberately not a panel.** A drawer
-                is for a form the owner *opened*; this one is a correction made while reading
-                the list above it, in one press, and the Story's own page carries the same
-                fact from the other end in exactly the same shape (#29). An id is never typed,
-                so the Story is chosen: a native select opens the platform picker on a phone
-                and submits without JavaScript. */}
-            <form
-              action={carry}
-              className="mt-6 grid gap-3 border-t border-border pt-5 sm:grid-cols-[1fr_auto] sm:items-end"
-            >
-              <input type="hidden" name="volumeId" value={volume.id} />
-              <div className="grid gap-1.5">
-                <Label htmlFor="carry-story" className="text-xs text-muted-foreground">
-                  A Story inside this object
-                </Label>
-                <select
-                  id="carry-story"
-                  name="storyId"
-                  required
-                  disabled={offerable.length === 0}
-                  defaultValue=""
-                  className={PICKER}
-                >
-                  <option value="" disabled>
-                    {offerable.length === 0 ? "Every Story is already in here" : "Choose a Story"}
-                  </option>
-                  {offerable.map((story) => (
-                    <option key={story.id} value={story.id}>
-                      {story.title} — {story.type.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <Button
-                type="submit"
-                disabled={offerable.length === 0}
-                className="h-11 w-full sm:h-10 sm:w-auto sm:px-6"
-              >
-                Record it
-              </Button>
-              {/* **The sentence that used to be a detour, and is now a door** (#33). It read
-                  *record the Story first if it is not in the list*, and the trip it described —
-                  the Story wall, a form, then finding this object again — is where the second
-                  narrative of a volume stopped being recorded at all. The panel it opens
-                  creates the Story *and* records it in here, in one act, because that is one
-                  fact with two halves (`@/core/verbs/story`). */}
-              <p className="max-w-prose text-xs text-muted-foreground sm:col-span-2">
-                A Story spanning twenty objects is recorded twenty times, once on each. Being read
-                and being owned are separate facts, and so are the two records.{" "}
-                <Link
-                  href={panelled(volume.id, THE_STORY_ACT.panel)}
-                  className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Not in the list? Record it from here.
-                </Link>
-              </p>
-            </form>
+            <p className="mt-5 max-w-prose text-pretty text-xs text-muted-foreground">
+              A Story spanning twenty objects is recorded twenty times, once on each. Being read and
+              being owned are separate facts, and so are the two records.
+            </p>
           </CardContent>
         </Card>
 
@@ -593,122 +492,6 @@ export default async function VolumePage({
 
       {acting?.panel === "cover" ? (
         <TheCover act={acting} volume={volume} refused={refused} closesTo={closesTo} />
-      ) : null}
-
-      {/* **Two facts said in one breath**, which is what the object in the owner's hand is:
-          this narrative exists, and this thing holds it. One verb and one transaction behind it
-          (`@/core/verbs/story`), so a refusal leaves neither half standing — and it is the
-          owner's act alone, because creating a Story from outside is what the Inbox exists to
-          hold (ADR-0005). */}
-      {acting?.panel === "story" ? (
-        <Drawer
-          title={acting.label}
-          refused={refused}
-          description="It is created and recorded inside this object in one act. The granularity is yours: the arc this volume collects, or one story that runs across twenty of them."
-          closesTo={closesTo}
-        >
-          <form action={recordStory} className="grid gap-4">
-            <input type="hidden" name="volumeId" value={volume.id} />
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="story-title" className="text-xs text-muted-foreground">
-                Title
-              </Label>
-              <Input
-                id="story-title"
-                name="title"
-                placeholder="Hulk Rosso"
-                autoComplete="off"
-                required
-                className="h-11 sm:h-10"
-              />
-            </div>
-
-            {/* Native, like every other picker on this screen: shadcn's select is a scripted
-                component, and a form that only works once a bundle has parsed is not a form
-                this application has (ADR-0010). */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="story-type" className="text-xs text-muted-foreground">
-                Type
-              </Label>
-              <select id="story-type" name="type" required defaultValue="" className={PICKER}>
-                <option value="" disabled>
-                  Choose a Type
-                </option>
-                {types.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Button type="submit" className="h-11 w-full sm:h-10">
-              Record it in here
-            </Button>
-            <p className="max-w-prose text-xs text-muted-foreground">
-              A volume holding an arc and a back-up story from somewhere else is two narratives: say
-              the second one from here too, and each carries its own score. Nothing about this says
-              you have read either — that is a Reading, on the Story&apos;s own page.
-            </p>
-          </form>
-        </Drawer>
-      ) : null}
-
-      {/* **A contents page, typed as one** (#38). The box is the signature of this panel and
-          the reason it is not a row of five fields: what the owner is reading off the back of
-          the object is a list of lines, a form that grows needs a script (ADR-0010), and five
-          boxes would be four of them empty on the ordinary case. The narrative the object
-          stands for is on the first line already, because in this library the object's own
-          title is usually one of the tales inside it. */}
-      {acting?.panel === "split" && splitting && carried[0] ? (
-        <Drawer
-          title={acting.label}
-          refused={refused}
-          description="One object, several narratives, each read and judged on its own. It changes what you judge and never what you own."
-          closesTo={closesTo}
-        >
-          <form action={split} className="grid gap-4">
-            <input type="hidden" name="volumeId" value={volume.id} />
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="split-titles" className="text-xs text-muted-foreground">
-                One title per line
-              </Label>
-              <textarea
-                id="split-titles"
-                name="titles"
-                rows={5}
-                required
-                defaultValue={carried[0].title}
-                placeholder={"Gotham Noir\nL'uomo che ride\nUomo di legno"}
-                className={`${PICKER} h-auto py-2.5 leading-7`}
-              />
-              <p className="text-xs text-muted-foreground">
-                Each becomes a {carried[0].type.name} of its own, like the narrative it replaces. A
-                line left empty is a title you did not need.
-              </p>
-            </div>
-
-            <Button type="submit" className="h-11 w-full sm:h-10">
-              Split it
-            </Button>
-
-            {/* Said before the press rather than discovered after it. The object does not
-                move: the acquisition, the Series position and the ISBN are all facts about the
-                thing, and a split is about the narratives. What does go is said too — a
-                Reading or a Rating refuses the whole gesture in the verb's own words, and the
-                Credits on the replaced narrative go with it while the people stay
-                (ADR-0012). */}
-            <p className="max-w-prose text-xs text-muted-foreground">
-              <span className="font-heading text-foreground">{carried[0].title}</span> stops being a
-              narrative of its own. The Credits on it go with it — the people they name stay — and
-              so does any Path that names it as a stop. Nothing about the object changes: it is in
-              the house, in its line and at its position exactly as it is now. If you have read it
-              or judged it, this is refused and nothing is split.
-            </p>
-          </form>
-        </Drawer>
       ) : null}
 
       {acting?.panel === "note" ? (

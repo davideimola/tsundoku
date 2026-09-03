@@ -1,6 +1,5 @@
 import type { RecordedVolume } from "@/core/queries/collection";
 import type { EditionNote } from "@/core/queries/edition-note";
-import type { CarriedStory } from "@/core/queries/story-to-volume";
 
 // **Where the owner stands with one object, in words** — the Volume screen's own derivation,
 // beside the page because it is the page's (`AGENTS.md`), and tested beside itself under the
@@ -129,17 +128,16 @@ export function facedWith(volume: RecordedVolume): string {
 
 /**
  * A panel on the object's page: a form the owner opened deliberately, and its open state is
- * this screen's URL (`@/components/drawer`, ADR-0010).
+ * this screen's URL (`@/components/drawer`).
  *
  * The names are a closed set because the page reads what was asked for **against** them, the
  * way every filter on every wall is read: `?panel=banana` opens nothing. And it reads it
- * against the **acts** rather than against this list — `theActsOnTheObject`,
- * `theEditionNoteAct` and `THE_STORY_ACT` name every panel there is, and the page opens none
- * they did not name — so an `?panel=acquire` hand-typed onto an object already in the house
- * opens nothing either, and the two halves of ADR-0007 cannot be made to disagree by editing
- * an address.
+ * against the **acts** rather than against this list — `theActsOnTheObject` and
+ * `theEditionNoteAct` name every panel there is, and the page opens none they did not name —
+ * so an `?panel=acquire` hand-typed onto an object already in the house opens nothing either,
+ * and the two halves of ADR-0007 cannot be made to disagree by editing an address.
  */
-export type Panel = "acquire" | "release" | "isbn" | "cover" | "note" | "story" | "split";
+export type Panel = "acquire" | "release" | "isbn" | "cover" | "note";
 
 /** One act on the object, and the panel a press on it opens. */
 export type Act = {
@@ -169,8 +167,13 @@ export type Act = {
  * The Edition note is the fourth and it is `theEditionNoteAct`, apart from these because of
  * where it is opened from rather than because it is a lesser act: it is written from beside
  * the prose it replaces, so it does not stand in a row of presses at the top of the screen.
- * `THE_STORY_ACT` is the fifth and `theSplitAct` the sixth, and both are apart for the same
- * reason.
+ *
+ * **There were six, and two of them are gone** (#47). Recording a narrative the library has
+ * never held was a panel of its own, and so was splitting an object into the several tales it
+ * holds; both are now the one field under the contents, where a title is typed once and enter
+ * decides which of the two it is (ADR-0019). An act that asks for a field is a panel of its
+ * own — but a field the owner types into while reading the list it corrects was never a form
+ * they opened.
  */
 export function theActsOnTheObject(volume: RecordedVolume): readonly Act[] {
   return [theHouseAct(volume), theIsbnAct(volume), theCoverAct(volume)];
@@ -191,30 +194,6 @@ export function theEditionNoteAct(note: EditionNote | null): Act {
     label: note ? "Rewrite the Edition note" : "Write an Edition note",
   };
 }
-
-/**
- * Recording a narrative the library has never held, **inside the object the owner is holding**
- * (#33).
- *
- * It is not in the hero and it is not in `theActsOnTheObject`, for the Edition note's reason
- * rather than a lesser one: it is opened from beside the list it changes, where the sentence
- * *record the Story first if it is not in the list* used to send the owner to another screen
- * and back. Half the contents page of a volume never got recorded because of that trip.
- *
- * **It takes nothing**, which is what tells it apart from the other five: the other labels are
- * decided by where the owner stands with this object — in the house, or let go; an ISBN
- * recorded, or corrected — and this one is not a fact about the Volume at all. Either the
- * library has the narrative or it has not, and the picker under the list is the door for the
- * first case. So it is a constant, and there is nothing for a test to vary.
- *
- * The wording says *not in the library* rather than *new*, because the press beside it also
- * says *record* and the two acts differ by exactly that: one names a Story, the other makes
- * one exist (ADR-0005 is why the second is the owner's alone).
- */
-export const THE_STORY_ACT: Act = {
-  panel: "story",
-  label: "Record a Story that is not in the library",
-};
 
 /**
  * **What writing an ISBN does to what the object is faced with** — said where the correction
@@ -364,37 +343,4 @@ function theIsbnAct(volume: RecordedVolume): Act {
 /** The cover: found where the tile is drawn, changed where an image is standing on it. */
 function theCoverAct(volume: RecordedVolume): Act {
   return { panel: "cover", label: volume.cover ? "Change its cover" : "Find it a cover" };
-}
-
-/**
- * Splitting the object into the several Stories it holds — the sixth act, and **the only one
- * this screen decides whether to offer at all** (#38).
- *
- * It is offered on an object standing for exactly one narrative **of its own**, which is what
- * the default makes of every object: one Volume, one Story. That is the state a split is
- * *from*. Three things are not, and each is `null` here — which is what stops a hand-typed
- * `?panel=split` standing this form over an object it cannot act on, exactly as
- * `theActsOnTheObject` stops `?panel=release` over something the house does not hold.
- *
- * An object nobody has said anything about has nothing to split; the act it wants is
- * `THE_STORY_ACT`, beside this one. An object already holding several has been split once, and
- * would leave the gesture no single narrative to replace. And an object whose narrative other
- * objects carry too is a **volume of a work** — one of twenty tankōbon of *Slam Dunk* — which
- * is not one volume's to unmake: after a line is merged that is most of this library, and an
- * act offered on every one of those tiles would be an act the verb only ever refuses.
- *
- * **It is not a second guess at the verb's rule.** `splitVolumeIntoStories` refuses more than
- * this hides — a narrative other objects carry, one a Reading went through, one the owner
- * judged — and each of those refusals is prose the owner should *read*, in the panel, beside
- * the titles they just typed. What is decided here is only whether the gesture has a subject:
- * an object with none, or with two, is a press that could never mean anything.
- *
- * The label names what comes out rather than the act's mechanics — three tales, judged apart —
- * because *split* alone is a word about the object and the point is the narratives.
- */
-export function theSplitAct(carried: readonly CarriedStory[]): Act | null {
-  const [only] = carried;
-  if (!only || carried.length !== 1 || only.alsoCarriedElsewhere) return null;
-
-  return { panel: "split", label: "Split it into the Stories it holds" };
 }

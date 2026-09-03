@@ -2,14 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { type Band, theStoriesOnOffer } from "@/components/stories-on-offer";
 import { whatIsPublishedUnderThisIsbn } from "@/core/queries/isbn";
+import { listStoriesNotInVolume } from "@/core/queries/story-to-volume";
 import { isRefusal } from "@/core/refusal";
 import { acquireVolume, amendVolume, releaseVolume } from "@/core/verbs/collection";
 import { dropOwnCover, forgetTheCover, lookUpCoverFor, setOwnCover } from "@/core/verbs/cover";
 import { eraseEditionNote, writeEditionNote } from "@/core/verbs/edition-note";
-import { createStoryCarriedBy, splitVolumeIntoStories } from "@/core/verbs/story";
+import { createStoryCarriedBy, strikeStoryCarriedBy } from "@/core/verbs/story";
 import {
-  recordVolumeCarriesStory,
+  recordVolumeCarriesStories,
   recordVolumeCoversInstalments,
   recordVolumeNoLongerCarriesStory,
 } from "@/core/verbs/story-to-volume";
@@ -79,16 +81,47 @@ async function saying(
   redirect(`/collection/${volumeId}?${answer}`);
 }
 
-/** Record that this Volume carries a Story. */
-export async function carry(form: FormData): Promise<void> {
+// **THE FOUR ACTS UNDER ONE FIELD** (#47, ADR-0019), which are this screen's half of the
+// adapter the stories component takes (`@/components/stories-it-holds`). Every one of them
+// writes at once through a verb that already exists and comes back to this page with the
+// list re-read — the other mounting of that same component, at cataloguing time, holds what
+// was said until one submission instead, and the component knows the difference only by what
+// these functions do.
+//
+// They take their arguments rather than a `FormData`, because the caller is a script and not
+// a form: an id that came off a row the browser is holding is not a field somebody typed, and
+// asking it to build a form to hand one back would be ceremony over a function call. What is
+// unchanged is everything after that — one verb each, the verb's own prose on a refusal, and
+// the answer in the URL rather than in React state.
+
+/**
+ * What the catalogue holds under what the owner has typed, banded by the line each Story
+ * stands in.
+ *
+ * The only one of the five that reads rather than writes, and the only one that answers with
+ * something other than a redirect. Banding is the screen's (`AGENTS.md`) and it is done here
+ * rather than in the browser for the finder's reason: what arrives at a client component is
+ * drawn, so the component holds no derivation (`vitest.config.ts`).
+ */
+export async function suggestStories(volumeId: string, term: string): Promise<Band[]> {
   await requireOwner();
 
-  const volumeId = text(form, "volumeId") ?? "";
-  const storyId = text(form, "storyId") ?? "";
+  return theStoriesOnOffer(await listStoriesNotInVolume(volumeId, { title: term }));
+}
 
-  return saying(volumeId, new URLSearchParams({ carried: "1" }), () =>
-    recordVolumeCarriesStory(volumeId, storyId)
-  );
+/**
+ * Record that this Volume carries these Stories — one row, or a whole band in one press.
+ *
+ * One verb for the whole band rather than one call per row: twenty calls from here would
+ * invent a transaction that does not exist (`@/core/verbs/README.md`), and the band is the
+ * gesture the owner made.
+ */
+export async function carryStories(volumeId: string, storyIds: string[]): Promise<void> {
+  await requireOwner();
+
+  return saying(volumeId, new URLSearchParams({ carried: "1" }), async () => {
+    await recordVolumeCarriesStories(volumeId, storyIds);
+  });
 }
 
 /**
@@ -124,83 +157,55 @@ export async function coverInstalments(form: FormData): Promise<void> {
 }
 
 /**
- * Record a Story the library has never held, **inside this object**, in one act (#33).
+ * Record a Story the library has never held, **inside this object**, in one act (#33, #47).
  *
- * The picker beside this one names a Story that exists; this one is the case that used to
- * cost two screens — *Hulk Rosso* holds the six issues of one arc and a back-up story from a
- * Wolverine issue, and neither narrative is in the library while the owner is reading the
- * contents page off the back of the object. The old answer was *record the Story first if it
- * is not in the list*, which meant the Story wall, a form, and finding this object again; the
- * second narrative of a volume is the one that never survived the trip.
+ * It is what enter on the field does. The trip it replaced — the Story wall, a form, then
+ * finding this object again — is where the second narrative of a volume stopped being
+ * recorded at all, and where a narrative the library had never heard of stopped being
+ * recorded from the object that holds it.
  *
- * **One verb and therefore one transaction** (`src/core/verbs/README.md`): this adapter does
- * not create a Story and then link it, because composing two verbs here would invent a
- * transaction that does not exist and a half-landed act is either a Story nothing carries or
- * an object recorded as holding nothing. `createStoryCarriedBy` is the verb.
+ * **One verb and therefore one transaction** (`@/core/verbs/README.md`): this adapter does
+ * not create a Story and then link it, because a half-landed act is either a Story nothing
+ * carries or an object recorded as holding nothing. `createStoryCarriedBy` is the verb.
  *
- * It comes back to **this** object rather than to the new Story, and that is the difference
- * from the same act on the wall (`../../stories/actions.ts`, which lands on the Story). The
- * owner is here to say what is inside a thing they are holding, and a volume that holds two
- * narratives is the whole reason this exists: the list they are correcting is the page they
- * came back to, with the new title in it.
+ * The Type is the one the component asked **once for the whole object** — guessed from the
+ * Binding where the Binding decides and otherwise from the last one used
+ * (`@/core/queries/type`) — and it is stored on the narrative, which is the only thing that
+ * ever has one.
  */
-export async function recordStory(form: FormData): Promise<void> {
+export async function mintStory(volumeId: string, title: string, typeId: string): Promise<void> {
   await requireOwner();
 
-  const volumeId = text(form, "volumeId") ?? "";
+  return saying(volumeId, new URLSearchParams({ carried: "1" }), async () => {
+    await createStoryCarriedBy({ title, typeId }, volumeId);
+  });
+}
 
-  return saying(
-    volumeId,
-    new URLSearchParams({ carried: "1" }),
-    async () => {
-      await createStoryCarriedBy(
-        { title: text(form, "title") ?? "", typeId: text(form, "type") ?? "" },
-        volumeId
-      );
-    },
-    "story"
+/** Take that back: this Volume does not carry that Story after all. */
+export async function stopCarrying(volumeId: string, storyId: string): Promise<void> {
+  await requireOwner();
+
+  return saying(volumeId, new URLSearchParams({ uncarried: "1" }), () =>
+    recordVolumeNoLongerCarriesStory(volumeId, storyId)
   );
 }
 
 /**
- * Split this object into the several Stories it holds (#38).
+ * Strike the narrative this object carries: the library stops knowing it.
  *
- * **One field, and it is a contents page.** The titles arrive as lines of one box rather than
- * as a row of inputs somebody has to add to: a form that grows needs a script, a fixed row of
- * five boxes is four of them empty on the ordinary case, and what the owner is reading off the
- * back of the object is a list of lines. Blank ones are lines they did not need, and the verb
- * drops them — so a box with room for five holds three titles without saying anything about
- * the two.
+ * The other half of the cross beside it, and the repair for the default that was wrong about
+ * an object — a narrative minted from a jacket, taken off the object and then left standing
+ * in the library with nothing carrying it.
  *
- * It comes back to this object, with the panel reopened on a refusal like every other write
- * here: the sentence is about the titles that were just typed, and the three narratives the
- * split makes are read back in the list on the page behind it.
+ * The row draws this press only where striking would be allowed, off the same expression the
+ * verb refuses with, so the refusals here are the ones a race produces rather than the ones
+ * the owner would meet by pressing.
  */
-export async function split(form: FormData): Promise<void> {
+export async function strikeStory(volumeId: string, storyId: string): Promise<void> {
   await requireOwner();
 
-  const volumeId = text(form, "volumeId") ?? "";
-  const titles = (text(form, "titles") ?? "").split("\n");
-
-  return saying(
-    volumeId,
-    new URLSearchParams({ split: "1" }),
-    async () => {
-      await splitVolumeIntoStories(volumeId, titles);
-    },
-    "split"
-  );
-}
-
-/** Take that back: this Volume does not carry that Story after all. */
-export async function stopCarrying(form: FormData): Promise<void> {
-  await requireOwner();
-
-  const volumeId = text(form, "volumeId") ?? "";
-  const storyId = text(form, "storyId") ?? "";
-
-  return saying(volumeId, new URLSearchParams({ uncarried: "1" }), () =>
-    recordVolumeNoLongerCarriesStory(volumeId, storyId)
+  return saying(volumeId, new URLSearchParams({ struck: "1" }), () =>
+    strikeStoryCarriedBy(volumeId, storyId)
   );
 }
 
