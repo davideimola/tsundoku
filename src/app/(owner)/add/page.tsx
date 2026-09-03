@@ -12,9 +12,11 @@ import type { WhatWasSaid } from "@/core/verbs/what-happened";
 import { requireOwner } from "@/lib/auth/owner";
 import { bought, identify, read, suggestStories, wanted, wished } from "./actions";
 import {
+  aboutAnObject,
   type CarriedField,
+  type Half,
   THE_FIELDS_A_REFUSAL_CARRIES,
-  THE_SENTENCES,
+  THE_HALVES,
   theSentence,
   whatFilledItIn,
 } from "./door";
@@ -42,11 +44,13 @@ import { TheObject } from "./the-object";
 // twenty-one Stories. All three of those doors are gone, and their triggers are links to this
 // one.
 //
-// **It is two halves at one address, and which half it is is whether a title is known.** The
+// **It is two steps at one address, and which step it is is whether a title is known.** The
 // first is one field and a camera. The second is that title, set in the serif the owner's own
-// prose is reserved for, over the four sentences they may say about it.
+// prose is reserved for, over the four sentences they may say about it. *Steps* and never
+// halves, because on this screen a **half** is one of the two things a sentence can be about
+// (`THE_HALVES` in `./door.ts`, #49) and one word cannot mean both.
 //
-// Four things are decided here.
+// Five things are decided here.
 //
 //   1. **The sentences are the screen.** They are not a row of buttons under a form:
 //      they are four full-width statements in the owner's voice, hairline-ruled, each one a
@@ -65,6 +69,11 @@ import { TheObject } from "./the-object";
 //      title the owner has said before is one link away, and the sentence under it says why
 //      that is the better door — a Story is the spine, and two of them for one narrative is
 //      the drift this screen exists to end.
+//   5. **The four stand in two named halves** (#49) — the object, and the narrative. Same
+//      four and the same one press each: what was missing was the grouping rather than fewer
+//      choices, and the two headings name *what the half is about* and never the records it
+//      writes. A fork above them was refused, because after choosing the owner would still
+//      have to say bought-or-wished or read-or-wanted, and that is a screen for nothing.
 //
 // A thin adapter over the core like every page here (ADR-0002): it calls queries and one
 // Server Function, lays out the answer, and holds no SQL, no rule about what may be recorded
@@ -144,10 +153,13 @@ const THE_ACT: Record<WhatWasSaid, (form: FormData) => Promise<void>> = {
   wanted,
 };
 
-/** Whether a sentence is about an object, and therefore whether it asks what the object is. */
-function aboutAnObject(said: WhatWasSaid): said is "bought" | "wished" {
-  return said === "bought" || said === "wished";
-}
+/**
+ * The eyebrow a block of this screen stands under, as every wall here spells it.
+ *
+ * Quiet on purpose: the four statements are the signature of this screen, and a heading that
+ * competed with them would be a second thing to read before the one press.
+ */
+const EYEBROW = "font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground";
 
 export default async function AddPage({ searchParams }: { searchParams: Promise<Asked> }) {
   await requireOwner();
@@ -291,7 +303,7 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
 }
 
 /**
- * The first half: one field, and a camera under it.
+ * The first step: one field, and a camera under it.
  *
  * **One field for two quite different things**, which is the whole gesture the door is worth
  * having for — a title and a barcode go in the same place, and which of them arrived is
@@ -377,7 +389,7 @@ function TheField({
 }
 
 /**
- * The second half: the title, and the four things that can be said about it.
+ * The second step: the title, and the four things that can be said about it, in two named halves.
  *
  * **The signature of this screen, and deliberately not a row of buttons.** Four statements in
  * the owner's own voice, in the face reserved for their prose, one under the other with a
@@ -395,7 +407,7 @@ function TheSentences({
   isbn: string | undefined;
   filledIn: string | null;
   known: Finding[];
-  /** Everything the door has heard so far, carried into every address on this half. */
+  /** Everything the door has heard so far, carried into every address on this step. */
   heard: URLSearchParams;
 }) {
   return (
@@ -440,8 +452,41 @@ function TheSentences({
         </div>
       ) : null}
 
-      <ul className="mt-8 border-t border-border">
-        {THE_SENTENCES.map((one) => (
+      {/* **Two named halves and not one undivided set** (#49). Same four sentences, same one
+          press each: what was missing was the grouping. A fork above them — object or
+          narrative, and then the sentences — was considered and refused, because after
+          choosing the owner would still have to say bought-or-wished or read-or-wanted, which
+          is a screen for nothing. So nothing stands between the title and the presses, and the
+          division is a heading rather than a step. */}
+      <div className="mt-8 grid gap-9 sm:gap-10">
+        {THE_HALVES.map((half) => (
+          <TheHalf key={half.about} half={half} heard={heard} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One half of the door: what it is about, and the two sentences that are about that.
+ *
+ * The heading is the quietest thing on the screen and the sentences the loudest, which is the
+ * hierarchy the press deserves — the owner is choosing between four statements, and the
+ * headings are there to halve the choice rather than to be read.
+ */
+function TheHalf({ half, heard }: { half: Half; heard: URLSearchParams }) {
+  const id = `about-${half.about}`;
+
+  return (
+    <section aria-labelledby={id}>
+      <h2 id={id} className={`flex items-baseline gap-3 ${EYEBROW}`}>
+        {half.heading}
+        <span className="h-px flex-1 bg-border" aria-hidden="true" />
+      </h2>
+      <p className="mt-1.5 max-w-prose text-pretty text-sm text-muted-foreground">{half.says}</p>
+
+      <ul className="mt-3 border-t border-border">
+        {half.sentences.map((one) => (
           <li key={one.said}>
             <Link
               href={`/add?${asking(heard, { panel: one.said })}`}
@@ -465,7 +510,7 @@ function TheSentences({
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 

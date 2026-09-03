@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  aboutAnObject,
   THE_FIELDS_A_REFUSAL_CARRIES,
+  THE_HALVES,
   THE_SENTENCES,
   theSentence,
   whatFilledItIn,
@@ -143,6 +145,49 @@ describe("the sentences", () => {
     expect(theSentence("read")?.sentence).toBe("I read it.");
     expect(theSentence("banana")).toBeUndefined();
     expect(theSentence(undefined)).toBeUndefined();
+  });
+});
+
+// THE TWO HALVES (#49). The same four sentences and the same one press each, grouped by which
+// of the two things they are about. What is asserted is that the grouping is a *reading* of the
+// four rather than a second copy of them: a sentence added to the model lands in a half without
+// anybody editing a second list, and a heading cannot come to name a record.
+describe("the two halves the sentences stand in", () => {
+  it("names the object and the narrative, in that order", () => {
+    expect(THE_HALVES.map((half) => half.about)).toEqual(["an-object", "a-narrative"]);
+    expect(THE_HALVES.map((half) => half.heading)).toEqual(["The object", "The narrative"]);
+  });
+
+  it("holds every sentence exactly once, in the order the door offers them", () => {
+    expect(THE_HALVES.flatMap((half) => half.sentences)).toEqual([...THE_SENTENCES]);
+  });
+
+  it("puts the fact before the intention inside each half", () => {
+    expect(THE_HALVES.map((half) => half.sentences.map((one) => one.said))).toEqual([
+      ["bought", "wished"],
+      ["read", "wanted"],
+    ]);
+  });
+
+  // The halves are named for what they are about and never for what they write, which is the
+  // one thing #49 asks of the copy: *The object*, not *Volume and Wish*.
+  it("says what each half is about without naming a record", () => {
+    for (const half of THE_HALVES) {
+      expect(half.says).not.toBe("");
+
+      for (const word of ["Volume", "Story", "Wish", "Want", "Reading", "Acquisition"]) {
+        expect(`${half.heading} ${half.says}`).not.toContain(word);
+      }
+    }
+  });
+
+  it("reads which of the two a press is, off the halves rather than off a second pair", () => {
+    expect(THE_HALVES[0].sentences.map((one) => one.said)).toEqual(["bought", "wished"]);
+
+    expect(aboutAnObject("bought")).toBe(true);
+    expect(aboutAnObject("wished")).toBe(true);
+    expect(aboutAnObject("read")).toBe(false);
+    expect(aboutAnObject("wanted")).toBe(false);
   });
 });
 

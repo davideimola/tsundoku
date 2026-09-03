@@ -186,9 +186,21 @@ export const THE_FIELDS_A_REFUSAL_CARRIES = [
 /** One field a refused press carries, named by the list above rather than by hand. */
 export type CarriedField = (typeof THE_FIELDS_A_REFUSAL_CARRIES)[number];
 
+/**
+ * **Which of the two things a sentence is about**, which is the only division this screen has.
+ *
+ * `CONTEXT.md` states it as the two halves of the door: *an object they have or want*, or *a
+ * narrative they read or mean to read*. It is spelled as a fact about each sentence rather than
+ * as two hand-kept lists, so the grouping below is a reading of the four and never a second
+ * copy of them.
+ */
+export type WhatItIsAbout = "an-object" | "a-narrative";
+
 /** One of the four sentences, as the owner reads it and as the screen offers it. */
 export type Sentence = {
   readonly said: WhatWasSaid;
+  /** Which of the door's two halves it stands in. */
+  readonly about: WhatItIsAbout;
   /** The owner's own words, set in the serif that is reserved for them. */
   readonly sentence: string;
   /** What the library will record, in one line, because none of it is asked for. */
@@ -213,12 +225,17 @@ export type Sentence = {
  * The order is neither alphabetical nor the model's: it is **the two sentences about the object
  * first and the two about the narrative after**, because the door is opened in a shop far more
  * often than on a sofa and what is under the thumb there is a thing being held. Inside each
- * pair the fact comes before the intention — *bought* before *want to buy*, *read* before *want
+ * half the fact comes before the intention — *bought* before *want to buy*, *read* before *want
  * to read* — so the last of the four is the one that is furthest from having happened.
+ *
+ * That order is now also the grouping (`THE_HALVES`, #49), and this list stays flat: a panel is
+ * read against it, the acts are looked up off it, and a screen that regroups the four has one
+ * list to regroup rather than two to keep in step.
  */
 export const THE_SENTENCES: readonly Sentence[] = [
   {
     said: "bought",
+    about: "an-object",
     sentence: "I bought it.",
     records:
       "The object joins the catalogue and the house, along with the narratives you say are inside it.",
@@ -227,6 +244,7 @@ export const THE_SENTENCES: readonly Sentence[] = [
   },
   {
     said: "wished",
+    about: "an-object",
     sentence: "I want to buy it.",
     records:
       "The object joins the catalogue without joining the house, and a Wish for it joins the shopping list.",
@@ -235,6 +253,7 @@ export const THE_SENTENCES: readonly Sentence[] = [
   },
   {
     said: "read",
+    about: "a-narrative",
     sentence: "I read it.",
     records: "A pass through it, and no object at all — the digital case needs nothing more.",
     atLength:
@@ -242,6 +261,7 @@ export const THE_SENTENCES: readonly Sentence[] = [
   },
   {
     said: "wanted",
+    about: "a-narrative",
     sentence: "I want to read it.",
     records: "A Want, which joins the Reading list and falls quiet by itself once you have.",
     atLength:
@@ -252,4 +272,66 @@ export const THE_SENTENCES: readonly Sentence[] = [
 /** The sentence a `?panel=…` names, or nothing where it names none. */
 export function theSentence(panel: string | undefined): Sentence | undefined {
   return THE_SENTENCES.find((one) => one.said === panel);
+}
+
+/** One half of the door: what it is about, and the sentences that are about that. */
+export type Half = {
+  readonly about: WhatItIsAbout;
+  /**
+   * The heading the block stands under.
+   *
+   * **It names what the half is about and never what the half writes** — *The object*, not
+   * *Volume and Wish*. Which records get written is the panel's business and the sentence
+   * already says it in two lengths; a heading naming them would ask the owner to know the
+   * model before they can say what happened, which is the one thing this door was built to
+   * stop.
+   */
+  readonly heading: string;
+  /** The one line under it: which of the two things this is, in the words `CONTEXT.md` uses. */
+  readonly says: string;
+  readonly sentences: readonly Sentence[];
+};
+
+/** What each half is about, in the order the door offers them. */
+const WHAT_EACH_HALF_IS: readonly Omit<Half, "sentences">[] = [
+  {
+    about: "an-object",
+    heading: "The object",
+    says: "Something you have or want to have, and what is inside it.",
+  },
+  {
+    about: "a-narrative",
+    heading: "The narrative",
+    says: "Something you read or mean to read. It owes no object to anybody.",
+  },
+];
+
+/**
+ * **The four sentences in two named halves** (#49): the object, then the narrative.
+ *
+ * Same four and the same one press each — the grouping is what was missing, not fewer choices,
+ * and a fork above the sentences was refused because after choosing the owner would still have
+ * to say bought-or-wished, read-or-wanted.
+ *
+ * It is **derived from `THE_SENTENCES` rather than written out again**, which is the whole
+ * reason this is a table and not two arrays: the order inside each half is the order of the
+ * flat list, every sentence stands in exactly one half by the `about` it carries, and a fifth
+ * sentence added to the model appears under a heading without anybody remembering to add it
+ * twice. What would otherwise go wrong is silent — a sentence in neither half is a press the
+ * owner cannot reach on a screen that still renders perfectly.
+ */
+export const THE_HALVES: readonly Half[] = WHAT_EACH_HALF_IS.map((half) => ({
+  ...half,
+  sentences: THE_SENTENCES.filter((one) => one.about === half.about),
+}));
+
+/**
+ * Whether a sentence is about an object, and therefore whether its panel asks what the object
+ * is.
+ *
+ * Read off the sentence's own `about`, so the screen has one answer to *which of the two is
+ * this* rather than a heading saying one thing and a form asking another.
+ */
+export function aboutAnObject(said: WhatWasSaid): said is "bought" | "wished" {
+  return theSentence(said)?.about === "an-object";
 }
