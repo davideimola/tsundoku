@@ -47,7 +47,7 @@ import { openWish } from "./wish.ts";
 // or its photograph in front of them. An object proposed from outside may carry none, and that
 // door is the Inbox's rather than this one's.
 //
-// **The two sentences about a narrative name no narrative**, and it is not the same default: *I
+// **The default was never these two sentences' to lose**, and it is not the same default: *I
 // read it* and *I want to read it* have no object at all, so the title the owner typed **is** the
 // narrative rather than a guess about what an object holds.
 //
