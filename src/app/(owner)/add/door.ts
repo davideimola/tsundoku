@@ -302,7 +302,10 @@ const WHAT_EACH_HALF_IS: readonly Omit<Half, "sentences">[] = [
   {
     about: "a-narrative",
     heading: "The narrative",
-    says: "Something you read or mean to read. It owes no object to anybody.",
+    // *Owned or not* rather than *owes no object to anybody*, which is the glossary's phrase
+    // and is what the sentence under it already says at two lengths. What the heading adds is
+    // the fact the owner cannot read off either sentence: this half does not care.
+    says: "Something you read or mean to read, owned or not.",
   },
 ];
 
