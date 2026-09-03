@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
+import { PrototypeSwitcher } from "@/components/prototype-switcher";
 import { ScanAnIsbn } from "@/components/scan";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,8 @@ import {
   useOwnImage,
   writeNote,
 } from "./actions";
+// PROTOTYPE — throwaway, mounted behind `?variant=`. Delete with the file.
+import { PROTOTYPE_VARIANTS, TheContentsPrototype } from "./contents-prototype";
 import { THE_ISBN_FIELD, WHAT_THE_CATALOGUE_SAID } from "./panels";
 import {
   type Act,
@@ -196,6 +199,8 @@ export default async function VolumePage({
   const said = await searchParams;
   const refused = asked(said, "refused");
   const cover = asked(said, "cover");
+  // PROTOTYPE — absent on the shipped screen, which is what the switcher below is for.
+  const variant = asked(said, "variant");
   // Every Story is offerable: a Story the object already carries is filtered out here, so
   // the picker only ever proposes something that would change the record.
   const held = new Set(carried.map((story) => story.id));
@@ -370,150 +375,162 @@ export default async function VolumePage({
       </div>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Stories it holds</CardTitle>
-            <CardDescription className="text-pretty">
-              One object can hold several narratives, and each one is read and judged on its own.
-              The number beside a Story is that Story&apos;s — this object has none, and cannot have
-              one.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {carried.length === 0 ? (
-              <p className="max-w-prose text-pretty text-sm text-muted-foreground">
-                Nothing recorded yet. Say what is inside this object below, and it appears on each
-                Story too — it is one fact, read from both ends.
-              </p>
-            ) : (
-              <ul className="-my-1">
-                {carried.map((story) => (
-                  <li key={story.id} className="border-t border-border py-3 first:border-t-0">
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                      <Link
-                        href={`/stories/${story.id}`}
-                        className="min-w-0 flex-1 basis-full outline-none focus-visible:ring-2 focus-visible:ring-ring sm:basis-auto"
-                      >
-                        <span className="font-heading underline decoration-border underline-offset-4 hover:decoration-foreground">
-                          {story.title}
-                        </span>{" "}
-                        <span className="whitespace-nowrap font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-                          {story.type.name}
-                        </span>
-                      </Link>
+        {/* PROTOTYPE (?variant=) — the shipped card, or one of three variants of how the
+            Instalments a Volume holds are read back. Throwaway: `./contents-prototype.tsx`
+            and the switcher at the foot of the page go together. */}
+        {variant ? (
+          <TheContentsPrototype
+            volumeId={volume.id}
+            carried={carried}
+            inALine={volume.seriesNumber !== null}
+            variant={variant}
+          />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Stories it holds</CardTitle>
+              <CardDescription className="text-pretty">
+                One object can hold several narratives, and each one is read and judged on its own.
+                The number beside a Story is that Story&apos;s — this object has none, and cannot
+                have one.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {carried.length === 0 ? (
+                <p className="max-w-prose text-pretty text-sm text-muted-foreground">
+                  Nothing recorded yet. Say what is inside this object below, and it appears on each
+                  Story too — it is one fact, read from both ends.
+                </p>
+              ) : (
+                <ul className="-my-1">
+                  {carried.map((story) => (
+                    <li key={story.id} className="border-t border-border py-3 first:border-t-0">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <Link
+                          href={`/stories/${story.id}`}
+                          className="min-w-0 flex-1 basis-full outline-none focus-visible:ring-2 focus-visible:ring-ring sm:basis-auto"
+                        >
+                          <span className="font-heading underline decoration-border underline-offset-4 hover:decoration-foreground">
+                            {story.title}
+                          </span>{" "}
+                          <span className="whitespace-nowrap font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                            {story.type.name}
+                          </span>
+                        </Link>
 
-                      <span className="flex items-baseline gap-3">
-                        {/* Tabular, so three judgements of three narratives in one object line
+                        <span className="flex items-baseline gap-3">
+                          {/* Tabular, so three judgements of three narratives in one object line
                           up under each other and read as the three different numbers they
                           are. An em dash where the owner has judged nothing yet. */}
-                        <span className="w-10 text-right font-mono text-xs tabular-nums text-muted-foreground">
-                          {story.latestScore === null ? "—" : story.latestScore.toFixed(1)}
+                          <span className="w-10 text-right font-mono text-xs tabular-nums text-muted-foreground">
+                            {story.latestScore === null ? "—" : story.latestScore.toFixed(1)}
+                          </span>
+                          <form action={stopCarrying}>
+                            <input type="hidden" name="volumeId" value={volume.id} />
+                            <input type="hidden" name="storyId" value={story.id} />
+                            <Button
+                              type="submit"
+                              variant="ghost"
+                              size="sm"
+                              className="-mr-2.5 h-8 text-xs text-muted-foreground"
+                            >
+                              Not in here
+                            </Button>
+                          </form>
                         </span>
-                        <form action={stopCarrying}>
-                          <input type="hidden" name="volumeId" value={volume.id} />
-                          <input type="hidden" name="storyId" value={story.id} />
-                          <Button
-                            type="submit"
-                            variant="ghost"
-                            size="sm"
-                            className="-mr-2.5 h-8 text-xs text-muted-foreground"
-                          >
-                            Not in here
-                          </Button>
-                        </form>
-                      </span>
-                    </div>
+                      </div>
 
-                    {/* **What of the work is in this object**, and only where the work is
+                      {/* **What of the work is in this object**, and only where the work is
                         numbered at all — which is the minority of Stories and none of the
                         three in *L'uomo che ride*. Left to itself the range follows the
                         object's position in its line, so the boxes stand empty for every
                         tankōbon and are typed for the omnibus they exist for. */}
-                    {story.instalments === null ? null : (
-                      <CoveredRange volumeId={volume.id} story={story} />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+                      {story.instalments === null ? null : (
+                        <CoveredRange volumeId={volume.id} story={story} />
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-            {/* **The gesture the default is wrong about, offered from beside the list that is
+              {/* **The gesture the default is wrong about, offered from beside the list that is
                 wrong** (#38). One Volume, one Story is right for nearly every object here and
                 wrong for *L'uomo che ride*, which holds three tales scored apart — and the
                 only way to say so used to end at a strike, which is refused on a narrative an
                 object in the house carries. It is a link and not a press, because what it does
                 is open a form. */}
-            {splitting ? (
-              <p className="mt-5 max-w-prose text-pretty text-sm text-muted-foreground">
-                Three tales in one book, judged apart?{" "}
-                <Link
-                  href={panelled(volume.id, splitting.panel)}
-                  className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {splitting.label}.
-                </Link>
-              </p>
-            ) : null}
+              {splitting ? (
+                <p className="mt-5 max-w-prose text-pretty text-sm text-muted-foreground">
+                  Three tales in one book, judged apart?{" "}
+                  <Link
+                    href={panelled(volume.id, splitting.panel)}
+                    className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {splitting.label}.
+                  </Link>
+                </p>
+              ) : null}
 
-            {/* **A picker under the list it changes, and deliberately not a panel.** A drawer
+              {/* **A picker under the list it changes, and deliberately not a panel.** A drawer
                 is for a form the owner *opened*; this one is a correction made while reading
                 the list above it, in one press, and the Story's own page carries the same
                 fact from the other end in exactly the same shape (#29). An id is never typed,
                 so the Story is chosen: a native select opens the platform picker on a phone
                 and submits without JavaScript. */}
-            <form
-              action={carry}
-              className="mt-6 grid gap-3 border-t border-border pt-5 sm:grid-cols-[1fr_auto] sm:items-end"
-            >
-              <input type="hidden" name="volumeId" value={volume.id} />
-              <div className="grid gap-1.5">
-                <Label htmlFor="carry-story" className="text-xs text-muted-foreground">
-                  A Story inside this object
-                </Label>
-                <select
-                  id="carry-story"
-                  name="storyId"
-                  required
-                  disabled={offerable.length === 0}
-                  defaultValue=""
-                  className={PICKER}
-                >
-                  <option value="" disabled>
-                    {offerable.length === 0 ? "Every Story is already in here" : "Choose a Story"}
-                  </option>
-                  {offerable.map((story) => (
-                    <option key={story.id} value={story.id}>
-                      {story.title} — {story.type.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <Button
-                type="submit"
-                disabled={offerable.length === 0}
-                className="h-11 w-full sm:h-10 sm:w-auto sm:px-6"
+              <form
+                action={carry}
+                className="mt-6 grid gap-3 border-t border-border pt-5 sm:grid-cols-[1fr_auto] sm:items-end"
               >
-                Record it
-              </Button>
-              {/* **The sentence that used to be a detour, and is now a door** (#33). It read
+                <input type="hidden" name="volumeId" value={volume.id} />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="carry-story" className="text-xs text-muted-foreground">
+                    A Story inside this object
+                  </Label>
+                  <select
+                    id="carry-story"
+                    name="storyId"
+                    required
+                    disabled={offerable.length === 0}
+                    defaultValue=""
+                    className={PICKER}
+                  >
+                    <option value="" disabled>
+                      {offerable.length === 0 ? "Every Story is already in here" : "Choose a Story"}
+                    </option>
+                    {offerable.map((story) => (
+                      <option key={story.id} value={story.id}>
+                        {story.title} — {story.type.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  type="submit"
+                  disabled={offerable.length === 0}
+                  className="h-11 w-full sm:h-10 sm:w-auto sm:px-6"
+                >
+                  Record it
+                </Button>
+                {/* **The sentence that used to be a detour, and is now a door** (#33). It read
                   *record the Story first if it is not in the list*, and the trip it described —
                   the Story wall, a form, then finding this object again — is where the second
                   narrative of a volume stopped being recorded at all. The panel it opens
                   creates the Story *and* records it in here, in one act, because that is one
                   fact with two halves (`@/core/verbs/story`). */}
-              <p className="max-w-prose text-xs text-muted-foreground sm:col-span-2">
-                A Story spanning twenty objects is recorded twenty times, once on each. Being read
-                and being owned are separate facts, and so are the two records.{" "}
-                <Link
-                  href={panelled(volume.id, THE_STORY_ACT.panel)}
-                  className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Not in the list? Record it from here.
-                </Link>
-              </p>
-            </form>
-          </CardContent>
-        </Card>
+                <p className="max-w-prose text-xs text-muted-foreground sm:col-span-2">
+                  A Story spanning twenty objects is recorded twenty times, once on each. Being read
+                  and being owned are separate facts, and so are the two records.{" "}
+                  <Link
+                    href={panelled(volume.id, THE_STORY_ACT.panel)}
+                    className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Not in the list? Record it from here.
+                  </Link>
+                </p>
+              </form>
+            </CardContent>
+          </Card>
+        )}
 
         <TheEditionNote act={noting} volume={volume} note={note} />
       </div>
@@ -745,6 +762,7 @@ export default async function VolumePage({
           </form>
         </Drawer>
       ) : null}
+      {variant ? <PrototypeSwitcher variants={PROTOTYPE_VARIANTS} current={variant} /> : null}
     </main>
   );
 }
