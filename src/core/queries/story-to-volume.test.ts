@@ -12,6 +12,7 @@ import {
   listStoriesInVolume,
   listStoriesInVolumes,
   listStoriesNotInVolume,
+  listStoriesToOffer,
   listVolumesCarryingStory,
 } from "./story-to-volume.ts";
 
@@ -523,5 +524,109 @@ describe("the Stories an object does not carry", () => {
 
     expect(await listStoriesNotInVolume("00000000-0000-4000-8000-000000000000")).toEqual([]);
     expect(await listStoriesNotInVolume("banana")).toEqual([]);
+  });
+});
+
+// **THE SAME FIELD, ON AN OBJECT THAT DOES NOT EXIST YET** (#48, ADR-0019).
+//
+// At cataloguing time the one field under the rows searches the same catalogue and bands it
+// the same way, and there is no Volume to ask *not in that* about: the object is being written
+// in the submission this list feeds. So what is excluded is what the owner has already named
+// in the screen they are standing in, which they hold as rows rather than as links.
+describe("the Stories the field offers while an object is being catalogued", () => {
+  async function aLibrary() {
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 21,
+      status: "concluded",
+    });
+
+    const stories: Record<string, string> = {};
+    for (const number of [2, 10, 1]) {
+      const tankobon = await volumeInTheHouse({
+        title: `Slam Dunk ${number}`,
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      });
+      await placeVolumeInSeries({ volumeId: tankobon, seriesId, number });
+      const storyId = await createStory({ title: `Slam Dunk ${number}`, typeId: "manga" });
+      await recordVolumeCarriesStory(tankobon, storyId);
+      stories[`Slam Dunk ${number}`] = storyId;
+    }
+
+    stories["Gotham Noir"] = await createStory({ title: "Gotham Noir", typeId: "comic" });
+    return { seriesId, stories };
+  }
+
+  it("offers the whole catalogue, in the order a run is read in", async () => {
+    await aLibrary();
+
+    expect((await listStoriesToOffer()).map((story) => story.title)).toEqual([
+      "Slam Dunk 1",
+      "Slam Dunk 2",
+      "Slam Dunk 10",
+      "Gotham Noir",
+    ]);
+  });
+
+  it("leaves out the ones the owner has already named in the screen", async () => {
+    const { stories } = await aLibrary();
+
+    expect(
+      (await listStoriesToOffer({ except: [stories["Slam Dunk 1"], stories["Gotham Noir"]] })).map(
+        (story) => story.title
+      )
+    ).toEqual(["Slam Dunk 2", "Slam Dunk 10"]);
+  });
+
+  it("narrows to what was typed, folding accents and ignoring case", async () => {
+    await aLibrary();
+    await createStory({ title: "Perché no", typeId: "novel" });
+
+    expect((await listStoriesToOffer({ title: "slam dunk 1" })).map((s) => s.title)).toEqual([
+      "Slam Dunk 1",
+      "Slam Dunk 10",
+    ]);
+    expect((await listStoriesToOffer({ title: "perche" })).map((s) => s.title)).toEqual([
+      "Perché no",
+    ]);
+  });
+
+  // The band and the tint the walls taught come off the same two facts here as they do on a
+  // Volume's own page, because it is the same answer to the same question.
+  it("carries the line each Story stands in, and where it stands in it", async () => {
+    const { seriesId } = await aLibrary();
+
+    expect(await listStoriesToOffer({ title: "slam dunk" })).toEqual([
+      expect.objectContaining({ series: expect.objectContaining({ id: seriesId }), standsAt: 1 }),
+      expect.objectContaining({ standsAt: 2 }),
+      expect.objectContaining({ standsAt: 10 }),
+    ]);
+  });
+
+  it("stands what is in no line after what is, and says so with nothing", async () => {
+    await aLibrary();
+
+    expect((await listStoriesToOffer({ title: "gotham" })).at(-1)).toMatchObject({
+      title: "Gotham Noir",
+      series: null,
+      standsAt: null,
+      type: { id: "comic", name: "Comic" },
+    });
+  });
+
+  // An id that is not one is the same event as one naming nothing, for the reason every
+  // question in this file gives: it came off a screen rather than off a keyboard.
+  it("ignores a named id that is not an id, rather than answering with nothing at all", async () => {
+    await aLibrary();
+
+    expect((await listStoriesToOffer({ except: ["banana"] })).map((s) => s.title)).toEqual([
+      "Slam Dunk 1",
+      "Slam Dunk 2",
+      "Slam Dunk 10",
+      "Gotham Noir",
+    ]);
   });
 });
