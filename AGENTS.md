@@ -107,13 +107,24 @@ produced is on the shelves — twenty-two Volumes against twenty-one Stories.
 
 Two rules hold it together, and both are `CONTEXT.md`'s rather than the screen's. **A Story is
 never something the owner creates**: it appears because something was said about a title, so
-the default is one Volume, one Story and nobody is ever asked which of the two they are
-recording. And **the one thing that overrides that default is the owner's own arrow**: a Series
-that says which Story it publishes takes a joining object into that work rather than minting a
-twenty-first narrative (#39), which is why the Series picker is on both object panels — the
-moment the object is in front of the owner is the moment its line is known, paid for or not.
-The *position* is the half only *I bought it* asks for: a position of a Series is filled by what
-is on the shelf, so a volume only wished for reads the arrow and is placed when it comes home.
+nobody is ever asked which of the two they are recording. And **the default is shown rather than
+written** (#48, ADR-0019): the two sentences about an object name the narratives inside it in
+the same submission, in a list that arrives with one row already in it — the Story the line
+publishes where there is a line, the volume's own title where there is not — and that row can be
+renamed, taken off or added to before pressing. The verb no longer mints anything from a
+volume's title on its own, and **an object the owner catalogues by hand carries at least one
+narrative**: emptying the list refuses the press, in the verb's own words. An object proposed
+from outside may carry none, and that is a gap the library shows rather than a state it refuses.
+
+**The one thing that ever overrode the default is the owner's own arrow**, and it is now what
+the shown row usually says: a Series that says which Story it publishes takes a joining object
+into that work rather than minting a twenty-first narrative (#39), which is why the Series
+picker is on both object panels — the moment the object is in front of the owner is the moment
+its line is known, paid for or not. The *position* is the half only *I bought it* asks for: a
+position of a Series is filled by what is on the shelf, so an object only wished for takes none
+and the placement waits for it to come home. Because the placement is what writes the arrow's
+link, taking that row off is what takes the link back off with it — otherwise the row the owner
+was shown would be one they could not correct.
 
 The verb is a file named after the sentence rather than after an area, for `queries/finder.ts`'s
 reason: it reaches the Collection, the Story and the Want at once, and it composes those areas'

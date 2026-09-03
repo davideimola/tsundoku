@@ -7,7 +7,7 @@ import { acquireVolume, type CataloguedVolume, catalogueVolume } from "./collect
 import { recordReading } from "./reading.ts";
 import { placeVolumeInSeries } from "./series.ts";
 import { createStory } from "./story.ts";
-import { recordVolumeCarriesStory } from "./story-to-volume.ts";
+import { recordVolumeCarriesStory, recordVolumeNoLongerCarriesStory } from "./story-to-volume.ts";
 import { openWant } from "./want.ts";
 import { openWish } from "./wish.ts";
 
@@ -26,16 +26,37 @@ import { openWish } from "./wish.ts";
 // Volumes against twenty-one Stories, hand-kept and already out of step (#34).
 //
 // **The rule that makes one door possible is `CONTEXT.md`'s**: *a Story is what you would give
-// a score to*, and it is **never asked at cataloguing time** — the default is one Volume, one
-// Story. So the owner is never asked whether they are creating a Story or a Volume, because
-// the answer is always *both*, and the two gestures that carry the exceptions (split, merge)
-// are said later about records that already exist.
+// a score to*, and at the moment of cataloguing the owner is **not asked to decide it: they are
+// shown the answer already written**. So they are still never asked whether they are creating a
+// Story or a Volume, because the answer is always *both*.
 //
-// **The one thing that overrides the default is the owner's own arrow** (#39): where the Series
-// says which Story it publishes, an object joining that line joins the work already there
-// rather than minting a twenty-first narrative. That is not this verb deciding — it is
-// `placeVolumeInSeries` reading a fact the owner stated once, and this verb noticing that a
-// Story is already carried and not making a second one.
+// **The default is no longer written here, and that is the whole of #48** (ADR-0019). This file
+// used to mint a Story from the volume's *title* whenever no line had named a work — the one
+// place *one Volume, one Story* was written down — and it fired exactly where it was least
+// likely to be true: with a line the object joined the work the line publishes, so the only
+// objects the default ever reached were the omnibus, the graphic novel and the novel. On a
+// novel it is right. On *Batman: Il lungo Halloween* it minted a narrative named after the
+// jacket, for an object holding three tales named nothing like it.
+//
+// What replaces it is not its removal. **The two sentences about an object now name the
+// narratives it holds**, and the screen is what arrives with the default standing in it — the
+// Story the line publishes where there is a line, the volume's own title where there is not —
+// so the ordinary case still costs nothing and the omnibus costs one gesture. What this verb
+// gained is a list and one refusal: **an object the owner catalogues with their own hands
+// carries at least one narrative**, because when their own hands are on it they have the object
+// or its photograph in front of them. An object proposed from outside may carry none, and that
+// door is the Inbox's rather than this one's.
+//
+// **The two sentences about a narrative are untouched**, and it is not the same default: *I read
+// it* and *I want to read it* have no object at all, so the title the owner typed **is** the
+// narrative rather than a guess about what an object holds.
+//
+// **The owner's own arrow is still read, and it can now be overruled** (#39). Where the Series
+// says which Story it publishes, `placeVolumeInSeries` attaches that work to the object joining
+// the line — a fact the owner stated once, written by that verb inside its own placement. The
+// screen shows it as the row already standing, and where the owner takes that row off this verb
+// takes the link back off with it: what an object carries is what was named in the submission,
+// and a row shown and removed that came back anyway would make the shown default a lie.
 //
 // **It composes the verbs and writes no SQL of its own but one read.** Every refusal the owner
 // can meet here — a Binding this library does not know, a blank publisher, a position of the
@@ -73,7 +94,35 @@ export type WhatWasSaid = "bought" | "read" | "wanted" | "wished";
  * typed or what the barcode came back with — and a shape that asked for it twice would be a
  * shape two callers could disagree with themselves in.
  */
-type TheObjectItself = Omit<CataloguedVolume, "title">;
+type TheObjectItself = Omit<CataloguedVolume, "title"> & {
+  /**
+   * **The narratives inside it, as the owner named them**, and at least one of them.
+   *
+   * This is where the silent default went (ADR-0019). It is a list because *L'uomo che ride*
+   * holds three tales judged apart, and it is required because the two sentences that reach
+   * this shape are the owner's own hands on an object they are looking at — an object
+   * carrying nothing is a gap the library shows, and the door it arrives through is the
+   * Inbox's rather than this one's.
+   *
+   * Named in the order they were said, which is the order they are recorded in and no order
+   * at all afterwards: what an object holds is read back by title.
+   */
+  holds: readonly ANarrativeItHolds[];
+};
+
+/**
+ * One narrative inside an object: **one the library already holds, or a title it has never
+ * heard of.**
+ *
+ * The two are one gesture on the screen — the same field searches and mints — and they are two
+ * things here because only one of them creates a record. A Story named by id is linked; a title
+ * is minted and then linked, in this same transaction.
+ */
+export type ANarrativeItHolds =
+  /** A Story the library holds, by id: the row the field found, or the one the line publishes. */
+  | { readonly storyId: string }
+  /** A title the library does not hold, to be minted inside this object. */
+  | { readonly title: string };
 
 /**
  * The object in the owner's hands: what it is, that it came home, and where it stands in a
@@ -112,14 +161,15 @@ export type TheObjectInHand = TheObjectItself & {
  * The prices are two and not one because a shop is two numbers: what it should cost, decided
  * at a desk, and what it costs on the shelf in front of the owner.
  *
- * **The line is here and the position is not**, which is the one place the two object
- * sentences genuinely differ about the arrow. A *position* of a Series is filled by an object
- * on the shelf — the ledger is measured against what is in the house, and the schema says the
- * same thing in `volume_in_a_series_has_a_number`, so a volume nobody owns yet holds neither
- * half. But *which line this is* is known the moment the object is in front of the owner, and
- * on a line that names a work that fact is what keeps a wished-for twenty-second tankōbon from
- * minting a twenty-second narrative (#39). So the line is read for its arrow and written
- * nowhere: the position, and with it the placement, waits for the object to come home.
+ * **Neither the line nor the position is here, and that is #48's doing.** A *position* of a
+ * Series is filled by an object on the shelf — the ledger is measured against what is in the
+ * house, and the schema says the same thing in `volume_in_a_series_has_a_number` — so a volume
+ * nobody owns yet holds neither half, and there was never a placement to make. What the line
+ * *was* read for here was its arrow, so that a wished-for twenty-second tankōbon did not mint a
+ * twenty-second narrative (#39); the owner now names that work themselves, in `holds`, off a
+ * row the screen stood in front of them. So this sentence has nothing left to do with a Series:
+ * the picker still decides what the row says, and what arrives here is the answer rather than
+ * the question.
  */
 export type TheObjectToBuy = TheObjectItself & {
   /** 1 next, 2 soon, 3 someday — the shopping list's own three, and the picker's. */
@@ -130,15 +180,6 @@ export type TheObjectToBuy = TheObjectItself & {
   priceFound?: string | null;
   /** Where that price was — a name the owner reads, not a vocabulary. */
   shop?: string | null;
-  /**
-   * Which line it is one of, where the owner knows.
-   *
-   * **The arrow and nothing else.** A line that names a Story hands the object that narrative
-   * exactly as buying it would; a line that names none changes nothing at all here, because
-   * there is no position to record until the object is on the shelf — which is why this is a
-   * Series and not a Series and a number.
-   */
-  inSeries?: { seriesId: string } | null;
 };
 
 /**
@@ -159,49 +200,73 @@ export type WhatHappened = { title: string; typeId: string } & (
 
 /** What the library recorded, so the door knows where to land the owner. */
 export type WhatWasRecorded = {
-  /** The narrative the sentence was about, minted here or already the line's. */
-  storyId: string;
+  /**
+   * The narratives the sentence ended with, in the order they were named.
+   *
+   * **A list rather than one**, since an object names what it holds: *L'uomo che ride* ends
+   * with three. The two sentences about a narrative end with exactly one, which is the title
+   * itself, and it is the first and only entry.
+   */
+  storyIds: string[];
   /** The object, where the sentence had one. */
   volumeId: string | null;
   /**
-   * Whether the Story appeared here, or the object joined the work its line already publishes.
+   * Which of them **appeared here** rather than already standing in the library.
    *
    * The screen says which, because they are two different things to have happened: *Slam Dunk
    * 21 is on the shelf and is Slam Dunk* is not the same sentence as *there is a new narrative
-   * in the library*.
+   * in the library*. It is a list for the reason above it — an omnibus may name one work the
+   * library held and two it did not, in one submission.
    */
-  storyAppeared: boolean;
+  appeared: string[];
 };
 
 /** The prose for a sentence with nothing in it. Every other refusal is a verb's own. */
 const NOTHING_WAS_SAID = "Say what it is called first — a title, or the barcode on the back.";
 
-// A Series id comes from a picker or from a line the owner declared, never typed, so a
-// malformed one is the same event as an unknown one — and `where id = 'banana'` on a uuid
-// column raises a syntax error, which is a 500 rather than an answer. The prose is
-// `series.ts`'s, verbatim, because the owner meets the same sentence whichever door refuses.
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const NO_SUCH_SERIES = "No Series has that id.";
+/**
+ * The prose for an object the owner catalogued and said nothing about the inside of.
+ *
+ * **The one refusal this file owns beside the blank title**, and it is ADR-0019's consequence
+ * rather than a rule about a table: nothing in the schema refuses an object carrying nothing —
+ * one proposed from outside arrives with none, and one catalogued from a photograph may wait
+ * for its contents. What is refused is the *owner's own hands* doing it, because they are
+ * looking at the object.
+ */
+const NOTHING_INSIDE_IT =
+  "An object you catalogue by hand carries at least one narrative. Name what is inside it — the line's work, its own title, or whatever the library already holds.";
 
 /**
  * Say what happened to a title, and let the library work out what to record.
  *
  * *I bought it* records the object, says it is in the house, places it in its line where the
- * owner named one, and the narrative appears by itself. *I want to buy it* records the same
- * object and opens a Wish on it instead of an acquisition: it is catalogued and it is not
- * owned, which is the pair of facts ADR-0007 exists to keep apart. *I read it* records a
- * Reading and no object. *I want to read it* opens a Want. All four end with a Story, because a
- * Story is the spine and nobody creates one on purpose.
+ * owner named one, and records the narratives they said are inside it. *I want to buy it*
+ * records the same object and opens a Wish on it instead of an acquisition: it is catalogued
+ * and it is not owned, which is the pair of facts ADR-0007 exists to keep apart. *I read it*
+ * records a Reading and no object. *I want to read it* opens a Want. All four end with a Story,
+ * because a Story is the spine and nobody creates one on purpose.
  *
- * Returns what was recorded. Refused by the verbs it composes, in their own words.
+ * Returns what was recorded. Refused by the verbs it composes, in their own words, and by the
+ * two sentences this file owns: a title with nothing in it, and an object the owner catalogued
+ * without saying what is inside it.
  */
 export async function sayWhatHappened(happened: WhatHappened): Promise<WhatWasRecorded> {
   const title = happened.title.trim();
   if (title === "") throw new Refusal("invalid", NOTHING_WAS_SAID);
 
+  // Refused before anything is opened, because it is a sentence about what was said rather
+  // than about what the database holds — and the transaction below has nothing to roll back.
+  if (
+    (happened.said === "bought" || happened.said === "wished") &&
+    happened.object.holds.length === 0
+  ) {
+    throw new Refusal("invalid", NOTHING_INSIDE_IT);
+  }
+
   return transaction(async (run) => {
     let volumeId: string | null = null;
-    let storyId: string | null = null;
+    const storyIds: string[] = [];
+    const appeared: string[] = [];
 
     // **The two sentences that are about an object catalogue one, and only one of them says it
     // came home.** What a thing is does not depend on having been paid for — the same six facts
@@ -228,17 +293,15 @@ export async function sayWhatHappened(happened: WhatHappened): Promise<WhatWasRe
           },
           run
         );
-
-        // **The arrow, read on a line the object has not joined.** For *I bought it* the
-        // placement reads it, and there is no placement here — so it is asked directly, in the
-        // same transaction, and the answer is used for the same thing: the line's work rather
-        // than a new one, and the object recorded as carrying it. What is not written is the
-        // position, and that is the whole of the difference (`TheObjectToBuy`).
-        if (happened.object.inSeries) {
-          storyId = await theStoryTheLinePublishes(happened.object.inSeries.seriesId, run);
-          if (storyId) await recordVolumeCarriesStory(catalogued.id, storyId, run);
-        }
       }
+
+      /**
+       * What the placement's arrow attached, where there was a placement and the line names a
+       * work. It is what the row already standing in the screen's list was, so it is usually
+       * named again below and nothing comes of this; where the owner took that row off, this
+       * is the link that has to go with it.
+       */
+      let theArrowAttached: string | null = null;
 
       if (happened.said === "bought") {
         // Two acts in one breath, and this is the one place they genuinely coincide (ADR-0007):
@@ -265,20 +328,51 @@ export async function sayWhatHappened(happened: WhatHappened): Promise<WhatWasRe
           // **Read back rather than reasoned about.** The placement attaches the line's Story
           // where the line names one, and asking the row is how this verb finds out — a second
           // copy of the condition here would be a rule in two files, and the one that matters is
-          // `series.story_id`, which the placement already read inside this transaction.
-          storyId = await theStoryTheObjectAlreadyCarries(catalogued.id, run);
+          // `series.story_id`, which the placement already read inside this transaction. Nothing
+          // else has written a link yet, so what is in there is the arrow's and only the arrow's.
+          theArrowAttached = await theStoryTheObjectAlreadyCarries(catalogued.id, run);
         }
+      }
+
+      // **The narratives, as the owner named them** (ADR-0019). A Story the library holds is
+      // linked; a title it has never heard of is minted first and linked after, in this same
+      // transaction — which is what `createStoryCarriedBy` does for one narrative on an object
+      // that already exists, and what cannot be delegated to it here because the object is
+      // being written in this same breath.
+      for (const named of happened.object.holds) {
+        if ("storyId" in named) {
+          storyIds.push(named.storyId);
+          await recordVolumeCarriesStory(volumeId, named.storyId, run);
+          continue;
+        }
+
+        const minted = await createStory({ title: named.title, typeId: happened.typeId }, run);
+        storyIds.push(minted);
+        appeared.push(minted);
+        await recordVolumeCarriesStory(volumeId, minted, run);
+      }
+
+      // **The row the owner took off, taken off.** The arrow is the owner's own fact and it is
+      // read exactly as before; what is new is that the screen showed them the row it produces,
+      // and a row shown and removed that came back anyway would make the shown default a lie.
+      // It is not a set being reconciled — this is one link, written by one statement in this
+      // same transaction, on an object nobody has seen yet.
+      if (theArrowAttached && !storyIds.includes(theArrowAttached)) {
+        await recordVolumeNoLongerCarriesStory(volumeId, theArrowAttached, run);
       }
     }
 
-    // **The default, and the only place it is written down**: one Volume, one Story. It
-    // applies unless the line has already answered, which is the single exception and the
-    // owner's own (#39).
-    const appeared = storyId === null;
-    if (storyId === null) {
-      storyId = await createStory({ title, typeId: happened.typeId }, run);
-      if (volumeId) await recordVolumeCarriesStory(volumeId, storyId, run);
+    // **The two sentences about a narrative, where the title *is* the work.** No object, so
+    // nothing was shown and nothing is guessed: the owner typed the name of the thing they read
+    // or mean to read, and this is it.
+    if (happened.said === "read" || happened.said === "wanted") {
+      const minted = await createStory({ title, typeId: happened.typeId }, run);
+      storyIds.push(minted);
+      appeared.push(minted);
     }
+
+    const [storyId] = storyIds;
+    if (!storyId) throw new Error("sayWhatHappened ended with no narrative");
 
     if (happened.said === "read") {
       // **A pass through no object, which is what *I read it* means at this door.** There is no
@@ -299,31 +393,8 @@ export async function sayWhatHappened(happened: WhatHappened): Promise<WhatWasRe
       await openWant(storyId, run);
     }
 
-    return { storyId, volumeId, storyAppeared: appeared };
+    return { storyIds, volumeId, appeared };
   });
-}
-
-/**
- * The narrative a line publishes, where it names one, and a refusal where the line is not one.
- *
- * **The second statement this file owns, and the same kind of question as the first**: what
- * does the arrow point at. It is asked only by *I want to buy it*, because every other path to
- * a line goes through `placeVolumeInSeries`, which reads it inside its own placement — and a
- * verb that placed nothing had nothing to read it with.
- *
- * The refusal is `series.ts`'s own words, because it is the same event: a line the owner picked
- * that the library does not have.
- */
-async function theStoryTheLinePublishes(seriesId: string, run: Executor): Promise<string | null> {
-  if (!UUID.test(seriesId)) throw new Refusal("not-found", NO_SUCH_SERIES);
-
-  const [line] = await run<{ storyId: string | null }>(
-    `select story_id as "storyId" from series where id = $1`,
-    [seriesId]
-  );
-
-  if (!line) throw new Refusal("not-found", NO_SUCH_SERIES);
-  return line.storyId;
 }
 
 /** The narrative this object is already recorded as carrying, where a line handed it one. */

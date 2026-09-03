@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
 import { createStory } from "../verbs/story.ts";
-import { listTypes, theTypeToOffer } from "./type.ts";
+import { listTypes, theTypeEachBindingOffers, theTypeToOffer } from "./type.ts";
 
 // The five are ADR-0006's, read off `CONTEXT.md` rather than off the migration: if
 // this test and the schema ever disagree, the glossary is the one that is right.
@@ -51,5 +51,42 @@ describe("the Type a new narrative is offered", () => {
 
   it("guesses from the Binding on an empty library, which is the whole of its usefulness", async () => {
     expect(await theTypeToOffer("tankobon")).toBe("manga");
+  });
+});
+
+// **The same answer, before the Binding has been chosen** (#48). At cataloguing time the
+// Binding is a picker in the very form the narrative is being named in, so the offer cannot be
+// asked for one Binding — it has to arrive for all of them, and the screen reads off it as the
+// owner turns the picker.
+describe("the Type each Binding offers", () => {
+  beforeEach(async () => {
+    await query("truncate story cascade");
+  });
+
+  it("answers for every Binding asked about, and for no Binding at all", async () => {
+    await createStory({ title: "Gotham Noir", typeId: "comic" });
+
+    expect(await theTypeEachBindingOffers(["tankobon", "stapled", "hardcover"])).toEqual({
+      "": "comic",
+      tankobon: "manga",
+      stapled: "comic",
+      hardcover: "comic",
+    });
+  });
+
+  it("agrees with the one-Binding question it is the batch of", async () => {
+    await createStory({ title: "Neuromancer", typeId: "novel" });
+
+    const offers = await theTypeEachBindingOffers(["tankobon", "must-have"]);
+    expect(offers.tankobon).toBe(await theTypeToOffer("tankobon"));
+    expect(offers["must-have"]).toBe(await theTypeToOffer("must-have"));
+    expect(offers[""]).toBe(await theTypeToOffer(null));
+  });
+
+  it("offers nothing where the library has nothing to go on and the Binding decides nothing", async () => {
+    expect(await theTypeEachBindingOffers(["hardcover"])).toEqual({
+      "": null,
+      hardcover: null,
+    });
   });
 });

@@ -63,12 +63,48 @@ const WHAT_A_BINDING_DECIDES: Readonly<Record<string, string>> = {
  * moment an object is catalogued and there is no Volume yet to ask about.
  */
 export async function theTypeToOffer(bindingId: string | null): Promise<string | null> {
-  const decided = bindingId === null ? undefined : WHAT_A_BINDING_DECIDES[bindingId];
-  if (decided) return decided;
+  return whatABindingDecides(bindingId) ?? (await theLastTypeUsed());
+}
 
-  // The last Type the owner reached for, which is what makes an evening of six Must Haves
-  // one choice instead of six. Newest first, and the id breaks a tie between two Stories
-  // written in the same instant so that the answer is the same on every read.
+/**
+ * The same answer for **every Binding at once**, keyed by Binding id, with the empty string
+ * for no Binding at all.
+ *
+ * It exists because of the one place the question is asked *before* it can be answered: at
+ * cataloguing time the Binding is a picker standing in the very form the narrative is being
+ * named in (#48), so the screen cannot ask about the Binding the owner chose — it has to be
+ * handed the whole table and read off it as they turn the picker. One statement rather than
+ * one per Binding, and the rule stays where it is: this is the same two sources in the same
+ * order as the question above, which is why they are tested against each other.
+ *
+ * A Binding this library does not know is answered for anyway, with the fallback. Nothing
+ * here validates one — what a Binding is is `queries/binding.ts`, and what refuses one that
+ * is not is `catalogueVolume`.
+ */
+export async function theTypeEachBindingOffers(
+  bindingIds: readonly string[]
+): Promise<Record<string, string | null>> {
+  const otherwise = await theLastTypeUsed();
+  const offers: Record<string, string | null> = { "": otherwise };
+
+  for (const bindingId of bindingIds) {
+    offers[bindingId] = whatABindingDecides(bindingId) ?? otherwise;
+  }
+
+  return offers;
+}
+
+/** What the object in the owner's hands decides, where it decides anything. */
+function whatABindingDecides(bindingId: string | null): string | null {
+  return (bindingId === null ? undefined : WHAT_A_BINDING_DECIDES[bindingId]) ?? null;
+}
+
+/**
+ * The last Type the owner reached for, which is what makes an evening of six Must Haves one
+ * choice instead of six. Newest first, and the id breaks a tie between two Stories written in
+ * the same instant so that the answer is the same on every read.
+ */
+async function theLastTypeUsed(): Promise<string | null> {
   const [last] = await query<{ typeId: string }>(
     `select type_id as "typeId" from story order by created_at desc, id desc limit 1`
   );

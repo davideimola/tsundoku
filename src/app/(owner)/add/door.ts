@@ -221,9 +221,9 @@ export const THE_SENTENCES: readonly Sentence[] = [
     said: "bought",
     sentence: "I bought it.",
     records:
-      "The object joins the catalogue and the house, and the narrative it carries appears with it.",
+      "The object joins the catalogue and the house, along with the narratives you say are inside it.",
     atLength:
-      "The object joins the catalogue and the house in one act. A line that names a work takes the object into that work; every other object gets its own narrative, which is the default and is never asked about. Leave the price and the day empty where the receipt is gone.",
+      "The object joins the catalogue and the house in one act, with whatever is inside it. One narrative is already named for you — the work the line publishes, or the object's own title — and you can type over it, take it off or add to it: an omnibus holds three, and none of them is called what the jacket is. Leave the price and the day empty where the receipt is gone.",
   },
   {
     said: "wished",
@@ -231,7 +231,7 @@ export const THE_SENTENCES: readonly Sentence[] = [
     records:
       "The object joins the catalogue without joining the house, and a Wish for it joins the shopping list.",
     atLength:
-      "The object is recorded and the shopping list gains it — catalogued is not owned, so nothing here says it came home and there is nothing to undo when you decide against it. A line that names a work takes the object into that work, exactly as buying it would; which position it is waits until it is on the shelf. Nothing about reading follows either — wanting the object and wanting to read the work are two sentences, and this is the one about the object.",
+      "The object is recorded and the shopping list gains it — catalogued is not owned, so nothing here says it came home and there is nothing to undo when you decide against it. What is inside it is named here exactly as it is when you buy it, and a line that names a work stands that work in the list rather than minting a second one; which position it is waits until it is on the shelf. Nothing about reading follows either — wanting the object and wanting to read the work are two sentences, and this is the one about the object.",
   },
   {
     said: "read",

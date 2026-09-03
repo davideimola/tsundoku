@@ -283,22 +283,12 @@ export type StoryOnOffer = {
   standsAt: number | null;
 };
 
-/**
- * The Stories this object does not carry, narrowed by what the owner has typed.
- *
- * Standing in the order a run is read in: the line, its edition, the position, then the
- * title. What is in no line comes last, which is where it stands on a shelf too.
- *
- * An object the library does not know answers with nothing rather than with the whole
- * catalogue — *not in that* is not an answer about an object that is not there — and a
- * malformed id is the same event, for the reason every verb here gives.
- */
-export async function listStoriesNotInVolume(
-  volumeId: string,
-  filter: { title?: string } = {}
-): Promise<StoryOnOffer[]> {
-  if (!UUID.test(volumeId)) return [];
-
+// The statement both askings of the field spend, and the whole of what they share: the
+// columns a band is drawn from, and **the order a run is read in** — the line, its edition,
+// the position, then the title, with what is in no line last, which is where it stands on a
+// shelf too. `$1` is the title typed, or null; what is left out is the caller's own `where`,
+// because that is the only thing the two moments disagree about.
+function whatTheFieldOffers(unless: string, values: readonly unknown[]): Promise<StoryOnOffer[]> {
   return query<StoryOnOffer>(
     `select c.*
        from (
@@ -312,20 +302,63 @@ export async function listStoriesNotInVolume(
                   where vs.story_id = s.id) as "standsAt"
            from story s
            join type t on t.id = s.type_id
-          -- The object has to exist for *not in it* to be an answer. Uncorrelated, so it is
-          -- decided once rather than per Story.
-          where exists (select 1 from volume v where v.id = $1)
-            and not exists (select 1 from volume_story vs
-                             where vs.volume_id = $1 and vs.story_id = s.id)
-            and ($2::text is null
-                 or strpos(lower(unaccent(s.title)), lower(unaccent($2))) > 0)
+          where ($1::text is null
+                 or strpos(lower(unaccent(s.title)), lower(unaccent($1))) > 0)
+            and ${unless}
        ) c
       order by lower(c.series->>'name') nulls last,
                c.series->>'editionLine' nulls first,
                c."standsAt" nulls last,
                lower(c.title)`,
-    [volumeId, filter.title ?? null]
+    values
   );
+}
+
+/**
+ * The Stories this object does not carry, narrowed by what the owner has typed.
+ *
+ * An object the library does not know answers with nothing rather than with the whole
+ * catalogue — *not in that* is not an answer about an object that is not there — and a
+ * malformed id is the same event, for the reason every verb here gives.
+ */
+export async function listStoriesNotInVolume(
+  volumeId: string,
+  filter: { title?: string } = {}
+): Promise<StoryOnOffer[]> {
+  if (!UUID.test(volumeId)) return [];
+
+  return whatTheFieldOffers(
+    // The object has to exist for *not in it* to be an answer. Uncorrelated, so it is
+    // decided once rather than per Story.
+    `exists (select 1 from volume v where v.id = $2)
+       and not exists (select 1 from volume_story vs
+                        where vs.volume_id = $2 and vs.story_id = s.id)`,
+    [filter.title ?? null, volumeId]
+  );
+}
+
+/**
+ * The Stories the field offers **while an object is being catalogued**, narrowed by what the
+ * owner has typed and minus the ones they have already named.
+ *
+ * The same question as the one above it, at the moment there is no object to ask it about: the
+ * Volume is being written in the submission this list feeds (#48, ADR-0019), so what stands in
+ * the way of offering a narrative twice is not a link but a row the screen is holding. That is
+ * the whole of the difference, which is why the two share their statement — the columns a band
+ * is drawn from and the order a run is read in must not come to differ between the two places
+ * the same field stands.
+ *
+ * An id in `except` that is not an id is ignored rather than answering with nothing: it came
+ * off a row the screen was just drawing, so a malformed one is a bug in the caller and not a
+ * question about the library — and answering *nothing at all* would empty the field's whole
+ * list on it.
+ */
+export async function listStoriesToOffer(
+  filter: { title?: string; except?: readonly string[] } = {}
+): Promise<StoryOnOffer[]> {
+  const named = (filter.except ?? []).filter((storyId) => UUID.test(storyId));
+
+  return whatTheFieldOffers("not (s.id = any ($2::uuid[]))", [filter.title ?? null, named]);
 }
 
 // An id is generated, so what arrives here came from a screen the caller was just looking at

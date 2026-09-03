@@ -223,14 +223,20 @@ export async function recordVolumeCoversInstalments(
  *
  * Refused where there was no such fact, rather than passing silently: the caller believed
  * something that is not in the library, and that is worth naming.
+ *
+ * `run` is how the one door takes back what a placement's arrow attached, inside the same
+ * transaction that catalogued the object (`what-happened.ts`, #48): the owner was shown the
+ * line's work as a row and took it off, and half of that landing would leave the object
+ * carrying a narrative the screen said it did not.
  */
 export async function recordVolumeNoLongerCarriesStory(
   volumeId: string,
-  storyId: string
+  storyId: string,
+  run: Executor = query
 ): Promise<void> {
   bothAreIds(volumeId, storyId);
 
-  const gone = await query<{ volume_id: string }>(
+  const gone = await run<{ volume_id: string }>(
     "delete from volume_story where volume_id = $1 and story_id = $2 returning volume_id",
     [volumeId, storyId]
   );

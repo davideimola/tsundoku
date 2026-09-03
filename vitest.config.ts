@@ -101,6 +101,22 @@ import { defineConfig } from "vitest/config";
 // is a field, a settling timer, a stale answer dropped and one armed press; what it *derives*
 // is the file named in the paragraph above, and what it writes is Seam 1.
 //
+// **The fourth is the same component's second mounting**, and it is a screen rather than a
+// component: `src/app/(owner)/add/the-object.tsx` is the object half of the one door, where the
+// rows are held until one submission because the Volume does not exist yet (#48). What it holds
+// is a list, a counter for the rows that are not records yet and two pickers that answer each
+// other; what it *derives* is `src/app/(owner)/add/inside.ts` — what row the list arrives with,
+// the four acts that turn that list into the next one, and what the press carries about what is
+// inside the object — which is tested beside itself under the paragraph above, and in both
+// directions, because a refused press reads back what the action wrote. What it writes is
+// `sayWhatHappened`, which is Seam 1.
+//
+// **That file is where this rule was nearly broken, and it is worth naming as such**: all four
+// acts began inside the component as closures over its own state, and each of them is a list
+// becoming another list — data in, data out, and a function this application would still have
+// if React were replaced. The answer was to move them behind the licence rather than to widen
+// it.
+//
 // It is the same rule and not a wider one: data in, data out, a function
 // this application would still have if React were replaced, and never a component, a render
 // or a private helper of a page. What a *screen* is tested through is still the query behind
