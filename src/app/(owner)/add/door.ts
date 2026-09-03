@@ -1,4 +1,5 @@
 import type { WhatIsOnThisIsbn } from "@/core/queries/isbn";
+import type { Medium } from "@/core/verbs/reading";
 import type { WhatWasSaid } from "@/core/verbs/what-happened";
 import { ASKED } from "./panels";
 
@@ -307,6 +308,49 @@ export type ANarrativesSentence = Extract<
   (typeof THE_SENTENCES)[number],
   { about: "a-narrative" }
 >["said"];
+
+/**
+ * **The two media, as the narrative half offers them** (#50), where the Type picker beside them
+ * reads its vocabulary from the database.
+ *
+ * A medium is a check constraint rather than a vocabulary that grows — `@/core/verbs/reading`
+ * says so at the type and the migration says so in SQL — so a third value would be a change to
+ * the model rather than an insert, and `Medium` here is what makes it one: a fourth word in this
+ * list is a type error rather than a press that posts something the verb refuses.
+ *
+ * The order is the order the two presses stand in, and it is the fact before the intention the
+ * way the sentences above are: paper is the object in the owner's hands, digital is the one that
+ * needs nothing.
+ */
+export const THE_TWO_MEDIA: readonly { value: Medium; label: string }[] = [
+  { value: "paper", label: "Paper" },
+  { value: "digital", label: "Digital" },
+];
+
+/**
+ * **What a pass arrives as where the owner presses nothing**: digital.
+ *
+ * The default is the *screen's* and never the verb's, which is the whole shape of #50 — the
+ * silent `digital` in the core is what ADR-0019 took out, and one written a file further down
+ * would be the same mistake with a shorter reach. Here it is a radio arriving pressed: visible,
+ * one tap from the other answer, and part of what the owner reads before they press.
+ *
+ * Digital rather than paper — which is what the Story's own panel opens on — because this half
+ * is where the object is *absent*. The sentence that reached the object half already said the
+ * thing is in the house.
+ */
+const UNLESS_SAID_OTHERWISE: Medium = "digital";
+
+/**
+ * Which medium the panel opens on: the one a refused press carried back, or the default.
+ *
+ * Read against the two rather than trusted, exactly as `theSentence` reads `?panel=`: a value
+ * naming neither cannot come off the form — it comes off a hand-edited address — and no answer
+ * is the default rather than a third medium posted at the verb.
+ */
+export function theMediumPressed(carried: string | undefined): Medium {
+  return THE_TWO_MEDIA.find((medium) => medium.value === carried)?.value ?? UNLESS_SAID_OTHERWISE;
+}
 
 /** The sentence a `?panel=…` names, or nothing where it names none. */
 export function theSentence(panel: string | undefined): Sentence | undefined {

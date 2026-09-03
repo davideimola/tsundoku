@@ -281,12 +281,7 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
                 find={suggestStories}
               />
             ) : (
-              <TheNarrative
-                said={saying.said}
-                types={types}
-                chosenType={asked(params, "type")}
-                chosenMedium={asked(params, "medium")}
-              />
+              <TheNarrative said={saying.said} types={types} typed={whatWasTypedBefore(params)} />
             )}
 
             <div>

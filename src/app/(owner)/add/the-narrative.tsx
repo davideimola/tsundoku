@@ -1,7 +1,7 @@
 import { Label } from "@/components/ui/label";
 import type { Type } from "@/core/queries/type";
-import type { Medium } from "@/core/verbs/reading";
-import type { ANarrativesSentence } from "./door";
+import type { ANarrativesSentence, CarriedField } from "./door";
+import { THE_TWO_MEDIA, theMediumPressed } from "./door";
 import { Picker } from "./fields";
 
 // **THE NARRATIVE HALF OF THE DOOR** (#49 named it, #50 gave it a field of its own): what kind
@@ -26,58 +26,34 @@ import { Picker } from "./fields";
 // it of the owner least likely to have an answer — the one saying they read something they do
 // not own.
 //
-// It holds no derivation (`vitest.config.ts`): which sentence asks the medium is read off the
-// model's own word, and what the sentence promises is `./door.ts`, checked beside itself.
-
-/**
- * **The two media, written out**, where the Type picker beside them reads its vocabulary from
- * the database.
- *
- * A medium is a check constraint rather than a vocabulary that grows — `@/core/verbs/reading`
- * says so at the type, and the migration says so in SQL — so a third value would be a change to
- * the model rather than an insert, and `Medium` here is what makes it one: a fourth word in this
- * list is a type error, not a radio that posts something the verb refuses.
- *
- * This list is not what enforces the two. The verb still refuses anything else in its own prose,
- * which is what a hand-made POST meets.
- */
-const THE_TWO_MEDIA: readonly { value: Medium; label: string }[] = [
-  { value: "paper", label: "Paper" },
-  { value: "digital", label: "Digital" },
-];
-
-/**
- * **What a pass arrives on where the owner presses nothing**: digital.
- *
- * The default is here rather than in the verb, and that is deliberate — the silent `digital` in
- * the core was what ADR-0019 took out, and a default written one file down would be the same
- * mistake with a shorter reach. Here it is a radio arriving pressed: visible, one tap from the
- * other answer, and part of what the owner reads before they press.
- *
- * Digital rather than paper because this half is where the object is *absent*: the sentence
- * reached through the object half already said the thing is in the house.
- */
-const UNLESS_SAID_OTHERWISE: Medium = "digital";
+// It holds no derivation (`vitest.config.ts`): the two media and which of them the panel opens
+// on are `./door.ts`, tested beside themselves, and which sentence asks the question at all is
+// the model's own word. What is left in here is a picker, two presses and a `<fieldset>`.
 
 export function TheNarrative({
   said,
   types,
-  chosenType,
-  chosenMedium,
+  typed,
 }: {
   /** Which of the two sentences about a narrative this panel is, and never one about an object. */
   said: ANarrativesSentence;
   types: Type[];
-  /** The Type chosen on a press that came back refused, where there was one. */
-  chosenType?: string;
-  /** The medium pressed on a press that came back refused, where there was one. */
-  chosenMedium?: string;
+  /**
+   * **What a refused press came back carrying**, as the whole table rather than as two loose
+   * strings.
+   *
+   * It is the same table the object half is handed, off the same one list both halves spell
+   * (`THE_FIELDS_A_REFUSAL_CARRIES`), and that is the point: a field named by hand here is a
+   * field the action sends and this panel silently drops, which is the drift that list exists
+   * against.
+   */
+  typed: Record<CarriedField, string | undefined>;
 }) {
   return (
     <>
       {/* Asked here and not up in the page, because the two sentences about an object ask it
           once for the whole object beside the field that names what is inside it (ADR-0019). */}
-      <Picker id="say-type" name="type" label="Type" chosen={chosenType} required any="Which kind?">
+      <Picker id="say-type" name="type" label="Type" chosen={typed.type} required any="Which kind?">
         {types.map((one) => (
           <option key={one.id} value={one.id}>
             {one.name}
@@ -89,7 +65,7 @@ export function TheNarrative({
           flag on the sentence: a Want carries an intended medium of its own, on the Reading
           list, and nothing was read yet — so asking it here would be this panel answering a
           question the list asks later, and answering it wrong. */}
-      {said === "read" ? <TheMedium chosen={chosenMedium} /> : null}
+      {said === "read" ? <TheMedium carried={typed.medium} /> : null}
     </>
   );
 }
@@ -106,19 +82,14 @@ export function TheNarrative({
  * one tab stop, the arrow keys move within it, the focus ring is the same one every control on
  * this screen draws, and the whole thing posts as a field of a plain form.
  */
-function TheMedium({ chosen }: { chosen?: string }) {
-  // Read against the two rather than trusted, which is what the panel above does with
-  // `?panel=…`: `?medium=banana` in the address arrives as no answer at all, and no answer is
-  // the default. It cannot come off this form — it comes off a hand-edited address — and the
-  // verb refuses anything else besides.
-  const pressed = THE_TWO_MEDIA.some((medium) => medium.value === chosen)
-    ? chosen
-    : UNLESS_SAID_OTHERWISE;
+function TheMedium({ carried }: { carried: string | undefined }) {
+  const pressed = theMediumPressed(carried);
 
   return (
     <fieldset className="grid gap-1.5">
-      {/* The same words the Story's own page asks it in. One question asked two ways is two
-          questions to whoever has to answer both. */}
+      {/* The same words the Story's own page asks the question in, which is where the borrowing
+          stops: what it opens on differs, and `./door.ts` says why. One question worded two ways
+          is two questions to whoever has to answer both. */}
       <legend className="mb-1.5 text-xs text-muted-foreground">On paper or digital</legend>
 
       <div className="grid grid-cols-2 gap-2">

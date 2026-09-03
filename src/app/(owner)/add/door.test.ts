@@ -4,6 +4,8 @@ import {
   THE_FIELDS_A_REFUSAL_CARRIES,
   THE_HALVES,
   THE_SENTENCES,
+  THE_TWO_MEDIA,
+  theMediumPressed,
   theSentence,
   whatFilledItIn,
   whatWasTyped,
@@ -206,6 +208,35 @@ describe("the two halves the sentences stand in", () => {
     expect(aboutAnObject("wished")).toBe(true);
     expect(aboutAnObject("read")).toBe(false);
     expect(aboutAnObject("wanted")).toBe(false);
+  });
+});
+
+// WHICH MEDIUM THE PANEL OPENS ON (#50). The narrative half's one field, and the one place a
+// default still stands on this screen — so it is here rather than inside the control, where
+// nothing could read it back. What is asserted is the default itself, because *defaulting to
+// digital* is a line of the ticket rather than a detail of a radio.
+describe("which medium a pass is offered as", () => {
+  it("opens on digital where the owner has pressed nothing", () => {
+    expect(theMediumPressed(undefined)).toBe("digital");
+  });
+
+  it("opens on what a refused press carried back", () => {
+    expect(theMediumPressed("paper")).toBe("paper");
+    expect(theMediumPressed("digital")).toBe("digital");
+  });
+
+  // Read against the two rather than trusted, which is what `theSentence` does with `?panel=`.
+  // It cannot come off the form — it comes off a hand-edited address — and an unreadable answer
+  // is no answer rather than a third medium posted at the verb.
+  it("reads an address naming neither as no answer at all", () => {
+    expect(theMediumPressed("audiobook")).toBe("digital");
+    expect(theMediumPressed("")).toBe("digital");
+  });
+
+  it("offers both, in the order the two presses stand in", () => {
+    expect(THE_TWO_MEDIA.map((medium) => medium.value)).toEqual(["paper", "digital"]);
+
+    for (const medium of THE_TWO_MEDIA) expect(medium.label).not.toBe("");
   });
 });
 
