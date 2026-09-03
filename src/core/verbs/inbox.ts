@@ -7,6 +7,7 @@ import { type Executor, transaction } from "../transaction.ts";
 import { amendVolume, catalogueVolume } from "./collection.ts";
 import { amendSeries, declareSeries, type SeriesStatus } from "./series.ts";
 import { amendStory, createStory } from "./story.ts";
+import { recordVolumeCarriesStories } from "./story-to-volume.ts";
 
 // The Inbox's verbs, and with them the write boundary ADR-0005 and ADR-0011 draw.
 //
@@ -91,6 +92,25 @@ export type ProposedVolume = Reported & {
   binding?: string | null;
   language?: string | null;
   isbn?: string | null;
+  /**
+   * The Stories the object holds, **by id and never by title** (#52).
+   *
+   * An object proposed from outside used to arrive carrying nothing, so every approval was
+   * followed by a repair: the owner catalogued the thing and then went to its own page to
+   * say what was inside it. Naming the works here is what takes that second act away.
+   *
+   * **An id is verifiable and a title is not**, which is the whole of why this is a list of
+   * ids: either it names a Story the library holds or the approval refuses it, where a new
+   * title in here would be a second place duplicates are born — and the owner abandoned
+   * this Inbox once over the first one. A narrative the library does not hold is a separate
+   * `proposeStory`, approved first, and nothing here makes one entry wait on another: these
+   * are records' ids, so an entry naming an entry names nothing at all.
+   *
+   * Ordinarily absent, and an object carrying nothing stays an ordinary object — a gap
+   * rather than a state (`CONTEXT.md`), which is what a photograph waiting for its contents
+   * leaves behind.
+   */
+  stories?: readonly string[] | null;
 };
 
 /** A publisher's line an assistant heard about and cannot declare. */
@@ -114,6 +134,16 @@ export type ProposedSeries = Reported & {
  * verbs' arguments and not the form's: a door that kept its own list would be a door
  * deciding what the core takes. The screen offers the ones the entity being proposed has,
  * and reads this to know what an approval is allowed to correct.
+ *
+ * **These are a record's own fields, and the works an object carries are not one of them**
+ * (#52). `stories` on a proposed Volume is a fact about *two* records rather than a column
+ * on either, which is why it has a verb of its own (`./story-to-volume.ts`) and why it is
+ * absent from this list and from `AMENDABLE_FIELDS` below. It is the same line ADR-0012
+ * drew through a Credit: a record of its own is attributed and unmade whole, never amended
+ * into the thing it hangs off. So the ids ride in an entry's `details` beside the fields
+ * without being one, they are read on the entry rather than typed into a box, and a
+ * proposal that got them wrong is rejected — saying what is inside an object is the
+ * gesture on the object's own page (#47).
  */
 export const PROPOSAL_FIELDS = [
   "title",
@@ -265,6 +295,11 @@ export async function proposeStory(story: ProposedStory): Promise<{ id: string }
  * It catalogues **nothing**, and it says nothing about the house either — approving it
  * catalogues the object, and whether it is on the shelf is the separate act ADR-0007 split
  * off (`acquireVolume`, which MCP may call directly once the object exists).
+ *
+ * It may name the works the object holds, by id (#52). Those ids are kept **as they were
+ * said** — unchecked, like every other detail — and it is the approval that verifies them:
+ * an id naming no Story refuses the whole entry rather than being dropped, because an
+ * object catalogued carrying less than was proposed is the repair this was meant to remove.
  */
 export async function proposeVolume(volume: ProposedVolume): Promise<{ id: string }> {
   return propose(volume.reported, "volume", volume.title, {
@@ -274,7 +309,25 @@ export async function proposeVolume(volume: ProposedVolume): Promise<{ id: strin
     binding: volume.binding,
     language: volume.language,
     isbn: volume.isbn,
+    stories: named(volume.stories),
   });
+}
+
+/**
+ * The ids a proposal named, in the order it named them and each of them once.
+ *
+ * `said` below is the same rule over one value — trimmed, and dropped where nothing was
+ * actually said — and this is it over a list. What it does **not** do is judge them: a
+ * malformed id is kept exactly as it arrived, so the owner reads what the assistant claimed
+ * and the approval is what refuses it.
+ *
+ * `null` where nothing was named, and where everything named was blank: an object carrying
+ * nothing is the ordinary object, and an empty list is not a claim about anything.
+ */
+function named(stories: readonly string[] | null | undefined): string[] | null {
+  if (!stories) return null;
+  const kept = [...new Set(stories.map((storyId) => storyId.trim()).filter((said) => said !== ""))];
+  return kept.length === 0 ? null : kept;
 }
 
 /**
@@ -694,6 +747,24 @@ async function create(
         },
         run
       );
+
+      // The works the object holds, in the same transaction as the object (#52). Two
+      // statements rather than one because they are two facts about two entities, and one
+      // act because either half alone is a lie the owner has to find: an object catalogued
+      // carrying nothing is the repair this exists to remove, and a link to an object
+      // nothing accounts for is not representable here at all (`../transaction.ts`).
+      //
+      // **An id naming no Story refuses the whole entry**, in `recordVolumeCarriesStories`'
+      // own prose — which is the verb's and not this file's, because it is the only thing
+      // that knows the fact could not be written. Which of the ids it was is on the entry,
+      // where the owner read the narratives before approving them.
+      //
+      // Nothing named is the ordinary case and is not a call at all: an object carrying no
+      // Story is a gap rather than a state, and the verb would refuse an empty band in
+      // prose about a gesture nobody made.
+      const stories = ids(said, "stories");
+      if (stories.length > 0) await recordVolumeCarriesStories(id, stories, run);
+
       return id;
     }
     case "series":
@@ -718,6 +789,23 @@ function needed(said: Record<string, unknown>, key: string, prose: string): stri
   const value = optional(said, key);
   if (value === null) throw new Refusal("invalid", prose);
   return value;
+}
+
+/**
+ * The ids an entry named, read back out of the details it kept.
+ *
+ * `details` is raw and comes back from Postgres as whatever went in, so this reads it the
+ * way `optional` reads a field: what is not a list of things said is nothing said. It
+ * **keeps every id it finds, malformed ones included** — dropping one here would catalogue
+ * an object carrying less than was proposed, silently, which is the failure #52 is about.
+ */
+function ids(said: Record<string, unknown>, key: string): string[] {
+  const value = said[key];
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((id) => id !== null && id !== undefined)
+    .map((id) => String(id).trim())
+    .filter((id) => id !== "");
 }
 
 /** A field as text, or `null` where nothing was said about it. */

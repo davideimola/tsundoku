@@ -89,10 +89,17 @@ export async function recordVolumeCarriesStory(
  *
  * Safe for the MCP door for the singular verb's reason: it acts on entities that already
  * exist and creates neither a Story nor a Volume (ADR-0005).
+ *
+ * `run` is the singular verb's own argument for the singular verb's own reason, and the
+ * caller is `approveInboxEntries`: an object proposed from outside now names the works it
+ * carries (#52), and the object and its contents land together or not at all. An executor is
+ * where a statement runs and never what it is allowed to write, so taking one leaves this no
+ * closer to creating a Story.
  */
 export async function recordVolumeCarriesStories(
   volumeId: string,
-  storyIds: readonly string[]
+  storyIds: readonly string[],
+  run: Executor = query
 ): Promise<number> {
   if (!UUID.test(volumeId)) throw new Refusal("not-found", NO_VOLUME);
   for (const storyId of storyIds) {
@@ -109,7 +116,7 @@ export async function recordVolumeCarriesStories(
 
   const written = await refusing(
     () =>
-      query<{ story_id: string }>(
+      run<{ story_id: string }>(
         `insert into volume_story (volume_id, story_id)
          select $1, id from unnest($2::uuid[]) as id
          on conflict on constraint volume_story_is_said_once do nothing
