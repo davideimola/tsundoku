@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
-import { releaseVolume } from "../verbs/collection.ts";
+import { catalogueVolume, releaseVolume } from "../verbs/collection.ts";
 import { definePath, placeStoriesOnPath } from "../verbs/path.ts";
 import { setRating } from "../verbs/rating.ts";
 import { recordReading } from "../verbs/reading.ts";
@@ -12,6 +12,7 @@ import {
   listStoriesInVolume,
   listStoriesInVolumes,
   listStoriesNotInVolume,
+  listVolumesCarryingNothing,
   listVolumesCarryingStory,
 } from "./story-to-volume.ts";
 
@@ -523,5 +524,126 @@ describe("the Stories an object does not carry", () => {
 
     expect(await listStoriesNotInVolume("00000000-0000-4000-8000-000000000000")).toEqual([]);
     expect(await listStoriesNotInVolume("banana")).toEqual([]);
+  });
+});
+
+// **THE GAP READ FROM THE OBJECT'S END** (#51). Two ordinary paths produce an object that
+// carries nothing — one approved from the Inbox, and one catalogued from a photograph before
+// the owner knows what is inside — and neither is refused anywhere. What is asserted here is
+// the pair of sentences the screen over it stands on: an object carrying nothing is in the
+// answer, and an object carrying something never is.
+describe("the objects carrying no narrative", () => {
+  it("answers with the object nobody has named the contents of", async () => {
+    const gap = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+
+    expect(await listVolumesCarryingNothing()).toEqual([
+      expect.objectContaining({ id: gap, title: "Batman: Il lungo Halloween" }),
+    ]);
+  });
+
+  it("never answers with an object that carries something", async () => {
+    const carrying = await volumeInTheHouse({
+      title: "Slam Dunk 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    await recordVolumeCarriesStory(carrying, storyId);
+
+    expect(await listVolumesCarryingNothing()).toEqual([]);
+  });
+
+  // The order is the shelf's, for `listStoriesNotInVolume`'s reason one file up: seventeen
+  // objects approved from the Inbox in one gesture are a run, and a list that sorted them
+  // 1, 10, 11, 2 would be a picture of nobody's shelf.
+  it("stands them the way the shelf stands, and says where each one stands in its line", async () => {
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+
+    for (const number of [2, 10, 1]) {
+      const tankobon = await volumeInTheHouse({
+        title: `Slam Dunk ${number}`,
+        publisher: "Planet Manga",
+        binding: "tankobon",
+        language: "it",
+      });
+      await placeVolumeInSeries({ volumeId: tankobon, seriesId, number });
+    }
+
+    await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      binding: "must-have",
+      language: "it",
+    });
+
+    expect(await listVolumesCarryingNothing()).toEqual([
+      expect.objectContaining({ title: "Slam Dunk 1", seriesNumber: 1 }),
+      expect.objectContaining({ title: "Slam Dunk 2", seriesNumber: 2 }),
+      expect.objectContaining({ title: "Slam Dunk 10", seriesNumber: 10 }),
+      // In no line, so it stands last and says so with nothing — an omnibus on a shelf.
+      expect.objectContaining({ title: "Batman: Il lungo Halloween", seriesNumber: null }),
+    ]);
+  });
+
+  // Both halves of the catalogue produce this gap, so both are answered with and neither is
+  // filtered on: the object from the Inbox has never been owned, the one catalogued from a
+  // photograph is on the shelf, and the one let go is still an object carrying nothing.
+  it("says whether the house holds it, and answers for the objects it does not", async () => {
+    await catalogueVolume({
+      title: "Berserk 1",
+      publisher: "Panini Comics",
+      binding: "tankobon",
+      language: "it",
+    });
+    await volumeInTheHouse({
+      title: "Akira 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    const letGo = await volumeInTheHouse({
+      title: "Zerocalcare",
+      publisher: "Bao Publishing",
+      binding: "paperback",
+      language: "it",
+    });
+    await releaseVolume(letGo);
+
+    expect(await listVolumesCarryingNothing()).toEqual([
+      expect.objectContaining({ title: "Akira 1", inTheHouse: true }),
+      // Catalogued and never acquired, which is what an approval from the Inbox leaves.
+      expect.objectContaining({ title: "Berserk 1", inTheHouse: false }),
+      expect.objectContaining({ title: "Zerocalcare", inTheHouse: false }),
+    ]);
+  });
+
+  // What tells two objects of one title apart, which is what the row is read for.
+  it("carries the publisher, the edition line and the Binding by name", async () => {
+    await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      editionLine: "DC Must Have",
+      binding: "must-have",
+      language: "it",
+    });
+
+    expect(await listVolumesCarryingNothing()).toEqual([
+      expect.objectContaining({
+        publisher: "Panini Comics",
+        editionLine: "DC Must Have",
+        binding: { id: "must-have", name: "Must Have" },
+      }),
+    ]);
   });
 });

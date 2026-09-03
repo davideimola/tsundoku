@@ -328,3 +328,86 @@ export async function listStoriesNotInVolume(
 // — a malformed one is the same event as an unknown one, and `where id = $1` on a uuid column
 // raises a *syntax* error for `"banana"` that would reach an adapter as a 500.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// **THE GAP READ FROM THE OBJECT'S END** (#51, ADR-0019). The same many-to-many as an
+// absence, asked of the whole catalogue rather than of one object: which objects carry no
+// narrative at all.
+//
+// It is a **gap and not a state** (`CONTEXT.md`, Volume): nothing refuses such an object, and
+// two ordinary paths produce one — a Volume approved from the Inbox, which may name Stories
+// only by an id the assistant found and often names none, and one catalogued from a
+// photograph before the owner knows what is inside. But it stands in no Reading list and
+// takes no judgement, so left alone it sits where no screen reaches. There is no verb here
+// and nothing to repair: what closes the gap is the owner naming the contents where the
+// object is, and this query is only how they find the object.
+
+/**
+ * An object the library knows and nobody has named the contents of: enough to recognise it
+ * on a list and to walk to it.
+ *
+ * The publisher, the edition line and the Binding are here because that is what tells two
+ * objects of one title apart — the Must Have from the omnibus — and this list is read by
+ * somebody deciding which of them they were holding when they catalogued it.
+ */
+export type VolumeCarryingNothing = {
+  id: string;
+  title: string;
+  publisher: string;
+  editionLine: string | null;
+  /** By name as well as by id, because the row is read rather than matched. */
+  binding: { id: string; name: string };
+  /**
+   * Where it stands in its line: 12 of Slam Dunk. `null` for an object in no line — the
+   * omnibus, the novel, the standalone, which is ordinary rather than a second gap.
+   *
+   * The line is **ordered by and not answered with**, which is the leanness `WallVolume` is
+   * lean for: what a row of this list needs to say is where the object stands, and the
+   * *which line* is said by the rows around it standing in the same run.
+   */
+  seriesNumber: number | null;
+  /**
+   * Whether the Collection claims it right now.
+   *
+   * Answered with rather than filtered on, because both halves of the catalogue produce this
+   * gap and neither is the interesting one: an object approved from the Inbox has never been
+   * owned, and one catalogued from a photograph in a shop is on the shelf by the evening
+   * (ADR-0007).
+   */
+  inTheHouse: boolean;
+};
+
+/**
+ * Every Volume in the catalogue carrying no Story, standing the way the shelf stands.
+ *
+ * **The whole catalogue and not the Collection**, for the reason above: being in the house
+ * and carrying a narrative are unrelated facts, and an object the owner does not have yet is
+ * the commonest way this gap arrives.
+ *
+ * The order is the line, the edition, the position, then the title — `listStoriesNotInVolume`'s
+ * order, and for its reason: seventeen objects approved in one gesture are a run, and a list
+ * that stood them 1, 10, 11, 2 would be a picture of nobody's shelf.
+ *
+ * Unnarrowed, like `listCataloguedOutsideTheCollection`: it is what is left over rather than
+ * a wall, it empties as the owner works through it, and a filter would hide the one answer it
+ * exists to give.
+ */
+export async function listVolumesCarryingNothing(): Promise<VolumeCarryingNothing[]> {
+  return query<VolumeCarryingNothing>(
+    `select v.id,
+            v.title,
+            v.publisher,
+            v.edition_line as "editionLine",
+            jsonb_build_object('id', b.id, 'name', b.name) as binding,
+            v.series_number as "seriesNumber",
+            ${IN_THE_HOUSE} as "inTheHouse"
+       from volume v
+       join binding b on b.id = v.binding_id
+       left join series se on se.id = v.series_id
+      where not exists (select 1 from volume_story vs where vs.volume_id = v.id)
+      order by lower(se.name) nulls last,
+               se.edition_line nulls first,
+               v.series_number nulls last,
+               lower(v.title),
+               v.id`
+  );
+}
