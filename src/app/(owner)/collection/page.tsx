@@ -240,7 +240,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
                   <span className="font-mono tabular-nums">{elsewhere.length}</span> not in the
                   house
                 </Fact>
-                <Separator />
+                <BetweenFacts />
               </>
             ) : null}
             {carryingNothing.length > 0 ? (
@@ -249,7 +249,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
                   <span className="font-mono tabular-nums">{carryingNothing.length}</span> carrying
                   no Story yet
                 </Fact>
-                <Separator />
+                <BetweenFacts />
               </>
             ) : null}
             <Fact href={panelled(params, COVERS)}>Look up covers</Fact>
@@ -489,7 +489,14 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           field under the object's own contents (#47), which reads the library as the owner
           types and mints on Enter what it does not know; a second door onto that over a list
           of nineteen would be the same act built twice, and the one built here would be the
-          worse of the two. So every row is a link, and it lands on the rows it is about. */}
+          worse of the two. So every row is a link, and it lands on the rows it is about.
+
+          **It is read against the list rather than against the parameter alone**, which is
+          what the *elsewhere* panel beside it does and for the same reason: a panel is an
+          address the screen has, and once every object carries something there is no list
+          for this one to be about. So a bookmark of `?panel=carrying-nothing` opens nothing
+          on a library with no gap in it, exactly as `?panel=banana` does — and the hero has
+          already stopped offering it. */}
       {panel === CARRYING_NOTHING && carryingNothing.length > 0 ? (
         <Drawer
           title="Carrying no Story yet"
@@ -499,8 +506,8 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           <p className="text-pretty text-sm text-muted-foreground">
             {carryingNothing.length} {carryingNothing.length === 1 ? "Volume" : "Volumes"}{" "}
             catalogued before anybody named what is inside — approved from the Inbox, where an
-            assistant may link the works an object holds and never invent them, or catalogued from a
-            photograph in a shop. Nothing refuses such an object and nothing is wrong with it: it
+            assistant may link the Stories an object holds and never invent one, or catalogued from
+            a photograph in a shop. Nothing refuses such an object and nothing is wrong with it: it
             simply stands in no Reading list and takes no judgement until it carries something. Open
             one and name what it holds, in the field under its contents.
           </p>
@@ -605,7 +612,7 @@ function Fact({ href, children }: { href: string; children: React.ReactNode }) {
 }
 
 /** What stands between two of them. Decorative, so nothing reading the page aloud says it. */
-function Separator() {
+function BetweenFacts() {
   return (
     <span aria-hidden className="px-2">
       ·
@@ -700,9 +707,12 @@ function detailOf(volume: WallVolume): string {
  *
  * It takes the two facts rather than a `WallVolume` since #51, because the rows of objects
  * carrying no Story ask the same question at the other end of the screen and the answer must
- * not be *nearly* the same one.
+ * not be *nearly* the same one. `WhereItStands` is what those two callers agree on, named so
+ * that a third one cannot quietly widen it.
  */
-function Standing({ of }: { of: { seriesNumber: number | null; binding: { name: string } } }) {
+type WhereItStands = { seriesNumber: number | null; binding: { name: string } };
+
+function Standing({ of }: { of: WhereItStands }) {
   return <>{of.seriesNumber ?? of.binding.name}</>;
 }
 

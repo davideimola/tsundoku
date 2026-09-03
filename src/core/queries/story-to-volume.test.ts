@@ -559,9 +559,10 @@ describe("the objects carrying no narrative", () => {
     expect(await listVolumesCarryingNothing()).toEqual([]);
   });
 
-  // The order is the shelf's, for `listStoriesNotInVolume`'s reason one file up: seventeen
-  // objects approved from the Inbox in one gesture are a run, and a list that sorted them
-  // 1, 10, 11, 2 would be a picture of nobody's shelf.
+  // The order is the wall's own, and it is asserted here rather than left to the fragment:
+  // seventeen objects approved from the Inbox in one gesture are a run, a list that sorted
+  // them 1, 10, 11, 2 would be a picture of nobody's shelf, and an object in no line takes
+  // its place *among* the lines under its own title rather than being swept to the end.
   it("stands them the way the shelf stands, and says where each one stands in its line", async () => {
     const seriesId = await declareSeries({
       name: "Slam Dunk",
@@ -588,11 +589,12 @@ describe("the objects carrying no narrative", () => {
     });
 
     expect(await listVolumesCarryingNothing()).toEqual([
+      // In no line, so it sorts under its own title — *among* the lines, where it stands on
+      // the real shelf — and says where it stands with nothing.
+      expect.objectContaining({ title: "Batman: Il lungo Halloween", seriesNumber: null }),
       expect.objectContaining({ title: "Slam Dunk 1", seriesNumber: 1 }),
       expect.objectContaining({ title: "Slam Dunk 2", seriesNumber: 2 }),
       expect.objectContaining({ title: "Slam Dunk 10", seriesNumber: 10 }),
-      // In no line, so it stands last and says so with nothing — an omnibus on a shelf.
-      expect.objectContaining({ title: "Batman: Il lungo Halloween", seriesNumber: null }),
     ]);
   });
 

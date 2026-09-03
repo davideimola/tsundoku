@@ -2,7 +2,11 @@ import "server-only";
 
 import { query } from "../db.ts";
 import { WHY_A_CARRIED_STORY_STANDS } from "../verbs/story.ts";
-import { IN_THE_HOUSE, THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN } from "./collection.ts";
+import {
+  IN_THE_HOUSE,
+  THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN,
+  THE_ORDER_THE_SHELF_STANDS_IN,
+} from "./collection.ts";
 import { type StoryType, THE_LINE_IT_STANDS_IN } from "./story.ts";
 
 // The many-to-many, read from both ends (ADR-0001). One stored fact, two questions:
@@ -383,9 +387,11 @@ export type VolumeCarryingNothing = {
  * and carrying a narrative are unrelated facts, and an object the owner does not have yet is
  * the commonest way this gap arrives.
  *
- * The order is the line, the edition, the position, then the title — `listStoriesNotInVolume`'s
- * order, and for its reason: seventeen objects approved in one gesture are a run, and a list
- * that stood them 1, 10, 11, 2 would be a picture of nobody's shelf.
+ * **The order is the wall's own**, `THE_ORDER_THE_SHELF_STANDS_IN`, spent rather than written
+ * again: this list is opened from that wall and stands over it, so a run laid out 1, 2, 10
+ * behind the tiles and 1, 10, 2 in front of them would be one screen disagreeing with itself.
+ * It is also why an omnibus is not swept to the end here — a Volume in no line sorts under
+ * its own title, among the lines, which is where it stands on the real shelf.
  *
  * Unnarrowed, like `listCataloguedOutsideTheCollection`: it is what is left over rather than
  * a wall, it empties as the owner works through it, and a filter would hide the one answer it
@@ -404,10 +410,6 @@ export async function listVolumesCarryingNothing(): Promise<VolumeCarryingNothin
        join binding b on b.id = v.binding_id
        left join series se on se.id = v.series_id
       where not exists (select 1 from volume_story vs where vs.volume_id = v.id)
-      order by lower(se.name) nulls last,
-               se.edition_line nulls first,
-               v.series_number nulls last,
-               lower(v.title),
-               v.id`
+      ${THE_ORDER_THE_SHELF_STANDS_IN}`
   );
 }

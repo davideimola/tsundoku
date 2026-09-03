@@ -441,7 +441,13 @@ export type CollectionWallFilter = {
 // Series' id, then the title, the Binding and the object's own id. A wall whose order
 // depended on which row Postgres reached first would rearrange itself between two loads of
 // the same page.
-const THE_ORDER_THE_SHELF_STANDS_IN = `
+//
+// **Exported for the reason `IN_THE_HOUSE` is** (#51): the list of objects carrying no Story
+// is opened from the wall this orders and stands in the same screen, so a run laid out one
+// way there and another way in the drawer over it would be one screen disagreeing with
+// itself about where a shelf stands. It names the Volume `v`, its Series `se` and its
+// Binding `b`, so a statement spending it joins or left-joins all three.
+export const THE_ORDER_THE_SHELF_STANDS_IN = `
   order by coalesce(lower(se.name), lower(v.title)),
            se.edition_line nulls first,
            se.id,
