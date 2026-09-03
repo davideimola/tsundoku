@@ -86,6 +86,9 @@ describe("proposing an entity that does not exist", () => {
         act: "create",
         subjectId: null,
         standing: null,
+        // …and nothing in the library is called that, which is the other half of what the
+        // owner reads before approving one (#53).
+        namesakes: [],
       },
     ]);
   });
@@ -441,6 +444,8 @@ describe("proposing an amendment to a record that exists", () => {
           language: "it",
           isbn: null,
         },
+        // An amendment is read against its own record and never against a namesake.
+        namesakes: [],
         proposedAt: expect.any(String),
         state: "waiting",
         decidedAt: null,

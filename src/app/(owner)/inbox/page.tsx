@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Fragment } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,12 @@ import { listTypes, type Type } from "@/core/queries/type";
 import { NEEDED_TO_CREATE, type ProposalField } from "@/core/verbs/inbox";
 import { requireOwner } from "@/lib/auth/owner";
 import { cn } from "@/lib/utils";
+import { recordHref } from "../find/kinds";
+// The rows a found record is drawn in, borrowed from the finder rather than written again:
+// *what the library already holds under this name* is the finder's own question asked about
+// one entry, and a namesake that read one way here and another under the field would be the
+// owner learning that the two are different libraries.
+import { FoundRow, ROW } from "../find/row";
 import { decide } from "./actions";
 import {
   approvingWord,
@@ -21,6 +28,7 @@ import {
   groupWaiting,
   type InboxGroup,
   proposedFields,
+  whatIsAlreadyThere,
   whatItIsAbout,
 } from "./decisions";
 
@@ -33,7 +41,7 @@ import {
 // every one of 96 Volumes — and an Inbox sized for one entry at a time makes that backfill
 // cost more than typing the fields by hand, which is the same as refusing it.
 //
-// So four decisions, and the first one reverses what this screen used to say out loud.
+// So five decisions, and the first one reverses what this screen used to say out loud.
 //
 //   1. **Bulk is the point.** The old version of this file declared that *nothing is bulk*,
 //      because a boundary you can clear in one tap is not a boundary. That was right while
@@ -53,7 +61,15 @@ import {
 //      its only trace. **A creation is the opposite** — approving one is choosing its
 //      fields, since the Binding an assistant could not know is the ordinary case — so it
 //      is the whole record as boxes, filled with what was said.
-//   4. **The assistant's own words stay on every entry**, quoted rather than summarised.
+//   4. **A creation is read against what the library already holds** (#53). The assistant
+//      is told to search before it proposes, and the entry is where that instruction is
+//      *checked*: an amendment has always shown what stands in the record it names, and a
+//      creation now shows the records already called what it proposes. It is what a
+//      duplicate looks like on this screen — the owner cannot hold seventy-seven titles in
+//      their head, and used to approve one in a hurry and strike it later. The count reaches
+//      the group's heading and opens it, because a group folded shut is approved on that
+//      heading alone.
+//   5. **The assistant's own words stay on every entry**, quoted rather than summarised.
 //      They are how the owner tells a careful proposal from a guess: *read off the back
 //      cover* and *ho comprato Ultimate Spider-Man Omnibus 1* are different kinds of
 //      evidence, and neither is derivable from the fields underneath.
@@ -246,6 +262,7 @@ function Decision({ group, vocabularies }: { group: InboxGroup; vocabularies: Vo
   const incomplete = group.entries.filter(
     (entry) => missing(entry, vocabularies).length > 0
   ).length;
+  const alreadyThere = whatIsAlreadyThere(group);
 
   return (
     <form action={decide} className="rounded-xl ring-1 ring-foreground/10">
@@ -278,6 +295,18 @@ function Decision({ group, vocabularies }: { group: InboxGroup; vocabularies: Vo
             : `Approving is what creates ${howMany === 1 ? "it" : "them"}, and nothing here undoes it.`}
         </p>
 
+        {/* Louder than the line above it and quieter than a refusal, because it is neither:
+            two editions of one line are two records the library is meant to hold, so this
+            says there is something to read rather than that something is wrong. */}
+        {alreadyThere === null ? null : (
+          <p className="mt-2 max-w-prose text-xs text-pretty">
+            {alreadyThere}{" "}
+            {howMany === 1
+              ? "It is under the entry below."
+              : "Each one is under the entry it doubles."}
+          </p>
+        )}
+
         <Button type="submit" className="mt-3 h-11 w-full sm:h-10 sm:w-auto sm:px-6">
           {howMany === 1 ? `${does} the ${what}` : `${does} the ${howMany} ticked ${what}`}
         </Button>
@@ -292,7 +321,13 @@ function Decision({ group, vocabularies }: { group: InboxGroup; vocabularies: Vo
         </p>
       </div>
 
-      <details className="group border-t border-border" open={howMany <= FOLDED_PAST}>
+      {/* A group holding a duplicate arrives open however many entries it has: the folding
+          exists so that 43 careful ISBNs are one heading, and a heading is exactly what a
+          proposal the library already answers must not be approved on. */}
+      <details
+        className="group border-t border-border"
+        open={howMany <= FOLDED_PAST || alreadyThere !== null}
+      >
         <summary className="cursor-pointer list-none px-4 py-3 text-xs text-muted-foreground marker:hidden">
           <span className="group-open:hidden">
             Read the {howMany} {howMany === 1 ? "entry" : "entries"} one by one
@@ -350,6 +385,10 @@ function Entry({ entry, vocabularies }: { entry: InboxEntry; vocabularies: Vocab
           {entry.reported}
         </blockquote>
 
+        {/* Above the boxes rather than under them, because it is read before them: it is
+            what decides whether this entry is filled in at all. */}
+        <Namesakes entry={entry} />
+
         {entry.act === "amend" ? (
           <Diff entry={entry} fields={fields} />
         ) : (
@@ -368,6 +407,46 @@ function Entry({ entry, vocabularies }: { entry: InboxEntry; vocabularies: Vocab
           Reject it
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * What the library already holds under the name this entry proposes.
+ *
+ * The creation's half of the diff below: an amendment is judged against the record it
+ * names, and a creation was judged against the owner's memory of seventy-seven titles until
+ * this was here (#53). It is a **reading and not a warning** — two editions of one object
+ * are two records this library exists to keep apart, and the word beside each name is what
+ * says which is which — so it is drawn in the finder's own rows, quietly, and each one is a
+ * link to the record it names: the answer to *is this the same thing?* is on that page and
+ * not in a list.
+ */
+function Namesakes({ entry }: { entry: InboxEntry }) {
+  if (entry.namesakes.length === 0) return null;
+
+  return (
+    <div className="mt-3 rounded-lg bg-muted/60 px-3 py-2.5">
+      <p className="max-w-prose text-xs text-pretty text-muted-foreground">
+        Already in the library under that name. Approving this makes a second record, and a record
+        you have read, rated or shelved refuses to be struck.
+      </p>
+      <ul className="-mx-2 mt-1">
+        {entry.namesakes.map((namesake) => (
+          <li key={namesake.id}>
+            <Link
+              href={recordHref({ kind: entry.proposes, id: namesake.id })}
+              className={cn(
+                ROW,
+                "text-muted-foreground outline-none transition-colors",
+                "hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              )}
+            >
+              <FoundRow name={namesake.name} qualifier={namesake.qualifier} />
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -34,6 +34,21 @@ export type InboxAct = "create" | "amend";
 /** Where an entry stands. Waiting is the Inbox; the other two are what happened to it. */
 export type InboxState = "waiting" | "approved" | "rejected";
 
+/**
+ * One record the library already holds under the name a proposal uses.
+ *
+ * The same three things the finder answers with, and deliberately so: what it is called,
+ * the id that opens it, and the one word that tells two records of one name apart — a
+ * Story's Type, an object's Binding, the edition line a Series is. Two Volumes called
+ * *Batman: Il lungo Halloween*, one *Must Have* and one *Paperback*, are two objects on a
+ * shelf and not a duplicate, and the qualifier is the whole of what says so.
+ */
+export type Namesake = {
+  id: string;
+  name: string;
+  qualifier: string | null;
+};
+
 /** One Inbox entry, as the owner reads it before deciding. */
 export type InboxEntry = {
   id: string;
@@ -66,6 +81,17 @@ export type InboxEntry = {
    * the diff that says why the amendment was proposed at all.
    */
   standing: Record<string, unknown> | null;
+  /**
+   * What the library already holds under the name a **creation** proposes, so a duplicate
+   * is read rather than remembered (#53).
+   *
+   * It is the creation's half of what `standing` is for an amendment: approving a proposal
+   * is a judgement, and the fact that decides it — *there is already a Story called that* —
+   * is a fact no screen and no owner can hold in their head across seventy-seven titles.
+   * Empty on an amendment, which is read against the one record it names, and empty where
+   * the library holds nothing called that, which is the ordinary case.
+   */
+  namesakes: Namesake[];
   /** `YYYY-MM-DD HH:MM`. The clock matters: an Inbox is worked through in one sitting. */
   proposedAt: string;
   state: InboxState;
@@ -106,6 +132,108 @@ const STANDING = `
         from series where series.id = entry.subject_id)
   end`;
 
+/** How many namesakes are worth reading beside a proposal. A wall of them is not evidence. */
+const A_FEW = 5;
+
+/**
+ * Where the records of one kind stand, as the fragment below needs them: the table, what
+ * the record is called, and what qualifies it.
+ *
+ * A table rather than three hand-written branches, for `finder.ts`'s reason — the three
+ * have to be matched the *same* way, and an accent fold applied to two of them and
+ * forgotten on the third is a duplicate that gets approved. The columns are the finder's
+ * too, because this asks the finder's question about one kind of record: *what in this
+ * library is called that?*
+ */
+type Shelf = {
+  proposes: ProposedEntity;
+  /** The table and whatever it must be joined to for its qualifier, aliased. */
+  from: string;
+  id: string;
+  /** The column a proposal's `reference` is compared against. */
+  name: string;
+  /** The one word that tells two records of one name apart. */
+  qualifier: string;
+};
+
+const SHELVES: readonly Shelf[] = [
+  {
+    proposes: "story",
+    from: "story s join type t on t.id = s.type_id",
+    id: "s.id",
+    name: "s.title",
+    qualifier: "t.name",
+  },
+  {
+    // The **catalogue**, not the Collection (ADR-0007). An object the owner catalogued and
+    // never had is exactly what a second proposal would duplicate, and a match read off the
+    // Collection would miss every one of them.
+    proposes: "volume",
+    from: "volume v join binding b on b.id = v.binding_id",
+    id: "v.id",
+    name: "v.title",
+    qualifier: "b.name",
+  },
+  {
+    proposes: "series",
+    from: "series se",
+    id: "se.id",
+    name: "se.name",
+    qualifier: "se.edition_line",
+  },
+];
+
+/**
+ * The records already called what one creation proposes.
+ *
+ * Three decisions, and each one is about the mistake this is for — an assistant proposing
+ * a record the library already holds (#53):
+ *
+ *   - **the match runs both ways.** A name containing the proposal *and* a proposal
+ *     containing the name, because the two duplicates that actually arrive are *Slam Dunk*
+ *     proposed over *Slam Dunk 1* and *Slam Dunk 1* proposed over *Slam Dunk*. A screen
+ *     showing only the first would be silent on the twenty-first narrative named after a
+ *     volume, which is the one this library already has on its shelves;
+ *   - **`strpos` over `unaccent`, both sides**, which is `finder.ts`'s matching and not a
+ *     second one: `perche` finds *Perché*, and `%` is an ordinary character in *100%
+ *     Doraemon* rather than a wildcard;
+ *   - **only its own kind.** A Story, a Series and a Volume of one name are what this
+ *     library is *for* (ADR-0001), so a proposal is read against the records it could
+ *     duplicate and against nothing else. A screen warning about the other two would be a
+ *     screen crying wolf on the ordinary case.
+ *
+ * The name it matches exactly comes first, and the rest read alphabetically.
+ */
+function namesakesOn(shelf: Shelf): string {
+  const folded = `lower(unaccent(${shelf.name}))`;
+
+  return `when '${shelf.proposes}' then (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'id', found.id, 'name', found.name, 'qualifier', found.qualifier)), '[]'::jsonb)
+        from (select ${shelf.id}::text as id, ${shelf.name} as name, ${shelf.qualifier} as qualifier
+                from ${shelf.from}
+               where strpos(${folded}, proposed.name) > 0
+                  or strpos(proposed.name, ${folded}) > 0
+               order by case when ${folded} = proposed.name then 0 else 1 end, ${shelf.name}
+               limit ${A_FEW}) as found)`;
+}
+
+/**
+ * What the library already holds under an entry's name, or nothing to read.
+ *
+ * `'[]'` rather than `null` in the two cases that are not a match — an amendment, which is
+ * read against its own record, and a proposal naming nothing at all — because *nothing is
+ * called that* and *this entry is not that kind of question* are both answered by an empty
+ * list, and a screen with one shape to draw cannot get the second case wrong.
+ */
+const NAMESAKES = `
+  case when entry.act = 'create' and btrim(entry.reference) <> '' then (
+    select case entry.proposes
+             ${SHELVES.map(namesakesOn).join("\n             ")}
+           end
+      from (select lower(unaccent(entry.reference)) as name) as proposed)
+  end`;
+
 const ENTRY = `
   entry.id,
   entry.reported,
@@ -115,6 +243,7 @@ const ENTRY = `
   entry.subject_id                                       as "subjectId",
   entry.details,
   ${STANDING}                                            as standing,
+  coalesce(${NAMESAKES}, '[]'::jsonb)                    as namesakes,
   to_char(entry.proposed_at, 'YYYY-MM-DD HH24:MI')       as "proposedAt",
   coalesce(entry.outcome, 'waiting')                     as state,
   to_char(entry.decided_at, 'YYYY-MM-DD HH24:MI')        as "decidedAt",

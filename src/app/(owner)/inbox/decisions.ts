@@ -194,6 +194,32 @@ export function whatItIsAbout(group: InboxGroup): string {
   return `${howMany} ${fieldWords(group.fields, howMany)} on ${records}`;
 }
 
+/**
+ * What the group holds that the library already has, in one line, or `null` where it holds
+ * none.
+ *
+ * The heading is what a folded group is approved on, so the duplicate has to reach it: an
+ * assistant proposing a Story the library already knows is the mistake the whole boundary
+ * exists to catch (#53), and it is the one thing about an entry the owner cannot check by
+ * reading it. What each namesake actually **is** stays on the entry, beside the proposal it
+ * doubles — this says only that there is something to look at, which is what decides
+ * whether the group is opened at all.
+ *
+ * An amendment has none by construction: it names a record, and what stands in that record
+ * is the diff.
+ */
+export function whatIsAlreadyThere(group: InboxGroup): string | null {
+  const already = group.entries.filter((entry) => entry.namesakes.length > 0).length;
+  if (already === 0) return null;
+
+  const what = entityWord(group.proposes, already);
+  if (group.entries.length === 1) return `The library already holds a ${what} called that.`;
+
+  return already === 1
+    ? `1 of these names a ${what} the library already holds.`
+    : `${already} of these name ${what} the library already holds.`;
+}
+
 /** The publisher the record an amendment is about stands under, where the record says. */
 function publisherOf(entry: InboxEntry): string | null {
   const publisher = entry.standing?.publisher;

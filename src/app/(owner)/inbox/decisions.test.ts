@@ -7,6 +7,7 @@ import {
   groupWaiting,
   proposedFields,
   receiptFor,
+  whatIsAlreadyThere,
   whatItIsAbout,
 } from "./decisions";
 
@@ -35,6 +36,7 @@ function waiting(entry: Partial<InboxEntry> & Pick<InboxEntry, "id">): InboxEntr
     subjectId: "0af26b4e-1111-4111-8111-111111111111",
     details: { isbn: "9788891234567" },
     standing: { title: "Slam Dunk 1", publisher: "Planet Manga", isbn: null },
+    namesakes: [],
     proposedAt: "2026-08-31 12:00",
     state: "waiting",
     decidedAt: null,
@@ -284,5 +286,66 @@ describe("the words the act is read in", () => {
 
   it("has nothing to say about nothing", () => {
     expect(receiptFor([])).toBe("");
+  });
+});
+
+// The duplicate reaching the heading, which is the half of a decision an owner cannot make
+// by reading the entry: they would have to remember seventy-seven titles (#53). What each
+// namesake is stays on the entry; this says only that there is something to look at, and it
+// is what decides whether a folded group is opened.
+describe("what a group holds that the library already has", () => {
+  /** A proposed Story, and whether the library is already calling something that. */
+  function proposed(id: string, namesakes: InboxEntry["namesakes"]): InboxEntry {
+    return waiting({
+      id,
+      act: "create",
+      proposes: "story",
+      reference: "Slam Dunk",
+      subjectId: null,
+      standing: null,
+      details: { title: "Slam Dunk" },
+      namesakes,
+    });
+  }
+
+  const namesake = [
+    { id: "0af26b4e-3333-4333-8333-333333333333", name: "Slam Dunk", qualifier: "Manga" },
+  ];
+
+  it("says so on a single proposal that doubles a record", () => {
+    const [group] = groupWaiting([proposed("a", namesake)]);
+
+    expect(whatIsAlreadyThere(group)).toBe("The library already holds a Story called that.");
+  });
+
+  it("counts them where the group holds several", () => {
+    const [group] = groupWaiting([
+      proposed("a", namesake),
+      proposed("b", []),
+      proposed("c", namesake),
+    ]);
+
+    expect(whatIsAlreadyThere(group)).toBe("2 of these name Stories the library already holds.");
+  });
+
+  it("says one of them in the singular", () => {
+    const [group] = groupWaiting([proposed("a", namesake), proposed("b", [])]);
+
+    expect(whatIsAlreadyThere(group)).toBe("1 of these names a Story the library already holds.");
+  });
+
+  // The ordinary case, and the reason this answers with nothing rather than with a
+  // reassurance: a line on every group is a line the owner learns to skip, and then skips
+  // on the one that matters.
+  it("has nothing to say where the library holds none of them", () => {
+    const [group] = groupWaiting([proposed("a", []), proposed("b", [])]);
+
+    expect(whatIsAlreadyThere(group)).toBeNull();
+  });
+
+  it("has nothing to say about an amendment, which is read against its own record", () => {
+    const [group] = groupWaiting([anIsbn("a", "Star Comics")]);
+
+    expect(whatIsAlreadyThere(group)).toBeNull();
   });
 });
