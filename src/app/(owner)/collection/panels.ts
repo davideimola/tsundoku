@@ -1,4 +1,4 @@
-// THE ADDRESSES THIS SCREEN HAS — the two panels and the five filters. **Named here because
+// THE ADDRESSES THIS SCREEN HAS — the three panels and the five filters. **Named here because
 // more than one file spells each of them**, and because every one of these strings fails
 // silently when two files disagree about it.
 //
@@ -13,6 +13,7 @@
 
 export const COVERS = "covers";
 export const ELSEWHERE = "elsewhere";
+export const CARRYING_NOTHING = "carrying-nothing";
 
 /**
  * The panels, read against this list rather than trusted.
@@ -20,12 +21,19 @@ export const ELSEWHERE = "elsewhere";
  * `page.tsx` decides which one is open from it, and reaches nothing that is not on it: a
  * hand-typed `?panel=banana` opens no drawer.
  *
- * **Two, where there were four** (#45). Cataloguing an object and looking one up by ISBN were
- * this screen's other two panels, and they are the one door now — `../add/`, where the object,
- * the narrative and the link between them are one act. What is left is the Collection's own:
- * an object coming home, and the covers.
+ * **Three, where there were four and then two.** Cataloguing an object and looking one up by
+ * ISBN were this screen's other two panels, and they are the one door now (#45) — `../add/`,
+ * where the object, the narrative and the link between them are one act. What is left is the
+ * Collection's own: an object coming home, the covers, and — since #51 — the objects the
+ * library knows and nobody has named the contents of.
+ *
+ * That third one is the odd one and is worth a sentence, because it is the only panel here
+ * that holds **no form at all**. It is a list of objects with a way to each, since what
+ * closes that gap is said on the object's own page and not over a list: naming what an
+ * omnibus holds is reading its rows and adding to them (#47), which is not a thing a drawer
+ * over ninety-six tiles can offer.
  */
-export const PANELS = [COVERS, ELSEWHERE] as const;
+export const PANELS = [COVERS, ELSEWHERE, CARRYING_NOTHING] as const;
 
 /**
  * What the owner asked the *wall* for: the five filters, in the order the controls stand in.

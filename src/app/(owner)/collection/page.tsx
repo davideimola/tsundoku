@@ -17,6 +17,10 @@ import {
   type WallVolume,
 } from "@/core/queries/collection";
 import { coverStanding } from "@/core/queries/cover";
+import {
+  listVolumesCarryingNothing,
+  type VolumeCarryingNothing,
+} from "@/core/queries/story-to-volume";
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
@@ -27,7 +31,7 @@ import {
   whatNoLookupReaches,
   whatTheLookupFound,
 } from "./covers-found";
-import { COVERS, ELSEWHERE, PANELS, THE_WALLS_FILTERS } from "./panels";
+import { CARRYING_NOTHING, COVERS, ELSEWHERE, PANELS, THE_WALLS_FILTERS } from "./panels";
 
 // THE COLLECTION WALL, and the screen this whole redesign exists for: *do I already have
 // this?* asked standing in a shop, one-handed, on the shop's signal. So the phone is the
@@ -164,12 +168,17 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   // filters spelled out as five comparisons is five places to forget the sixth.
   const narrowed = Object.values(narrowing).some((one) => one !== undefined);
 
-  const [volumes, elsewhere, covers] = await Promise.all([
+  const [volumes, elsewhere, carryingNothing, covers] = await Promise.all([
     listCollectionWall(narrowing),
     // Unnarrowed, deliberately: it is a short list beside the Collection, and a search that
     // emptied it would hide the one answer it exists to give — *you catalogued this and you
     // do not have it*.
     listCataloguedOutsideTheCollection(),
+    // Unnarrowed for that reason and for one of its own: this list is **the catalogue's** and
+    // not the wall's, so a Volume carrying nothing is here whether the house holds it or not
+    // (#51). Narrowing it by what the owner typed into a search over the shelf would answer
+    // *what has nobody named the contents of* with *of the things on your shelf*.
+    listVolumesCarryingNothing(),
     coverStanding(),
   ]);
 
@@ -215,27 +224,35 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
               around it rather than a chip, because what is being offered is *a figure to read*
               and *a run to start* — and a phone that spent a second row of pills on those two
               was spending it on the wall. */}
+          {/* **The third fact is a gap, and it is a fact rather than a warning** (#51). A
+              Volume carrying no Story is ordinary — nothing refuses one, and an object
+              approved from the Inbox arrives without contents by design — so it is a figure
+              in the same sentence as the other two and in the same ink, not a banner over
+              the wall. What makes it legible as something to *do* is one word: *yet*.
+
+              It is absent at nought, like *not in the house* above it, and for the sharper
+              reason: a line reading *nothing is missing its contents* is a screen asking to
+              be congratulated on a shop's signal. */}
           <p className="mt-2 text-pretty text-xs text-muted-foreground">
             {elsewhere.length > 0 ? (
               <>
-                <Link
-                  href={panelled(params, ELSEWHERE)}
-                  className="inline-block rounded py-1.5 underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                >
+                <Fact href={panelled(params, ELSEWHERE)}>
                   <span className="font-mono tabular-nums">{elsewhere.length}</span> not in the
                   house
-                </Link>
-                <span aria-hidden className="px-2">
-                  ·
-                </span>
+                </Fact>
+                <Separator />
               </>
             ) : null}
-            <Link
-              href={panelled(params, COVERS)}
-              className="inline-block rounded py-1.5 underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Look up covers
-            </Link>
+            {carryingNothing.length > 0 ? (
+              <>
+                <Fact href={panelled(params, CARRYING_NOTHING)}>
+                  <span className="font-mono tabular-nums">{carryingNothing.length}</span> carrying
+                  no Story yet
+                </Fact>
+                <Separator />
+              </>
+            ) : null}
+            <Fact href={panelled(params, COVERS)}>Look up covers</Fact>
           </p>
         </div>
       </header>
@@ -462,6 +479,45 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </Drawer>
       ) : null}
 
+      {/* **THE GAP, SHOWN** (#51). An object carrying no narrative stands in no Reading list
+          and takes no judgement, so until somebody looks at it there is no screen it appears
+          on — and two ordinary paths produce one: an approval from the Inbox, which may name
+          Stories only by an id the assistant found (ADR-0019), and an object catalogued in a
+          shop from its cover before the owner knows what is inside.
+
+          **A list with a way to each object and no form in it.** What closes the gap is the
+          field under the object's own contents (#47), which reads the library as the owner
+          types and mints on Enter what it does not know; a second door onto that over a list
+          of nineteen would be the same act built twice, and the one built here would be the
+          worse of the two. So every row is a link, and it lands on the rows it is about. */}
+      {panel === CARRYING_NOTHING && carryingNothing.length > 0 ? (
+        <Drawer
+          title="Carrying no Story yet"
+          description="Objects the library knows and nobody has said the contents of. A gap to fill, not a mistake."
+          closesTo={unpanelled(params)}
+        >
+          <p className="text-pretty text-sm text-muted-foreground">
+            {carryingNothing.length} {carryingNothing.length === 1 ? "Volume" : "Volumes"}{" "}
+            catalogued before anybody named what is inside — approved from the Inbox, where an
+            assistant may link the works an object holds and never invent them, or catalogued from a
+            photograph in a shop. Nothing refuses such an object and nothing is wrong with it: it
+            simply stands in no Reading list and takes no judgement until it carries something. Open
+            one and name what it holds, in the field under its contents.
+          </p>
+
+          {/* The *elsewhere* list's register — rows and a dashed frame, an outline of the
+              shelf rather than the shelf — because that is what these are, and because a
+              wall of tiles would ask this list to be looked at when it is meant to be worked
+              through. No colour: a tint is a Series' and it is worn by what is standing
+              there. */}
+          <ul className="mt-4 rounded-xl border border-dashed border-border px-4">
+            {carryingNothing.map((volume) => (
+              <CarryingNothingRow key={volume.id} volume={volume} />
+            ))}
+          </ul>
+        </Drawer>
+      ) : null}
+
       {panel === COVERS ? (
         <Drawer
           title="Covers"
@@ -530,6 +586,75 @@ function NoLookupReaches({ many, className }: { many: number; className: string 
 }
 
 /**
+ * One of the quiet facts under the hero's one act: a figure to read, or a run to start.
+ *
+ * A link with a thumb's worth of padding around it rather than a chip, because what is
+ * offered is a *fact* and not a fourth button — and a component rather than the class list
+ * written three times, since the third of them arrived with #51 and a fact drawn differently
+ * from its neighbours would read as a different kind of thing.
+ */
+function Fact({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="inline-block rounded py-1.5 underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {children}
+    </Link>
+  );
+}
+
+/** What stands between two of them. Decorative, so nothing reading the page aloud says it. */
+function Separator() {
+  return (
+    <span aria-hidden className="px-2">
+      ·
+    </span>
+  );
+}
+
+/**
+ * One object nobody has named the contents of, and the way to the place they are named.
+ *
+ * **The whole row is the link**, and it lands on the object's contents rather than on the
+ * top of its page: what the owner came here to do is on that card, and a phone that opened
+ * a Volume's page at the hero would ask them to scroll past the cover, the ISBN and the
+ * acquisitions to find it.
+ *
+ * What it says is what tells two objects of one title apart — who printed it, which edition
+ * line it belongs to, and **where it stands**, which is the wall's own rule (`Standing`): the
+ * position in the line, or the Binding for an object that stands in none. The line is not
+ * named beside it, because the rows come out of the core in the order the shelf stands in and
+ * a run reads as a run without a label repeating its own titles.
+ *
+ * And quietly, whether the house holds it: both halves of the catalogue produce this gap, and
+ * an object still in a shop is worked through at a different moment from one on the shelf.
+ */
+function CarryingNothingRow({ volume }: { volume: VolumeCarryingNothing }) {
+  const under = [volume.publisher, volume.editionLine].filter(Boolean).join(" · ");
+
+  return (
+    <li className="border-t border-dashed border-border first:border-t-0">
+      <Link
+        href={`/collection/${volume.id}#stories-it-holds`}
+        className="flex min-h-11 items-baseline justify-between gap-3 rounded py-3 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="min-w-0">
+          <span className="block truncate font-medium">{volume.title}</span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+            {under}
+            {volume.inTheHouse ? null : " · not in the house"}
+          </span>
+        </span>
+        <Badge variant="outline" className="shrink-0 border-dashed">
+          <Standing of={volume} />
+        </Badge>
+      </Link>
+    </li>
+  );
+}
+
+/**
  * A Series, as it is named on a control: *Death Note, Black Edition*.
  *
  * The edition belongs in the name here and nowhere else on this screen, because that is
@@ -572,8 +697,12 @@ function detailOf(volume: WallVolume): string {
  * an unnumbered object raises is the other one: *which of the two editions is this?* An
  * omnibus and a Must Have of one story are two tiles with one title, and the Binding is what
  * has always told them apart on this screen.
+ *
+ * It takes the two facts rather than a `WallVolume` since #51, because the rows of objects
+ * carrying no Story ask the same question at the other end of the screen and the answer must
+ * not be *nearly* the same one.
  */
-function Standing({ of }: { of: WallVolume }) {
+function Standing({ of }: { of: { seriesNumber: number | null; binding: { name: string } } }) {
   return <>{of.seriesNumber ?? of.binding.name}</>;
 }
 

@@ -358,7 +358,13 @@ export default async function VolumePage({
       </div>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
-        <Card>
+        {/* **The card has an address, because something else leads here** (#51). The
+            Collection's list of objects carrying no Story links to `#stories-it-holds` rather
+            than to the top of this page: what that list is about is on this card, and a phone
+            arriving at the hero would ask the owner to scroll past the cover, the ISBN and the
+            acquisitions to reach the one thing they came for. Renaming it breaks that link and
+            nothing else, which is why the two are one word apart. */}
+        <Card id="stories-it-holds" className="scroll-mt-16">
           <CardHeader>
             <CardTitle>Stories it holds</CardTitle>
             <CardDescription className="text-pretty">
