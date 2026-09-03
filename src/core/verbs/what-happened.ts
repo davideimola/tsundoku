@@ -4,7 +4,7 @@ import { FIRST_HAND } from "../queries/provenance.ts";
 import { Refusal } from "../refusal.ts";
 import { type Executor, transaction } from "../transaction.ts";
 import { acquireVolume, type CataloguedVolume, catalogueVolume } from "./collection.ts";
-import { recordReading } from "./reading.ts";
+import { type Medium, recordReading } from "./reading.ts";
 import { placeVolumeInSeries } from "./series.ts";
 import { createStory } from "./story.ts";
 import { recordVolumeCarriesStory, recordVolumeNoLongerCarriesStory } from "./story-to-volume.ts";
@@ -47,9 +47,20 @@ import { openWish } from "./wish.ts";
 // or its photograph in front of them. An object proposed from outside may carry none, and that
 // door is the Inbox's rather than this one's.
 //
-// **The two sentences about a narrative are untouched**, and it is not the same default: *I read
-// it* and *I want to read it* have no object at all, so the title the owner typed **is** the
+// **The two sentences about a narrative name no narrative**, and it is not the same default: *I
+// read it* and *I want to read it* have no object at all, so the title the owner typed **is** the
 // narrative rather than a guess about what an object holds.
+//
+// **What the pass through no object no longer guesses is its medium, and that is the whole of
+// #50** (ADR-0019). *I read it* recorded `digital` unconditionally, which held while the four
+// sentences stood together and the object half was where paper lived; now that the narrative half
+// is a declared door, a paperback off somebody else's shelf comes through it and was being
+// recorded as a file. So the sentence carries the medium and this verb writes what it was told.
+// **What it still does not ask is through which Volume**: `CONTEXT.md` says a Reading knows the
+// object *«if there was one»*, and that clause is the permission not to ask — a picker over the
+// catalogue here would rebuild the object-to-narrative round trip inside the door built to end
+// it. *I want to read it* is untouched, because a Want carries an intended medium of its own and
+// nothing was read.
 //
 // **The owner's own arrow is still read, and it can now be overruled** (#39). Where the Series
 // says which Story it publishes, `placeVolumeInSeries` attaches that work to the object joining
@@ -195,7 +206,16 @@ export type TheObjectToBuy = TheObjectItself & {
 export type WhatHappened = { title: string; typeId: string } & (
   | { said: "bought"; object: TheObjectInHand }
   | { said: "wished"; object: TheObjectToBuy }
-  | { said: "read" | "wanted" }
+  /**
+   * **The one thing the pass says beyond the title** (#50): paper, or digital.
+   *
+   * It is required and there is no default here, because the default is a fact about the
+   * *screen* — a radio arriving pressed — and a second one written into the verb would be the
+   * silent `digital` that ADR-0019 took out, one file further down. What is refused is
+   * `recordReading`'s own check constraint, in its own prose.
+   */
+  | { said: "read"; medium: Medium }
+  | { said: "wanted" }
 );
 
 /** What the library recorded, so the door knows where to land the owner. */
@@ -375,14 +395,16 @@ export async function sayWhatHappened(happened: WhatHappened): Promise<WhatWasRe
     if (!storyId) throw new Error("sayWhatHappened ended with no narrative");
 
     if (happened.said === "read") {
-      // **A pass through no object, which is what *I read it* means at this door.** There is no
-      // Volume to name — the owner did not say they bought it — and the model's own reading of
-      // a Reading with no object is the digital one (`CONTEXT.md`: an ebook is a Reading with a
-      // digital medium and no Volume). A borrowed paperback is the same three facts with a
-      // different medium, and correcting that is one press on the Story's own page; inventing a
-      // fourth question at this door to tell the two apart is what the door exists not to do.
+      // **A pass through no object, by the medium the owner said** (#50). There is no Volume to
+      // name — they did not say they bought it, and nothing here asks which object it went
+      // through, because `CONTEXT.md` says a Reading knows the object *«if there was one»* and
+      // that clause is the permission not to ask. What is no longer guessed is the medium: the
+      // digital case was the model's own reading of a Reading with no object (an ebook is a
+      // Reading with a digital medium and no Volume), and a paperback off somebody else's shelf
+      // is the same three facts with one word different. One word is a question worth asking;
+      // the object it went through is a round trip.
       await recordReading(
-        { storyId, medium: "digital", provenanceId: FIRST_HAND, outcome: "finished" },
+        { storyId, medium: happened.medium, provenanceId: FIRST_HAND, outcome: "finished" },
         run
       );
     }

@@ -393,6 +393,7 @@ describe("I read it", () => {
       title: "Daredevil: L'Uomo Senza Paura",
       typeId: "comic",
       said: "read",
+      medium: "digital",
     });
 
     const [storyId] = said.storyIds;
@@ -408,9 +409,48 @@ describe("I read it", () => {
     expect(await query("select id from volume")).toEqual([]);
   });
 
+  // The case #50 exists for: a paperback off somebody else's shelf. It is the same three
+  // facts as the sentence above with one word different, and it still leaves no object —
+  // which is what makes it sayable here at all.
+  it("records a pass on paper through no object, where that is what the owner said", async () => {
+    const said = await sayWhatHappened({
+      title: "Il nome della rosa",
+      typeId: "novel",
+      said: "read",
+      medium: "paper",
+    });
+
+    const [storyId] = said.storyIds;
+    expect(await readings()).toEqual([
+      { story_id: storyId, medium: "paper", volume_id: null, outcome: "finished" },
+    ]);
+
+    expect(await query("select id from volume")).toEqual([]);
+  });
+
+  // The medium is the Reading's own check constraint and the prose is `recordReading`'s: this
+  // door has no copy of it to keep true, and the sentence the owner reads is the verb's.
+  it("refuses a medium that is neither, in the Reading's own words", async () => {
+    await expect(
+      sayWhatHappened({
+        title: "Il nome della rosa",
+        typeId: "novel",
+        said: "read",
+        medium: "audiobook" as never,
+      })
+    ).rejects.toMatchObject({
+      name: "Refusal",
+      message: "A Reading is on paper or digital, and nothing else.",
+    });
+
+    // The whole sentence is one transaction, so a medium that is not one leaves no narrative
+    // behind either (`../transaction.ts`).
+    expect(await stories()).toEqual([]);
+  });
+
   it("refuses a title with nothing in it", async () => {
     await expect(
-      sayWhatHappened({ title: "   ", typeId: "comic", said: "read" })
+      sayWhatHappened({ title: "   ", typeId: "comic", said: "read", medium: "digital" })
     ).rejects.toMatchObject({
       name: "Refusal",
       code: "invalid",
