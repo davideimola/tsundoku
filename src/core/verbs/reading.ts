@@ -232,3 +232,77 @@ export async function abandonReading(
 ): Promise<void> {
   await concludeReading(readingId, "abandoned", endedOn);
 }
+
+// STRIKING A READING, which is the door ADR-0018 opens and the one this file was missing.
+//
+// **A pass is an event and an event is never edited** — that rule is the whole shape of this
+// module and it does not move. What it never covered is a row that records an event that did
+// not happen: the owner presses *Start reading it* on the wrong tile in a shop, and the Story
+// reads `reading` for ever. The two exits were *Finished* and *Gave up*, and both are false
+// statements about a book nobody opened; striking the Story is refused the moment a Reading
+// exists (`WHY_A_STORY_STANDS`), so there was no way back at all.
+//
+// This is ADR-0014's boundary applied where it had not been: **the question is not "is this a
+// delete?" but "did anything happen to this record?"**. A pass with a judgement on it is
+// something the owner lived with. A pass with nothing on it asserts an event that never
+// occurred, and leaving it is what makes the library wrong.
+
+/**
+ * **Why a Reading stands**, in the one branch there is and the prose the owner reads.
+ *
+ * A Rating is the only record that can point at a pass, and the schema already has an opinion
+ * about what a delete would do to it: `rating_belongs_to_the_read_story` is `on delete set
+ * null (reading_id)`, so striking a rated pass would leave the judgement standing and quietly
+ * turn *what I thought of that reading* into *what I think of the narrative*. That is a
+ * different sentence, written by nobody. So it is refused, and the owner unmakes the judgement
+ * first — `strikeRating` in `./rating.ts` is the other half of this door, and exists because a
+ * refusal with no way to satisfy it is the dead end this whole ADR is about.
+ *
+ * It names the Reading `r`, so a `case` spending it joins `reading r`.
+ */
+export const WHY_A_READING_STANDS = `
+  case
+    when exists (select 1 from rating g where g.reading_id = r.id)
+      then 'you judged that reading. Strike the score first — a judgement of a pass is not a judgement of the narrative, and this is the one act that could quietly make it one.'
+  end`;
+
+/**
+ * Strike a Reading: the library stops knowing that the owner ever opened the Story.
+ *
+ * Returns the Story it was a pass through, read off the deleted row rather than carried
+ * through the form, for `strikePath`'s reason: the screen that has to say what happened may
+ * not be told by the browser what it just did. The state on the way out is derived again from
+ * whatever Readings are left, like everywhere else — there is no field to put back.
+ *
+ * **One at a time, and never in bulk.** The Inbox's back doors are bulk because their mess
+ * arrives forty at a time (ADR-0011, ADR-0015); a mis-tap arrives alone, and a ticked list of
+ * the owner's own reading history is a worse thing to have in front of you than a button on
+ * the row you are looking at.
+ *
+ * **The owner's act and never the assistant's**, for the reason every strike is: the party
+ * that can record a pass through the MCP door is exactly the party that must not be able to
+ * delete one to tidy up after itself (ADR-0005, and ADR-0014 said it first).
+ */
+export async function strikeReading(readingId: string): Promise<string> {
+  if (!UUID.test(readingId)) throw new Refusal("not-found", NO_SUCH_READING);
+
+  const [standing] = await query<{ because: string | null }>(
+    `select ${WHY_A_READING_STANDS} as because from reading r where r.id = $1`,
+    [readingId]
+  );
+
+  if (!standing) throw new Refusal("not-found", NO_SUCH_READING);
+  if (standing.because !== null) {
+    throw new Refusal("not-allowed", `That Reading stays: ${standing.because}`);
+  }
+
+  const struck = await query<{ storyId: string }>(
+    `delete from reading where id = $1 returning story_id as "storyId"`,
+    [readingId]
+  );
+
+  const [gone] = struck;
+  if (!gone) throw new Refusal("not-found", NO_SUCH_READING);
+
+  return gone.storyId;
+}

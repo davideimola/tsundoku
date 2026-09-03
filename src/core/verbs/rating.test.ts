@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
 import { findStory } from "../queries/story.ts";
-import { setRating } from "./rating.ts";
+import { setRating, strikeRating } from "./rating.ts";
 import { recordReading } from "./reading.ts";
 import { createStory } from "./story.ts";
 
@@ -215,5 +215,48 @@ describe("a Rating and a Volume", () => {
     // Not a Refusal: it is not a thing the owner can be told they got wrong, it is a
     // statement the schema has no room for.
     await expect(attempt).rejects.toThrow(/column "volume_id" of relation "rating" does not exist/);
+  });
+});
+
+// STRIKING A RATING (ADR-0018). Two acts wanted it: a score typed into the wrong row, which
+// `setRating` cannot answer — saying it again replaces the number and still asserts that the
+// owner judged this book — and the refusal `strikeReading` raises over a rated pass, which
+// without this would be a refusal with no way to satisfy it.
+describe("striking a Rating", () => {
+  it("takes the judgement out and answers with the Story it was about", async () => {
+    const storyId = await createStory({ title: "Pluto", typeId: "manga" });
+    const ratingId = await setRating({ storyId, score: 8.5, provenanceId: "remembered" });
+
+    expect(await strikeRating(ratingId)).toBe(storyId);
+    expect((await findStory(storyId))?.standaloneRatings).toEqual([]);
+  });
+
+  // It reaches a judgement attached to a pass as well as a free-standing one, because a score
+  // is struck by its own id and where it was drawn is not the act.
+  it("takes a judgement off the pass it came out of, and leaves the pass standing", async () => {
+    const storyId = await createStory({ title: "Pluto", typeId: "manga" });
+    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    const ratingId = await setRating({ storyId, readingId, score: 8, provenanceId: "remembered" });
+
+    await strikeRating(ratingId);
+
+    const story = await findStory(storyId);
+    expect(story?.readings.map((one) => one.rating)).toEqual([null]);
+    expect(story?.readings).toHaveLength(1);
+  });
+
+  it("refuses a Rating the library does not have", async () => {
+    await expect(strikeRating("00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
+      message: "That Rating is not in the library.",
+    });
+  });
+
+  it("refuses an id no row could have", async () => {
+    await expect(strikeRating("banana")).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
+    });
   });
 });

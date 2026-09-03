@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { findStory } from "../queries/story.ts";
+import { setRating, strikeRating } from "./rating.ts";
 import {
   abandonReading,
   finishReading,
   recordInstalmentReached,
   recordReading,
+  strikeReading,
 } from "./reading.ts";
-import { createStory, declareInstalments } from "./story.ts";
+import { createStory, declareInstalments, strikeStories } from "./story.ts";
 
 // Seam 1, against the real Postgres. `truncate story cascade` takes the Readings and
 // the Ratings with it and leaves the two data-row tables — Type and Provenance —
@@ -384,5 +386,111 @@ describe("the Instalment a pass reached", () => {
     await expect(
       recordInstalmentReached("00000000-0000-0000-0000-000000000000", 3)
     ).rejects.toMatchObject({ name: "Refusal", code: "not-found" });
+  });
+});
+
+// STRIKING A READING (ADR-0018). **The pass that never happened**, which the four verbs above
+// had no answer for: *Start reading it* pressed on the wrong tile in a shop put a Story in
+// `reading` for ever, because the only exits were finishing and giving up — both false
+// statements about a book nobody opened — and striking the Story is refused the moment a
+// Reading exists.
+//
+// It is ADR-0014's boundary applied here: not *is this a delete* but *did anything happen to
+// this record*. The one thing that can have happened to a pass is a judgement.
+describe("striking a Reading", () => {
+  it("takes the pass out, and the state follows from what is left", async () => {
+    const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
+    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    expect((await findStory(storyId))?.state).toBe("reading");
+
+    expect(await strikeReading(readingId)).toBe(storyId);
+
+    const story = await findStory(storyId);
+    expect(story?.readings).toEqual([]);
+    // Derived on the way out, so there was never a field to put back — which is the whole
+    // reason this verb is the only thing the correction needed.
+    expect(story?.state).toBe("to-read");
+  });
+
+  // The pass is struck and the narrative is not: they are different records, and the Story
+  // was real even when the reading of it was a mis-tap.
+  it("leaves the Story standing, and the other passes through it", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    const first = await recordReading({
+      storyId,
+      medium: "paper",
+      startedOn: "2019-01-01",
+      provenanceId: "remembered",
+    });
+    await finishReading(first, "2019-02-01");
+    const misTap = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    await strikeReading(misTap);
+
+    const story = await findStory(storyId);
+    expect(story?.title).toBe("Slam Dunk");
+    expect(story?.readings.map((one) => one.id)).toEqual([first]);
+    expect(story?.state).toBe("read");
+  });
+
+  // **The one refusal, and it is the schema's opinion made explicit.**
+  // `rating_belongs_to_the_read_story` is `on delete set null (reading_id)`, so a delete would
+  // leave the judgement standing and quietly turn *what I thought of that reading* into *what
+  // I think of the narrative*. That is a different sentence, written by nobody.
+  it("refuses a pass the owner judged, and says how to answer it", async () => {
+    const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
+    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishReading(readingId, "2024-01-01");
+    await setRating({ storyId, readingId, score: 8, provenanceId: "remembered" });
+
+    await expect(strikeReading(readingId)).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-allowed",
+      message:
+        "That Reading stays: you judged that reading. Strike the score first — a judgement of a pass is not a judgement of the narrative, and this is the one act that could quietly make it one.",
+    });
+
+    // And nothing moved: a refused strike is not half a strike.
+    expect((await findStory(storyId))?.readings).toHaveLength(1);
+  });
+
+  // The pair, end to end, and the reason `strikeRating` exists at all: the refusal above has
+  // to be answerable, or it is the dead end this ADR was written about.
+  it("goes through once the judgement is struck, and the Story can then be struck too", async () => {
+    const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
+    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishReading(readingId, "2024-01-01");
+    const ratingId = await setRating({
+      storyId,
+      readingId,
+      score: 8,
+      provenanceId: "remembered",
+    });
+
+    await strikeRating(ratingId);
+    await strikeReading(readingId);
+
+    // Nothing has happened to it any more, so the last door opens as well — which is what
+    // being able to undo a mis-tap actually means.
+    await expect(strikeStories([storyId])).resolves.toBe(1);
+    expect(await findStory(storyId)).toBeNull();
+  });
+
+  it("refuses a Reading the library does not have", async () => {
+    await expect(strikeReading("00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
+      message: "That Reading is not in the library.",
+    });
+  });
+
+  // A malformed id is the same event as an unknown one, never a syntax error crossing the
+  // core's edge as a 500 (`verbs/path.ts` states the rule).
+  it("refuses an id no row could have", async () => {
+    await expect(strikeReading("banana")).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
+    });
   });
 });

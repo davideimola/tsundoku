@@ -34,6 +34,23 @@ export const NOTHING_ON_IT = "nothing-on-it";
 export const STRIKE = "strike";
 
 /**
+ * **Striking one act of reading, and striking one judgement** (ADR-0018) — the two doors that
+ * make a mis-tap survivable.
+ *
+ * Here for `STRIKE`'s reason and more sharply than any of the others: both acts are refusable
+ * by something the screen cannot foresee. A rated pass stays until its score goes, and the
+ * sentence saying so is about the row the owner pressed, so it has to come back into the panel
+ * that is standing over that row.
+ *
+ * Two names rather than one, though the two drawers ask the same single question, because they
+ * destroy two different records and the address has to say which. A panel that meant *strike
+ * whatever this is about* would be one URL away from unmaking the judgement when the owner
+ * meant the pass.
+ */
+export const STRIKE_READING = "strike-reading";
+export const STRIKE_RATING = "strike-rating";
+
+/**
  * Saying how many **Instalments** a Story has, and where a pass got to in them (#37).
  *
  * Here for `STRIKE`'s reason: each is spelled by the page that opens the drawer and again by

@@ -4,20 +4,29 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { FIRST_HAND } from "@/core/queries/provenance";
 import { isRefusal } from "@/core/refusal";
-import { setRating } from "@/core/verbs/rating";
+import { setRating, strikeRating } from "@/core/verbs/rating";
 import {
   abandonReading,
   finishReading,
   type Medium,
   recordInstalmentReached,
   recordReading,
+  strikeReading,
 } from "@/core/verbs/reading";
 import { mergeSeriesIntoOneStory } from "@/core/verbs/series";
 import { amendStory, declareInstalments, strikeStories } from "@/core/verbs/story";
 import { recordVolumeCarriesStory } from "@/core/verbs/story-to-volume";
 import { openWant, strikeWant } from "@/core/verbs/want";
 import { requireOwner } from "@/lib/auth/owner";
-import { PUBLISHES, REACHED, RENAME, SERIALIZE, STRIKE } from "../panels";
+import {
+  PUBLISHES,
+  REACHED,
+  RENAME,
+  SERIALIZE,
+  STRIKE,
+  STRIKE_RATING,
+  STRIKE_READING,
+} from "../panels";
 
 // The writes on a Story's page, and **#29 is where the web stopped being a read-only view of
 // the thing it exists to record**. The assistant could already say *I've started the Batman
@@ -53,7 +62,7 @@ import { PUBLISHES, REACHED, RENAME, SERIALIZE, STRIKE } from "../panels";
  * The pair travels together because the address is one thing, which is the shape the
  * Volume's own page already gives it (`collection/[id]/actions.ts` calls it `reopens` too).
  */
-type Reopens = { panel: string; reading?: string };
+type Reopens = { panel: string; reading?: string; rating?: string };
 
 /** What a form's field held, or nothing where it was left empty. */
 function text(form: FormData, field: string): string | null {
@@ -93,6 +102,7 @@ async function saying(
     if (reopens) {
       said.set("panel", reopens.panel);
       if (reopens.reading) said.set("reading", reopens.reading);
+      if (reopens.rating) said.set("rating", reopens.rating);
     }
   }
 
@@ -370,4 +380,52 @@ export async function rename(form: FormData): Promise<void> {
   const title = String(form.get("title") ?? "");
 
   await saying(storyId, () => amendStory(storyId, { title }), { panel: RENAME });
+}
+
+/**
+ * **Strike one act of reading**, which is the door ADR-0018 opens.
+ *
+ * The state on the way out needs telling nothing: it is derived from the Readings that are
+ * left on the next request, so a Story whose only pass this was reads `to read` again with no
+ * field anywhere put back.
+ *
+ * Refused on a pass the owner judged, and the sentence comes back **into this panel** rather
+ * than onto the page behind — it is about the row the owner pressed, and the drawer is
+ * standing over it. The reading travels with it so the panel reopens over the same row and
+ * not over the newest one.
+ *
+ * The verb answers with the Story rather than this door reading it off the form, and the form
+ * field is still sent: it is what the redirect and the revalidation need when the write is
+ * *refused*, since there is no answer to read a Story off then.
+ */
+export async function strikeThisReading(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+  const readingId = text(form, "readingId") ?? "";
+
+  await saying(storyId, () => strikeReading(readingId), {
+    panel: STRIKE_READING,
+    reading: readingId,
+  });
+}
+
+/**
+ * **Strike one judgement**, the other half of the pair (ADR-0018) — and the only way to
+ * satisfy the refusal above.
+ *
+ * Nothing refuses it, so the reopen is a formality rather than a path anybody is expected to
+ * take; it is passed all the same, because a door that cannot say what happened is how a
+ * refusal nobody foresaw becomes a screen that looks like it worked.
+ */
+export async function strikeThisRating(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+  const ratingId = text(form, "ratingId") ?? "";
+
+  await saying(storyId, () => strikeRating(ratingId), {
+    panel: STRIKE_RATING,
+    rating: ratingId,
+  });
 }

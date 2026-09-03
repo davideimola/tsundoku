@@ -33,6 +33,12 @@ survives beside the next one.
 A pass through a long run **knows how far it got**: the last Volume it finished, and therefore
 *ten out of twenty*. That is why the warning below still stands rather than being bent — how
 far you are is a fact about **the pass**, which is an event, and never a field on the Story.
+**Never overwritten is not the same as never struck** (ADR-0018). A pass that *happened* is
+permanent, and a second one is what says it went differently; a row recording a pass that
+**never happened at all** — the wrong tile pressed in a shop — is struck, because the state is
+derived from these events and there is no field to correct. That door is refused on the one
+thing that can hang off a pass, a Rating, since deleting a rated one would quietly turn *what I
+thought of that reading* into *what I think of the narrative*.
 _Avoid_: reading status, progress — those name a field, and this is an event.
 
 **Volume**:

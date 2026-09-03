@@ -22,7 +22,15 @@ import { PersonPicker } from "../../credits/picker";
 // own screen and another here would be two Series to the owner, and `4 of 27` is the answer
 // `core/queries/series.ts` already gives. Three screens print them now, for that one reason.
 import { Progress, SeriesName } from "../../series/ledger";
-import { PUBLISHES, REACHED, RENAME, SERIALIZE, STRIKE } from "../panels";
+import {
+  PUBLISHES,
+  REACHED,
+  RENAME,
+  SERIALIZE,
+  STRIKE,
+  STRIKE_RATING,
+  STRIKE_READING,
+} from "../panels";
 import {
   howFarItGot,
   howItWent,
@@ -46,6 +54,8 @@ import {
   serialize,
   startReading,
   strikeIt,
+  strikeThisRating,
+  strikeThisReading,
   unwant,
   wantIt,
 } from "./actions";
@@ -116,6 +126,8 @@ const PANELS = [
   REACHED,
   RENAME,
   STRIKE,
+  STRIKE_READING,
+  STRIKE_RATING,
   PUBLISHES,
 ] as const;
 
@@ -132,9 +144,14 @@ const PANELS = [
  * that produced it, and carrying it through the opening of a drawer would print it again over
  * an act nobody just performed.
  */
-function panelled(storyId: string, panel: string, readingId?: string): string {
+function panelled(
+  storyId: string,
+  panel: string,
+  about?: { reading?: string; rating?: string }
+): string {
   const asking = new URLSearchParams({ panel });
-  if (readingId) asking.set("reading", readingId);
+  if (about?.reading) asking.set("reading", about.reading);
+  if (about?.rating) asking.set("rating", about.rating);
   return `/stories/${storyId}?${asking}`;
 }
 
@@ -182,7 +199,7 @@ function Uncredit({ storyId, held }: { storyId: string; held: StoryCredit }) {
   );
 }
 
-function Judgement({ rating }: { rating: StoryRating }) {
+function Judgement({ rating, storyId }: { rating: StoryRating; storyId: string }) {
   return (
     <div className="mt-2">
       <p className="font-mono text-sm tabular-nums">
@@ -194,8 +211,20 @@ function Judgement({ rating }: { rating: StoryRating }) {
       {rating.prose ? (
         <p className="mt-1 max-w-prose text-pretty font-serif text-prose">{rating.prose}</p>
       ) : null}
-      <p className="mt-1 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-        {rating.provenance.name}
+      {/* **Unmaking it, from wherever it is drawn** (ADR-0018). It is here rather than beside
+          the Reading because a score is struck by its own id: the same control serves a
+          judgement under the pass it came out of and one in the card of scores that point at
+          no pass, and neither place has to know about the other. Quiet, and beside the
+          Provenance rather than under the prose — it is a correction, and a destructive
+          control set louder than the words it would destroy reads as the point of the tile. */}
+      <p className="mt-1 flex flex-wrap items-baseline gap-x-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+        <span>{rating.provenance.name}</span>
+        <Link
+          href={panelled(storyId, STRIKE_RATING, { rating: rating.id })}
+          className="underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Strike this score
+        </Link>
       </p>
     </div>
   );
@@ -242,9 +271,18 @@ export default async function StoryPage({
   const open = theOpenReading(story.readings);
 
   const panel = PANELS.find((one) => one === said(asked, "panel"));
-  // Which act of reading a judgement is about, read against the stack rather than trusted:
-  // a hand-edited `?reading=` naming nothing opens no panel, exactly as `?panel=banana` does.
-  const judging = story.readings.find((reading) => reading.id === said(asked, "reading"));
+  // **Which act of reading a panel is about**, read against the stack rather than trusted: a
+  // hand-edited `?reading=` naming nothing opens no panel, exactly as `?panel=banana` does.
+  // Four panels are about one pass rather than about the Story — the judgement, where it got
+  // to, and now the strike (ADR-0018) — so it is one derivation and not one per drawer.
+  const onePass = story.readings.find((reading) => reading.id === said(asked, "reading"));
+  // And which judgement, read the same way over both places a Rating is drawn: under the pass
+  // it came out of, and in the card for the scores that point at no pass at all. One lookup,
+  // because a score is struck by its own id and the tile it was drawn in is not the act.
+  const oneJudgement = [
+    ...story.readings.map((reading) => reading.rating),
+    ...story.standaloneRatings,
+  ].find((rating) => rating !== null && rating.id === said(asked, "rating"));
   const closesTo = `/stories/${id}`;
 
   // Read only where the panel that offers them is open, as the Series screen reads its
@@ -320,7 +358,7 @@ export default async function StoryPage({
                   </OpensDrawer>
                   <OpensDrawer href={panelled(id, GAVE_UP)}>I gave up on it</OpensDrawer>
                   {story.instalments === null ? null : (
-                    <OpensDrawer href={panelled(id, REACHED, open.id)}>
+                    <OpensDrawer href={panelled(id, REACHED, { reading: open.id })}>
                       Where I am in it
                     </OpensDrawer>
                   )}
@@ -433,7 +471,7 @@ export default async function StoryPage({
                 <ul className="-my-1">
                   {story.standaloneRatings.map((rating) => (
                     <li key={rating.id} className="border-t border-border py-2 first:border-t-0">
-                      <Judgement rating={rating} />
+                      <Judgement rating={rating} storyId={story.id} />
                     </li>
                   ))}
                 </ul>
@@ -643,11 +681,11 @@ export default async function StoryPage({
       {/* **The judgement, attached to the act of reading it came out of.** That attachment is
           the whole of why a reread does not overwrite anything: two Readings carry two
           Ratings, and both are on the page. */}
-      {panel === RATE && judging ? (
+      {panel === RATE && onePass ? (
         <Drawer
-          title={judging.rating ? "Say it again" : "What I thought of it"}
+          title={onePass.rating ? "Say it again" : "What I thought of it"}
           description={
-            judging.rating
+            onePass.rating
               ? "One Rating per act of reading, so this replaces what is written under that Reading. A second opinion belongs to a second Reading."
               : "Of the Story and never of the object — it was the story that was good or bad. The prose is the point: a score alone cannot tell liked it from liked it for the art."
           }
@@ -655,10 +693,10 @@ export default async function StoryPage({
         >
           <form action={rate} className="grid gap-4">
             <input type="hidden" name="storyId" value={story.id} />
-            <input type="hidden" name="readingId" value={judging.id} />
+            <input type="hidden" name="readingId" value={onePass.id} />
 
             <p className="text-pretty text-sm text-muted-foreground">
-              {howItWent(judging)} · {whenItHappened(judging)}
+              {howItWent(onePass)} · {whenItHappened(onePass)}
             </p>
 
             <div className="grid gap-1.5">
@@ -672,7 +710,7 @@ export default async function StoryPage({
                 id="rating-score"
                 name="score"
                 required
-                defaultValue={judging.rating?.score ?? ""}
+                defaultValue={onePass.rating?.score ?? ""}
                 className={PICKER}
               >
                 <option value="" disabled>
@@ -696,7 +734,7 @@ export default async function StoryPage({
                 id="rating-prose"
                 name="prose"
                 rows={6}
-                defaultValue={judging.rating?.prose ?? ""}
+                defaultValue={onePass.rating?.prose ?? ""}
                 placeholder="The art carries it. I would not have finished it for the story alone."
                 className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 font-serif text-base leading-relaxed outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
               />
@@ -707,7 +745,7 @@ export default async function StoryPage({
             </div>
 
             <Button type="submit" className="h-11 w-full sm:h-10">
-              {judging.rating ? "Say it again" : "Record it"}
+              {onePass.rating ? "Say it again" : "Record it"}
             </Button>
           </form>
         </Drawer>
@@ -805,7 +843,7 @@ export default async function StoryPage({
       {/* **Where a pass got to, on the pass and never on the Story.** How far you are is a
           fact about an act of reading, which is what makes a reread start again at nothing
           without this one forgetting where it reached. */}
-      {panel === REACHED && judging && story.instalments !== null ? (
+      {panel === REACHED && onePass && story.instalments !== null ? (
         <Drawer
           title="Where I got to"
           description="The last Instalment this pass finished. Reading it again later starts again at nothing, and this pass keeps the number it ended on."
@@ -814,10 +852,10 @@ export default async function StoryPage({
         >
           <form action={sayWhereIGotTo} className="grid gap-4">
             <input type="hidden" name="storyId" value={story.id} />
-            <input type="hidden" name="readingId" value={judging.id} />
+            <input type="hidden" name="readingId" value={onePass.id} />
 
             <p className="text-pretty text-sm text-muted-foreground">
-              {howItWent(judging)} · {whenItHappened(judging)}
+              {howItWent(onePass)} · {whenItHappened(onePass)}
             </p>
 
             <div className="grid gap-1.5">
@@ -832,7 +870,7 @@ export default async function StoryPage({
                 max={story.instalments}
                 step={1}
                 inputMode="numeric"
-                defaultValue={judging.atInstalment ?? ""}
+                defaultValue={onePass.atInstalment ?? ""}
                 placeholder="7"
                 className={PICKER}
               />
@@ -963,6 +1001,103 @@ export default async function StoryPage({
           </form>
         </Drawer>
       ) : null}
+
+      {/* **THE TWO DOORS THAT MAKE A MIS-TAP SURVIVABLE** (ADR-0018), and the pair the page
+          went three releases without. Pressing *Start reading it* on the wrong tile in a shop
+          put a Story in `reading` for ever: the only exits were *Finished* and *Gave up*,
+          which are false statements about a book nobody opened, and striking the Story is
+          refused the moment a Reading exists. A record of an event that did not happen is
+          ADR-0014's own case, and this is where it is unmade.
+
+          Fields: none, like the Story's own strike, and for its reason — the whole of the act
+          is the press, and the panel is what makes it two deliberate taps over the row the
+          owner is looking at. */}
+      {panel === STRIKE_READING && onePass ? (
+        <Drawer
+          title="Strike this Reading"
+          description="For a pass that never happened — the wrong tile pressed in a shop. Not for one that went badly: giving up is a fact worth keeping, and it is the other button."
+          refused={refused}
+          closesTo={closesTo}
+        >
+          <form action={strikeThisReading} className="grid gap-4">
+            <input type="hidden" name="storyId" value={story.id} />
+            <input type="hidden" name="readingId" value={onePass.id} />
+
+            {/* Which pass, in the words the row says it in: the stack can hold several, and a
+                destructive press has to name the one it is about. */}
+            <p className="text-pretty text-sm text-muted-foreground">
+              {howItWent(onePass)} · {whenItHappened(onePass)}
+            </p>
+
+            <p className="text-pretty text-sm text-muted-foreground">
+              The library stops knowing you ever opened <em>{story.title}</em> on this pass. Where
+              this Story stands follows from whatever Readings are left, because that is derived on
+              every request and stored nowhere — so a Story whose only pass was this one goes back
+              to the pile.
+            </p>
+
+            {/* The one refusal, said before the press. It is the verb's rule and this is a copy
+                of it in prose: the page draws the press whatever hangs off the pass, and the
+                sentence the verb answers with is the one that names it. */}
+            <p className="text-pretty text-sm text-muted-foreground">
+              It is refused, and nothing happens, if you judged this reading. Strike the score first
+              — a judgement of a pass is not a judgement of the narrative, and this is the one act
+              that could quietly make it one.
+            </p>
+
+            <div>
+              <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
+                Strike this Reading
+              </Button>
+              <p className="mt-2 text-pretty text-xs text-muted-foreground">
+                There is no undo. You land back on the Story.
+              </p>
+            </div>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {/* The other half, and the reason the refusal above is satisfiable at all: a rated pass
+          stands until the judgement goes, and a refusal the owner has no way to answer is the
+          dead end this whole pair was opened to end. It is also the answer on its own to a
+          score typed into the wrong row — saying it again replaces the number and still
+          asserts that the owner judged this book. */}
+      {panel === STRIKE_RATING && oneJudgement ? (
+        <Drawer
+          title="Strike this score"
+          description="For a judgement you did not mean to write. Saying it again is the other act: that replaces the number and still says you judged this."
+          refused={refused}
+          closesTo={closesTo}
+        >
+          <form action={strikeThisRating} className="grid gap-4">
+            <input type="hidden" name="storyId" value={story.id} />
+            <input type="hidden" name="ratingId" value={oneJudgement.id} />
+
+            <p className="text-pretty text-sm text-muted-foreground">
+              The library stops knowing you judged <em>{story.title}</em> at{" "}
+              <span className="font-mono tabular-nums">{oneJudgement.score.toFixed(1)}</span>
+              {oneJudgement.prose ? ", and the words you wrote about it go with it" : ""}.
+            </p>
+
+            {/* Nothing refuses it, and the panel says so rather than leaving the owner to
+                find out: no record in this schema points at a Rating, so there is nothing to
+                clear first and nothing that changes quietly by its going. */}
+            <p className="text-pretty text-sm text-muted-foreground">
+              Nothing refuses this. A score is your own sentence about a narrative, and one you did
+              not mean to write is one you may unwrite.
+            </p>
+
+            <div>
+              <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
+                Strike this score
+              </Button>
+              <p className="mt-2 text-pretty text-xs text-muted-foreground">
+                There is no undo. You land back on the Story.
+              </p>
+            </div>
+          </form>
+        </Drawer>
+      ) : null}
     </main>
   );
 }
@@ -1018,7 +1153,7 @@ function Readings({ story }: { story: FoundStory }) {
                 </p>
 
                 {record.rating ? (
-                  <Judgement rating={record.rating} />
+                  <Judgement rating={record.rating} storyId={story.id} />
                 ) : (
                   <p className="mt-2 text-sm text-muted-foreground">No Rating on this Reading.</p>
                 )}
@@ -1028,7 +1163,7 @@ function Readings({ story }: { story: FoundStory }) {
                     can be rated too: the owner is two hundred pages in and knows. */}
                 <p className="mt-2">
                   <Link
-                    href={panelled(story.id, RATE, record.id)}
+                    href={panelled(story.id, RATE, { reading: record.id })}
                     className="font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {record.rating ? "Say it again" : "Rate it"}
@@ -1038,12 +1173,22 @@ function Readings({ story }: { story: FoundStory }) {
                       of reading rather than to the Story. */}
                   {story.instalments === null ? null : (
                     <Link
-                      href={panelled(story.id, REACHED, record.id)}
+                      href={panelled(story.id, REACHED, { reading: record.id })}
                       className="ml-3 font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {record.atInstalment === null ? "Say where I got to" : "Move it on"}
                     </Link>
                   )}
+                  {/* **And unmaking the pass itself**, which is the door this row was missing
+                      (ADR-0018). It sits last among the acts because it is the one that is
+                      about the row rather than about the reading: rate it, say where it got
+                      to — and, if it never happened, take it off. */}
+                  <Link
+                    href={panelled(story.id, STRIKE_READING, { reading: record.id })}
+                    className="ml-3 font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Strike this Reading
+                  </Link>
                   {stillOpen(record) ? (
                     <span className="ml-3 text-xs text-muted-foreground">Still open.</span>
                   ) : null}

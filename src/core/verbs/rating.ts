@@ -1,7 +1,7 @@
 import "server-only";
 
 import { query } from "../db.ts";
-import { refusing } from "../refusal.ts";
+import { Refusal, refusing } from "../refusal.ts";
 
 // Writing a Rating: the owner's judgement of a **Story**, 1 to 10 in half points, with
 // prose where they wrote some.
@@ -100,4 +100,39 @@ export async function setRating(rating: NewRating): Promise<string> {
   const [set] = rows;
   if (!set) throw new Error("insert into rating returned no row");
   return set.id;
+}
+
+/**
+ * Strike a Rating: the library stops knowing the owner ever judged this.
+ *
+ * Returns the Story it was about, off the deleted row rather than out of the form
+ * (`strikePath`, and `strikeReading` beside it).
+ *
+ * **Nothing refuses it**, which is ADR-0016's answer rather than ADR-0014's four: no record
+ * in this schema points at a Rating, so there is nothing that could be quietly changed by its
+ * going and nothing to clear first. A score is the owner's own sentence about a narrative, and
+ * a sentence they did not mean to write is a sentence they may unwrite.
+ *
+ * It exists as the other half of `strikeReading`'s one refusal (ADR-0018): a rated pass stays
+ * until the judgement goes, and a refusal the owner has no way to satisfy is the dead end that
+ * door was opened to end. It is also the answer on its own to a score typed into the wrong
+ * row, which `setRating` cannot give — setting it again replaces the number and still asserts
+ * that the owner judged this book.
+ *
+ * **The owner's act and never the assistant's** (ADR-0005, ADR-0014).
+ */
+export async function strikeRating(ratingId: string): Promise<string> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ratingId)) {
+    throw new Refusal("not-found", "That Rating is not in the library.");
+  }
+
+  const struck = await query<{ storyId: string }>(
+    `delete from rating where id = $1 returning story_id as "storyId"`,
+    [ratingId]
+  );
+
+  const [gone] = struck;
+  if (!gone) throw new Refusal("not-found", "That Rating is not in the library.");
+
+  return gone.storyId;
 }
