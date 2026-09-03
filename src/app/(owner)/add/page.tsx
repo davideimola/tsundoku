@@ -13,6 +13,7 @@ import { requireOwner } from "@/lib/auth/owner";
 import { bought, identify, read, suggestStories, wanted, wished } from "./actions";
 import {
   type CarriedField,
+  THE_FIELDS_A_REFUSAL_CARRIES,
   THE_SENTENCES,
   theNarrativesNamedBefore,
   theSentence,
@@ -77,6 +78,20 @@ function asked(params: Asked, name: string): string | undefined {
  * which is the case an object holding a single narrative is, and therefore very nearly all of
  * them. Both are one list here, so nothing downstream has to know.
  */
+/**
+ * **Every field a refused press came back carrying**, as a table.
+ *
+ * A table rather than a reader because the object half runs in the browser and a function
+ * cannot cross into it — and it is built off `THE_FIELDS_A_REFUSAL_CARRIES` rather than by
+ * hand, so a field the action sends and this forgets cannot arise (`./door.ts` is the one list
+ * both halves spell).
+ */
+function whatWasTypedBefore(params: Asked): Record<CarriedField, string | undefined> {
+  return Object.fromEntries(
+    THE_FIELDS_A_REFUSAL_CARRIES.map((field) => [field, asked(params, field)])
+  ) as Record<CarriedField, string | undefined>;
+}
+
 function askedAll(params: Asked, name: string): string[] {
   const value = params[name];
   if (Array.isArray(value)) return value;
@@ -232,7 +247,7 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
                   askedAll(params, THE_NARRATIVES_INSIDE.newStory)
                 )}
                 isbn={isbn}
-                typed={(name: CarriedField) => asked(params, name)}
+                typed={whatWasTypedBefore(params)}
                 publishedBy={asked(params, "publishedBy")}
                 find={suggestStories}
               />

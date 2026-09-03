@@ -89,13 +89,15 @@ export function TheObject({
   named: readonly NamedNarrative[];
   isbn: string | undefined;
   /**
-   * What this field held on a press that came back refused, where there was one.
+   * What each field held on a press that came back refused, where there was one.
    *
-   * Its argument is `CarriedField` rather than a string, so a field prefilled here and left
-   * off the list `actions.ts` sends is a type error rather than a box that quietly comes back
-   * empty.
+   * It is a table rather than the reader `page.tsx` used to hand its own half — a function
+   * cannot cross into a component that runs in the browser — and the guarantee is the same one
+   * or better: it is keyed by `CarriedField`, so a field read here and left off the list
+   * `actions.ts` sends is a type error rather than a box that quietly comes back empty, and the
+   * page cannot build it while omitting one.
    */
-  typed: (name: CarriedField) => string | undefined;
+  typed: Record<CarriedField, string | undefined>;
   publishedBy: string | undefined;
   /** What the catalogue holds under what has been typed, banded by line — a Server Function. */
   find: (term: string) => Promise<Band[]>;
@@ -113,8 +115,8 @@ export function TheObject({
     return bands;
   };
 
-  const chosenLine = typed("seriesId") ?? "";
-  const chosenBinding = typed("binding") ?? "";
+  const chosenLine = typed.seriesId ?? "";
+  const chosenBinding = typed.binding ?? "";
 
   const [line, setLine] = useState(chosenLine);
   const [binding, setBinding] = useState(chosenBinding);
@@ -147,7 +149,7 @@ export function TheObject({
     return `named-${minted.current}`;
   };
 
-  const [typeId, setTypeId] = useState(typed("type") ?? typeEachBindingOffers[chosenBinding] ?? "");
+  const [typeId, setTypeId] = useState(typed.type ?? typeEachBindingOffers[chosenBinding] ?? "");
 
   const inside = theNarrativesInside(rows);
   const typeName = types.find((one) => one.id === typeId)?.name;
@@ -162,14 +164,14 @@ export function TheObject({
       <Field
         name="publisher"
         label="Publisher"
-        defaultValue={typed("publisher") ?? publishedBy ?? ""}
+        defaultValue={typed.publisher ?? publishedBy ?? ""}
         placeholder="Planet Manga"
         required
       />
       <Field
         name="editionLine"
         label="Edition line"
-        defaultValue={typed("editionLine") ?? ""}
+        defaultValue={typed.editionLine ?? ""}
         placeholder="DC Must Have"
       />
 
@@ -195,14 +197,14 @@ export function TheObject({
         ))}
       </Picker>
 
-      <Field name="language" label="Language" defaultValue={typed("language") ?? "it"} required />
+      <Field name="language" label="Language" defaultValue={typed.language ?? "it"} required />
       {/* Carried from the lookup where there was one, and typed here otherwise — where a
           printed ISBN's hyphens are refused by the column rather than laundered. The field
           that reads a barcode is the lenient door, and what it hands over is bare digits. */}
       <Field
         name="isbn"
         label="ISBN"
-        defaultValue={typed("isbn") ?? isbn ?? ""}
+        defaultValue={typed.isbn ?? isbn ?? ""}
         placeholder="9788828765431"
         inputMode="numeric"
       />
@@ -235,7 +237,7 @@ export function TheObject({
           <Field
             name="seriesNumber"
             label="Position"
-            defaultValue={typed("seriesNumber") ?? ""}
+            defaultValue={typed.seriesNumber ?? ""}
             placeholder="21"
             inputMode="numeric"
           />
@@ -296,7 +298,7 @@ export function TheObject({
           <Field
             name="pricePaid"
             label="Price paid"
-            defaultValue={typed("pricePaid") ?? ""}
+            defaultValue={typed.pricePaid ?? ""}
             placeholder="6,50"
             inputMode="decimal"
           />
@@ -304,7 +306,7 @@ export function TheObject({
             name="acquiredOn"
             label="Came home"
             type="date"
-            defaultValue={typed("acquiredOn") ?? ""}
+            defaultValue={typed.acquiredOn ?? ""}
           />
         </div>
       ) : (
@@ -457,10 +459,10 @@ function TheNarrativesInside({
  * desk, and what it costs on the shelf — and the list bands on the first while the owner acts
  * on the second.
  */
-function TheIntentionToBuy({ typed }: { typed: (name: CarriedField) => string | undefined }) {
+function TheIntentionToBuy({ typed }: { typed: Record<CarriedField, string | undefined> }) {
   return (
     <>
-      <Picker id="say-priority" name="priority" label="Priority" chosen={typed("priority") ?? "2"}>
+      <Picker id="say-priority" name="priority" label="Priority" chosen={typed.priority ?? "2"}>
         {PRIORITIES.map((priority) => (
           <option key={priority.value} value={priority.value}>
             {priority.name} — {priority.hint}
@@ -472,23 +474,18 @@ function TheIntentionToBuy({ typed }: { typed: (name: CarriedField) => string | 
         <Field
           name="targetPrice"
           label="Target price"
-          defaultValue={typed("targetPrice") ?? ""}
+          defaultValue={typed.targetPrice ?? ""}
           placeholder="15,00"
           inputMode="decimal"
         />
         <Field
           name="priceFound"
           label="Price found"
-          defaultValue={typed("priceFound") ?? ""}
+          defaultValue={typed.priceFound ?? ""}
           placeholder="12,90"
           inputMode="decimal"
         />
-        <Field
-          name="shop"
-          label="Shop"
-          defaultValue={typed("shop") ?? ""}
-          placeholder="Star Shop"
-        />
+        <Field name="shop" label="Shop" defaultValue={typed.shop ?? ""} placeholder="Star Shop" />
       </div>
     </>
   );
