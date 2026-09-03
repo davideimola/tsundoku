@@ -90,6 +90,40 @@ export function stringArgument(input: Record<string, unknown>, key: string): str
 }
 
 /**
+ * The optional list of strings at `key`, or `undefined` where nothing was sent.
+ *
+ * The one argument on this door that is a list, and it is a list of **ids** (#52): the
+ * Stories a proposed object carries. So the reading is deliberately generous in one
+ * direction and strict in the other.
+ *
+ * Generous: **a lone string counts as a list of one**, for `numberArgument`'s reason — an
+ * assistant filling in a schema sends the scalar often enough to matter, and the alternative
+ * is a proposal that quietly carries nothing.
+ *
+ * Strict: **no id is silently dropped.** Anything that could be one reaches the verb as text,
+ * malformed ones included, because the approval is what verifies them and an id thrown away
+ * here would catalogue an object carrying less than the assistant claimed — which is the
+ * silent half of the failure this argument exists to fix. What goes is only what could not be
+ * an id under any reading: a blank, a null, and a nested list or object. Those are a client
+ * sending the wrong shape rather than a wrong id, and there is no text to hand on that the
+ * owner could judge.
+ */
+export function stringsArgument(input: Record<string, unknown>, key: string): string[] | undefined {
+  const value = input[key];
+  // A blank string is nothing sent, which is `stringArgument`'s own reading of one: the two
+  // have to answer the same way about an empty box, or an assistant clearing a field means
+  // one thing on this argument and another on every other.
+  if (typeof value === "string")
+    return stringArgument(input, key) === undefined ? undefined : [value.trim()];
+  if (!Array.isArray(value)) return undefined;
+
+  return value
+    .filter((said) => said !== null && said !== undefined && typeof said !== "object")
+    .map((said) => String(said).trim())
+    .filter((said) => said !== "");
+}
+
+/**
  * The optional number at `key`, or `undefined`.
  *
  * A string is accepted, because an assistant filling in a schema that says `number` sends

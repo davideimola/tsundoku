@@ -9,7 +9,7 @@ import {
   proposeStory,
   proposeVolume,
 } from "@/core/verbs/inbox";
-import { type McpTool, numberArgument, stringArgument } from "../tool.ts";
+import { type McpTool, numberArgument, stringArgument, stringsArgument } from "../tool.ts";
 
 // The Inbox area: the only way a new Story, Volume or Series can be asked for from out
 // here, and the reason there is no tool anywhere in this directory that creates one.
@@ -40,6 +40,15 @@ import { type McpTool, numberArgument, stringArgument } from "../tool.ts";
 // `WHAT_A_WRONG_ONE_COSTS` below are that instruction said once and spent by every tool
 // that proposes, so a fifth one cannot ship saying it more weakly — and `AGENTS.md` says
 // the same thing to whoever writes that fifth one.
+//
+// **One proposal names records other than the one it proposes, and it does so by id** (#52).
+// A proposed Volume says which Stories are inside it, because an object catalogued carrying no
+// narrative made every approval the first half of a repair. The argument is a list of plain
+// strings and nothing else: an id is verifiable — the approval refuses one that names no Story
+// — where a title in there would be a *second* proposal hidden inside the first, which is a
+// second place duplicates are born and the exact failure the prose above exists to stop. So
+// there is nowhere in this file a new record can be named rather than found, and a tool that
+// added one would be undoing #53 from the other end.
 
 /**
  * The instruction the whole area exists to give, and the tool that carries it out.
@@ -147,6 +156,21 @@ objects included, and it is the one that answers this question.
 
 ${WHAT_A_WRONG_ONE_COSTS}
 
+**Say which narratives are inside the object, in \`stories\`** — the object is the thing, and the
+works it carries are what make it readable, ratable and worth putting on a Reading list. An object
+that names none is catalogued carrying nothing, which is allowed and is the owner going to its page
+afterwards to type what you already knew.
+
+**Only ids, and only ids of Stories that already exist.** There is no title to write here and no
+way to write one: an id either names a Story or the approval is refused and *none* of the entry
+lands — not the object, not the other works you got right. So \`finder_search\` or \`stories_all\`
+first, and take the ids out of what came back; \`stories_find\` reads one of them in full, which is
+how you check the narrative is the one you think it is before naming it in an object — two works
+share a title far more often than they share a Type. A narrative the library does not hold is
+\`inbox_propose_story\`, a separate proposal the owner approves first; nothing here waits on
+anything, so propose the Story, tell the owner it is waiting, and name it in an object once it is
+theirs.
+
 Approving this records the object; it does **not** say it is in the house. Those are two separate
 facts, so once the owner has approved it, \`collection_acquire\` is the second thing to say.
 
@@ -170,6 +194,20 @@ hand.`,
       },
       language: { type: "string", description: "A language code: it, en, ja." },
       isbn: { type: "string", description: "10 or 13 characters, no spaces or dashes." },
+      // A list of plain strings, and that is the whole of the design: there is no shape in
+      // here a title could go in, so a new narrative cannot be proposed inside a volume
+      // proposal even by an assistant trying to be helpful (#52).
+      stories: {
+        type: "array",
+        items: { type: "string" },
+        description: `The ids of the Stories this object holds — **ids only, from \`finder_search\` or
+\`stories_all\`, never a title and never one you composed**. One object usually holds one narrative,
+an omnibus holds a run, and *Batman: L'uomo che ride* holds three tales judged apart. An id naming no
+Story refuses the whole entry rather than being quietly left out, so send the ones you actually
+found: a narrative the library does not hold is \`inbox_propose_story\` first. Leave it out where you
+do not know what is inside the object — it is catalogued carrying nothing, and the owner says so
+later on its own page.`,
+      },
     },
     required: ["reported", "title"],
     additionalProperties: false,
@@ -185,6 +223,7 @@ hand.`,
         binding: stringArgument(input, "binding"),
         language: stringArgument(input, "language"),
         isbn: stringArgument(input, "isbn"),
+        stories: stringsArgument(input, "stories"),
       }),
     };
   },

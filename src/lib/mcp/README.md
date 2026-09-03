@@ -101,6 +101,13 @@ and they are the whole of it:
   silent, is never read back, and stands for as long as the record does. The fields an
   amendment may name are `AMENDABLE_FIELDS` in `src/core/verbs/inbox.ts` and the tool reads
   its lists out of it, so the door offers exactly what the verb accepts.
+- **A proposal may name other records, and only ever by id** (#52). `inbox_propose_volume`
+  says which Stories are inside the object, because one approved carrying no narrative left
+  the owner typing the contents in afterwards. It is a list of plain strings and there is no
+  shape in it a title could go in: an id either names a Story or the approval refuses the
+  **whole** entry, where a title would be a second proposal hidden inside the first. A
+  narrative the library does not hold is `inbox_propose_story`, approved first — nothing here
+  makes one entry wait on another, and the Inbox keeps having no states.
 
 **A tool that proposes says two things, and it says them from one place.** *Search first, with
 the tool to search with named*, and *what a wrong proposal costs the owner* — `SEARCH_FIRST` and

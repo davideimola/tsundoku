@@ -101,6 +101,13 @@ comes back — then `inbox_waiting`, for what is already proposed. Only then use
 words in `reported`. Afterwards tell them it is **waiting in their Inbox**, never that you have
 added it, and say that anything they asked for in the same breath is waiting too.
 
+**Say what is inside a proposed object.** `inbox_propose_volume` takes `stories`, the ids of the
+narratives the object holds — one for a novel, several for a collection of tales judged apart.
+**Ids only, out of the search you have just done**; there is nowhere in it to write a title, an id
+naming no Story refuses the whole entry, and a narrative the library does not hold is
+`inbox_propose_story` first, approved before you name it in an object. Leaving it out is allowed,
+and it leaves the owner typing the contents in afterwards.
+
 Three that are easy to get wrong:
 
 - Buying a Volume does **not** close a Wish. Only `wish_close` does, and only when they say so.

@@ -9,6 +9,7 @@ import {
 } from "../queries/inbox.ts";
 import { listSeries } from "../queries/series.ts";
 import { findStory, listStories } from "../queries/story.ts";
+import { listStoriesInVolume } from "../queries/story-to-volume.ts";
 import { isRefusal } from "../refusal.ts";
 import {
   approveInboxEntries,
@@ -89,6 +90,9 @@ describe("proposing an entity that does not exist", () => {
         // …and nothing in the library is called that, which is the other half of what the
         // owner reads before approving one (#53).
         namesakes: [],
+        // It named no narratives either, which is the ordinary object: a Volume carrying no
+        // Story is a gap rather than a state (#52).
+        carries: [],
       },
     ]);
   });
@@ -446,6 +450,9 @@ describe("proposing an amendment to a record that exists", () => {
         },
         // An amendment is read against its own record and never against a namesake.
         namesakes: [],
+        // …and it names no links either: what an object holds is a record of its own and
+        // never a field amended into it (#52).
+        carries: [],
         proposedAt: expect.any(String),
         state: "waiting",
         decidedAt: null,
@@ -1104,5 +1111,196 @@ describe("proposing how many Instalments a Story has", () => {
 
     expect(refused).toMatchObject({ code: "invalid" });
     expect(refused?.message).toContain("no instalments");
+  });
+});
+
+// A PROPOSED OBJECT MAY NAME THE WORKS IT CARRIES, BY ID ONLY (#52).
+//
+// `inbox_propose_volume` took the object and nothing else, so an approved Volume landed
+// carrying no narrative and **every approval was followed by a repair**: the owner
+// catalogued the thing, then walked to its own page to say what was inside it. The proposal
+// names those works now.
+//
+// **By id, and the reason is the whole design.** An id is verifiable — either it names a
+// Story the library holds or the approval refuses it — where a new title inside a volume
+// proposal would be a second place duplicates are born, and the owner already abandoned this
+// Inbox once over the first one (#53). So a narrative the library does not hold is a separate
+// `proposeStory`, approved first; nothing here makes one entry depend on another, and the
+// Inbox keeps having no states.
+//
+// Three claims are under test, and the third is the one that is easy to lose in an edit: the
+// ids are verified on **approval** rather than dropped, the object and its contents land in
+// **one** transaction, and an object naming nothing still lands carrying nothing — a Volume
+// with no Story is a gap rather than a state, and nothing refuses it (`CONTEXT.md`).
+describe("proposing the works a proposed object carries", () => {
+  /** Two narratives the library already holds, which is the only kind a proposal may name. */
+  async function twoStories(): Promise<[string, string]> {
+    return [
+      await createStory({ title: "Gotham Noir", typeId: "comic" }),
+      await createStory({ title: "L'uomo che ride", typeId: "comic" }),
+    ];
+  }
+
+  /** How many links there are anywhere, which is what a rolled-back approval leaves none of. */
+  async function links(): Promise<number> {
+    const [counted] = await query<{ links: number }>(
+      "select count(*)::int as links from volume_story"
+    );
+    return counted.links;
+  }
+
+  /** The object as it is proposed, with whichever works it says it holds. */
+  async function proposeAnObjectCarrying(stories?: readonly string[]): Promise<string> {
+    const { id } = await proposeVolume({
+      reported: "Ho comprato Batman: L'uomo che ride, ci sono tre racconti dentro",
+      title: "Batman: L'uomo che ride",
+      publisher: "Panini Comics",
+      binding: "deluxe",
+      language: "it",
+      stories,
+    });
+    return id;
+  }
+
+  it("keeps the ids as they were said, and writes no link anywhere", async () => {
+    const [first, second] = await twoStories();
+
+    await proposeAnObjectCarrying([second, first]);
+
+    // In the order they were named, because that is the claim as it was made.
+    expect(await listWaitingInboxEntries()).toMatchObject([
+      { proposes: "volume", details: { stories: [second, first] } },
+    ]);
+    // And the proposal is still the only trace it has: nothing is catalogued and nothing
+    // carries anything.
+    expect(await domain()).toMatchObject({ volumes: 0 });
+    expect(await links()).toBe(0);
+  });
+
+  it("reads back as the narratives it names, so approving is not blind", async () => {
+    const [first, second] = await twoStories();
+
+    await proposeAnObjectCarrying([first, second]);
+
+    const [entry] = await listWaitingInboxEntries();
+    expect(entry.carries).toEqual([
+      { id: first, title: "Gotham Noir", type: "Comic" },
+      { id: second, title: "L'uomo che ride", type: "Comic" },
+    ]);
+  });
+
+  it("says which named id names nothing, rather than leaving it out of the list", async () => {
+    const [first] = await twoStories();
+    const noSuchStory = "11111111-2222-3333-4444-555555555555";
+
+    await proposeAnObjectCarrying([first, noSuchStory, "banana"]);
+
+    // The one the approval will refuse the entry over, readable before the press — with no
+    // title, which is what *no Story has that id* looks like on the entry. `banana` is not
+    // an id at all and is read the same way rather than raising on a uuid column.
+    const [entry] = await listWaitingInboxEntries();
+    expect(entry.carries).toEqual([
+      { id: first, title: "Gotham Noir", type: "Comic" },
+      { id: noSuchStory, title: null, type: null },
+      { id: "banana", title: null, type: null },
+    ]);
+  });
+
+  it("names each work once however often the proposal said it", async () => {
+    const [first] = await twoStories();
+
+    await proposeAnObjectCarrying([first, first]);
+
+    expect(await listWaitingInboxEntries()).toMatchObject([{ details: { stories: [first] } }]);
+  });
+
+  it("creates the object and its links in one act, when the owner approves", async () => {
+    const [first, second] = await twoStories();
+    const entryId = await proposeAnObjectCarrying([first, second]);
+
+    const { createdId } = await approveInboxEntry(entryId);
+
+    // Read back through the component's own query (#47), because that is what the links are
+    // for: the object's page shows what is inside it.
+    expect(await listStoriesInVolume(createdId as string)).toMatchObject([
+      { id: first, title: "Gotham Noir" },
+      { id: second, title: "L'uomo che ride" },
+    ]);
+  });
+
+  it("is refused whole where an id names no Story: nothing is catalogued and none of it lands", async () => {
+    const [first] = await twoStories();
+    const entryId = await proposeAnObjectCarrying([first, "11111111-2222-3333-4444-555555555555"]);
+
+    const refused = await refusalFrom(approveInboxEntry(entryId));
+
+    expect(refused.code).toBe("not-found");
+    // The entry's own name in front of the verb's prose, which is what makes a refusal in a
+    // selection of three hundred actionable.
+    expect(refused.message).toContain("Batman: L'uomo che ride");
+    expect(refused.message).toMatch(/not in the library/i);
+
+    // The whole of it rolled back: the object was not catalogued, the link that *was* good
+    // was not written, and the entry is still waiting to be decided.
+    expect(await domain()).toMatchObject({ volumes: 0 });
+    expect(await links()).toBe(0);
+    expect(await listWaitingInboxEntries()).toHaveLength(1);
+  });
+
+  it("is refused where an id is not an id at all, rather than dropping it", async () => {
+    const entryId = await proposeAnObjectCarrying(["banana"]);
+
+    const refused = await refusalFrom(approveInboxEntry(entryId));
+
+    expect(refused.code).toBe("not-found");
+    expect(await domain()).toMatchObject({ volumes: 0 });
+    expect(await listWaitingInboxEntries()).toHaveLength(1);
+  });
+
+  it("cannot name another Inbox entry: an entry references records and never entries", async () => {
+    // The thing that would make the Inbox a graph with states in it — one entry waiting on
+    // another to be approved first. What a proposal names is a Story, so an entry's own id
+    // names no Story and the approval refuses it exactly as it refuses any other wrong id.
+    const waiting = await proposeStory({
+      reported: "I read Slam Dunk",
+      title: "Slam Dunk",
+      typeId: "manga",
+    });
+    const entryId = await proposeAnObjectCarrying([waiting.id]);
+
+    const refused = await refusalFrom(approveInboxEntry(entryId));
+
+    expect(refused.code).toBe("not-found");
+    expect(await domain()).toMatchObject({ stories: 0, volumes: 0 });
+    // Both entries are still waiting, and neither of them depends on the other: rejecting
+    // the object leaves the Story exactly where it was.
+    expect(await listWaitingInboxEntries()).toHaveLength(2);
+  });
+
+  it("still lands carrying nothing where it names none, and that stays allowed", async () => {
+    const entryId = await proposeAnObjectCarrying();
+
+    const { createdId } = await approveInboxEntry(entryId);
+
+    expect(await listStoriesInVolume(createdId as string)).toEqual([]);
+    expect(await links()).toBe(0);
+  });
+
+  it("reads an empty list as nothing said rather than as a gesture to refuse", async () => {
+    // `recordVolumeCarriesStories` refuses an empty band in prose about a gesture nobody
+    // made here, so an object naming no works must not reach it at all.
+    const entryId = await proposeAnObjectCarrying([]);
+
+    const { createdId } = await approveInboxEntry(entryId);
+
+    expect(await listWaitingInboxEntries()).toEqual([]);
+    expect(await listStoriesInVolume(createdId as string)).toEqual([]);
+  });
+
+  it("is the object's alone: a Story and a Series carry nothing", async () => {
+    await proposeStory({ reported: "I read Slam Dunk", title: "Slam Dunk", typeId: "manga" });
+    await proposeSeries({ reported: "there are 31", name: "Slam Dunk", publisher: "Planet Manga" });
+
+    expect((await listWaitingInboxEntries()).map((entry) => entry.carries)).toEqual([[], []]);
   });
 });
