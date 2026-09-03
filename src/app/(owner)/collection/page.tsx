@@ -220,19 +220,19 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             Add to the library
           </OpensDrawer>
 
-          {/* The two facts, as a sentence. Each is a link with a thumb's worth of padding
-              around it rather than a chip, because what is being offered is *a figure to read*
-              and *a run to start* — and a phone that spent a second row of pills on those two
-              was spending it on the wall. */}
-          {/* **The third fact is a gap, and it is a fact rather than a warning** (#51). A
-              Volume carrying no Story is ordinary — nothing refuses one, and an object
-              approved from the Inbox arrives without contents by design — so it is a figure
-              in the same sentence as the other two and in the same ink, not a banner over
-              the wall. What makes it legible as something to *do* is one word: *yet*.
+          {/* The facts, as a sentence. Each is a link with a thumb's worth of padding around
+              it rather than a chip, because what is being offered is *a figure to read* and
+              *a run to start* — and a phone that spent a second row of pills on those was
+              spending it on the wall.
 
-              It is absent at nought, like *not in the house* above it, and for the sharper
-              reason: a line reading *nothing is missing its contents* is a screen asking to
-              be congratulated on a shop's signal. */}
+              **The third of them is a gap, and it is a fact rather than a warning** (#51). A
+              Volume carrying no Story is ordinary — nothing refuses one, and an object
+              approved from the Inbox arrives without contents by design — so it stands in the
+              same sentence as the other two and in the same ink, never as a banner over the
+              wall. What makes it legible as something to *do* is one word: *yet*. And it is
+              absent at nought, like *not in the house* beside it, for the sharper reason: a
+              line reading *nothing is missing its contents* is a screen asking to be
+              congratulated on a shop's signal. */}
           <p className="mt-2 text-pretty text-xs text-muted-foreground">
             {elsewhere.length > 0 ? (
               <>
