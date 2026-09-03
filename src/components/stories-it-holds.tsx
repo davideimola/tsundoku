@@ -439,7 +439,7 @@ function Row({
         disabled={working}
         onChange={(event) => onRename(event.target.value)}
         aria-label="What this narrative is called"
-        className="min-w-0 flex-1 border-b border-dashed border-muted-foreground/60 bg-transparent pb-0.5 font-heading text-base outline-none focus-visible:border-solid focus-visible:border-ring disabled:opacity-50 sm:text-sm"
+        className="min-w-0 flex-1 border-b border-dashed border-muted-foreground/60 bg-transparent py-1.5 font-heading text-base outline-none focus-visible:border-solid focus-visible:border-ring disabled:opacity-50 sm:py-1 sm:text-sm"
       />
       {type}
     </span>
