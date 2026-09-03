@@ -314,20 +314,44 @@ export async function proposeVolume(volume: ProposedVolume): Promise<{ id: strin
 }
 
 /**
- * The ids a proposal named, in the order it named them and each of them once.
+ * The ids a proposal named, or `null` where it named none.
  *
- * `said` below is the same rule over one value — trimmed, and dropped where nothing was
- * actually said — and this is it over a list. What it does **not** do is judge them: a
- * malformed id is kept exactly as it arrived, so the owner reads what the assistant claimed
- * and the approval is what refuses it.
- *
- * `null` where nothing was named, and where everything named was blank: an object carrying
- * nothing is the ordinary object, and an empty list is not a claim about anything.
+ * `null` rather than an empty list, because `said` below drops it and that is the right
+ * answer: an object carrying nothing is the ordinary object, and a list with nothing in it is
+ * not a claim about anything.
  */
 function named(stories: readonly string[] | null | undefined): string[] | null {
-  if (!stories) return null;
-  const kept = [...new Set(stories.map((storyId) => storyId.trim()).filter((said) => said !== ""))];
+  const kept = theIds(stories);
   return kept.length === 0 ? null : kept;
+}
+
+/**
+ * A list of ids as this file keeps and reads them: trimmed, without the blanks, each one
+ * once, in the order they were said, and **otherwise exactly as they arrived**.
+ *
+ * One function for both ends of an entry — what a proposal writes into `details`, and what
+ * the approval reads back out of it — because the two have to agree about what an id is.
+ * `details` comes back from Postgres as whatever went in, so this takes `unknown`: what is
+ * not a list is nothing said, which is `optional`'s rule about one value applied to a list.
+ *
+ * What it does **not** do is judge an id. A malformed one is kept, so the owner reads what
+ * the assistant actually claimed and the approval is what refuses it — dropping one here
+ * would catalogue an object carrying less than was proposed, silently, which is the failure
+ * #52 is about. What goes is only what could not be an id under any reading: a blank, a null,
+ * and a nested list or object, which are a caller sending the wrong shape rather than a wrong
+ * id and carry no text the owner could judge.
+ */
+function theIds(said: unknown): string[] {
+  if (!Array.isArray(said)) return [];
+
+  return [
+    ...new Set(
+      said
+        .filter((id) => id !== null && id !== undefined && typeof id !== "object")
+        .map((id) => String(id).trim())
+        .filter((id) => id !== "")
+    ),
+  ];
 }
 
 /**
@@ -762,7 +786,7 @@ async function create(
       // Nothing named is the ordinary case and is not a call at all: an object carrying no
       // Story is a gap rather than a state, and the verb would refuse an empty band in
       // prose about a gesture nobody made.
-      const stories = ids(said, "stories");
+      const stories = theIds(said.stories);
       if (stories.length > 0) await recordVolumeCarriesStories(id, stories, run);
 
       return id;
@@ -789,23 +813,6 @@ function needed(said: Record<string, unknown>, key: string, prose: string): stri
   const value = optional(said, key);
   if (value === null) throw new Refusal("invalid", prose);
   return value;
-}
-
-/**
- * The ids an entry named, read back out of the details it kept.
- *
- * `details` is raw and comes back from Postgres as whatever went in, so this reads it the
- * way `optional` reads a field: what is not a list of things said is nothing said. It
- * **keeps every id it finds, malformed ones included** — dropping one here would catalogue
- * an object carrying less than was proposed, silently, which is the failure #52 is about.
- */
-function ids(said: Record<string, unknown>, key: string): string[] {
-  const value = said[key];
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((id) => id !== null && id !== undefined)
-    .map((id) => String(id).trim())
-    .filter((id) => id !== "");
 }
 
 /** A field as text, or `null` where nothing was said about it. */

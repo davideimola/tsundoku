@@ -164,7 +164,9 @@ afterwards to type what you already knew.
 **Only ids, and only ids of Stories that already exist.** There is no title to write here and no
 way to write one: an id either names a Story or the approval is refused and *none* of the entry
 lands — not the object, not the other works you got right. So \`finder_search\` or \`stories_all\`
-first, and take the ids out of what came back. A narrative the library does not hold is
+first, and take the ids out of what came back; \`stories_find\` reads one of them in full, which is
+how you check the narrative is the one you think it is before naming it in an object — two works
+share a title far more often than they share a Type. A narrative the library does not hold is
 \`inbox_propose_story\`, a separate proposal the owner approves first; nothing here waits on
 anything, so propose the Story, tell the owner it is waiting, and name it in an object once it is
 theirs.

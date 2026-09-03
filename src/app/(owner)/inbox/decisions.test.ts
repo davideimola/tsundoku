@@ -9,6 +9,7 @@ import {
   receiptFor,
   whatIsAlreadyThere,
   whatItIsAbout,
+  whatNamesNothing,
 } from "./decisions";
 
 // The one thing #27 decided, tested beside itself rather than through a render.
@@ -348,5 +349,55 @@ describe("what a group holds that the library already has", () => {
     const [group] = groupWaiting([anIsbn("a", "Star Comics")]);
 
     expect(whatIsAlreadyThere(group)).toBeNull();
+  });
+});
+
+// What a proposed object's contents cost the entry, where one of the ids names nothing (#52).
+//
+// The entry answers with the record behind each id, and the count of the ones that named
+// nothing is what decides it: approving is refused whole, so the owner should reject rather
+// than press a button that cannot work. It is the screen's words and a count over what the
+// query answered, so it is tested here beside them.
+describe("what the ids a proposed object named cost it", () => {
+  /** A proposed Volume naming whatever works it says are inside it. */
+  function carrying(carries: InboxEntry["carries"]): InboxEntry {
+    return waiting({
+      id: "0af26b4e-3333-4333-8333-333333333333",
+      act: "create",
+      proposes: "volume",
+      reference: "Batman: L'uomo che ride",
+      details: { title: "Batman: L'uomo che ride" },
+      standing: null,
+      carries,
+    });
+  }
+
+  const noir = { id: "0af26b4e-4444-4444-8444-444444444444", title: "Gotham Noir", type: "Comic" };
+  const nothing = { id: "0af26b4e-5555-4555-8555-555555555555", title: null, type: null };
+
+  it("says nothing where every id names a Story, because contents are not a warning", () => {
+    expect(whatNamesNothing(carrying([noir]))).toBeNull();
+  });
+
+  it("says nothing about an object that named none at all", () => {
+    expect(whatNamesNothing(carrying([]))).toBeNull();
+  });
+
+  it("says the approval is refused whole, and that rejecting costs nothing", () => {
+    const said = whatNamesNothing(carrying([noir, nothing])) ?? "";
+
+    expect(said).toMatch(/^That id names no Story/);
+    // The whole entry rather than the one line, because that is what the verb does: an owner
+    // who read this as *the other two will still land* would approve it and be refused.
+    expect(said).toContain("the whole entry, not only that line");
+    expect(said).toContain("Rejecting it costs nothing");
+  });
+
+  it("counts them where more than one named nothing", () => {
+    const second = { id: "0af26b4e-6666-4666-8666-666666666666", title: null, type: null };
+
+    expect(whatNamesNothing(carrying([nothing, noir, second]))).toMatch(
+      /^2 of those ids name no Story/
+    );
   });
 });

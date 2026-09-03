@@ -30,6 +30,7 @@ import {
   proposedFields,
   whatIsAlreadyThere,
   whatItIsAbout,
+  whatNamesNothing,
 } from "./decisions";
 
 // THE INBOX, and the screen a maintenance session happens in (#27).
@@ -471,13 +472,13 @@ function Namesakes({ entry }: { entry: InboxEntry }) {
  *
  * **The one line worth the colour is an id naming nothing.** It is the fact that decides the
  * entry: approving is refused, whole, so the sentence says that and says rejecting costs
- * nothing — the same two clauses a deleted amendment subject is answered with, in the same
- * words, because it is the same situation.
+ * nothing — the same two clauses a deleted amendment subject is answered with, because it is
+ * the same situation. The sentence itself is `./decisions`', with the screen's other words.
  */
 function Carries({ entry }: { entry: InboxEntry }) {
   if (entry.carries.length === 0) return null;
 
-  const unknown = entry.carries.filter((story) => story.title === null).length;
+  const namesNothing = whatNamesNothing(entry);
 
   return (
     <div className="mt-4 border-t border-border pt-3">
@@ -511,12 +512,8 @@ function Carries({ entry }: { entry: InboxEntry }) {
         )}
       </ul>
 
-      {unknown === 0 ? null : (
-        <p className="mt-1.5 max-w-prose text-xs text-pretty text-destructive">
-          {unknown === 1 ? "That id names no Story" : `${unknown} of those ids name no Story`}, so
-          approving this is refused — the whole entry, not only that line. Rejecting it costs
-          nothing.
-        </p>
+      {namesNothing === null ? null : (
+        <p className="mt-1.5 max-w-prose text-xs text-pretty text-destructive">{namesNothing}</p>
       )}
     </div>
   );

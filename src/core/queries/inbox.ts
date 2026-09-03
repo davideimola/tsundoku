@@ -189,6 +189,14 @@ const A_UUID = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-
  * list would leave the owner pressing a button that cannot work and reading a refusal about
  * a Story they cannot see.
  *
+ * **Uncapped, unlike the namesakes below**, and the difference is worth stating because the
+ * two fragments otherwise look alike. `A_FEW` cuts the namesakes off because they are
+ * *evidence about* a proposal and a wall of them is not evidence — the owner can always open
+ * the finder for the rest. These are the proposal **itself**: every one of them is a link the
+ * approval writes, so a cap would hide part of what pressing the button does, which is the
+ * exact failure this reading exists to close. An assistant naming three hundred works in one
+ * object is a proposal to reject, and the way to see that is to see them.
+ *
  * Only a proposed Volume has any — an amendment names no links, and a Story and a Series
  * carry none — and `jsonb_typeof` is what makes the fragment safe over raw details: an
  * assistant that sent a string where the schema says a list of them said nothing this can

@@ -220,6 +220,29 @@ export function whatIsAlreadyThere(group: InboxGroup): string | null {
     : `${already} of these name ${what} the library already holds.`;
 }
 
+/**
+ * What the ids a proposed object named cost it, where one of them names nothing (#52).
+ *
+ * The entry answers with the record behind each id, and a row carrying no title is one the
+ * library holds no Story for. **That is the fact that decides the entry**: the approval
+ * refuses it, whole, so this says so and says what the owner should do instead — the sentence
+ * a wrong proposal is actually answered with is *reject it*, and the entry was its only trace.
+ *
+ * `null` where every id names something, which is the ordinary case: contents are what an
+ * object holds rather than a warning about it, and a line above every one of them would be a
+ * screen crying wolf.
+ *
+ * It is here rather than inside the component for this section's own reason — it is the
+ * screen's words and a count over what the query answered, so it is tested beside itself.
+ */
+export function whatNamesNothing(entry: InboxEntry): string | null {
+  const unknown = entry.carries.filter((story) => story.title === null).length;
+  if (unknown === 0) return null;
+
+  const named = unknown === 1 ? "That id names no Story" : `${unknown} of those ids name no Story`;
+  return `${named}, so approving this is refused — the whole entry, not only that line. Rejecting it costs nothing.`;
+}
+
 /** The publisher the record an amendment is about stands under, where the record says. */
 function publisherOf(entry: InboxEntry): string | null {
   const publisher = entry.standing?.publisher;
