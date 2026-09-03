@@ -232,7 +232,7 @@ export type Sentence = {
  * read against it, the acts are looked up off it, and a screen that regroups the four has one
  * list to regroup rather than two to keep in step.
  */
-export const THE_SENTENCES: readonly Sentence[] = [
+export const THE_SENTENCES = [
   {
     said: "bought",
     about: "an-object",
@@ -267,7 +267,23 @@ export const THE_SENTENCES: readonly Sentence[] = [
     atLength:
       "It joins the Reading list and nothing else follows: no Path, no order, no Wish. Nobody closes a Want — it falls quiet by itself once a Reading has begun since.",
   },
-];
+] as const satisfies readonly Sentence[];
+
+/**
+ * **The two sentences that are about an object**, derived from the list above rather than
+ * written out a second time.
+ *
+ * `satisfies` on `THE_SENTENCES` is what buys this: the list is still checked against
+ * `Sentence` field by field, and the `about` each entry carries survives as a literal for this
+ * to read. Written out by hand the pair would be spelled three times — twice as data and once
+ * as a type — and the third copy is the one nothing checks: a fifth sentence about an object
+ * would land in its half and get its heading, and then fail to reach the panel that asks what
+ * the object is.
+ */
+export type AnObjectsSentence = Extract<
+  (typeof THE_SENTENCES)[number],
+  { about: "an-object" }
+>["said"];
 
 /** The sentence a `?panel=…` names, or nothing where it names none. */
 export function theSentence(panel: string | undefined): Sentence | undefined {
@@ -335,6 +351,6 @@ export const THE_HALVES: readonly Half[] = WHAT_EACH_HALF_IS.map((half) => ({
  * Read off the sentence's own `about`, so the screen has one answer to *which of the two is
  * this* rather than a heading saying one thing and a form asking another.
  */
-export function aboutAnObject(said: WhatWasSaid): said is "bought" | "wished" {
+export function aboutAnObject(said: WhatWasSaid): said is AnObjectsSentence {
   return theSentence(said)?.about === "an-object";
 }

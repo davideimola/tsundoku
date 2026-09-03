@@ -4,7 +4,7 @@ import { useId, useMemo, useRef, useState } from "react";
 import { type HeldStory, TheStoriesItHolds } from "@/components/stories-it-holds";
 import type { Band } from "@/components/stories-on-offer";
 import { PRIORITIES } from "../wishes/shopping";
-import type { CarriedField } from "./door";
+import type { AnObjectsSentence, CarriedField } from "./door";
 import { Field, Picker } from "./fields";
 import {
   type NamedNarrative,
@@ -77,7 +77,7 @@ export function TheObject({
   publishedBy,
   find,
 }: {
-  said: "bought" | "wished";
+  said: AnObjectsSentence;
   /** What the door heard the object is called, which is what the shown default falls back to. */
   title: string;
   bindings: readonly { id: string; name: string }[];
