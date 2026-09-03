@@ -395,6 +395,10 @@ function Entry({ entry, vocabularies }: { entry: InboxEntry; vocabularies: Vocab
           <Fill entry={entry} fields={fields} vocabularies={vocabularies} />
         )}
 
+        {/* Under the fields rather than above them, because it is read last and is not a
+            field: the boxes are the object, and this is what the object holds. */}
+        <Carries entry={entry} />
+
         {/* The cheap half of the two, and it looks it: rejecting writes nothing into the
             domain, so it needs no confirmation and gets no weight. The friction belongs on
             the irreversible half, which is the button at the foot of the group. */}
@@ -447,6 +451,73 @@ function Namesakes({ entry }: { entry: InboxEntry }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * The narratives a proposed object says it holds (#52).
+ *
+ * A proposed Volume may name the Stories inside it, and approving it writes those links in
+ * the same act as the object — so what they are has to be on the entry, or the owner is
+ * approving a fact they never read. It is **the record's, not a field of it**: the boxes
+ * above are the object as it will be catalogued, and this is what will be inside it, so a
+ * rule separates the two rather than a sixth box pretending contents are a column.
+ *
+ * The rows are the finder's, exactly as the namesakes above are, because it is the same
+ * question — *which record is this?* — and each one links to the narrative it names. What it
+ * is deliberately **not** is the tinted block a namesake sits in: that block interrupts, and
+ * this is the ordinary case rather than a warning.
+ *
+ * **The one line worth the colour is an id naming nothing.** It is the fact that decides the
+ * entry: approving is refused, whole, so the sentence says that and says rejecting costs
+ * nothing — the same two clauses a deleted amendment subject is answered with, in the same
+ * words, because it is the same situation.
+ */
+function Carries({ entry }: { entry: InboxEntry }) {
+  if (entry.carries.length === 0) return null;
+
+  const unknown = entry.carries.filter((story) => story.title === null).length;
+
+  return (
+    <div className="mt-4 border-t border-border pt-3">
+      <p className="text-xs text-muted-foreground">What it says is inside the object</p>
+
+      <ul className="-mx-2 mt-1">
+        {entry.carries.map((story) =>
+          story.title === null ? (
+            // No link, because there is nothing to open. The id is in the monospace the
+            // typography contract reserves for figures — it is a reference and not a name —
+            // and it is on the right where a qualifier would be, so that a row naming
+            // nothing cannot be misread as a Story of some unfamiliar Type.
+            <li key={story.id} className={cn(ROW, "text-destructive")}>
+              <span className="shrink-0">No Story has this id</span>
+              <span className="min-w-0 truncate font-mono text-eyebrow">{story.id}</span>
+            </li>
+          ) : (
+            <li key={story.id}>
+              <Link
+                href={recordHref({ kind: "story", id: story.id })}
+                className={cn(
+                  ROW,
+                  "outline-none transition-colors",
+                  "hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
+                )}
+              >
+                <FoundRow name={story.title} qualifier={story.type} />
+              </Link>
+            </li>
+          )
+        )}
+      </ul>
+
+      {unknown === 0 ? null : (
+        <p className="mt-1.5 max-w-prose text-xs text-pretty text-destructive">
+          {unknown === 1 ? "That id names no Story" : `${unknown} of those ids name no Story`}, so
+          approving this is refused — the whole entry, not only that line. Rejecting it costs
+          nothing.
+        </p>
+      )}
     </div>
   );
 }

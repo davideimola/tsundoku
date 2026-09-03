@@ -15,6 +15,12 @@ import { query } from "../db.ts";
 // proposed for it (ADR-0011). It is read here, in the same statement, because a screen that
 // fetched the records itself would be a screen holding the model's shape.
 //
+// **A proposed object is read with one thing more too**, and for the same reason: it may
+// name the works it carries, by id (#52), and approving it writes those links in the same
+// transaction as the object. An id is not something a person can judge, so the entry answers
+// with the record each one names — and with an id naming nothing where the assistant got one
+// wrong, since that is the fact that decides the entry.
+//
 // **The state is derived here and stored nowhere**, like every other state in this app: an
 // entry is waiting until it has been decided, and a decided one says which way it went and
 // what the approval made.
@@ -47,6 +53,24 @@ export type Namesake = {
   id: string;
   name: string;
   qualifier: string | null;
+};
+
+/**
+ * One narrative a proposed object says it holds, as the owner reads it (#52).
+ *
+ * The ids in an entry's `details` are the assistant's claim, and an id is not something a
+ * person can judge — so the entry answers with the record each one names. **`title` is
+ * `null` where no Story has that id**, which is the case that decides the entry: approving
+ * it is refused, so the owner reads that here and rejects rather than pressing a button that
+ * cannot work.
+ */
+export type Carried = {
+  /** The id the proposal named, as it named it. */
+  id: string;
+  /** The Story's title, and `null` where the library holds no Story with that id. */
+  title: string | null;
+  /** Its Type — the one word that tells two narratives of one name apart. */
+  type: string | null;
 };
 
 /** One Inbox entry, as the owner reads it before deciding. */
@@ -92,6 +116,15 @@ export type InboxEntry = {
    * the library holds nothing called that, which is the ordinary case.
    */
   namesakes: Namesake[];
+  /**
+   * The narratives a proposed **object** says it holds, in the order it named them (#52).
+   *
+   * A proposed Volume may name the works inside it, by id, and approving it writes those
+   * links in the same transaction as the object — so what they are has to be on the entry
+   * or the owner is approving something they cannot read. Empty on everything else: an
+   * amendment names no links, and a Story and a Series carry none.
+   */
+  carries: Carried[];
   /** `YYYY-MM-DD HH:MM`. The clock matters: an Inbox is worked through in one sitting. */
   proposedAt: string;
   state: InboxState;
@@ -130,6 +163,49 @@ const STANDING = `
                'editionLine', series.edition_line, 'publishedCount', series.published_count,
                'status', series.status)
         from series where series.id = entry.subject_id)
+  end`;
+
+/**
+ * What an id looks like, so that one which is not an id reads as *no such Story* rather than
+ * raising a syntax error on a uuid column.
+ *
+ * The same guard the verbs keep in TypeScript, in SQL because this is where the untrusted
+ * value is: `details` is what the assistant sent, unchecked, and `banana::uuid` is a *syntax*
+ * error rather than a row that did not match — which would take the whole Inbox screen down
+ * over one bad proposal. It is inside a `case`, whose untaken branch Postgres does not
+ * evaluate, so the cast is only ever reached for something shaped like an id.
+ */
+const A_UUID = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
+
+/**
+ * The narratives a proposed object says it holds, each one as the record it names (#52).
+ *
+ * **In the order the proposal named them**, which is `with ordinality` and not the alphabet:
+ * the three tales in *L'uomo che ride* were said in an order, and what the owner is checking
+ * is the claim as it was made.
+ *
+ * A `left join`, deliberately: an id naming nothing has to come back as a row with no title
+ * rather than vanish. Approving that entry is refused, so an id quietly missing from this
+ * list would leave the owner pressing a button that cannot work and reading a refusal about
+ * a Story they cannot see.
+ *
+ * Only a proposed Volume has any — an amendment names no links, and a Story and a Series
+ * carry none — and `jsonb_typeof` is what makes the fragment safe over raw details: an
+ * assistant that sent a string where the schema says a list of them said nothing this can
+ * read, and `jsonb_array_elements_text` over a string is an error rather than an empty list.
+ */
+const CARRIES = `
+  case when entry.proposes = 'volume'
+        and jsonb_typeof(entry.details -> 'stories') = 'array' then (
+    select coalesce(jsonb_agg(jsonb_build_object(
+             'id', named.id, 'title', s.title, 'type', t.name) order by named.at), '[]'::jsonb)
+      from (select said.value as id,
+                   case when said.value ~ '${A_UUID}' then said.value::uuid end as record,
+                   said.ordinality as at
+              from jsonb_array_elements_text(entry.details -> 'stories')
+                     with ordinality as said(value, ordinality)) as named
+      left join story as s on s.id = named.record
+      left join type  as t on t.id = s.type_id)
   end`;
 
 /** How many namesakes are worth reading beside a proposal. A wall of them is not evidence. */
@@ -261,6 +337,7 @@ const ENTRY = `
   entry.subject_id                                       as "subjectId",
   entry.details,
   ${STANDING}                                            as standing,
+  coalesce(${CARRIES}, '[]'::jsonb)                      as carries,
   to_char(entry.proposed_at, 'YYYY-MM-DD HH24:MI')       as "proposedAt",
   coalesce(entry.outcome, 'waiting')                     as state,
   to_char(entry.decided_at, 'YYYY-MM-DD HH24:MI')        as "decidedAt",

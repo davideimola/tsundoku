@@ -37,6 +37,7 @@ function waiting(entry: Partial<InboxEntry> & Pick<InboxEntry, "id">): InboxEntr
     details: { isbn: "9788891234567" },
     standing: { title: "Slam Dunk 1", publisher: "Planet Manga", isbn: null },
     namesakes: [],
+    carries: [],
     proposedAt: "2026-08-31 12:00",
     state: "waiting",
     decidedAt: null,
