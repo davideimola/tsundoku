@@ -294,12 +294,12 @@ stands on it is not
 ([ADR-0021](docs/adr/0021-the-boundary-is-the-narrative-you-pass-through-and-videogames-are-inside-it.md)).
 
 **The old names are gone, and this breaks a connected assistant once.** ChatGPT caches the
-tool list it first saw and there is no channel to tell it otherwise, so after this deploys:
-**restart the tunnel client** (`kubectl -n tunnel-client rollout restart
-deploy/tunnel-client`), then **remove and re-add the connector** — "refresh" does not
-refetch. Inverting the two hides which one worked.
-[`src/lib/mcp/README.md`](src/lib/mcp/README.md) has the whole table, the arguments that
-moved with the names, and how to tell an old list apart from a deploy that never landed.
+tool list it first saw and there is no channel to tell it otherwise, so the door has to be
+reconnected by hand: **restart the tunnel client, then remove and re-add the connector** —
+"refresh" does not refetch, and inverting the two hides which one worked.
+[`src/lib/mcp/README.md`](src/lib/mcp/README.md) is where that runbook lives, along with
+the whole table of old name against new, the arguments that moved with them, and how to
+tell an old list apart from a deploy that never landed.
 
 The gate is `MCP_BEARER_TOKEN` and it **fails closed**: unset or blank, every request is
 refused. Unlike the owner gate there is no development opt-in beside it, because this is a

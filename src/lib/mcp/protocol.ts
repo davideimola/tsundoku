@@ -54,8 +54,8 @@ in, which is a separate question from where it came from: "coarse" is a score gi
 doubled onto this one. Recommend from the prose, not from the score alone. The **Collection** is the
 Volumes in the house and is a subset of the objects the library knows — one catalogued and not owned
 is a thing they may mean to buy. Digital ownership is not modelled: an ebook is a Pass with a
-digital medium and no Volume. **The Pile** is what to take on next, composed rather than kept, and
-\`pile_next\` is the one tool that answers it.`;
+digital medium and no Volume. **The Pile** is what to take on next — read or played —
+composed on the way out rather than kept.`;
 
 // JSON-RPC's own codes. This server adds none: a refusal from the model is an answer
 // rather than an error, and it travels as a tool result (see `called`).

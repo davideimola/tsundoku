@@ -13,10 +13,15 @@ import type { McpTool } from "../tool.ts";
 // an assistant decides from. So a tool left saying "Reading" is not a cosmetic lapse — it
 // teaches the assistant a word the library stopped holding.
 //
-// It is the same licence as the walls under `src/app/`: strings in, verdict out, no
+// It is `./inbox.test.ts`'s licence and not a third seam: strings in, verdict out, no
 // database and nothing rendered. What makes it a wall rather than a spot check is that it
 // walks the directory — the directory *is* the tool list (`../README.md`) — so a tool file
 // added later is checked without this file being edited.
+//
+// The walk is a `readdir`, which is exactly what `../tools.ts` refuses to be and for a
+// reason that does not reach here: the source tree is not shipped, so the **door** must ask
+// the bundler. A test runs against the source tree by definition. What matters is that both
+// select the same files, so this asks the same question in the door's own words.
 //
 // Two things it deliberately does **not** flag. The lowercase `reading` a Story's state
 // carries (`to-read`, `reading`, `read`, `abandoned`) is a value the model still has, and
@@ -25,9 +30,11 @@ import type { McpTool } from "../tool.ts";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 
-/** Every area file, the way the door mounts them: a second dot means it is not one. */
+/** `../tools.ts`'s own pattern, so a file this reads is a file the door mounts. */
+const AN_AREA = /^[a-z0-9-]+\.ts$/;
+
 const AREAS = readdirSync(HERE)
-  .filter((file) => file.endsWith(".ts") && file.split(".").length === 2)
+  .filter((file) => AN_AREA.test(file))
   .sort();
 
 const everyTool: McpTool[] = (
