@@ -1,24 +1,24 @@
 import { relations } from "drizzle-orm/relations";
-import { story, reading, provenance, volume, type, rating, editionNote, binding, series, credit, person, creditRole, path, declaredConstraint, wish, readingListPin, acquisition, volumeStory, pathItem } from "./schema";
+import { story, pass, provenance, volume, type, rating, editionNote, binding, series, credit, person, creditRole, path, declaredConstraint, wish, pilePin, acquisition, volumeStory, pathItem } from "./schema";
 
-export const readingRelations = relations(reading, ({one, many}) => ({
+export const passRelations = relations(pass, ({one, many}) => ({
 	story: one(story, {
-		fields: [reading.storyId],
+		fields: [pass.storyId],
 		references: [story.id]
 	}),
 	provenance: one(provenance, {
-		fields: [reading.provenanceId],
+		fields: [pass.provenanceId],
 		references: [provenance.id]
 	}),
 	volume: one(volume, {
-		fields: [reading.volumeId],
+		fields: [pass.volumeId],
 		references: [volume.id]
 	}),
 	ratings: many(rating),
 }));
 
 export const storyRelations = relations(story, ({one, many}) => ({
-	readings: many(reading),
+	passes: many(pass),
 	type: one(type, {
 		fields: [story.typeId],
 		references: [type.id]
@@ -28,16 +28,16 @@ export const storyRelations = relations(story, ({one, many}) => ({
 	volumeStories: many(volumeStory),
 	pathItems: many(pathItem),
 	series: many(series),
-	readingListPins: many(readingListPin),
+	pilePins: many(pilePin),
 }));
 
 export const provenanceRelations = relations(provenance, ({many}) => ({
-	readings: many(reading),
+	passes: many(pass),
 	ratings: many(rating),
 }));
 
 export const volumeRelations = relations(volume, ({one, many}) => ({
-	readings: many(reading),
+	passes: many(pass),
 	editionNotes: many(editionNote),
 	binding: one(binding, {
 		fields: [volume.bindingId],
@@ -65,9 +65,9 @@ export const ratingRelations = relations(rating, ({one}) => ({
 		fields: [rating.provenanceId],
 		references: [provenance.id]
 	}),
-	reading: one(reading, {
+	pass: one(pass, {
 		fields: [rating.storyId],
-		references: [reading.id]
+		references: [pass.id]
 	}),
 }));
 
@@ -84,7 +84,7 @@ export const bindingRelations = relations(binding, ({many}) => ({
 
 export const seriesRelations = relations(series, ({one, many}) => ({
 	volumes: many(volume),
-	readingListPins: many(readingListPin),
+	pilePins: many(pilePin),
 	story: one(story, {
 		fields: [series.storyId],
 		references: [story.id]
@@ -133,13 +133,13 @@ export const wishRelations = relations(wish, ({one}) => ({
 	}),
 }));
 
-export const readingListPinRelations = relations(readingListPin, ({one}) => ({
+export const pilePinRelations = relations(pilePin, ({one}) => ({
 	story: one(story, {
-		fields: [readingListPin.storyId],
+		fields: [pilePin.storyId],
 		references: [story.id]
 	}),
 	series: one(series, {
-		fields: [readingListPin.seriesId],
+		fields: [pilePin.seriesId],
 		references: [series.id]
 	}),
 }));
@@ -172,3 +172,9 @@ export const pathItemRelations = relations(pathItem, ({one}) => ({
 		references: [story.id]
 	}),
 }));
+
+// The old names, for the one step in which the rest of the repository still says them.
+// See the note at the foot of `db/schema.ts`: these are the same relations under the old
+// words, and they go when nothing reaches for them.
+export const readingRelations = passRelations;
+export const readingListPinRelations = pilePinRelations;

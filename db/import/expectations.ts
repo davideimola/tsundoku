@@ -133,7 +133,7 @@ export function expectationsOf(counts: Counts, tally: Tally): readonly Expectati
     },
     {
       what: "Readings",
-      sql: "select count(*) from reading",
+      sql: "select count(*) from pass",
       expected: read(TALLY.readOnTheShelf) + read(TALLY.readInTheBooks),
       from:
         `${read(TALLY.readOnTheShelf)} Collezione row(s) that say they were read + ` +
@@ -141,7 +141,7 @@ export function expectationsOf(counts: Counts, tally: Tally): readonly Expectati
     },
     {
       what: "Readings through no Volume",
-      sql: "select count(*) from reading where volume_id is null",
+      sql: "select count(*) from pass where volume_id is null",
       expected: read(TALLY.readInTheBooks),
       from:
         `every Biblioteca row that was read: ${read(TALLY.readInTheBooks)} — a book read is ` +
@@ -150,7 +150,7 @@ export function expectationsOf(counts: Counts, tally: Tally): readonly Expectati
     {
       what: "Goodreads Readings passing through a Volume",
       sql:
-        "select count(*) from reading " +
+        "select count(*) from pass " +
         "where provenance_id = 'goodreads-history' and volume_id is not null",
       expected: 0,
       from:

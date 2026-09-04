@@ -262,7 +262,7 @@ export async function writeImport(
     for (const reading of plan.readings) {
       await run(
         reading.key,
-        `insert into reading (story_id, medium, outcome, started_on, ended_on, provenance_id, volume_id)
+        `insert into pass (story_id, medium, outcome, started_on, ended_on, provenance_id, volume_id)
          values ($1, $2, $3, $4, $5, $6, $7)`,
         [
           storyIds.get(reading.storyKey),
@@ -284,7 +284,7 @@ export async function writeImport(
     for (const rating of plan.ratings) {
       await run(
         `${rating.where} rating of ${rating.storyKey}`,
-        `insert into rating (story_id, reading_id, score, prose, provenance_id, scale)
+        `insert into rating (story_id, pass_id, score, prose, provenance_id, scale)
          values ($1, null, $2, $3, $4, $5)`,
         [
           storyIds.get(rating.storyKey),

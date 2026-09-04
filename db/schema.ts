@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm"
 
 
 
-export const reading = pgTable("reading", {
+export const pass = pgTable("pass", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	storyId: uuid("story_id").notNull(),
 	medium: text().notNull(),
@@ -15,29 +15,29 @@ export const reading = pgTable("reading", {
 	volumeId: uuid("volume_id"),
 	atInstalment: integer("at_instalment"),
 }, (table) => [
-	index("reading_by_story").using("btree", table.storyId.asc().nullsLast(), table.startedOn.desc().nullsLast()),
+	index("pass_by_story").using("btree", table.storyId.asc().nullsLast(), table.startedOn.desc().nullsLast()),
 	foreignKey({
 			columns: [table.storyId],
 			foreignColumns: [story.id],
-			name: "reading_story_exists"
+			name: "pass_story_exists"
 		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.provenanceId],
 			foreignColumns: [provenance.id],
-			name: "reading_provenance_exists"
+			name: "pass_provenance_exists"
 		}),
 	foreignKey({
 			columns: [table.volumeId],
 			foreignColumns: [volume.id],
-			name: "reading_volume_exists"
+			name: "pass_volume_exists"
 		}).onDelete("set null"),
-	unique("reading_id_and_story").on(table.id, table.storyId),
-	check("reading_digital_went_through_no_volume", sql`(volume_id IS NULL) OR (medium = 'paper'::text)`),
-	check("reading_medium_is_paper_or_digital", sql`medium = ANY (ARRAY['paper'::text, 'digital'::text])`),
-	check("reading_outcome_is_finished_or_abandoned", sql`(outcome IS NULL) OR (outcome = ANY (ARRAY['finished'::text, 'abandoned'::text]))`),
-	check("reading_unconcluded_has_not_ended", sql`(outcome IS NOT NULL) OR (ended_on IS NULL)`),
-	check("reading_did_not_end_before_it_started", sql`(started_on IS NULL) OR (ended_on IS NULL) OR (ended_on >= started_on)`),
-	check("reading_at_instalment_is_positive", sql`(at_instalment IS NULL) OR (at_instalment > 0)`),
+	unique("pass_id_and_story").on(table.id, table.storyId),
+	check("pass_digital_went_through_no_volume", sql`(volume_id IS NULL) OR (medium = 'paper'::text)`),
+	check("pass_medium_is_paper_or_digital", sql`medium = ANY (ARRAY['paper'::text, 'digital'::text])`),
+	check("pass_outcome_is_finished_or_abandoned", sql`(outcome IS NULL) OR (outcome = ANY (ARRAY['finished'::text, 'abandoned'::text]))`),
+	check("pass_unconcluded_has_not_ended", sql`(outcome IS NOT NULL) OR (ended_on IS NULL)`),
+	check("pass_did_not_end_before_it_started", sql`(started_on IS NULL) OR (ended_on IS NULL) OR (ended_on >= started_on)`),
+	check("pass_at_instalment_is_positive", sql`(at_instalment IS NULL) OR (at_instalment > 0)`),
 ]);
 
 export const type = pgTable("type", {
@@ -102,7 +102,7 @@ export const binding = pgTable("binding", {
 export const rating = pgTable("rating", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	storyId: uuid("story_id").notNull(),
-	readingId: uuid("reading_id"),
+	passId: uuid("pass_id"),
 	score: numeric().notNull(),
 	prose: text(),
 	provenanceId: text("provenance_id").notNull(),
@@ -121,11 +121,11 @@ export const rating = pgTable("rating", {
 			name: "rating_provenance_exists"
 		}),
 	foreignKey({
-			columns: [table.storyId, table.readingId],
-			foreignColumns: [reading.id, reading.storyId],
-			name: "rating_belongs_to_the_read_story"
+			columns: [table.storyId, table.passId],
+			foreignColumns: [pass.id, pass.storyId],
+			name: "rating_belongs_to_the_story_passed_through"
 		}).onDelete("set null"),
-	unique("rating_is_one_per_story_and_reading").on(table.storyId, table.readingId).nullsNotDistinct(),
+	unique("rating_is_one_per_story_and_pass").on(table.storyId, table.passId).nullsNotDistinct(),
 	check("rating_score_is_one_to_ten", sql`(score >= (1)::numeric) AND (score <= (10)::numeric)`),
 	check("rating_score_is_in_half_points", sql`(score * (2)::numeric) = trunc((score * (2)::numeric))`),
 	check("rating_prose_is_not_blank", sql`(prose IS NULL) OR (btrim(prose) <> ''::text)`),
@@ -310,27 +310,27 @@ export const wish = pgTable("wish", {
 	check("wish_close_follows_open", sql`(closed_on IS NULL) OR (closed_on >= opened_on)`),
 ]);
 
-export const readingListPin = pgTable("reading_list_pin", {
+export const pilePin = pgTable("pile_pin", {
 	storyId: uuid("story_id"),
 	seriesId: uuid("series_id"),
 	seriesPosition: integer("series_position"),
 	pinnedAt: timestamp("pinned_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	uniqueIndex("reading_list_pin_one_per_story").using("btree", table.storyId.asc().nullsLast()).where(sql`(story_id IS NOT NULL)`),
-	uniqueIndex("reading_list_pin_one_per_series_position").using("btree", table.seriesId.asc().nullsLast(), table.seriesPosition.asc().nullsLast()).where(sql`(series_id IS NOT NULL)`),
+	uniqueIndex("pile_pin_one_per_story").using("btree", table.storyId.asc().nullsLast()).where(sql`(story_id IS NOT NULL)`),
+	uniqueIndex("pile_pin_one_per_series_position").using("btree", table.seriesId.asc().nullsLast(), table.seriesPosition.asc().nullsLast()).where(sql`(series_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.storyId],
 			foreignColumns: [story.id],
-			name: "reading_list_pin_story_exists"
+			name: "pile_pin_story_exists"
 		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.seriesId],
 			foreignColumns: [series.id],
-			name: "reading_list_pin_series_exists"
+			name: "pile_pin_series_exists"
 		}).onDelete("cascade"),
-	check("reading_list_pin_has_one_subject", sql`(story_id IS NULL) <> (series_id IS NULL)`),
-	check("reading_list_pin_a_series_pin_names_a_position", sql`(series_id IS NULL) = (series_position IS NULL)`),
-	check("reading_list_pin_a_position_is_a_place_in_the_line", sql`(series_position IS NULL) OR (series_position >= 1)`),
+	check("pile_pin_has_one_subject", sql`(story_id IS NULL) <> (series_id IS NULL)`),
+	check("pile_pin_a_series_pin_names_a_position", sql`(series_id IS NULL) = (series_position IS NULL)`),
+	check("pile_pin_a_position_is_a_place_in_the_line", sql`(series_position IS NULL) OR (series_position >= 1)`),
 ]);
 
 export const inboxEntry = pgTable("inbox_entry", {
@@ -435,3 +435,21 @@ export const want = pgTable("want", {
 		}).onDelete("cascade"),
 	unique("want_one_open_per_story").on(table.storyId),
 ]);
+
+// THE OLD NAMES, KEPT ALIVE FOR ONE STEP.
+//
+// The database calls a pass a Pass and the Reading list the Pile (#56), and this is the
+// expand half of an expand-contract rename: the new names are the real ones, and these are
+// the same two tables under the words the repository has not been swept of yet. They go in
+// the contract step (#57), once nothing reaches for them.
+//
+// They are aliases and not second tables — `reading` *is* `pass` — so there is no second
+// description of anything here and no way for the two to drift.
+//
+// **They carry what an alias can carry, and no more.** Nothing imports either symbol today,
+// because the queries above this file are SQL text and not a builder (ADR-0009): they name
+// `reading`, `reading_list_pin` and `reading_id` in strings, and quote constraint names in
+// strings, none of which an export reaches. Renaming those is the contract step's whole work
+// and it is not optional — as of `0013` there is nothing in the database under the old names.
+export const reading = pass;
+export const readingListPin = pilePin;
