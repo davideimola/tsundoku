@@ -40,6 +40,7 @@ function entry(said: Partial<PileEntry> = {}): PileEntry {
     medium: "paper",
     atHand: true,
     object: null,
+    cover: null,
     proposedWish: null,
     wishAlreadyOpen: false,
     ...said,

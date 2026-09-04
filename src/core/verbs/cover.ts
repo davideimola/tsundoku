@@ -35,6 +35,17 @@ const NO_SUCH_VOLUME = "No Volume has that id.";
 const NO_SUCH_STORY = "No Story has that id.";
 
 /**
+ * **What hosting is reserved for, said once for the two tables that reserve it.**
+ *
+ * The same prohibition now stands on `volume.own_image_url` and on `story.own_image_url`, in
+ * the same regex, and it is one rule rather than two: hosting is for an image the owner made
+ * (ADR-0013). Two copies of the sentence is how the two constraints come to explain themselves
+ * differently to the same owner about the same mistake.
+ */
+const AN_IMAGE_OF_YOUR_OWN =
+  "An image of your own is an https address of your own. A cover on Google's or Open Library's domain is theirs, and this app only points at those.";
+
+/**
  * What one run of the lookup did. **Every object it touched is in exactly one of these
  * numbers**, which is what makes the report a thing the owner can read rather than a
  * headline with a remainder.
@@ -345,7 +356,7 @@ export async function setOwnCover(volumeId: string, imageUrl: string): Promise<v
       ]),
     (constraint) =>
       constraint === "volume_own_image_is_the_owners_own"
-        ? "An image of your own is an https address of your own. A cover on Google's or Open Library's domain is theirs, and this app only points at those."
+        ? AN_IMAGE_OF_YOUR_OWN
         : "That image could not be put on the Volume."
   );
 
@@ -406,7 +417,7 @@ export async function setOwnStoryImage(storyId: string, imageUrl: string): Promi
       ]),
     (constraint) =>
       constraint === "story_own_image_is_the_owners_own"
-        ? "An image of your own is an https address of your own. A cover on Google's or Open Library's domain is theirs, and this app only points at those."
+        ? AN_IMAGE_OF_YOUR_OWN
         : "That image could not be put on the Story."
   );
 

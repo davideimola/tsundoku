@@ -367,10 +367,12 @@ function Entry({
           </span>
         )}
 
-        {/* The object, faced outwards — the same tile as on the walls, in the same colour and
-            the same shape, so an entry is recognised by sight rather than read. A Series entry
-            nobody has catalogued an object for has no jacket to wear and is the drawn tile,
-            which is the normal case here and not a gap. */}
+        {/* The row, faced outwards — the same tile as on the walls, in the same colour and
+            the same shape, so an entry is recognised by sight rather than read. What it wears
+            is `entry.cover`, resolved by the core in the order the walls read: the Story's own
+            image over whatever the object carrying it lends (#65). A Series entry nobody has
+            catalogued an object for has no jacket to wear and is the drawn tile, which is the
+            normal case here and not a gap. */}
         <div className="w-16 shrink-0 sm:w-20">
           <Cover
             href={entryLeadsTo(entry)}
@@ -378,7 +380,7 @@ function Entry({
             tint={tint(entryLine(entry))}
             detail={entryDetail(entry)}
             foot={entryFoot(entry)}
-            image={entry.object?.cover}
+            image={entry.cover}
           />
         </div>
 

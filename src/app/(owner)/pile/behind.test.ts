@@ -47,6 +47,7 @@ function story(id: string, ...reasons: PileReason[]): PileEntry {
     medium: "digital",
     atHand: true,
     object: null,
+    cover: null,
     proposedWish: null,
     wishAlreadyOpen: false,
   };
@@ -73,6 +74,7 @@ function position(id: string, at: number): PileEntry {
     medium: "paper",
     atHand: false,
     object: null,
+    cover: null,
     proposedWish: null,
     wishAlreadyOpen: false,
   };

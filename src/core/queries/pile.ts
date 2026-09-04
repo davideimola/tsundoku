@@ -272,6 +272,22 @@ export type PileEntry = {
    */
   object: PileObject | null;
   /**
+   * **The image the tile beside this row is faced with**, resolved — or `null`, which is the
+   * drawn tile and the ordinary case here.
+   *
+   * The order is the core's and never the screen's, and it is the same one the walls read
+   * (`THE_COVER_IT_IS_FACED_OUT_WITH` in `queries/story.ts`): **the image nearest the record**
+   * — the Story's own image, then whatever the object carrying it is faced with, then nothing
+   * (#65, ADR-0013). A list showing volume one's jacket over an image the owner gave the work
+   * would be the Pile disagreeing with `/stories` about the same Story.
+   *
+   * It is beside `object.cover` rather than replacing it because the two are different facts:
+   * that one is what the **object** wears, which an entry proposing a Wish is entitled to
+   * name, and this is what the **row** wears. A Series entry names no narrative, so the two
+   * are the same answer there.
+   */
+  cover: FacedWith | null;
+  /**
    * **A Wish this entry proposes, and has not opened.** Present exactly where the entry
    * needs an object the owner does not have, the library knows that object, and no Wish on
    * it is open already. Reading the whole list writes nothing (user story 28).
@@ -442,9 +458,15 @@ export async function composePile(narrowing: PileFilter = {}): Promise<Pile> {
   // narrative row reaches the same question whatever put it there, so they ask it together.
   // Asked for the rows that survived the narrowing, because a wall must not read what it does
   // not show.
-  const [carriers, positions] = await Promise.all([
-    objectsCarrying(drafts.flatMap((draft) => (draft.story ? [draft.story.id] : []))),
+  const narrativeRows = drafts.flatMap((draft) => (draft.story ? [draft.story.id] : []));
+  const [carriers, positions, ownImages] = await Promise.all([
+    objectsCarrying(narrativeRows),
     objectsAtPositions(narrowing.typeId === undefined ? incomplete : []),
+    // The one thing a Story carries about its own face (#65). Asked here rather than added to
+    // the four sources' own answers, because it is a fact about the *tile* and not about the
+    // Want, the route or the run that put the row here — and asking it once for the rows that
+    // survived the narrowing is what the two questions above already do.
+    imagesOnStories(narrativeRows),
   ]);
 
   // **Whether a medium goes through an object is the vocabulary's answer**, not this file's
@@ -497,6 +519,7 @@ export async function composePile(narrowing: PileFilter = {}): Promise<Pile> {
       subject: draft.subject,
       reasons: draft.reasons,
       story: draft.story,
+      cover: facedWith(draft.story && ownImages.get(draft.story.id), carrier),
       ...through(carrier, medium, needsAnObject),
     });
   }
@@ -682,6 +705,38 @@ async function objectsCarrying(storyIds: string[]): Promise<Map<string, Carrier>
   );
 
   return new Map(rows.map((row) => [row.storyId, row]));
+}
+
+/**
+ * **What the tile beside a row is faced with**, in the order the core resolves it.
+ *
+ * The Story's own image first, then whatever the object carrying the row is faced with, then
+ * nothing — the drawn tile, which is the ordinary answer here and not a gap. It is the same
+ * order `THE_COVER_IT_IS_FACED_OUT_WITH` writes as SQL for the walls, said in TypeScript
+ * because this list is composed rather than selected; two places, one rule, and this comment
+ * is the rope between them.
+ *
+ * A Series entry has no Story, so it reaches the second rung directly: it names an object and
+ * not a narrative, and there is nothing to take an image off.
+ */
+function facedWith(ownImage: string | null | undefined, carrier: Carrier | undefined) {
+  if (ownImage) return { url: ownImage, from: "own" } as const;
+  return carrier?.object.cover ?? null;
+}
+
+/** The owner's own image on each of the Stories asked about, where they set one. */
+async function imagesOnStories(storyIds: string[]): Promise<Map<string, string>> {
+  const asked = [...new Set(storyIds)];
+  if (asked.length === 0) return new Map();
+
+  const rows = await query<{ storyId: string; ownImage: string }>(
+    `select s.id::text as "storyId", s.own_image_url as "ownImage"
+       from story s
+      where s.id = any($1::uuid[]) and s.own_image_url is not null`,
+    [asked]
+  );
+
+  return new Map(rows.map((row) => [row.storyId, row.ownImage]));
 }
 
 /**

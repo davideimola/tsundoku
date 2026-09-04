@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { catalogueVolume, releaseVolume } from "../verbs/collection.ts";
+import { setOwnStoryImage } from "../verbs/cover.ts";
 import { abandonPass, finishPass, recordInstalmentReached, recordPass } from "../verbs/pass.ts";
 import { deactivatePath, definePath, placeStoriesOnPath } from "../verbs/path.ts";
 import { pinToPile, unpinFromPile } from "../verbs/pile.ts";
@@ -215,6 +216,7 @@ describe("what a Want puts on the list", () => {
     expect(Object.keys(entry).sort()).toEqual(
       [
         "atHand",
+        "cover",
         "medium",
         "object",
         "proposedWish",
@@ -1224,5 +1226,105 @@ describe("narrowing the Pile by Type", () => {
 
   it("offers no Type at all where nothing stands on the list", async () => {
     expect((await composePile()).types).toEqual([]);
+  });
+});
+
+// **What the tile beside a row is faced with** (#65). The list is read as a shelf rather than
+// as rows, so an entry wears the same picture the walls lay the Story out as — and the order
+// is the core's, resolved here rather than by the screen, exactly as `THE_COVER_IT_IS_FACED_OUT_WITH`
+// resolves it for the walls.
+describe("the image an entry is faced with", () => {
+  const A_SCREENSHOT = "https://tsundoku.davideimola.dev/images/hades.jpg";
+  const A_COVER = "https://books.google.com/books/content?id=njT-zgEACAAJ&img=1&zoom=5";
+
+  it("is the Story's own where nothing carries it, which is every videogame", async () => {
+    const game = await createStory({ title: "Hades", typeId: "videogame" });
+    await setOwnStoryImage(game, A_SCREENSHOT);
+    await openWant(game);
+
+    const [entry] = await reserve();
+
+    expect(entry.cover).toEqual({ url: A_SCREENSHOT, from: "own" });
+  });
+
+  // The ordinary case and the one that was already right: a row goes on wearing the jacket of
+  // the object it goes through.
+  it("is what the object carrying it is faced with, where the Story has no image of its own", async () => {
+    const story = await createStory({ title: "One Piece", typeId: "manga" });
+    const volume = await volumeInTheHouse({
+      title: "One Piece 100",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await query(
+      `update volume set cover_source = 'google-books', cover_url = $2, cover_looked_up_at = now()
+        where id = $1`,
+      [volume, A_COVER]
+    );
+    await recordVolumeCarriesStory(volume, story);
+    await openWant(story);
+
+    const [entry] = await reserve();
+
+    expect(entry.cover).toMatchObject({ url: A_COVER, from: "google-books" });
+  });
+
+  // The same order the walls read, and it is the core's rather than the screen's: a list
+  // showing volume one's jacket over an image the owner gave the work would be the Pile
+  // disagreeing with `/stories` about the same Story.
+  it("is the Story's own over what an object carrying it lends", async () => {
+    const story = await createStory({ title: "One Piece", typeId: "manga" });
+    const volume = await volumeInTheHouse({
+      title: "One Piece 100",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await query(
+      `update volume set cover_source = 'google-books', cover_url = $2, cover_looked_up_at = now()
+        where id = $1`,
+      [volume, A_COVER]
+    );
+    await recordVolumeCarriesStory(volume, story);
+    await setOwnStoryImage(story, A_SCREENSHOT);
+    await openWant(story);
+
+    const [entry] = await reserve();
+
+    expect(entry.cover).toMatchObject({ url: A_SCREENSHOT, from: "own" });
+  });
+
+  it("is nothing at all where neither has one, which is the drawn tile", async () => {
+    const game = await createStory({ title: "Hollow Knight: Silksong", typeId: "videogame" });
+    await openWant(game);
+
+    const [entry] = await reserve();
+
+    expect(entry.cover).toBeNull();
+  });
+
+  // A Series entry names an object and not a narrative, so there is no Story to take an image
+  // off — it wears the jacket of the object at that position, or the drawn tile.
+  it("is the object's alone on a Series entry, which names no narrative", async () => {
+    const series = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Planet Manga",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    await declareSeriesCollected(series);
+    const volume = await volumeInTheHouse({
+      title: "Slam Dunk 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await placeVolumeInSeries({ volumeId: volume, seriesId: series, number: 1 });
+
+    const rows = await reserve();
+    const position = rows.find((entry) => entry.story === null);
+
+    expect(position?.cover).toBeNull();
   });
 });
