@@ -24,6 +24,7 @@ import { PersonPicker } from "../../credits/picker";
 // `core/queries/series.ts` already gives. Three screens print them now, for that one reason.
 import { Progress, SeriesName } from "../../series/ledger";
 import {
+  IMAGE,
   PUBLISHES,
   REACHED,
   RENAME,
@@ -46,6 +47,7 @@ import {
 import { StoryScore, StoryStateLabel, stateWord, storyDetail } from "../story-state";
 import {
   carryFromStory,
+  faceWithOwnImage,
   finishIt,
   giveUp,
   rate,
@@ -57,6 +59,7 @@ import {
   strikeIt,
   strikeThisPass,
   strikeThisRating,
+  takeOwnImageOff,
   unwant,
   wantIt,
 } from "./actions";
@@ -130,6 +133,7 @@ const PANELS = [
   STRIKE_PASS,
   STRIKE_RATING,
   PUBLISHES,
+  IMAGE,
 ] as const;
 
 /**
@@ -432,6 +436,15 @@ export default async function StoryPage({
           <OpensDrawer href={panelled(id, RENAME)}>
             <Nib className="size-4 shrink-0" />
             Correct the title
+          </OpensDrawer>
+          {/* **Beside the title and not among the presses about tonight**, because it is the
+              same kind of act: what the record *says*, corrected from the hero. It is offered
+              on every Story rather than on the ones nothing carries — a photograph of the
+              work is as good an answer for a Bonelli monthly as for a game, and a control
+              that appeared only for one Type would be the library making a rule the model
+              does not have. */}
+          <OpensDrawer href={panelled(id, IMAGE)}>
+            {story.ownImage ? "Change the image" : "Face it with an image"}
           </OpensDrawer>
         </div>
       </header>
@@ -811,6 +824,74 @@ export default async function StoryPage({
               Correct it
             </Button>
           </form>
+        </Drawer>
+      ) : null}
+
+      {/* **The one image a narrative can ever wear** (#65). It is a panel and not a field on
+          the page for the drawer's own rule: this is a form the owner *opened*, and the act is
+          refusable by something the screen cannot foresee — an address on a source's own
+          domain is somebody else's bytes under the owner's name, and Postgres says so.
+
+          **There is no lookup beside it, and that is the whole shape of the screen.** The
+          Volume's cover panel offers one because an object has an ISBN to ask about; a
+          narrative has none, and a videogame has no object either — so a button here would be
+          a control that could only ever be refused. What the prose does instead is say why
+          there is nothing to ask, which is the same courtesy `lookUpCoverFor` pays a Volume
+          with no ISBN. */}
+      {panel === IMAGE ? (
+        <Drawer
+          title={story.ownImage ? "Change the image" : "Face it with an image"}
+          description="A photograph, a screenshot or a scan you host yourself, standing for the work rather than for any printing of it."
+          refused={refused}
+          closesTo={closesTo}
+        >
+          <div className="grid gap-5">
+            <form action={faceWithOwnImage} className="grid gap-4">
+              <input type="hidden" name="storyId" value={story.id} />
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="story-image" className="text-xs text-muted-foreground">
+                  Address of the image
+                </Label>
+                <input
+                  id="story-image"
+                  name="imageUrl"
+                  type="url"
+                  required
+                  defaultValue={story.ownImage ?? ""}
+                  placeholder="https://…/expedition-33.jpg"
+                  autoComplete="off"
+                  inputMode="url"
+                  className={PICKER}
+                />
+                <p className="max-w-prose text-pretty text-xs text-muted-foreground">
+                  Nothing is looked up here: every cover source is keyed by an ISBN, and a work has
+                  none — a videogame owns no object to carry one at all. So this is the only image
+                  this Story can wear, and it stands over whatever the objects carrying it lend. An
+                  address on Google&apos;s or Open Library&apos;s domain is refused, because that
+                  would be their bytes under your name.
+                </p>
+              </div>
+
+              <Button type="submit" className="h-11 w-full sm:h-10">
+                {story.ownImage ? "Use this one" : "Face it"}
+              </Button>
+            </form>
+
+            {story.ownImage ? (
+              <form action={takeOwnImageOff}>
+                <input type="hidden" name="storyId" value={story.id} />
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2.5 h-8 text-xs text-muted-foreground"
+                >
+                  Take my image off
+                </Button>
+              </form>
+            ) : null}
+          </div>
         </Drawer>
       ) : null}
 

@@ -463,6 +463,17 @@ cover**, so the drawn tile stays the normal case and the Series' tint stays unde
 jacket. And the covers that do arrive are **128 pixels wide**, which is the only size that
 exists: anything larger is a photograph the owner took.
 
+**A Story can carry an image of its own, and it is the only image a narrative ever wears.**
+Nothing is looked up onto one: every source is keyed by an ISBN, an ISBN belongs to an object,
+and a videogame owns no object at all — which is why until now a game's tile could be nothing
+but the drawn one. `story.own_image_url` is the same escape hatch under the same constraint,
+set from *Face it with an image* on the Story's own page. **The precedence is the image nearest
+the record**: the Story's own image, then whatever the first Volume carrying it is faced with —
+itself the owner's photograph over the looked-up cover — then the drawn tile, which stays the
+ordinary case. It is resolved once, in `THE_COVER_IT_IS_FACED_OUT_WITH`
+(`src/core/queries/story.ts`), so the three walls that lay a Story out cannot each decide it
+differently.
+
 ## The import
 
 The two Google Sheets are read **once, deliberately**, by a command nobody runs for you:

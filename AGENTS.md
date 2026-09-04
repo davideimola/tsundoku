@@ -261,7 +261,13 @@ Three rules follow, and each is a file:
   this rests on (`docs/research/cover-images-by-isbn.md`).
 - **The fallback chain is resolved once, in the core.** `THE_COVER_IT_IS_FACED_WITH` in
   `src/core/queries/cover.ts` is the owner's image over the looked-up one, and the three walls
-  that draw a tile all read it rather than each deciding.
+  that draw a tile all read it rather than each deciding. **A Story's own image is the rung
+  above both** (#65): `story.own_image_url` is the one image a narrative can wear — nothing is
+  ever looked up onto a Story, because every source is keyed by an ISBN and a videogame owns no
+  object to carry one — and `THE_COVER_IT_IS_FACED_OUT_WITH` in `src/core/queries/story.ts` is
+  the whole order, **the image nearest the record first**: the Story's own, then whatever the
+  lending Volume is faced with, then the drawn tile. The same constraint reserves hosting on
+  both tables, so a looked-up address is refused by Postgres on a Story exactly as on a Volume.
 - **A cover is an answer to an ISBN, so `amendVolume` drops it when it writes a different
   one.** ADR-0012 predicted the failure and production produced it: *One-Punch Man 9* wearing
   *Slam Dunk 9*'s jacket, because the ISBN behind it was wrong. A blank tile is honest and a

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   carriedAs,
+  IMAGE,
   NOTHING_ON_IT,
   PUBLISHES,
   REACHED,
@@ -47,17 +48,17 @@ describe("carrying the wall's filters through the form", () => {
   // A panel's name reaches the URL, so a space or an ampersand in it is a drawer that opens
   // on the way out of one browser and not the other.
   it("names each panel as a plain slug", () => {
-    for (const panel of [NOTHING_ON_IT, STRIKE, SERIALIZE, REACHED, PUBLISHES, RENAME]) {
+    for (const panel of [NOTHING_ON_IT, STRIKE, SERIALIZE, REACHED, PUBLISHES, RENAME, IMAGE]) {
       expect(panel).toMatch(/^[a-z-]+$/);
     }
   });
 
-  // A bulk delete and five forms. One name shared between any two of them would open the
+  // A bulk delete and six forms. One name shared between any two of them would open the
   // destructive one where the owner asked for something else entirely — and the rename now
   // stands in the same strip as the strike, which is where that mistake would be cheapest to
   // make and worst to have made.
   it("gives each panel its own name", () => {
-    const panels = [NOTHING_ON_IT, STRIKE, SERIALIZE, REACHED, PUBLISHES, RENAME];
+    const panels = [NOTHING_ON_IT, STRIKE, SERIALIZE, REACHED, PUBLISHES, RENAME, IMAGE];
 
     expect(new Set(panels).size).toBe(panels.length);
   });

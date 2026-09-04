@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { FIRST_HAND } from "@/core/queries/provenance";
 import { isRefusal } from "@/core/refusal";
+import { dropOwnStoryImage, setOwnStoryImage } from "@/core/verbs/cover";
 import {
   abandonPass,
   finishPass,
@@ -19,6 +20,7 @@ import { recordVolumeCarriesStory } from "@/core/verbs/story-to-volume";
 import { openWant, strikeWant } from "@/core/verbs/want";
 import { requireOwner } from "@/lib/auth/owner";
 import {
+  IMAGE,
   PUBLISHES,
   REACHED,
   RENAME,
@@ -380,6 +382,41 @@ export async function rename(form: FormData): Promise<void> {
   const title = String(form.get("title") ?? "");
 
   await saying(storyId, () => amendStory(storyId, { title }), { panel: RENAME });
+}
+
+/**
+ * **Face the work with an image of the owner's own** — the one image a narrative can ever
+ * wear (#65).
+ *
+ * Nothing is looked up here and there is no button that could be: every cover source is keyed
+ * by an ISBN, an ISBN belongs to an object, and a videogame owns none at all (ADR-0021). So
+ * this door has one field and no lookup beside it, which is the whole difference between it
+ * and the Volume's own cover panel.
+ *
+ * The refusal it exists to carry is the constraint that reserves hosting for an image the
+ * owner made: an address on a source's own domain is somebody else's bytes under the owner's
+ * name, and the sentence saying so comes back into the field it was typed in.
+ */
+export async function faceWithOwnImage(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  await saying(storyId, () => setOwnStoryImage(storyId, text(form, "imageUrl") ?? ""), {
+    panel: IMAGE,
+  });
+}
+
+/**
+ * Take the owner's own image back off the work: it goes back to whatever an object carrying
+ * it lends, or to the drawn tile — which is every videogame, and the ordinary case.
+ */
+export async function takeOwnImageOff(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+
+  await saying(storyId, () => dropOwnStoryImage(storyId), { panel: IMAGE });
 }
 
 /**

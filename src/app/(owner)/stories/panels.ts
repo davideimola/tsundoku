@@ -127,3 +127,15 @@ export const THE_WALLS_FILTERS = ["type", "state"] as const;
 export function carriedAs(filter: (typeof THE_WALLS_FILTERS)[number]): string {
   return `wall-${filter}`;
 }
+
+/**
+ * **Facing the work with an image of the owner's own** (#65).
+ *
+ * Here for `RENAME`'s reason: the page opens the drawer and `[id]/actions.ts` reopens it to
+ * print a refusal inside it, and this act is genuinely refusable by something the screen
+ * cannot foresee — hosting is reserved for an image the owner made, so an address on Google's
+ * or Open Library's domain meets `story_own_image_is_the_owners_own` rather than a review
+ * (ADR-0013). The sentence that comes back is about the address that was typed, so it belongs
+ * beside the field it was typed in.
+ */
+export const IMAGE = "image";
