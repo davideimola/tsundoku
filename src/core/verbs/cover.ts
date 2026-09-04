@@ -32,6 +32,7 @@ import { Refusal, refusing } from "../refusal.ts";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const NO_SUCH_VOLUME = "No Volume has that id.";
+const NO_SUCH_STORY = "No Story has that id.";
 
 /**
  * What one run of the lookup did. **Every object it touched is in exactly one of these
@@ -375,6 +376,63 @@ export async function dropOwnCover(volumeId: string): Promise<void> {
   if (!outcome.known) throw new Refusal("not-found", NO_SUCH_VOLUME);
   if (!outcome.dropped) {
     throw new Refusal("not-allowed", "That Volume carries no image of your own.");
+  }
+}
+
+/**
+ * Put the owner's own image on a **Story**: a photograph, a screenshot, or a scan. It is the
+ * only image a narrative can ever wear, and it stands over anything an object carrying it
+ * lends (#65).
+ *
+ * **Nothing is looked up here, and there is nothing to look up.** Every cover source is keyed
+ * by an ISBN, an ISBN belongs to an object, and a narrative is not an object (ADR-0001) — so
+ * this verb has no `lookUpTheStorysCover` beside it and never will. The case it exists for is
+ * a videogame, which carries no Volume at all (ADR-0021) and therefore has nothing to borrow a
+ * face from; a book is welcome to one too, and the precedence says what happens then
+ * (`THE_COVER_IT_IS_FACED_OUT_WITH` in `queries/story.ts`).
+ *
+ * The prohibition is the Volume's, said again about this table: hosting is reserved for an
+ * image the owner made, so Postgres refuses an address on a source's own domain rather than a
+ * reviewer remembering ADR-0013.
+ */
+export async function setOwnStoryImage(storyId: string, imageUrl: string): Promise<void> {
+  if (!UUID.test(storyId)) throw new Refusal("not-found", NO_SUCH_STORY);
+
+  const changed = await refusing(
+    () =>
+      query<{ id: string }>(`update story set own_image_url = $2 where id = $1 returning id`, [
+        storyId,
+        imageUrl,
+      ]),
+    (constraint) =>
+      constraint === "story_own_image_is_the_owners_own"
+        ? "An image of your own is an https address of your own. A cover on Google's or Open Library's domain is theirs, and this app only points at those."
+        : "That image could not be put on the Story."
+  );
+
+  if (changed.length === 0) throw new Refusal("not-found", NO_SUCH_STORY);
+}
+
+/**
+ * Take the owner's own image back off a Story: it goes back to whatever an object carrying it
+ * is faced with, or to the drawn tile — which is every videogame, and the ordinary case.
+ */
+export async function dropOwnStoryImage(storyId: string): Promise<void> {
+  if (!UUID.test(storyId)) throw new Refusal("not-found", NO_SUCH_STORY);
+
+  const [outcome] = await query<{ known: boolean; dropped: boolean }>(
+    `with known as (select id from story where id = $1),
+          gone as (update story set own_image_url = null
+                    where id = $1 and own_image_url is not null
+                returning id)
+     select exists (select 1 from known) as known,
+            exists (select 1 from gone)  as dropped`,
+    [storyId]
+  );
+
+  if (!outcome.known) throw new Refusal("not-found", NO_SUCH_STORY);
+  if (!outcome.dropped) {
+    throw new Refusal("not-allowed", "That Story carries no image of your own.");
   }
 }
 

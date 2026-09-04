@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { catalogueVolume } from "../verbs/collection.ts";
-import { setOwnCover } from "../verbs/cover.ts";
+import { dropOwnStoryImage, setOwnCover, setOwnStoryImage } from "../verbs/cover.ts";
 import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
@@ -234,5 +234,156 @@ describe("how many narratives wear that jacket", () => {
     // Carried by two objects, faced by the one of them that has a jacket, and sharing that
     // jacket with the one other tale in it.
     expect(halloween).toMatchObject({ carriedBy: 2, wornBy: 2 });
+  });
+});
+
+// **The precedence, which is this ticket's decision and is therefore the thing tested rather
+// than discovered** (#65). Three images can be true about one tile at once — the Story's own,
+// the lending Volume's own, and the looked-up cover behind it — and the order they are
+// resolved in is written in `THE_COVER_IT_IS_FACED_OUT_WITH`: **the image nearest the record
+// wins**, and a looked-up cover never reaches a Story except by being lent.
+describe("which image a Story wears, and in what order", () => {
+  const A_SCREENSHOT = "https://tsundoku.davideimola.dev/images/expedition-33.jpg";
+  const A_PHOTOGRAPH = "https://tsundoku.davideimola.dev/images/one-piece-100.jpg";
+
+  /** What the wall faces one Story with. */
+  async function facing(storyId: string) {
+    const wall = await listStoryWall();
+    return wall.find((one) => one.id === storyId)?.cover ?? null;
+  }
+
+  /** One object carrying one Story, faced with whichever of the two images is asked for. */
+  async function aBookCarrying(
+    storyId: string,
+    faced: { looked?: string; own?: string }
+  ): Promise<string> {
+    const volume = await volumeInTheHouse({
+      title: "One Piece 100",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    if (faced.looked) await looked(volume, faced.looked);
+    if (faced.own) await setOwnCover(volume, faced.own);
+    await recordVolumeCarriesStory(volume, storyId);
+    return volume;
+  }
+
+  // The case the whole column exists for: a videogame carries no object at all (ADR-0021), so
+  // there is nothing to borrow a face from and this is the only image it can ever have.
+  it("is the Story's own where nothing carries it, which is every videogame", async () => {
+    const game = await createStory({ title: "Clair Obscur: Expedition 33", typeId: "videogame" });
+
+    await setOwnStoryImage(game, A_SCREENSHOT);
+
+    expect(await facing(game)).toEqual({ url: A_SCREENSHOT, from: "own" });
+  });
+
+  // **First rung over second.** Both are the owner's own bytes; the Story's is about the work
+  // this tile stands for, and the Volume's is borrowed off one printing of it.
+  it("is the Story's own over the photograph on an object carrying it", async () => {
+    const story = await createStory({ title: "One Piece", typeId: "manga" });
+    await aBookCarrying(story, { own: A_PHOTOGRAPH });
+
+    await setOwnStoryImage(story, A_SCREENSHOT);
+
+    expect(await facing(story)).toMatchObject({ url: A_SCREENSHOT });
+  });
+
+  // **First rung over third**, which is the one that matters most: a looked-up cover is
+  // somebody else's and revocable, and it may never stand over something the owner said.
+  it("is the Story's own over a looked-up cover on an object carrying it", async () => {
+    const story = await createStory({ title: "One Piece", typeId: "manga" });
+    await aBookCarrying(story, { looked: A_COVER });
+
+    await setOwnStoryImage(story, A_SCREENSHOT);
+
+    expect(await facing(story)).toMatchObject({ url: A_SCREENSHOT, from: "own" });
+  });
+
+  // **Second rung over third, unchanged** — the Volume's own chain, resolved where it always
+  // was (`THE_COVER_IT_IS_FACED_WITH`) and reached here only because no Story image stands
+  // over it.
+  it("is the object's own photograph over its looked-up cover, where the Story has none", async () => {
+    const story = await createStory({ title: "One Piece", typeId: "manga" });
+    await aBookCarrying(story, { looked: A_COVER, own: A_PHOTOGRAPH });
+
+    expect(await facing(story)).toMatchObject({ url: A_PHOTOGRAPH, from: "own" });
+  });
+
+  it("goes back to what an object lends it once the Story's own image comes off", async () => {
+    const story = await createStory({ title: "One Piece", typeId: "manga" });
+    await aBookCarrying(story, { looked: A_COVER });
+    await setOwnStoryImage(story, A_SCREENSHOT);
+
+    await dropOwnStoryImage(story);
+
+    expect(await facing(story)).toMatchObject({ url: A_COVER, from: "google-books" });
+  });
+
+  // The ordinary case, and the one the tint is for: a game with no image is a drawn tile,
+  // which is what every Story with no object has always been (ADR-0013).
+  it("is nothing at all for a game nobody has photographed, which is the drawn tile", async () => {
+    const game = await createStory({ title: "Hollow Knight: Silksong", typeId: "videogame" });
+
+    expect(await facing(game)).toBeNull();
+  });
+
+  // The Story's own page reads the same fragment, so the tile the owner tapped is the tile
+  // they arrive at — the rule #29 established, said again about the new first rung.
+  it("is the same image on the Story's own page, because the order is written once", async () => {
+    const game = await createStory({ title: "Clair Obscur: Expedition 33", typeId: "videogame" });
+    await setOwnStoryImage(game, A_SCREENSHOT);
+
+    expect((await findStory(game))?.cover).toMatchObject({ url: A_SCREENSHOT });
+  });
+
+  // And the page says which of the two it is, because the panel that replaces the image has
+  // to arrive holding what this record carries rather than what an object lent it.
+  it("says on the Story's own page whether the image is the record's own", async () => {
+    const borrowing = await createStory({ title: "One Piece", typeId: "manga" });
+    await aBookCarrying(borrowing, { looked: A_COVER });
+    const owned = await createStory({ title: "Clair Obscur: Expedition 33", typeId: "videogame" });
+    await setOwnStoryImage(owned, A_SCREENSHOT);
+
+    expect((await findStory(borrowing))?.ownImage).toBeNull();
+    expect((await findStory(owned))?.ownImage).toBe(A_SCREENSHOT);
+  });
+
+  // A tile wearing the Story's own image is wearing it alone, whatever the object it also
+  // stands in holds — so the band that prints a title over a shared jacket stays off it.
+  it("is worn by one narrative where the Story owns it, even out of an omnibus", async () => {
+    const first = await createStory({ title: "Il lungo Halloween", typeId: "comic" });
+    const second = await createStory({ title: "Vittoria oscura", typeId: "comic" });
+    const omnibus = await volumeInTheHouse({
+      title: "Batman di Jeph Loeb e Tim Sale 1",
+      publisher: "Panini Comics",
+      binding: "omnibus",
+      language: "it",
+    });
+    await looked(omnibus, A_COVER);
+    await recordVolumeCarriesStory(omnibus, first);
+    await recordVolumeCarriesStory(omnibus, second);
+
+    await setOwnStoryImage(first, A_SCREENSHOT);
+
+    const wall = await listStoryWall();
+    expect(wall.find((one) => one.id === first)?.wornBy).toBe(1);
+    expect(wall.find((one) => one.id === second)?.wornBy).toBe(2);
+  });
+
+  // **Nothing is ever looked up onto a Story, and the schema is what says so.** There is no
+  // source to ask — every one of them is keyed by an ISBN, which belongs to an object — so the
+  // narrative carries one column and not the Volume's six. A `cover_url` appearing on this
+  // table would be a second place a third party's bytes could land, out of reach of the
+  // hotlink constraint that governs the first.
+  it("carries the owner's own image and no looked-up cover at all", async () => {
+    const columns = await query<{ name: string }>(
+      `select column_name as name from information_schema.columns
+        where table_name = 'story' and column_name like '%cover%' or
+              table_name = 'story' and column_name like '%image%'`
+    );
+
+    expect(columns.map((one) => one.name)).toEqual(["own_image_url"]);
   });
 });

@@ -3,15 +3,19 @@ import { volumeInTheHouse } from "@/test/volumes";
 import type { AskForACover, CoverAnswer, StillThere } from "../covers.ts";
 import { query } from "../db.ts";
 import { findVolume, listCollectionWall } from "../queries/collection.ts";
+import { listStoryWall } from "../queries/story.ts";
 import { isRefusal } from "../refusal.ts";
 import { amendVolume, catalogueVolume } from "./collection.ts";
 import {
   dropOwnCover,
+  dropOwnStoryImage,
   forgetTheCover,
   lookUpCoverFor,
   lookUpCovers,
   setOwnCover,
+  setOwnStoryImage,
 } from "./cover.ts";
+import { createStory } from "./story.ts";
 
 // Seam 1: the verb against a real Postgres, and **the sources handed over rather than
 // reached**. What is asserted is what the owner sees afterwards — the tile on the wall and
@@ -25,6 +29,7 @@ import {
 // exactly the ones a live source will not produce on demand.
 beforeEach(async () => {
   await query("truncate volume cascade");
+  await query("truncate story cascade");
 });
 
 const A_COVER = "https://books.google.com/books/content?id=njT-zgEACAAJ&img=1&zoom=5";
@@ -518,5 +523,76 @@ describe("a cover is an answer to the ISBN it was asked about", () => {
     await amendVolume(id, { isbn: "9788828765431" });
 
     expect(await facedWith(id)).toMatchObject({ url: A_COVER });
+  });
+});
+
+// **The Story's own image**, which is the one thing a videogame needed that a book did not
+// (#65, ADR-0021). Nothing is ever looked up onto a Story — every source is keyed by an ISBN
+// and a narrative has none — so these two verbs have no lookup beside them, and there is no
+// `forgetTheStorysCover` because there is never one to forget.
+describe("a Story's own image", () => {
+  const A_SCREENSHOT = "https://tsundoku.davideimola.dev/images/expedition-33.jpg";
+
+  /** A game: a Story of the Type that owns no object at all. */
+  async function aGame(title = "Clair Obscur: Expedition 33"): Promise<string> {
+    return createStory({ title, typeId: "videogame" });
+  }
+
+  /** What one tile on the Story wall is faced with. */
+  async function facing(storyId: string) {
+    const wall = await listStoryWall();
+    return wall.find((one) => one.id === storyId)?.cover ?? null;
+  }
+
+  it("faces a Story that no object carries, which is every videogame", async () => {
+    const game = await aGame();
+
+    await setOwnStoryImage(game, A_SCREENSHOT);
+
+    expect(await facing(game)).toEqual({ url: A_SCREENSHOT, from: "own" });
+  });
+
+  // ADR-0013's prohibition, said again about the other table: hosting is reserved for the
+  // owner's own image, and an address on a source's own domain is not one. Postgres refuses
+  // it rather than a reviewer remembering to.
+  it("is refused where it is somebody else's bytes wearing the owner's name", async () => {
+    const game = await aGame();
+
+    await expect(setOwnStoryImage(game, A_COVER)).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.code === "invalid"
+    );
+    await expect(
+      setOwnStoryImage(game, "https://covers.openlibrary.org/b/id/1.jpg")
+    ).rejects.toSatisfy(isRefusal);
+    await expect(setOwnStoryImage(game, "http://example.com/shot.jpg")).rejects.toSatisfy(
+      isRefusal
+    );
+  });
+
+  it("comes off again, and the tile is the drawn one underneath", async () => {
+    const game = await aGame();
+    await setOwnStoryImage(game, A_SCREENSHOT);
+
+    await dropOwnStoryImage(game);
+
+    expect(await facing(game)).toBeNull();
+  });
+
+  it("is refused off a Story that carries none, rather than passing silently", async () => {
+    const game = await aGame();
+
+    await expect(dropOwnStoryImage(game)).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.code === "not-allowed"
+    );
+  });
+
+  it("answers with no such Story for an id nothing stands under, malformed or not", async () => {
+    const notFound = (error: unknown) => isRefusal(error) && error.code === "not-found";
+
+    await expect(setOwnStoryImage("banana", A_SCREENSHOT)).rejects.toSatisfy(notFound);
+    await expect(
+      setOwnStoryImage("00000000-0000-4000-8000-000000000000", A_SCREENSHOT)
+    ).rejects.toSatisfy(notFound);
+    await expect(dropOwnStoryImage("banana")).rejects.toSatisfy(notFound);
   });
 });

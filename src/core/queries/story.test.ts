@@ -98,11 +98,15 @@ describe("a Story's state, derived from its Passes", () => {
     // pass got is on the pass**, which is what keeps the ban on a progress field honest.
     // `instalments_said_by` is the same kind of fact one step back — whose word that length is,
     // the line's or the owner's (#34) — and it says nothing about reading either.
+    // `own_image_url` is a third of the same kind: what the work looks like on a wall, which
+    // is a fact about the narrative and the only image a Story can ever have (#65). It is not
+    // a state and nothing derives one from it.
     expect(columns.map((column) => column.column_name).sort()).toEqual([
       "created_at",
       "id",
       "instalments",
       "instalments_said_by",
+      "own_image_url",
       "title",
       "type_id",
     ]);

@@ -111,8 +111,17 @@ in the Series' tint is the cover, and an image covers it.
 A looked-up cover **is an answer to the ISBN that stood on the record when it was asked for**,
 which is why correcting the ISBN takes the cover with it: the alternative is an object wearing
 another book's jacket, which loads perfectly and is a lie.
-A **Story** has none of its own — a narrative is not an object — and what it wears on a wall is
-borrowed from the first Volume that carries it.
+A **Story** has no *looked-up* cover and never will — every source is keyed by an ISBN, and an
+ISBN belongs to an object — so what it wears on a wall is normally borrowed from the first
+Volume that carries it. It may carry **an image of the owner's own**, and that is the one thing
+a **videogame** needed that a book did not: a game carries no Volume, so it has nothing to
+borrow a face from and this is the only image it can ever have (ADR-0021, #65).
+**The precedence is the image nearest the record**: the Story's own image, then whatever the
+lending Volume is faced with — which is itself the owner's photograph over the looked-up cover
+— then nothing, which is the drawn tile. Both of the first two are the owner's; the Story's is a
+picture of the work the tile stands for, where the Volume's is borrowed off one printing of it,
+so the nearer one leads. A looked-up cover reaches a narrative only by being lent, and stays
+what it is: somebody else's, revocable, and attached to an object.
 _Avoid_: thumbnail and artwork — *thumbnail* names a size, and the size is a consequence of
 the source rather than the thing. And **image** unqualified wherever whose it is matters,
 which is nearly everywhere: it is *the owner's own image*, or it is a looked-up cover. The one

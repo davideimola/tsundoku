@@ -323,10 +323,39 @@ export const THE_VOLUME_THAT_LENDS_THE_JACKET = `
     ${THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN}
     limit 1)`;
 
+// **What a Story is faced with, and the order it is decided in** — the one resolution, named
+// once for every wall that lays a Story out (#65).
+//
+// **The image nearest the record wins**, and the whole rule is two lines long:
+//
+//   1. the Story's **own image**, which the owner set on the narrative itself;
+//   2. whatever the lending Volume is faced with — which is itself the owner's photograph over
+//      the looked-up cover (`THE_COVER_IT_IS_FACED_WITH` in `queries/cover.ts`);
+//   3. nothing, which is the drawn tile and the ordinary case (ADR-0013).
+//
+// The first two are both the owner's own bytes and the argument between them is only about
+// *aboutness*. A Story's image is a picture of the work this tile stands for; a Volume's is
+// borrowed off one of however many objects carry it, picked by shelf order, and carries that
+// printing's own design and a volume number. So a wall that showed volume one's photograph
+// over an image the owner deliberately gave the work would be overruling the more specific
+// answer with the more general one — and the owner would have no way to say what they meant.
+//
+// **A looked-up cover never reaches a Story directly**, and cannot: every source is keyed by
+// an ISBN, an ISBN belongs to an object, and this is the whole of why a videogame could wear
+// nothing at all until now. It stays what ADR-0013 made it — somebody else's, revocable, and
+// attached to an object — and it reaches a narrative only by being lent, third in this list.
+//
+// Written as one `coalesce` rather than as a `case` in each of the three walls, for
+// `THE_COVER_IT_IS_FACED_WITH`'s reason: a second copy of a fallback chain is a second answer,
+// and a wall drawing a game's screenshot on `/stories` and a borrowed jacket on a person's
+// body of work would be one library disagreeing with itself.
 export const THE_COVER_IT_IS_FACED_OUT_WITH = `
-  (select ${THE_COVER_IT_IS_FACED_WITH}
-     from volume v
-    where v.id = ${THE_VOLUME_THAT_LENDS_THE_JACKET})`;
+  coalesce(
+    case when s.own_image_url is not null
+              then jsonb_build_object('url', s.own_image_url, 'from', 'own') end,
+    (select ${THE_COVER_IT_IS_FACED_WITH}
+       from volume v
+      where v.id = ${THE_VOLUME_THAT_LENDS_THE_JACKET}))`;
 
 // **How many narratives wear that jacket**, which is the fact that was missing and the
 // inverse of `HOW_MANY_OBJECTS_CARRY_IT` above.
@@ -345,10 +374,18 @@ export const THE_COVER_IT_IS_FACED_OUT_WITH = `
 // **One is the ordinary answer and nought is a real one** — a Story no faced object carries
 // is the drawn tile, which already says its own title — so this is the count and not a flag,
 // exactly as the count of carriers is.
+//
+// **A Story wearing an image of its own wears it alone**, and that is what the first branch
+// says (#65). The count is about *this tile's picture* rather than about the objects carrying
+// the work, so a game — or a tale out of an omnibus the owner photographed for itself — is
+// one, and the band that prints a title over a shared jacket stays off it. Reading the
+// omnibus' count here would put *3* under a picture no other tile is wearing.
 export const HOW_MANY_NARRATIVES_WEAR_THAT_JACKET = `
-  (select count(*)::int
-     from volume_story vs
-    where vs.volume_id = ${THE_VOLUME_THAT_LENDS_THE_JACKET})`;
+  case when s.own_image_url is not null then 1
+       else (select count(*)::int
+               from volume_story vs
+              where vs.volume_id = ${THE_VOLUME_THAT_LENDS_THE_JACKET})
+  end`;
 
 // The Rating shape, as a subquery builds it. `score` leaves as a double rather than as
 // `numeric`, which the driver would hand over as a string.
@@ -466,8 +503,22 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type FoundStory = Story & {
   /** The line the objects carrying it stand in, or `null` where none does. */
   series: WallSeries | null;
-  /** The jacket it is faced with, borrowed off the first Volume that has one. */
+  /**
+   * The jacket it is faced with: the owner's own image on this Story, else what the first
+   * Volume that has one lends it (`THE_COVER_IT_IS_FACED_OUT_WITH`).
+   */
   cover: FacedWith | null;
+  /**
+   * **The owner's own image on this Story itself**, or `null` — which is nearly always, and
+   * is the drawn tile or a borrowed jacket rather than a gap (#65).
+   *
+   * It is beside `cover` and not folded into it because the two answer different questions.
+   * `cover` is *what is on the tile*, and a tile has no business knowing whose bytes those
+   * are; this is *what this record carries*, which is what the panel that sets and clears it
+   * has to know — a box arriving filled in with a jacket borrowed off volume one would offer
+   * to replace something this Story does not have.
+   */
+  ownImage: string | null;
   /**
    * The score at the tile's foot, which is the third thing the wall's tile carries — and the
    * same one, off the same fragment, so the tile does not change what it says on the way in.
@@ -490,6 +541,7 @@ export async function findStory(storyId: string): Promise<FoundStory | null> {
     `select ${STORY_COLUMNS},
             ${THE_LINE_IT_STANDS_IN} as series,
             ${THE_COVER_IT_IS_FACED_OUT_WITH} as cover,
+            s.own_image_url as "ownImage",
             ${LATEST_SCORE} as "latestScore"
      ${A_STORY}
      where s.id = $1`,

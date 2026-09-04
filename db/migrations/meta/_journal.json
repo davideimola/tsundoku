@@ -106,6 +106,13 @@
       "when": 1789082000000,
       "tag": "0017_a_type_offers_the_media_it_offers",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789082000000,
+      "tag": "0017_a_story_wears_an_image_of_the_owners_own",
+      "breakpoints": true
     }
   ]
 }
