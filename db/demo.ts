@@ -50,6 +50,7 @@ const SAID = {
   countFromWikipedia: "su Wikipedia la serie è data a %d volumi usciti",
   aStoryWithNoType: "Ho letto Chainsaw Man, i primi undici volumi",
   aStoryComplete: "Sto leggendo Vinland Saga",
+  aVideogame: "Ho finito Clair Obscur: Expedition 33 sulla PS5",
   aVolumeWithABadBinding: "Ho comprato Berserk Deluxe 3 in fumetteria",
   aSeriesWithAWordForACount: "Chainsaw Man esce in Italia per Planet Manga",
   aStoryThatWasRefused: "Ho letto un manga che si chiama Il Manga Inventato",
@@ -251,6 +252,23 @@ async function write(client: Client): Promise<number> {
     reference: "Vinland Saga",
     details: { title: "Vinland Saga", typeId: "manga" },
     agoInMinutes: 39,
+  });
+  await propose({
+    // **A game, and the whole of its interest is that there is nothing special about it**
+    // (#62). It is a creation entry with a title and a Type, like the one above it, and the
+    // Inbox needed nothing added to carry it — which is exactly the claim ADR-0021 makes and
+    // the one worth being able to walk by hand: approve it and a Story appears, on a screen
+    // that was not rebuilt to show it.
+    //
+    // **Approvable rather than defective**, unlike three of the four beside it: the assistant
+    // said the console, and the entry does not — a Pass is the owner's own act on the Story's
+    // page afterwards, and a proposal that carried one would be proposing a fact instead of a
+    // record (ADR-0005).
+    reported: SAID.aVideogame,
+    proposes: "story",
+    reference: "Clair Obscur: Expedition 33",
+    details: { title: "Clair Obscur: Expedition 33", typeId: "videogame" },
+    agoInMinutes: 38,
   });
   await propose({
     // `cartonato` is not one of the seven Bindings: the field an assistant gets wrong most
