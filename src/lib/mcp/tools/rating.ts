@@ -24,9 +24,9 @@ anything. A Rating with prose is evidence; a bare number is a rank.
 A Rating is **of a Story, never of a Volume**: the object was not the thing that was good or bad. A
 Story spanning twenty volumes has one judgement, not twenty.
 
-**Set, in one sense of the word.** There is one Rating per Story per Reading, so saying it again is
-an edit of that same judgement. A second opinion after reading it *again* belongs to the second
-Reading: pass that Reading's \`reading\` id and both survive, which is the only way a Story ends up
+**Set, in one sense of the word.** There is one Rating per Story per Pass, so saying it again is
+an edit of that same judgement. A second opinion after going through it *again* belongs to the
+second Pass: name that Pass's \`pass\` id and both survive, which is the only way a Story ends up
 with two scores.`,
   inputSchema: {
     type: "object",
@@ -54,15 +54,15 @@ doubled onto it. The judgement is theirs either way; the precision is not, and a
 library needs to know which. Defaults to "half-points".`,
         default: "half-points",
       },
-      reading: {
+      pass: {
         type: "string",
-        description: `The Reading this judgement came out of, from \`reading_record\` or
-\`stories_find\`. Pass it whenever you know it: it is what keeps a reread's score beside the first
-one instead of over it.`,
+        description: `The Pass this judgement came out of, from \`pass_record\` or
+\`stories_find\`. Name it whenever you know it: it is what keeps a second time through's score
+beside the first one instead of over it.`,
       },
       provenance: {
         type: "string",
-        description: `A Provenance id from \`reading_provenances\`. Leave it out when the owner is
+        description: `A Provenance id from \`pass_provenances\`. Leave it out when the owner is
 telling you now — that is "${FIRST_HAND}".`,
         default: FIRST_HAND,
       },
@@ -71,8 +71,8 @@ telling you now — that is "${FIRST_HAND}".`,
     additionalProperties: false,
   },
   readOnly: false,
-  // Rating the same Reading twice overwrites the prose the owner wrote about it, in place
-  // and with no history kept — a Rating is one per Story and Reading, so the second call
+  // Rating the same Pass twice overwrites the prose the owner wrote about it, in place
+  // and with no history kept — a Rating is one per Story and Pass, so the second call
   // updates the first rather than joining it. That is the only write on this door that
   // destroys something the owner authored, and a client is right to confirm it.
   destructive: true,
@@ -86,7 +86,9 @@ telling you now — that is "${FIRST_HAND}".`,
         score: numberArgument(input, "score") ?? Number.NaN,
         prose: stringArgument(input, "prose"),
         scale: stringArgument(input, "scale") as RatingScale | undefined,
-        readingId: stringArgument(input, "reading"),
+        // The core still calls this field `readingId`; the rename of the object fields is
+        // #60's sweep, and this door says `pass` where an assistant can read it.
+        readingId: stringArgument(input, "pass"),
         provenanceId: stringArgument(input, "provenance") ?? FIRST_HAND,
       }),
     };

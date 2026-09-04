@@ -1,8 +1,12 @@
-import { composeReadingList } from "@/core/queries/reading-list";
+import { composePile } from "@/core/queries/pile";
 import type { McpTool } from "../tool.ts";
 
-// The Reading list area: **what to read next**, which is the question this whole app was
-// built to make askable from outside (ADR-0002, user story 22).
+// The Pile area: **what to take on next**, which is the question this whole app was built
+// to make askable from outside (ADR-0002, user story 22).
+//
+// It was the Reading list until #59, and the word changed because *what to read next*
+// named only half of what stands on it (ADR-0021). **The Pile** is what the application is
+// itself named after: the pile that keeps growing.
 //
 // One tool, because there is one question. The answer already carries the routes each entry
 // stands on and their intent, so *what comes next per Path* is in this answer and not a
@@ -21,11 +25,11 @@ import type { McpTool } from "../tool.ts";
 // boundary — and it is a separate decision, said out loud.
 
 const next: McpTool = {
-  name: "reading_list_next",
-  title: "What to read next, composed rather than kept",
-  description: `**The Reading list**: what the owner could read next, composed on the way out and stored nowhere.
-This is the closest thing here to an answer to *"what should I read next"*, and it is the one tool
-to reach for when that is the question.
+  name: "pile_next",
+  title: "What to take on next, composed rather than kept",
+  description: `**The Pile**: what the owner could take on next, composed on the way out and stored
+nowhere. This is the closest thing here to an answer to *"what should I read next"*, and it is the
+one tool to reach for when that is the question.
 
 **It answers with two lists, and the difference between them is the most useful thing in it.**
 \`head\` is what the owner **pinned**, in pin order, newest pin leading — every row in it is a
@@ -37,24 +41,24 @@ preference**. Say what the owner decided apart from what merely composed.
 Every entry carries \`reasons\`, and **one Story is one row however many reasons put it there**: a
 Story that is wanted *and* stands on two routes is one entry naming all three, never three entries.
 \`because: "want"\` is **an open Want** — the owner having said *I want to read this Story*, which
-belongs to no route and carries no order; it falls quiet by itself once a Reading begins after it,
+belongs to no route and carries no order; it falls quiet by itself once a Pass begins after it,
 so what is here is still wanted. \`because: "path"\` is **a stop on an active Path** — an ordered
 route the owner chose, crossing types and publishers freely — carrying that route, the \`intent\`
 they wrote for it, and \`place\`, which is where the stop stands among what is still to read on it:
 \`1\` is what comes next, and anything higher stands behind it. \`because: "run"\` is **a run with somewhere left to
 go**: a serialized Story the owner has neither finished nor abandoned. It carries
 \`howFarItGot\` — \`atInstalment\` out of \`instalments\`, in the work's own units and never in
-volumes — and \`nextInstalment\`, the part to read next, so you can say *carry on with Slam Dunk,
+volumes — and \`nextInstalment\`, the part to take on next, so you can say *carry on with Slam Dunk,
 you are at seven of twenty*. **A run nobody has opened is here too**, at \`atInstalment: 0\`, and
 that is the row this whole list was rebuilt for: a work owned complete and unread is invisible to
 the Series half, which names only what is **missing**. Nothing was marked to put it here — no
-route, no flag on its Series, no Want — and it leaves the list by itself when a Reading finishes
-or abandons it, or when a pass reaches the last part. \`because: "series"\` is
+route, no flag on its Series, no Want — and it leaves the list by itself when a Pass finishes
+or abandons it, or when a pass has reached the last part. \`because: "series"\` is
 **the next position of a Series they have decided to collect** that the house has none of; it names
 an object and no Story, because what narrative a Volume carries is a separate fact the ledger does
 not claim to know.
 
-\`subject\` is the thing to read — a Story, or a position of a Series — and it is what a pin names.
+\`subject\` is the thing to take on — a Story, or a position of a Series — and it is what a pin names.
 
 \`medium\` is the **intended** medium and it is derived, never recorded. \`paper\` means an object is
 involved; \`digital\` means none is, because an owned ebook is not something this library models — so
@@ -78,7 +82,7 @@ into a recommendation.`,
   inputSchema: { type: "object", properties: {}, additionalProperties: false },
   readOnly: true,
   async run() {
-    return composeReadingList();
+    return composePile();
   },
 };
 
