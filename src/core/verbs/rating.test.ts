@@ -80,6 +80,39 @@ describe("setting a Rating", () => {
     expect(gone.still).toBe(false);
   });
 
+  // **A game is judged on the owner's own scale and on no second one** (#62, ADR-0008,
+  // ADR-0021), which is the whole reason a videogame is a Story in *this* library rather than
+  // in a second one: an external reader weighing three unread manga against twelve unplayed
+  // games is reading one number, and a 10-point scale beside a 5-star one would not be one.
+  //
+  // Both grains, because a rough judgement is the ordinary one for a game — *liked it* — and
+  // the scale has carried that since ADR-0008 without anything being added for it here.
+  it("scores a videogame on the same scale as a manga, coarse or in half points", async () => {
+    const coarsely = await createStory({ title: "Hades", typeId: "videogame" });
+    const precisely = await createStory({
+      title: "Clair Obscur: Expedition 33",
+      typeId: "videogame",
+    });
+
+    await setRating({ storyId: coarsely, score: 8, scale: "coarse", provenanceId: "remembered" });
+    await setRating({
+      storyId: precisely,
+      score: 9.5,
+      prose: "The one I will still be thinking about next year.",
+      provenanceId: "remembered",
+    });
+
+    expect((await findStory(coarsely))?.standaloneRatings[0]).toMatchObject({
+      score: 8,
+      scale: "coarse",
+    });
+    expect((await findStory(precisely))?.standaloneRatings[0]).toMatchObject({
+      score: 9.5,
+      scale: "half-points",
+      prose: "The one I will still be thinking about next year.",
+    });
+  });
+
   it("refuses a score off the scale", async () => {
     const storyId = await createStory({ title: "Watchmen", typeId: "comic" });
 

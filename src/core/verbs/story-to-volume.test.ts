@@ -167,6 +167,25 @@ describe("the Volume a Pass went through", () => {
     });
   });
 
+  // **And it is not a console's either, by the same rule and with no new one written** (#62).
+  // The consoles were seeded carrying `goes_through_an_object` false, so what refuses this is
+  // the trigger #61 put in — the same fact, read off the vocabulary row rather than off a list
+  // of values, which is the whole of why ADR-0022 moved it there. A disc on the shelf is a
+  // Volume the owner has weighed and declined to catalogue (ADR-0021), and the database says
+  // so rather than a comment.
+  it("cannot be a console Pass's, because a videogame owns no object here", async () => {
+    const volumeId = await aVolume("L'uomo che ride");
+    const storyId = await createStory({ title: "Hades", typeId: "videogame" });
+
+    await expect(
+      recordPass({ storyId, medium: "nintendo-switch", volumeId, provenanceId: "remembered" })
+    ).rejects.toMatchObject({
+      name: "Refusal",
+      code: "invalid",
+      message: "That medium does not go through an object, so a Pass by it went through no Volume.",
+    });
+  });
+
   it("refuses a Volume that is not in the library", async () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
 

@@ -428,6 +428,36 @@ describe("I read it", () => {
     expect(await query("select id from volume")).toEqual([]);
   });
 
+  // **The videogame, and the point is how little there is to say about it** (#62, ADR-0021).
+  // *Expedition 33, played on a PS5* is the sentence above with two of its four words
+  // different, reaching the same verb through the same half of the same door: the narrative
+  // half asks a title, a Type and a medium and creates no object, so a game arrives by the
+  // door a novel read on somebody else's paperback already arrives by.
+  //
+  // What the assertion is really about is the **absence**. No Volume, no acquisition, no
+  // Series, no Wish — not because a game is refused them, but because nothing here reaches
+  // for them, which is what makes *a Story owing no object to anybody* the ordinary case and
+  // not a second shape.
+  it("records a videogame passed through on a console, with no object anywhere", async () => {
+    const said = await sayWhatHappened({
+      title: "Clair Obscur: Expedition 33",
+      typeId: "videogame",
+      said: "read",
+      medium: "playstation-5",
+    });
+
+    const [storyId] = said.storyIds;
+    expect(await stories()).toEqual([{ id: storyId, title: "Clair Obscur: Expedition 33" }]);
+    expect(said.volumeId).toBeNull();
+
+    expect(await passes()).toEqual([
+      { story_id: storyId, medium: "playstation-5", volume_id: null, outcome: "finished" },
+    ]);
+
+    expect(await query("select id from volume")).toEqual([]);
+    expect(await query("select id from wish")).toEqual([]);
+  });
+
   // The medium is the Pass's own foreign key onto the vocabulary and the prose is
   // `recordPass`'s: this door has no copy of it to keep true, and the sentence the owner
   // reads is the verb's.

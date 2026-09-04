@@ -365,6 +365,31 @@ describe("striking a Story from the library", () => {
     );
   });
 
+  // **A videogame is struck on the same terms as anything else, which is the assertion** (#62,
+  // ADR-0015). Two of the four sources this gesture asks about are silent on a game — no
+  // object in the house carries it and no object ever will — and the other two are the ones
+  // that matter: a game recorded by mistake leaves nothing behind, and a game the owner played
+  // or judged stays. Nothing here is a videogame's rule; it is the ordinary rule met by a
+  // Story that happens to own no object, which is what ADR-0021 said a game would be.
+  it("takes a game recorded by mistake, and keeps one the owner played or judged", async () => {
+    const mistake = await createStory({ title: "Hades II", typeId: "videogame" });
+    const played = await createStory({ title: "Hades", typeId: "videogame" });
+    const judged = await createStory({ title: "Outer Wilds", typeId: "videogame" });
+
+    await recordPass({ storyId: played, medium: "pc", provenanceId: "remembered" });
+    await setRating({ storyId: judged, score: 10, provenanceId: "remembered" });
+
+    expect(await strikeStories([mistake])).toBe(1);
+    expect(await findStory(mistake)).toBeNull();
+
+    await expect(strikeStories([played])).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.message.includes("Pass")
+    );
+    await expect(strikeStories([judged])).rejects.toSatisfy(
+      (error: unknown) => isRefusal(error) && error.message.includes("judged")
+    );
+  });
+
   it("refuses one a Path names as a stop, and says to take it off the Path first", async () => {
     const planned = await aRecorded("Batman: Anno Uno");
     const path = await definePath({ name: "Recupero Batman" });
