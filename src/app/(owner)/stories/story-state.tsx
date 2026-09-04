@@ -14,11 +14,20 @@ import type { StoryState, WallStory } from "@/core/queries/story";
 //
 // Weight rather than colour carries the distinction, and after the palette landed that is
 // not a restraint but the only option: the chrome has no hue to spend. What the owner scans
-// for is which of these is *open* — reading — against everything settled.
+// for is which of these is *open* — under way — against everything settled.
+//
+// **The four words are the screen's and the four ids are the core's** (#58). `StoryState`
+// still says `to-read`, `reading`, `read` and `abandoned`, and those are what the filter puts
+// in the URL and what `queries/story.ts` derives; what the owner is shown is worded here, and
+// since a videogame is a Story by the same test a manga is (ADR-0021) it is worded so that it
+// is true of one as well as the other. *Reading now* over a game the owner is playing was the
+// wall saying the wrong thing about the right record, and *The pile* is a name that is now
+// taken — the Pile is a screen and a glossary word, and a band of everything unstarted is not
+// it. The outcomes are `CONTEXT.md`'s own pair, *finished or abandoned*.
 const SHOWN: Record<StoryState, { word: string; band: string; emphasis: string }> = {
-  "to-read": { word: "to read", band: "The pile", emphasis: "text-muted-foreground" },
-  reading: { word: "reading", band: "Reading now", emphasis: "text-foreground" },
-  read: { word: "read", band: "Read", emphasis: "text-muted-foreground" },
+  "to-read": { word: "not started", band: "Not started", emphasis: "text-muted-foreground" },
+  reading: { word: "under way", band: "Under way", emphasis: "text-foreground" },
+  read: { word: "finished", band: "Finished", emphasis: "text-muted-foreground" },
   abandoned: {
     word: "abandoned",
     band: "Abandoned",
@@ -31,8 +40,8 @@ const SHOWN: Record<StoryState, { word: string; band: string; emphasis: string }
  *
  * **Open first**: what the owner is in the middle of, then what they have not started, then
  * what is settled. It is not the order the type declares them in and it is not alphabetical
- * — it is the order of the question *"what am I reading?"*, which is the one the owner opens
- * this screen with.
+ * — it is the order of the question *"what am I in the middle of?"*, which is the one the
+ * owner opens this screen with.
  */
 export const WALL_STATES = [
   "reading",
@@ -41,20 +50,24 @@ export const WALL_STATES = [
   "abandoned",
 ] as const satisfies readonly StoryState[];
 
-/** How a state is said in a sentence or on a control: *to read*, *reading*. */
+/** How a state is said in a sentence or on a control: *not started*, *under way*. */
 export function stateWord(state: StoryState): string {
   return SHOWN[state].word;
 }
 
 /**
- * What a band of them is called on the wall: *The pile*, the thing this application is
- * named after.
+ * What a band of them is called on the wall: *Not started*, *Under way*.
  *
  * A **band** rather than a shelf, though #22 says shelf and the picture is a shelf: in this
  * repo *the shelf* is what the house physically holds — `CONTEXT.md` spends the word on the
  * Collection, and `queries/series.ts` measures its ledger against it — so a group of
  * abandoned Stories is not one. *Band* is the word the redesign already uses for a
  * horizontal section of a screen.
+ *
+ * The unstarted band was called *The pile* until the Pile became a screen of its own (#58).
+ * Two things called the pile, one of them a composed answer and the other every Story nobody
+ * has opened, is one word doing two jobs — and the composed one is the one the application is
+ * named after.
  */
 export function bandName(state: StoryState): string {
   return SHOWN[state].band;
@@ -121,7 +134,7 @@ export function StoryStateLabel({ state }: { state: StoryState }) {
     <span
       className={`font-mono text-eyebrow uppercase tracking-eyebrow ${shown.emphasis}`}
       // The derivation is the product, so the screen says so where there is room to.
-      title="Derived from this Story's Readings, and stored nowhere"
+      title="Derived from this Story's Passes, and stored nowhere"
     >
       {shown.word}
     </span>
