@@ -54,7 +54,7 @@ what comes next.
 
 The \`path_id\` comes from \`path_list\` or \`path_next_on_active_paths\`. Every stop carries the
 Story's Type and its state — \`to-read\`, \`reading\`, \`read\` or \`abandoned\` — derived from its
-Readings and never stored, so the route shows how far along it the owner is without them keeping a
+Passes and never stored, so the route shows how far along it the owner is without them keeping a
 column.
 
 \`constraints\` here are only the ones declared **on this route**. The ones holding over the whole
@@ -117,7 +117,7 @@ filter out — a route with nothing unread left has nothing to contribute, so re
 same kind of reason: the owner put them aside on purpose.
 
 An empty list therefore means every active route is walked out, which is a real and useful answer.
-This is what the Reading list composes itself from, so it is the closest thing here to "what should
+This is what the Pile composes itself from, so it is the closest thing here to "what should
 I read next" — read \`path_constraints\` before turning it into a recommendation.`,
   inputSchema: { type: "object", properties: {}, additionalProperties: false },
   readOnly: true,

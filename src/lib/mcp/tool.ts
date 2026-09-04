@@ -60,7 +60,7 @@ export type McpTool = {
    * The question is not *"is it a write?"* nor *"can the owner undo it?"* — almost
    * everything here is undoable by a second verb. It is **what is gone afterwards**:
    *
-   *   - `rating_set` says `true`. Rating the same Reading twice overwrites the prose the
+   *   - `rating_set` says `true`. Rating the same Pass twice overwrites the prose the
    *     owner wrote about it, in place, with no history — the one write here that destroys
    *     something they authored.
    *   - `credit_attribute` says `true`. It mints a Person, and a misspelling is a second

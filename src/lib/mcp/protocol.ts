@@ -47,14 +47,15 @@ const INSTRUCTIONS = `tsundoku is one person's library. Two facts are separate a
 a **Story** is what they read and formed an opinion about, at whatever granularity they chose — one
 volume, an arc, or a whole series; a **Volume** is a physical object on their shelf. A **Rating** —
 1 to 10 in half points, with prose — is always of a Story and never of a Volume, and a Story may
-have several **Readings**, because rereading is ordinary and every reading keeps the judgement it
-carried. Every Reading and Rating carries a **Provenance** saying how it came to be known: weigh
+have several **Passes**, because going through a thing again is ordinary and every pass keeps the
+judgement it carried. Every Pass and Rating carries a **Provenance** saying how it came to be known: weigh
 "Goodreads history" less heavily than "remembered". A Rating also carries the **scale** it was given
 in, which is a separate question from where it came from: "coarse" is a score given out of 5 and
 doubled onto this one. Recommend from the prose, not from the score alone. The **Collection** is the
 Volumes in the house and is a subset of the objects the library knows — one catalogued and not owned
-is a thing they may mean to buy. Digital ownership is not modelled: an ebook is a Reading with a
-digital medium and no Volume.`;
+is a thing they may mean to buy. Digital ownership is not modelled: an ebook is a Pass with a
+digital medium and no Volume. **The Pile** is what to take on next, composed rather than kept, and
+\`pile_next\` is the one tool that answers it.`;
 
 // JSON-RPC's own codes. This server adds none: a refusal from the model is an answer
 // rather than an error, and it travels as a tool result (see `called`).

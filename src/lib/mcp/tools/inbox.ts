@@ -14,7 +14,7 @@ import { type McpTool, numberArgument, stringArgument, stringsArgument } from ".
 // The Inbox area: the only way a new Story, Volume or Series can be asked for from out
 // here, and the reason there is no tool anywhere in this directory that creates one.
 //
-// **This is the write boundary** (ADR-0005). Everything else this door writes — a Reading,
+// **This is the write boundary** (ADR-0005). Everything else this door writes — a Pass,
 // a Rating, an acquisition, a Wish — is a verb on something that already exists: narrow,
 // reversible, and wrong in a way the owner spots immediately. Creating an entity is the
 // other kind of act, because a title an assistant invented or an edition it half remembered
@@ -88,7 +88,7 @@ to be struck**, so they carry it for years.`;
 
 const PROPOSED_ID = `Returns the Inbox entry's id, and nothing else exists yet. Tell the owner it is
 waiting in their Inbox for them to approve, and do not claim to have added anything. Nothing can be
-recorded against it — no Reading, no Rating, no acquisition, no Wish — until they have approved it,
+recorded against it — no Pass, no Rating, no acquisition, no Wish — until they have approved it,
 so if they asked for one of those in the same breath, say that part is waiting too.`;
 
 const REPORTED = {
@@ -157,7 +157,7 @@ objects included, and it is the one that answers this question.
 ${WHAT_A_WRONG_ONE_COSTS}
 
 **Say which narratives are inside the object, in \`stories\`** — the object is the thing, and the
-works it carries are what make it readable, ratable and worth putting on a Reading list. An object
+works it carries are what make it readable, ratable and worth putting on the Pile. An object
 that names none is catalogued carrying nothing, which is allowed and is the owner going to its page
 afterwards to type what you already knew.
 
@@ -407,7 +407,7 @@ was catalogued without, the publisher left blank, the count a Series has fallen 
 it makes is an entry waiting in the Inbox, showing what you propose beside what stands in the
 record today, and the owner approving it is the act that changes anything. That wait is the point
 rather than a formality — a wrong ISBN is silent, is never read back, and quietly fetches another
-book's cover for as long as the record stands, which is the opposite of a Reading recorded on the
+book's cover for as long as the record stands, which is the opposite of a Pass recorded on the
 wrong day.
 
 ${SEARCH_FIRST} \`collection_search\`, \`stories_all\` and \`series_list\` are the areas' own lists,

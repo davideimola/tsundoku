@@ -147,7 +147,7 @@ const release: McpTool = {
   description: `Record that a **Volume** left the owner's hands: the acquisition ends today and the
 Collection stops claiming it.
 
-The object stays in the catalogue and its history stays with it. A Reading made through it and the
+The object stays in the catalogue and its history stays with it. A Pass made through it and the
 Edition note written about it are facts about the owner's past, so nothing is deleted — what changes
 is only whether the Collection answers with it. Acquiring it again later is a new acquisition.
 

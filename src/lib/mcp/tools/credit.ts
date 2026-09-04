@@ -48,8 +48,8 @@ Stories they are credited on, and how many of those the owner has opened.
 \`storyCount\` against \`readCount\` is the difference between having heard of someone and having read
 them, and it is the reason to start here rather than from a name you assumed: a person credited on
 eight Stories of which the owner read one is a very different recommendation from the reverse.
-\`readCount\` counts the Stories that went through **at least one Reading**, and an abandoned Reading
-counts among them — giving up on something is still an act of reading, and it is often the more
+\`readCount\` counts the Stories that went through **at least one Pass**, and an abandoned Pass
+counts among them — giving up on something is still a pass through it, and it is often the more
 useful signal. It is not a count of Stories they finished and liked; \`credit_person\` and
 \`stories_read\` are where that is answerable.
 
@@ -69,21 +69,21 @@ const person: McpTool = {
   name: "credit_person",
   title: "Everything the owner has read by one person",
   description: `One person, and everything they are credited on, split by whether the owner has opened it:
-\`read\` for the Stories that went through **at least one Reading**, \`notRead\` for the ones credited
+\`read\` for the Stories that went through **at least one Pass**, \`notRead\` for the ones credited
 and never opened.
 
 **The split is the answer.** *"What have I read by Jeph Loeb before I commit to the Batman
-omnibus"* is a question about the Readings, so a Story sitting credited and unopened must not be
+omnibus"* is a question about the Passes, so a Story sitting credited and unopened must not be
 counted among them — while hiding it would answer the next question, *"what of his do I still have
 to read"*, with silence. Recommend from \`read\` and suggest from \`notRead\`.
 
 \`read\` means opened and not necessarily finished or liked: **a Story the owner abandoned is in
-\`read\`**, because giving up on it is still an act of reading. \`readingCount\` says how many times
+\`read\`**, because giving up on it is still a pass through it. \`readingCount\` says how many times
 they went through it and \`latestScore\` says what they thought; a Story in \`read\` with no score is
 one they never judged, and neither of those is evidence to recommend from on its own.
 
 Each Story carries the roles this person held **on that Story** — not all of theirs — its Type, how
-many Readings it has, and \`latestScore\`, the score the owner set most recently on a scale of 1 to
+many Passes it has, and \`latestScore\`, the score the owner set most recently on a scale of 1 to
 10 in half points, or \`null\` where they set none. A Rating is always of the Story and never of a
 Volume: the object was not the thing that was good or bad. For the prose the owner wrote alongside a
 score, and the Provenance of both, read \`stories_read\`.

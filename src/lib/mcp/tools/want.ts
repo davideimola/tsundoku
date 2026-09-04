@@ -13,19 +13,19 @@ import { type McpTool, stringArgument } from "../tool.ts";
 // what a Want holds.** ADR-0014 and ADR-0015 keep strike off this door because the party that
 // files a hallucinated entity must not be able to delete rows to tidy up after itself — and
 // both of those verbs reach records the owner has lived with, guarded by four refusals each. A
-// Want holds nothing: no Reading went through it, no judgement rests on it, and the Story it
+// Want holds nothing: no Pass went through it, no judgement rests on it, and the Story it
 // names is untouched by its going. What is destroyed by striking one is a sentence somebody
 // said this week, which is exactly the shape of write this door was opened for.
 //
 // **There is no tool that closes one, and there must not be.** A Want ends by itself, when a
-// Reading begins after it was opened. An assistant that "tidied up" a Want because the owner
-// mentioned finishing the book would be keeping a second truth beside the Readings, which is
+// Pass begins after it was opened. An assistant that "tidied up" a Want because the owner
+// mentioned finishing the book would be keeping a second truth beside the Passes, which is
 // the whole thing this model refuses to have.
 
 const open: McpTool = {
   name: "want_open",
   title: "Say the owner wants to read a Story",
-  description: `Record that the owner means to read a **Story**. It joins the Reading list, and that is
+  description: `Record that the owner means to read a **Story**. It joins the Pile, and that is
 all it does.
 
 A Want names one **narrative** and creates nothing. It costs no Path, no order and no name: *"add
@@ -41,7 +41,7 @@ read what they will borrow, and buys what they will not open for years. If they 
 a bug: propose the narrative with \`inbox_propose_story\` and open the Want once the owner has
 approved it.
 
-**Nothing closes one**, so do not come back to end it. It falls quiet by itself once a Reading begins
+**Nothing closes one**, so do not come back to end it. It falls quiet by itself once a Pass begins
 after it was opened, which is why *"I want to read this again"* about something read years ago is an
 ordinary Want and needs no mention of rereading.
 
@@ -69,11 +69,11 @@ const strike: McpTool = {
   name: "want_strike",
   title: "Take back a Want that was a mistake",
   description: `Remove a Want the owner did not mean to open: the wrong Story picked out of a list, a
-misheard title. The row goes and nothing else moves — the Story, its Readings and its Rating are
+misheard title. The row goes and nothing else moves — the Story, its Passes and its Rating are
 untouched.
 
 **This is not a way to close one.** A Want the owner has simply not acted on is still true, and there
-is no tool that retires it: it falls quiet on its own when a Reading begins after it was opened. So
+is no tool that retires it: it falls quiet on its own when a Pass begins after it was opened. So
 do **not** call this because they said they finished the book, or because it has been on the list a
 long time. Call it when the Want itself was wrong.
 
@@ -103,10 +103,10 @@ const list: McpTool = {
 
 This is what the owner has said they want to *read*, which is not what they have said they want to
 *buy* (\`wish_list\`) and not the order they mean to read things in (\`path_list\`). It is one of the
-three sources the Reading list composes itself from, so a Story here is on that list.
+three sources the Pile composes itself from, so a Story here is on that list.
 
 A Want the owner has since acted on is absent rather than marked done: it fell quiet because a
-Reading began after it was opened. So this answers *what is still wanted*, and a Story missing from
+Pass began after it was opened. So this answers *what is still wanted*, and a Story missing from
 it either was never wanted or has been read since.`,
   inputSchema: { type: "object", properties: {}, additionalProperties: false },
   readOnly: true,

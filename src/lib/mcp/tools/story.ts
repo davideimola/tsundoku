@@ -9,16 +9,16 @@ import { type McpTool, stringArgument } from "../tool.ts";
 // from.
 //
 // Three of these five exist for the **write** door rather than for recommendation, and they
-// are here because a Story is one area and not two (`../README.md`, rule 1). A Reading and
+// are here because a Story is one area and not two (`../README.md`, rule 1). A Pass and
 // a Rating name a Story by id, so an assistant that cannot look one up cannot record
 // anything — and the alternative to looking one up is guessing, which is what ADR-0005's
 // boundary exists to stop. `stories_all` is the index, `stories_find` is one Story with its
-// Readings, and `stories_types` is the vocabulary a proposal needs.
+// Passes, and `stories_types` is the vocabulary a proposal needs.
 
 const readStories: McpTool = {
   name: "stories_read",
   title: "What the owner has read",
-  description: `Every Story the owner has finished, with every Reading of it and the Rating each one
+  description: `Every Story the owner has finished, with every Pass through it and the Rating each one
 carried: the score out of 10 in half points, the prose they wrote, the grain the score was given in,
 and the Provenance of both.
 
@@ -41,11 +41,11 @@ as "liked it" rather than as an 8. Start here for any question about taste.`,
 const allStories: McpTool = {
   name: "stories_all",
   title: "Every Story the library knows",
-  description: `Every Story by title, with its Type, its state, how many Readings it has and the score
+  description: `Every Story by title, with its Type, its state, how many Passes it has and the score
 the owner set most recently. The index: it is how you find the id every other tool wants.
 
-The state is derived from the Readings and stored nowhere — \`to-read\`, \`reading\`, \`read\`,
-\`abandoned\` — so a Story with no Reading is one they mean to read and not a mistake. Unlike
+The state is derived from the Passes and stored nowhere — \`to-read\`, \`reading\`, \`read\`,
+\`abandoned\` — so a Story with no Pass is one they mean to read and not a mistake. Unlike
 \`stories_read\`, everything is here, which is what makes this the list to search before concluding
 that something is missing: **look here before proposing a Story**, because the owner may have
 recorded it under a title they said differently, and a duplicate is permanent.
@@ -62,13 +62,13 @@ are not book titles and there is no volume number in them.`,
 const oneStory: McpTool = {
   name: "stories_find",
   title: "One Story in full",
-  description: `One Story with everything about it: its Credits, every Reading of it — the medium, the
+  description: `One Story with everything about it: its Credits, every Pass through it — the medium, the
 days, whether it finished or was abandoned, and the Volume it went through if there was one — and
 every Rating with its prose, its scale and its Provenance.
 
-**This is where a Reading's id comes from**, which is what \`reading_finish\` and \`reading_abandon\`
-need: a Reading with no outcome is one still in progress. It is also the honest answer to *"what did I
-think of this?"*, because several Readings of one Story each keep the judgement they carried.
+**This is where a Pass's id comes from**, which is what \`pass_finish\` and \`pass_abandon\`
+need: a Pass with no outcome is one still under way. It is also the honest answer to *"what did I
+think of this?"*, because several Passes through one Story each keep the judgement they carried.
 
 It carries what the owner's own tile shows as well: the line the objects carrying it stand in, the
 score most recently set, and the address of the jacket — which is a *reference* to somebody else's
