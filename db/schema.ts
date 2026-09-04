@@ -452,3 +452,19 @@ export const want = pgTable("want", {
 	unique("want_one_open_per_story").on(table.storyId),
 ]);
 
+export const typeMedium = pgTable("type_medium", {
+	typeId: text("type_id").notNull(),
+	mediumId: text("medium_id").notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.typeId],
+			foreignColumns: [type.id],
+			name: "type_medium_type_exists"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.mediumId],
+			foreignColumns: [medium.id],
+			name: "type_medium_medium_exists"
+		}).onDelete("cascade"),
+	primaryKey({ columns: [table.typeId, table.mediumId], name: "type_medium_is_offered_once"}),
+]);
