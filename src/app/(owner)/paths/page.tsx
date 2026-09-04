@@ -101,7 +101,7 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
       ) : null}
       {defined ? (
         <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
-          {defined} is a Path. Put Stories on it in the order you mean to read them.
+          {defined} is a Path. Put Stories on it in the order you mean to take them on.
         </p>
       ) : null}
       {struck ? (
@@ -115,7 +115,7 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
         <p className="mt-8 max-w-prose text-pretty text-sm text-muted-foreground">
           No Paths yet. <em>Recupero Batman</em>, <em>Angolo Giappone</em>,{" "}
           <em>Technical Leadership</em> — <em>Define a Path</em> is at the top of the screen, and
-          then Stories go on it in the order you mean to read them.
+          then Stories go on it in the order you mean to take them on.
         </p>
       ) : (
         <section className="mt-8">
@@ -156,14 +156,14 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
       <DeclaredConstraints
         constraints={global}
         back="/paths"
-        scope="how I want to read"
+        scope="how I want to take things on"
         placeholder="don't accumulate too many unread books"
       />
 
       {panel === DEFINING_A_PATH ? (
         <Drawer
           title="Define a Path"
-          description="A name, and what the route is for. Stories go on it afterwards, in the order you mean to read them."
+          description="A name, and what the route is for. Stories go on it afterwards, in the order you mean to take them on."
           refused={refused}
           closesTo={CLOSES_TO}
         >

@@ -63,8 +63,8 @@ import {
 //
 // What is deliberately **not** on this screen: any way to edit the list, and — the one that
 // takes saying — any way to *tick an entry off*. There is nothing to edit, because an entry is
-// composed; and a Want is answered by reading the Story rather than by a press here (#35), so
-// the only thing offered against one is taking back a sentence that was a slip. The
+// composed; and a Want is answered by going through the Story rather than by a press here
+// (#35), so the only thing offered against one is taking back a sentence that was a slip. The
 // affordances are a pin (the owner's own order), that strike, and, where an entry needs an
 // object they do not have, the proposal the entry already carries.
 // Pressing that one is opening a Wish, which is why it is a button with a price attached in
@@ -251,7 +251,7 @@ function Half({
 // dashboard says both as well (#24) and a second wording would be a second answer.
 
 /**
- * One entry: what to read, every reason it is here, and the one thing to do about it.
+ * One entry: what to take on, every reason it is here, and the one thing to do about it.
  *
  * `place` is the ordinal, and it is passed only in the head — the reserve has no order to
  * number. `behind` is what stands behind this row on the routes it **leads**, and only a
@@ -303,7 +303,7 @@ function Entry({
           />
         </div>
 
-        {/* The width, spent: what to read on the left and what to do about it on the right,
+        {/* The width, spent: what to take on at the left and what to do about it at the right,
             at a desk. On a phone they are one column and the act follows the prose, which is
             the order they are read in either way. */}
         <div className="min-w-0 flex-1 lg:flex lg:items-start lg:gap-8">

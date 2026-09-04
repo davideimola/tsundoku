@@ -2,7 +2,7 @@ import type { PileEntry, PileLine, PileReason, PileRoute } from "@/core/queries/
 import { howFarItGot } from "../stories/passes";
 
 // How an entry of the Pile is **said**, in one place, because two screens say it
-// now: the list itself, and the dashboard's *what to read next* (#24).
+// now: the list itself, and the dashboard's own band of it (#24).
 //
 // It is a module of its own for the reason `../stories/story-state.tsx` is one. An entry has
 // no title of its own — it is composed, so what to call it is a judgement over what put it
@@ -15,9 +15,9 @@ import { howFarItGot } from "../stories/passes";
 // it there, so the four questions below read across `reasons` rather than off a single
 // filled half. **The readers at the top stay three, and the fourth source is why that is not
 // an omission**: a run names no record beside the Story (#43) — it is the work counted against
-// what has been read of it — so what it says is *7 of 20 read*, and there is nothing for a
-// reader to fetch and nothing for the sentence to link to. The three readers at the top are what keep every one of them, and both
-// screens, asking the same way.
+// what has been gone through of it — so what it says is *7 of 20*, and there is nothing for a
+// reader to fetch and nothing for the sentence to link to. The three readers at the top are
+// what keep every one of them, and both screens, asking the same way.
 
 /** The Want that put this entry here, where one did. */
 export function theWantOn(entry: PileEntry): { id: string; openedAt: string } | null {
@@ -40,7 +40,7 @@ export function theSeriesOf(entry: PileEntry): PileLine | null {
 }
 
 /**
- * What to call the thing to read.
+ * What to call the thing to take on.
  *
  * A Want and a route's stop both name a Story. A Series entry names an **object**, because a
  * Series is a publisher's line of objects and what story a Volume carries is a separate fact

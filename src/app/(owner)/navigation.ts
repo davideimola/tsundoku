@@ -51,8 +51,8 @@ export type Destination = {
    * question — *is this worth a thumb?* — is answered where the destination is declared
    * and cannot drift out of step with it.
    *
-   * Four carry it. The home page is where an evening starts, the Pile is what
-   * gets opened on a sofa, the Collection is the one question that is *only* ever asked
+   * Four carry it. The home page is where an evening starts, the Pile is what gets opened
+   * on a sofa, the Collection is the one question that is *only* ever asked
    * away from the desk — do I already have volume 12 — and the Inbox is the one that
    * fills up while nobody is looking. Nobody opens Paths standing in a fumetteria, and
    * nobody credits an artist one-handed.
@@ -103,8 +103,8 @@ export const NAVIGATION: readonly Section[] = [
  * Why it is not in the map: the three sections are the three questions the owner asks at
  * three different moments, and *find* is not a fourth question — it is how they get to the
  * answer to any of them. Put under *Reading and playing* it would be a lie about what it is
- * for; given a
- * section of its own it would make the sidebar claim four questions where there are three.
+ * for; given a section of its own it would make the sidebar claim four questions where there
+ * are three.
  *
  * What replaces the line, and why the rule is not weakened: the shell puts the way into it
  * beside the mark on **every** screen, at both widths, which is stronger than a link in a

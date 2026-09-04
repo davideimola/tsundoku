@@ -223,7 +223,7 @@ shaped like the page it stands for (210 by 297), which is what let #32 hotlink a
 tile without reflowing a single wall. A drawn title is held to the height of the tile as well as
 to five lines, because the two are not the same limit — five lines are taller than a 4rem tile,
 and a centred block taller than what holds it loses as much off the *top* as off the bottom
-(#31). It is drawn small beside a row on three screens now — the Reading list, the shopping
+(#31). It is drawn small beside a row on three screens now — the Pile, the shopping
 list, and a person's body of work, which is a wall of these split by the role they held.
 
 Two other things wear a tint, and each is a different view of the same object: the lying-down
@@ -349,7 +349,7 @@ that. What it buys: the open drawer is linkable, it survives a refresh, and the 
 closes it because that is what going back means.
 
 A Story's page is the second one (#29), and it says something the first could not: **an act
-that needs a field is a panel of its own, not a second submit button.** Starting a Reading,
+that needs a field is a panel of its own, not a second submit button.** Starting a Pass,
 finishing one and giving up on one are three addresses and three plain forms, because a
 `formAction` on a second submit needs a script to send the right one — and a write that only
 works once a bundle has parsed is not a write this application has.
@@ -376,7 +376,7 @@ shop with a book in the other hand, so everything that decides a purchase is on 
 and a Wish with no price says so in words rather than showing a row of dashes.
 
 Three rules for adding one. **Read the panel against a list**, the way every filter on a wall
-is read — `?panel=banana` opens nothing, and neither does a `?reading=` naming no Reading of
+is read — `?panel=banana` opens nothing, and neither does a `?pass=` naming no Pass of
 this Story. Better still, read it against **the acts the screen has**: `theActsOnTheObject`
 and `theEditionNoteAct` in `collection/[id]/standing.ts` name every panel a Volume has, the
 page opens none they did not name, and so a hand-typed `?panel=release` cannot stand a release
@@ -398,13 +398,13 @@ handful of decisions the owner actually takes, and names each one; `find/kinds.t
 each kind of record the finder reaches is called and where enter lands on it;
 `series/positions.ts` says what each position of a Series is — held, missing, or merely empty
 — which is the one place the difference between *missing* and *not mine yet* is decided;
-`stories/readings.ts` says how an act of reading is worded and **which one of them is still
+`stories/passes.ts` says how a Pass is worded and **which one of them is still
 open**, which is what puts *start it* or *close it* in a Story's hero and is read off
 `outcome` in one place rather than three; `collection/[id]/standing.ts` says where the owner
 stands with one object — in the house, catalogued, or acquired and let go — and therefore
 **which acts its page offers**, which is where an object that left the house is offered
 acquiring it *again* rather than releasing something the house does not have;
-`wishes/shopping.ts` says the three steps a shopping list is bought in — the Reading list's
+`wishes/shopping.ts` says the three steps a shopping list is bought in — the Pile's
 picker offers the same three words — and bands the list out of the priorities that are
 *there* rather than by filtering a fixed three, so **a Wish cannot be on the list and on no
 band of it**, which is that area's own rule about nothing disappearing silently;
@@ -424,7 +424,7 @@ line each Story stands in, and says what the press over a whole band promises an
 on a typed title does — the one derivation belonging to a **component** rather than to a
 screen, because that component is written to be mounted on two of them (#47, and #48 for the
 second), which is why it sits beside the component in `components/` and not beside a page;
-`stories/story-state.tsx` and `reading-list/entry.ts` are the same thing at a smaller size. It
+`stories/story-state.tsx` and `pile/entry.ts` are the same thing at a smaller size. It
 is the screen's because banding is the screen's (see the next section), and it is a *file*
 rather than a lump inside `page.tsx` because it can then be tested beside itself — which
 `vitest.config.ts` licenses in the same sentence it licenses the tint and the gate's
@@ -450,8 +450,8 @@ came back into bands is the screen's, and that is the whole of the distinction.
 `src/app/(owner)/stories/page.tsx` is what reading a filter against the vocabulary looks
 like — an unknown value narrows to nothing in the core, and is shown as no filter at all.
 
-**One stated exception, and it is about composition rather than narrowing.** The Reading list
-is not rows in a table: `composeReadingList` builds it out of three derivations, keys one row
+**One stated exception, and it is about composition rather than narrowing.** The Pile
+is not rows in a table: `composePile` builds it out of three derivations, keys one row
 per thing to read, and then splits it into the **head** the owner pinned, in pin order, and the
 unordered **reserve** — and that split is the answer it gives. So the dashboard reads the two
 halves in order and takes the first three entries with a `slice` — the first three are not

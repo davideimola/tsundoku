@@ -42,7 +42,7 @@ import {
   whatItCovers,
   whenItHappened,
 } from "../passes";
-import { StoryScore, StoryStateLabel, storyDetail } from "../story-state";
+import { StoryScore, StoryStateLabel, stateWord, storyDetail } from "../story-state";
 import {
   carryFromStory,
   finishIt,
@@ -296,12 +296,11 @@ export default async function StoryPage({
           the wall laid this Story out as opens the page instead, in the same colour and with
           the same score at its foot — so arriving from the wall is arriving at the thing that
           was tapped. It carries no href, because this is the page it would lead to. */}
-      {/* **The record's own act stands apart from the acts of going through it**, which is the
-          shape the
-          Path's page already gives this (`../../paths/[id]/page.tsx`): what the hero *says*
-          is corrected from the hero, and the presses about tonight keep the column beside
-          the cover to themselves. On a phone the cluster wraps under the whole block rather
-          than squeezing the title into two words. */}
+      {/* **The record's own act stands apart from the acts of going through it**, which is
+          the shape the Path's page already gives this (`../../paths/[id]/page.tsx`): what
+          the hero *says* is corrected from the hero, and the presses about tonight keep the
+          column beside the cover to themselves. On a phone the cluster wraps under the whole
+          block rather than squeezing the title into two words. */}
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
         <div className="flex min-w-0 flex-1 basis-72 items-start gap-4 sm:gap-6">
           <div className="w-20 shrink-0 sm:w-28">
@@ -416,7 +415,7 @@ export default async function StoryPage({
                     size="sm"
                     className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
                   >
-                    I want to read it
+                    I want to take it on
                   </Button>
                 </form>
               )}
@@ -1033,7 +1032,7 @@ export default async function StoryPage({
               The library stops knowing you ever opened <em>{story.title}</em> on this pass. Where
               this Story stands follows from whatever Passes are left, because that is derived on
               every request and stored nowhere — so a Story whose only pass was this one goes back
-              to the pile.
+              to {stateWord("to-read")}.
             </p>
 
             {/* The one refusal, said before the press. It is the verb's rule and this is a copy
@@ -1124,8 +1123,10 @@ function Passes({ story }: { story: FoundStory }) {
         {story.readings.length === 0 ? (
           <p className="text-pretty text-sm text-muted-foreground">
             No Pass yet, which is the whole of why this Story reads{" "}
-            <span className="font-mono text-xs uppercase tracking-eyebrow">to read</span>. Starting
-            one is the button at the top, and it needs no ending.
+            <span className="font-mono text-xs uppercase tracking-eyebrow">
+              {stateWord("to-read")}
+            </span>
+            . Starting one is the button at the top, and it needs no ending.
           </p>
         ) : (
           <ol className="-my-1">

@@ -333,9 +333,14 @@ export default async function Home() {
           </Figure>
         </dl>
 
-        <section aria-labelledby="the-pile" className="mt-12">
-          <h3 id="the-pile" className={`flex items-baseline gap-3 ${EYEBROW}`}>
-            The pile
+        {/* **The spines, and they are no longer called *the pile*** (#58). The Pile is the
+            composed answer above and a screen of its own now, and this is every Story nobody
+            has opened — the same set the wall bands as *Not started*, drawn from the side
+            because that is what a stack of unread things looks like. One word for two of
+            them, on one screen, was the collision the rename made. */}
+        <section aria-labelledby="not-started" className="mt-12">
+          <h3 id="not-started" className={`flex items-baseline gap-3 ${EYEBROW}`}>
+            Not started
             <span className="tabular-nums">{pile.spines.length}</span>
             <span className="h-px flex-1 bg-border" aria-hidden="true" />
           </h3>
@@ -345,8 +350,8 @@ export default async function Home() {
               <Invitation>
                 {pile.stories === 0 ? (
                   <>
-                    No Stories yet, so there is no pile. A Story is the narrative unit — record one
-                    from the assistant, or approve one waiting in the{" "}
+                    No Stories yet, so there is nothing stacked. A Story is the narrative unit —
+                    record one from the assistant, or approve one waiting in the{" "}
                     <Link href="/inbox" className={IN_PROSE}>
                       Inbox
                     </Link>
@@ -354,7 +359,7 @@ export default async function Home() {
                   </>
                 ) : (
                   <>
-                    Nothing unread. All {pile.stories} Stories in the library have been opened at
+                    Nothing unopened. All {pile.stories} Stories in the library have been opened at
                     least once, which is the one state this application was not built expecting.{" "}
                     <Link href="/stories" className={IN_PROSE}>
                       The wall
@@ -369,7 +374,7 @@ export default async function Home() {
               {/* **A proportion and not a coverage**, which is why it is written here rather
                   than handed to `Coverage`: how much of the library is unread is the thing
                   being reported, where a coverage says how much of the library a figure was
-                  able to be computed over. Every Story's state is derivable, so the pile
+                  able to be computed over. Every Story's state is derivable, so this count
                   covers all seventy-seven of them and has no gap to declare. */}
               <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
                 <span className="tabular-nums text-foreground">
