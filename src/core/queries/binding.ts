@@ -27,7 +27,7 @@ export type Binding = {
  *
  * Written against the schema rather than as SQL because there is nothing here to derive:
  * two columns off one table in a stated order. Where a query *does* derive something — the
- * reading list, the collection — it stays SQL, for the reason `db.ts` gives.
+ * Pile, the collection — it stays SQL, for the reason `db.ts` gives.
  */
 export async function listBindings(): Promise<Binding[]> {
   return db()

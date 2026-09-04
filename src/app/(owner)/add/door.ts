@@ -313,10 +313,11 @@ export type ANarrativesSentence = Extract<
  * **The two media, as the narrative half offers them** (#50), where the Type picker beside them
  * reads its vocabulary from the database.
  *
- * A medium is a check constraint rather than a vocabulary that grows — `@/core/verbs/pass`
- * says so at the type and the migration says so in SQL — so a third value would be a change to
- * the model rather than an insert, and `Medium` here is what makes it one: a fourth word in this
- * list is a type error rather than a press that posts something the verb refuses.
+ * **A medium is a vocabulary and it grows** (#61, ADR-0022): it is a table beside Type and
+ * Binding, `Medium` is a slug rather than a union of two literals, and a console released next
+ * year is an insert. So these two are what this half *offers* today and never what the model
+ * allows — Postgres is what refuses a medium nobody declared, and the verb says so in its own
+ * prose. Which media a Type offers is #63's, and it is what replaces this list.
  *
  * The order is the order the two presses stand in, and it is the fact before the intention the
  * way the sentences above are: paper is the object in the owner's hands, digital is the one that

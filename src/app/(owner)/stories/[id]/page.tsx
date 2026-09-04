@@ -601,10 +601,11 @@ export default async function StoryPage({
                 On paper or digital
               </Label>
               {/* Two options written out, where the Type and the Binding pickers read theirs
-                  from the database: a medium is a check constraint and not a vocabulary that
-                  grows (`core/verbs/pass.ts` says so at the type), so a third value would
-                  be a change to the model rather than an insert. The verb still refuses
-                  anything else in its own prose — this list is not what enforces it. */}
+                  from the database. A medium is a vocabulary that grows now (#61, ADR-0022),
+                  so these two are what this panel offers and not what the model allows: a
+                  console is an insert, and reading the list off the table is #63's. The verb
+                  refuses a medium nobody declared in its own prose either way — this list is
+                  not what enforces it. */}
               <select
                 id="pass-medium"
                 name="medium"

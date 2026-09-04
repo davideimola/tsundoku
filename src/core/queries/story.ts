@@ -159,12 +159,6 @@ export type StoryPass = {
 };
 
 /**
- * The old name for a `StoryPass`, kept alive for exactly as long as the rename takes (#57).
- * The Story screen still says Reading; **it goes in the contract step (#60)**.
- */
-export type StoryReading = StoryPass;
-
-/**
  * *Seven of twenty*, as the Story answers it.
  *
  * Derived from the pass the owner is on and the count the work declares, and stored

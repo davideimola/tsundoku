@@ -225,9 +225,9 @@ under **Trying it**, which asks the door rather than the client's memory.
 
 **Re-adding the connector is not the whole of it.** The two project documents in
 `docs/assistant-projects/` are handed to the same assistant before it ever reads a tool
-description, and they name these tools by hand. They still carry the old names — the sweep
-that reaches them is the rest of the rename — so an assistant re-added against a document
-that says `reading_list_next` will go on asking for a tool this door no longer has.
+description, and they name these tools by hand. They say the new names (#60), so an assistant
+re-added against them asks for `pile_next`; a copy the owner pasted into a project before the
+rename does not, and pasting the document again is the other half of re-adding the connector.
 
 ## The gate
 

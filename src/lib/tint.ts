@@ -10,7 +10,7 @@ import type { CSSProperties } from "react";
 // Three decisions, and each one is held by `./tint.test.ts`:
 //
 //   1. **It is derived, never stored.** A tint is a pure function of the Series' identity,
-//      the way a Story's state is a function of its Readings: there is no column to fill in,
+//      the way a Story's state is a function of its Passes: there is no column to fill in,
 //      nothing to pick by hand, and nothing that can drift out of step with the row.
 //   2. **It is the same on every deploy.** A shelf that repainted itself between releases is
 //      a shelf the owner can never learn, so the hash is written out here rather than taken

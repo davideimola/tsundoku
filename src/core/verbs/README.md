@@ -1,16 +1,16 @@
 # The verbs
 
-**Every mutation is a named verb over existing entities.** Record a Reading, set a
+**Every mutation is a named verb over existing entities.** Record a Pass, set a
 Rating, catalogue a Volume, acquire a Volume, release a Volume, open a Wish, close a
-Wish, pin a Reading list entry, declare a Series collected. There is no generic update and no `save()`:
+Wish, pin an entry to the Pile, declare a Series collected. There is no generic update and no `save()`:
 the vocabulary of writing is the owner's vocabulary, and it comes from `CONTEXT.md`.
 
-One file per area, named for the area — `reading.ts`, `wish.ts`, `series.ts`,
+One file per area, named for the area — `pass.ts`, `wish.ts`, `series.ts`,
 `collection.ts` — and one exported `async function` per verb. No barrel index; the
 caller imports the file. (See `../README.md` for why.)
 
 ```ts
-import { recordReading } from "@/core/verbs/reading";
+import { recordPass } from "@/core/verbs/pass";
 ```
 
 ## The shape of one

@@ -10,7 +10,7 @@ Someone else reuses this by forking the repo and running their own infrastructur
 never by creating a second account.
 
 Read [`CONTEXT.md`](CONTEXT.md) for the vocabulary — Story, Volume, Collection,
-Series, Reading, Rating, Path, Wish and the rest are used as defined there, and the
+Series, Pass, Rating, Path, Wish, the Pile and the rest are used as defined there, and the
 words it says to avoid are avoided. Every decision lives in exactly one place, its ADR
 in [`docs/adr/`](docs/adr/).
 
@@ -136,7 +136,7 @@ src/app/
 └── api/auth/         Auth.js's own endpoints
 ```
 
-So a screen over the Collection, the Stories, the Readings or the Reading list goes in
+So a screen over the Collection, the Stories, the Passes or the Pile goes in
 `src/app/(owner)/`, and **calls `requireOwner()` before it reads anything**:
 
 ```tsx
@@ -152,7 +152,7 @@ either, so the assert goes in each one.
 
 **And it goes in the navigation**, as one line in
 [`src/app/(owner)/navigation.ts`](src/app/(owner)/navigation.ts), under whichever of the
-three questions it answers — *Reading*, *Owning*, *Repairing*. The shell renders that one
+three questions it answers — *Reading and playing*, *Owning*, *Repairing*. The shell renders that one
 map at both widths, so a destination cannot exist on the desk and not on the phone. A
 screen that is in the tree and not in the map is a screen reachable only by typing its
 URL, which is the state this application was in until #20: eight links on the home page
@@ -347,8 +347,8 @@ correctly.
 **Invariants live in Postgres.** The database refuses what must never be true rather
 than trusting the application to remember, so most of the model is in
 [`db/migrations`](db/migrations/) rather than in TypeScript. Derivations are queries,
-not stored columns, and they are the product: the Reading list that composes itself,
-a Story's state from its Readings, a Series' missing Volumes.
+not stored columns, and they are the product: the Pile that composes itself,
+a Story's state from its Passes, a Series' missing Volumes.
 
 Migrations are **plain, ordered, forward-only SQL files**. There is no down migration,
 and **a file is never edited once it has been applied** — Drizzle keeps a hash per file
@@ -453,7 +453,7 @@ run against. Re-running is `pnpm db:reset` and then this.
 
 The sheets are an **address book, not a description**: they are import material and they do
 not shape the schema. `Formato` is two columns of one name — a Binding on the shelf, a
-reading medium in the books sheet — `Serie / Universo` is taken apart into a Series, a
+Medium in the books sheet — `Serie / Universo` is taken apart into a Series, a
 universe and a Path, and `Acquistato` is read as what it is, a Wish that ended plus an
 object in the house. If a column ever seems to want a migration, that is the signal to stop
 and say so instead.
@@ -478,7 +478,7 @@ pnpm convert:runs              # convert the five runs, and strike the hand-made
 
 It presses `mergeSeriesIntoOneStory` five times, so the five lines become five works and the
 Path the owner minted as a workaround for a Want goes with them. **It refuses the whole run
-while any narrative it would collapse carries a Reading or a Rating** — today that count is
+while any narrative it would collapse carries a Pass or a Rating** — today that count is
 zero, and the guard is what keeps this safe the day it is actually run. Every Volume, every
 Acquisition and every completeness ledger is untouched: the shelf does not move.
 

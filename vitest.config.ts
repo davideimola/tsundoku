@@ -52,7 +52,7 @@ import { defineConfig } from "vitest/config";
 //
 // This is a deliberate divergence from `bindex`, which tests pure logic only and
 // leaves invariants to the database. Here the derivations *are* the product — the
-// self-composing Reading list, a Story's state from its Readings, a Series' missing
+// self-composing Pile, a Story's state from its Passes, a Series' missing
 // Volumes — and they are SQL. Testing them without a database means not testing them.
 //
 // **Seam 2**, deliberately thin: the two gates at the HTTP edge. It is protocol
@@ -72,19 +72,19 @@ import { defineConfig } from "vitest/config";
 // into the handful of decisions the owner actually takes and names them,
 // `src/app/(owner)/find/kinds.ts`, which says what each kind of record is called and where
 // enter lands on it, `src/app/(owner)/collection/covers-found.ts`, which turns a cover
-// run's six numbers into the clauses the owner reads, `src/app/(owner)/stories/readings.ts`,
-// which says how an act of reading is worded and which one of them is still open — the
+// run's six numbers into the clauses the owner reads, `src/app/(owner)/stories/passes.ts`,
+// which says how a pass is worded and which one of them is still open — the
 // predicate the acts on a Story's page hang off — `src/app/(owner)/series/positions.ts`, which
 // says what each position of a Series is and so where the difference between *missing* and
 // *not mine yet* is decided, `src/app/(owner)/collection/[id]/standing.ts`, which says where
 // the owner stands with one object and therefore which acts its page offers,
-// `src/app/(owner)/reading-list/entry.ts`,
+// `src/app/(owner)/pile/entry.ts`,
 // which says what a composed entry is called, where its tile leads and what its foot carries,
 // `src/app/(owner)/paths/[id]/landing.ts`, which says which gap a stop dragged on a route
 // falls into — the one piece of arithmetic the drag adds over the two arrows beside it, and
 // the order on a route is the one judgement in this application nothing derives —
 // `src/app/(owner)/wishes/shopping.ts`, which says the three steps a shopping list is bought
-// in — the Reading list's picker offers the same three words — and holds the banding to the
+// in — the Pile's picker offers the same three words — and holds the banding to the
 // Wish's own rule that nothing silently disappears from what the owner meant to buy, and
 // `src/app/(owner)/credits/body-of-work.ts`, which cuts everything a person is credited on
 // along the role they held on it, over an answer the core hands over split by whether it was

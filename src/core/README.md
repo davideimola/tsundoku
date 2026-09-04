@@ -32,7 +32,7 @@ the file directly costs nothing and conflicts with nobody.
 For the same reason: **add a file rather than widening one.** A new question about
 the Collection goes in `queries/collection.ts`, not into `queries/type.ts`. Files are
 named after the area they answer for, in the vocabulary of `CONTEXT.md` — `story.ts`,
-`collection.ts`, `reading-list.ts`, `series.ts` — never after a layer (`helpers.ts`,
+`collection.ts`, `pile.ts`, `series.ts` — never after a layer (`helpers.ts`,
 `utils.ts`, `service.ts`).
 
 **One kind of question is not an area's, and it says so out loud.** `queries/finder.ts`
@@ -47,8 +47,8 @@ call it, which is the other half of the rule: the owner's finder and the assista
 ## What belongs here, and what does not
 
 - **Here**: the verbs, the queries, and the SQL. Derivations are queries, not stored
-  columns, and they are the product — the Reading list composed from active Paths and
-  Series in progress, a Story's state from its Readings, a Series' missing Volumes.
+  columns, and they are the product — the Pile composed from active Paths and
+  Series in progress, a Story's state from its Passes, a Series' missing Volumes.
 - **Not here**: anything about HTTP, sessions, bearer tokens, React or MCP framing.
   Those belong to the adapter that has them.
 - **One stated exception, and it is outbound.** That rule is about the door a request
