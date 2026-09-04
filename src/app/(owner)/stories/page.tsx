@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
+// The chips are a control two walls share now, so there is one of them (#64,
+// `@/components/narrowing`): this wall narrows by Type and state, and the Pile narrows by Type.
+import { Axis, Chip } from "@/components/narrowing";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +17,6 @@ import {
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { cn } from "@/lib/utils";
 import { strike } from "./actions";
 import { whatGoesWithIt } from "./nothing-on-it";
 import { carriedAs, NOTHING_ON_IT, THE_WALLS_FILTERS } from "./panels";
@@ -428,42 +430,4 @@ function emptily(typeId: string | undefined, state: StoryState | undefined, type
   // Unreachable — the caller asks only when something is narrowed — and answered rather
   // than thrown, because an empty wall is never the place to raise.
   return NOTHING_YET;
-}
-
-/** One axis of the narrowing: what it is called, and the values it offers. */
-function Axis({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-      <span className="w-11 shrink-0 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-        {label}
-      </span>
-      {children}
-    </div>
-  );
-}
-
-/**
- * One value of one axis, as a link.
- *
- * A link and never a control that needs a script: this is the pattern every wall after this
- * one follows (#18). The one that is on is marked for the eye and with `aria-current`, and
- * it still leads somewhere — to itself — because a chip that stopped being clickable when
- * it was chosen would be a target that moves under the thumb.
- */
-function Chip({ href, on, children }: { href: string; on: boolean; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      aria-current={on ? "true" : undefined}
-      className={cn(
-        "rounded-full border px-2.5 py-1 font-mono text-eyebrow uppercase tracking-eyebrow transition-colors",
-        "outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        on
-          ? "border-foreground bg-accent text-foreground"
-          : "border-border text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {children}
-    </Link>
-  );
 }

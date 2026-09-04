@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
+import { Axis, Chip } from "@/components/narrowing";
 import { Button } from "@/components/ui/button";
 import { composePile, type PileEntry, theKeyOf } from "@/core/queries/pile";
+import { listTypes } from "@/core/queries/type";
 import type { PinnedSubject } from "@/core/verbs/pile";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
@@ -11,12 +13,16 @@ import { tint } from "@/lib/tint";
 import { PRIORITIES } from "../wishes/shopping";
 import { pin, unpin, unwant, wishFor } from "./actions";
 import {
+  type PileAddress,
   type StopBehind,
   THE_ROUTE,
+  THE_TYPE,
   theAddressWith,
+  thePileAt,
   theReserveAsRows,
   theReserveIsSaid,
   theRoutesAskedFor,
+  theTypeAskedFor,
   type WhatStandsBehind,
 } from "./behind";
 import {
@@ -93,20 +99,38 @@ function asked(params: Asked, name: string): string | undefined {
 export default async function PilePage({ searchParams }: { searchParams: Promise<Asked> }) {
   await requireOwner();
 
-  const params = await searchParams;
-  const { head, reserve } = await composePile();
+  const [params, vocabulary] = await Promise.all([searchParams, listTypes()]);
 
-  const refused = asked(params, "refused");
-  const wished = asked(params, "wished");
+  // **The narrowing, read against the vocabulary rather than trusted** — the Story wall's own
+  // rule (`../stories/page.tsx`). A hand-typed `?type=banana` is not a Type, so it narrows
+  // nothing and is shown as no narrowing at all, which is honest in both directions: the list
+  // is whole and the chips say so.
+  const narrowedTo = vocabulary.find((type) => type.id === theTypeAskedFor(params[THE_TYPE]));
   // Which routes the owner asked to look behind — a repeated parameter, because more than one
   // can stand open at once and putting a second away to read a first would be the screen
   // choosing for them.
   const shown = theRoutesAskedFor(params[THE_ROUTE]);
+  const at: PileAddress = { typeId: narrowedTo?.id, shown };
+
+  // **The narrowing is an argument to the query and never a filter over its answer**, which is
+  // every wall's rule here: what the screen shows is what it asked for.
+  const { head, reserve, types } = await composePile({ typeId: narrowedTo?.id });
+
+  const refused = asked(params, "refused");
+  const wished = asked(params, "wished");
   // The reserve is drawn as rows that lead and the stops standing behind them (#42), which is
   // the screen's own judgement over a composed list and lives in `./behind`.
   const rows = theReserveAsRows(reserve, shown);
   const composed = head.length + reserve.length;
   const tonight = [...head, ...reserve].filter((entry) => entry.atHand).length;
+
+  // **The chips offer what the list can be narrowed to and nothing else** — the Types standing
+  // on the whole Pile, which the query answers with. A Type nothing is composed under is a
+  // control whose every use empties the screen. The one the owner is standing on is kept
+  // whatever happens, because a filter that is on and has no chip is a state with no way out
+  // of it, and it is where a game goes the moment the last one is played.
+  const offered =
+    narrowedTo && !types.some((type) => type.id === narrowedTo.id) ? [...types, narrowedTo] : types;
 
   return (
     <main className="px-5 pb-16 sm:px-8">
@@ -119,6 +143,40 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
           I am completing, and it is in no order at all. When the order starts to matter, I pin it.
         </p>
       </header>
+
+      {/* **NARROWED BY TYPE, AND BY NOTHING ELSE** (#64). *Tonight I play* is a decision the
+          owner has usually already taken by the time they open this screen, and the list is
+          deliberately unordered for exactly that reason — so the one useful thing to do to it
+          is show less of it. The chips are the Story wall's own, which is why they are one
+          component (`@/components/narrowing`): narrowing a wall is one act, and it looks the
+          same wherever it is offered.
+
+          **One pile, filtered — never two lists.** What an external reader is handed still
+          crosses every Type in one call, because the whole reason the arrears is worth asking
+          about is that three unread manga and twelve unplayed games can be weighed against
+          each other in a single answer (ADR-0021).
+
+          Absent where the list holds one Type or none: every value of it would show the same
+          rows, and a control that cannot change anything is a control the owner presses once
+          and stops trusting. */}
+      {offered.length > 1 ? (
+        <nav aria-label="Narrow the Pile" className="mt-6 border-y border-border py-3">
+          <Axis label="Type">
+            <Chip href={thePileAt({ shown })} on={narrowedTo === undefined}>
+              All
+            </Chip>
+            {offered.map((type) => (
+              <Chip
+                key={type.id}
+                href={thePileAt({ typeId: type.id, shown })}
+                on={narrowedTo?.id === type.id}
+              >
+                {type.name}
+              </Chip>
+            ))}
+          </Axis>
+        </nav>
+      ) : null}
 
       {refused ? (
         <p
@@ -138,7 +196,27 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
         </p>
       ) : null}
 
-      {composed === 0 ? (
+      {composed === 0 && narrowedTo ? (
+        // **Empty because it was narrowed, and it says which of the two it is.** The list is
+        // there, and this Type is not on it: a screen that printed *nothing composed* over a
+        // filter would be telling the owner their library is empty because they pressed
+        // *Videogame*.
+        <div className="mt-10 max-w-prose">
+          <p className="text-pretty text-sm text-muted-foreground">
+            No {narrowedTo.name} stands on the Pile.
+          </p>
+          <p className="mt-4 text-sm">
+            <Link href={thePileAt({ shown })} className="underline underline-offset-4">
+              Take the filter off
+            </Link>{" "}
+            to see the whole list, or say I want to take a {narrowedTo.name} on from{" "}
+            <Link href="/stories" className="underline underline-offset-4">
+              the Stories
+            </Link>
+            .
+          </p>
+        </div>
+      ) : composed === 0 ? (
         <div className="mt-10 max-w-prose">
           <p className="text-pretty text-sm text-muted-foreground">
             Nothing composed. Either I want to take on nothing in particular, every route is walked
@@ -179,7 +257,7 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
                     entry={entry}
                     place={place + 1}
                     pinned
-                    shown={shown}
+                    at={at}
                   />
                 ))}
               </ol>
@@ -207,7 +285,7 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
                     entry={row.entry}
                     behind={row.behind}
                     pinned={false}
-                    shown={shown}
+                    at={at}
                   />
                 ))}
               </ul>
@@ -262,14 +340,17 @@ function Entry({
   entry,
   place,
   pinned,
-  shown,
+  at,
   behind = [],
 }: {
   entry: PileEntry;
   place?: number;
   pinned: boolean;
-  /** The routes being looked behind, carried through every form so a write does not close one. */
-  shown: string[];
+  /**
+   * Where the owner is standing — what the list is narrowed to and which routes are open —
+   * carried through every form, so a write does not widen the list or close a route.
+   */
+  at: PileAddress;
   behind?: WhatStandsBehind[];
 }) {
   const want = theWantOn(entry);
@@ -371,7 +452,7 @@ function Entry({
                 The subject travels in the form exactly as the core states it. */}
             <form action={pinned ? unpin : pin}>
               <Subject subject={entry.subject} />
-              <RoutesShown shown={shown} />
+              <WhereItWasPressed at={at} />
               <Button
                 type="submit"
                 variant="ghost"
@@ -388,7 +469,7 @@ function Entry({
             {want ? (
               <form action={unwant}>
                 <input type="hidden" name="wantId" value={want.id} />
-                <RoutesShown shown={shown} />
+                <WhereItWasPressed at={at} />
                 <Button
                   type="submit"
                   variant="ghost"
@@ -407,7 +488,7 @@ function Entry({
               <form action={wishFor} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="volumeId" value={entry.proposedWish.volumeId} />
                 <input type="hidden" name="title" value={entryTitle(entry)} />
-                <RoutesShown shown={shown} />
+                <WhereItWasPressed at={at} />
                 <label className="sr-only" htmlFor={`priority-${theKeyOf(entry.subject)}`}>
                   How soon
                 </label>
@@ -439,7 +520,7 @@ function Entry({
       {behind.length > 0 ? (
         <div className="mt-3 space-y-3 sm:pl-4">
           {behind.map((route) => (
-            <Behind key={route.route.id} behind={route} shown={shown} />
+            <Behind key={route.route.id} behind={route} at={at} />
           ))}
         </div>
       ) : null}
@@ -459,14 +540,14 @@ function Entry({
  * numbers are the owner's order, printed as they are printed there, so what opens here is
  * recognisable as a piece of the route rather than as a second list about it.
  */
-function Behind({ behind, shown }: { behind: WhatStandsBehind; shown: string[] }) {
+function Behind({ behind, at }: { behind: WhatStandsBehind; at: PileAddress }) {
   const standing = behind.stops.length;
 
   return (
     <div>
       <Link
         href={theAddressWith(
-          shown,
+          at,
           behind.shown ? { hide: behind.route.id } : { show: behind.route.id }
         )}
         className="inline-block rounded py-1.5 text-sm text-muted-foreground underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
@@ -480,7 +561,7 @@ function Behind({ behind, shown }: { behind: WhatStandsBehind; shown: string[] }
       {behind.shown ? (
         <ol className="mt-1 border-l border-border pl-3 sm:pl-4">
           {behind.stops.map((stop) => (
-            <Stop key={theKeyOf(stop.entry.subject)} stop={stop} shown={shown} />
+            <Stop key={theKeyOf(stop.entry.subject)} stop={stop} at={at} />
           ))}
         </ol>
       ) : null}
@@ -497,7 +578,7 @@ function Behind({ behind, shown }: { behind: WhatStandsBehind; shown: string[] }
  * Marvel stories and then a DC one* sayable (#42). Everything else about it is one tap away
  * on its own page.
  */
-function Stop({ stop, shown }: { stop: StopBehind; shown: string[] }) {
+function Stop({ stop, at }: { stop: StopBehind; at: PileAddress }) {
   const leadsTo = entryLeadsTo(stop.entry);
   const title = entryTitle(stop.entry);
 
@@ -525,7 +606,7 @@ function Stop({ stop, shown }: { stop: StopBehind; shown: string[] }) {
 
       <form action={pin} className="shrink-0">
         <Subject subject={stop.entry.subject} />
-        <RoutesShown shown={shown} />
+        <WhereItWasPressed at={at} />
         <Button
           type="submit"
           variant="ghost"
@@ -560,16 +641,21 @@ function Subject({ subject }: { subject: PinnedSubject }) {
 }
 
 /**
- * **The routes being looked behind, carried through the write.** Every act on this screen is a
+ * **Where the row was pressed from, carried through the write.** Every act on this screen is a
  * POST that redirects back, so a form that did not say what was open would close the rail the
  * owner is pinning out of — and pinning the second stop and then the third is two presses.
+ *
+ * The narrowing travels with it for the same reason (#64): an owner looking at the games and
+ * pinning one is still looking at the games, and a redirect that took the filter off would be
+ * the screen undoing a decision they took two presses ago.
  */
-function RoutesShown({ shown }: { shown: string[] }) {
+function WhereItWasPressed({ at }: { at: PileAddress }) {
   return (
     <>
-      {shown.map((id) => (
+      {at.shown.map((id) => (
         <input key={id} type="hidden" name={THE_ROUTE} value={id} />
       ))}
+      {at.typeId ? <input type="hidden" name={THE_TYPE} value={at.typeId} /> : null}
     </>
   );
 }

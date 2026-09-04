@@ -7,7 +7,7 @@ import { type PinnedSubject, pinToPile, unpinFromPile } from "@/core/verbs/pile"
 import { strikeWant } from "@/core/verbs/want";
 import { openWish } from "@/core/verbs/wish";
 import { requireOwner } from "@/lib/auth/owner";
-import { THE_ROUTE, theRoutesAskedFor } from "./behind";
+import { THE_ROUTE, THE_TYPE, theRoutesAskedFor, theTypeAskedFor } from "./behind";
 
 // The write side of the Pile, and a thin adapter like the page beside it
 // (ADR-0002): each function reads a form, calls one verb, and carries back what the verb
@@ -65,11 +65,24 @@ function subject(form: FormData): PinnedSubject {
  * would be an open redirect wearing the Pile's clothes. Reading them is `./behind.ts`'s,
  * because the page reads the same thing off the URL and two copies of that walk is how the two
  * come to disagree.
+ *
+ * **The narrowing rides back with them** (#64), and for the same reason rather than a second
+ * one: an owner who has narrowed the list to games and pins one of them is looking at games,
+ * and a redirect that widened the list back out would be the screen undoing a decision they
+ * took two presses ago. It is read with the same reader, so a blank one is a blank one here
+ * and on the page.
  */
 function where(form: FormData): URLSearchParams {
-  return new URLSearchParams(
+  const said = new URLSearchParams(
     theRoutesAskedFor(form.getAll(THE_ROUTE)).map((id) => [THE_ROUTE, id])
   );
+
+  // A Type the library does not have narrows to nothing on the way back exactly as it does on
+  // the way in, so nothing here checks one: the page reads it against the vocabulary.
+  const typeId = theTypeAskedFor(form.getAll(THE_TYPE));
+  if (typeId) said.set(THE_TYPE, typeId);
+
+  return said;
 }
 
 /**

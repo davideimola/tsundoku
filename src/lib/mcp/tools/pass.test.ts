@@ -81,6 +81,18 @@ describe("the five tools named for the old vocabulary", () => {
     expect(pile.map((tool) => tool.name)).toEqual(["pile_next"]);
   });
 
+  // **The Pile an external reader is handed crosses every Type in one call, and there is no
+  // way to ask it not to** (#64, ADR-0021). Narrowing by Type is the owner's, on their own
+  // screen, because they have often already decided what tonight is; an assistant weighing
+  // three unread manga against twelve unplayed games needs the one arrears, and a filter here
+  // is how it would come to ask about half of it and report the half as the whole.
+  it("hand the Pile over whole, with no way to ask for one Type of it", async () => {
+    const [next] = (await import("./pile.ts")).default;
+
+    expect(next.inputSchema.properties ?? {}).toEqual({});
+    expect(next.inputSchema.additionalProperties).toBe(false);
+  });
+
   it("leave nothing behind under the old names", () => {
     const names = everyTool.map((tool) => tool.name);
     expect(names.filter((name) => name.startsWith("reading"))).toEqual([]);

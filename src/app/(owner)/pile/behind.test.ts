@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { PileEntry, PileReason } from "@/core/queries/pile";
 
-import { theAddressWith, theReserveAsRows, theReserveIsSaid, theRoutesAskedFor } from "./behind";
+import {
+  theAddressWith,
+  thePileAt,
+  theReserveAsRows,
+  theReserveIsSaid,
+  theRoutesAskedFor,
+} from "./behind";
 
 // A screen's own derivation, tested beside itself under the licence `vitest.config.ts`
 // states: data in, data out, and a function this application would still have if React were
@@ -234,7 +240,7 @@ describe("the routes the owner asked for", () => {
 
 describe("what the reserve's heading says", () => {
   it("says only what could be started tonight where nothing stands behind a row", () => {
-    expect(theReserveIsSaid(6, 0)).toBe("In no order. 6 of the whole list I could start tonight.");
+    expect(theReserveIsSaid(6, 0)).toBe("In no order. 6 of what is here I could start tonight.");
   });
 
   it("says how many stand behind a row, so the fold is never a quiet subtraction", () => {
@@ -248,18 +254,43 @@ describe("what the reserve's heading says", () => {
 
 describe("the address one route's stops are shown at", () => {
   it("shows a route and keeps the ones already shown", () => {
-    expect(theAddressWith(["dc"], { show: "marvel" })).toBe("/pile?route=dc&route=marvel");
+    expect(theAddressWith({ shown: ["dc"] }, { show: "marvel" })).toBe(
+      "/pile?route=dc&route=marvel"
+    );
   });
 
   it("puts one route away and leaves the rest standing", () => {
-    expect(theAddressWith(["dc", "marvel"], { hide: "dc" })).toBe("/pile?route=marvel");
+    expect(theAddressWith({ shown: ["dc", "marvel"] }, { hide: "dc" })).toBe("/pile?route=marvel");
   });
 
   it("goes back to the plain address when the last one is put away", () => {
-    expect(theAddressWith(["dc"], { hide: "dc" })).toBe("/pile");
+    expect(theAddressWith({ shown: ["dc"] }, { hide: "dc" })).toBe("/pile");
   });
 
   it("shows a route that is already shown exactly once", () => {
-    expect(theAddressWith(["dc"], { show: "dc" })).toBe("/pile?route=dc");
+    expect(theAddressWith({ shown: ["dc"] }, { show: "dc" })).toBe("/pile?route=dc");
+  });
+
+  // **The narrowing is where the owner is standing**, so opening a route must not widen the
+  // list back out under them — and narrowing must not slam every open route shut (#64).
+  it("keeps the narrowing when a route is opened and when one is put away", () => {
+    expect(theAddressWith({ typeId: "videogame", shown: [] }, { show: "dc" })).toBe(
+      "/pile?route=dc&type=videogame"
+    );
+    expect(theAddressWith({ typeId: "videogame", shown: ["dc"] }, { hide: "dc" })).toBe(
+      "/pile?type=videogame"
+    );
+  });
+});
+
+describe("the address the Pile stands at", () => {
+  it("is the plain one where nothing is narrowed and no route is open", () => {
+    expect(thePileAt({ shown: [] })).toBe("/pile");
+  });
+
+  it("carries the narrowing and every open route together", () => {
+    expect(thePileAt({ typeId: "manga", shown: ["dc", "marvel"] })).toBe(
+      "/pile?route=dc&route=marvel&type=manga"
+    );
   });
 });

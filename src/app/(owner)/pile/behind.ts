@@ -32,6 +32,40 @@ import { theKeyOf } from "@/core/queries/pile";
 /** The parameter naming a route whose stops are shown. Three files read it. */
 export const THE_ROUTE = "route";
 
+/** The parameter naming the Type the list is narrowed to. Three files read it. */
+export const THE_TYPE = "type";
+
+/**
+ * **Where the owner is standing on this screen**: what the list is narrowed to, and which
+ * routes they are looking behind.
+ *
+ * Both live in the URL and neither is a thing the browser owns, for the same reason (ADR-0010,
+ * and the disclosure's own argument below): every act here is a POST that redirects back, so
+ * anything the address does not carry is something the owner loses every time they pin.
+ */
+export type PileAddress = {
+  /** The Type the list is narrowed to, or nothing at all for the whole Pile. */
+  typeId?: string;
+  /** The routes whose stops are open, in no particular order. */
+  shown: string[];
+};
+
+/**
+ * **The Pile's address**, written from where the owner is standing rather than by editing a
+ * query string in place — the Story wall's own rule about a narrowing, which is the screen
+ * this filter is borrowed from.
+ *
+ * One writer, so a chip that narrows the list and a press that opens a route cannot come to
+ * disagree about what the other one meant to keep.
+ */
+export function thePileAt(at: PileAddress): string {
+  const said = new URLSearchParams(at.shown.map((id) => [THE_ROUTE, id]));
+  if (at.typeId) said.set(THE_TYPE, at.typeId);
+
+  const query = said.toString();
+  return query === "" ? "/pile" : `/pile?${query}`;
+}
+
 /** One stop standing behind the row that leads its route. */
 export type StopBehind = {
   entry: PileEntry;
@@ -84,6 +118,22 @@ export function theRoutesAskedFor(said: unknown): string[] {
     const trimmed = value.trim();
     return trimmed === "" ? [] : [trimmed];
   });
+}
+
+/**
+ * **The Type the owner asked the list to be narrowed to**, out of a URL's parameter or a
+ * form's fields, or nothing at all where they asked for none.
+ *
+ * The same walk as the routes above and for the same reason — both doors of this screen
+ * normalise the same thing — and the last value wins where a form somehow carried two, because
+ * a list is narrowed to one Type and never to a set: *tonight I play* is one decision.
+ *
+ * Nothing here checks that the Type exists. What the vocabulary is is `queries/type.ts`'s, and
+ * a Type the library does not have narrows to nothing rather than being refused, which is the
+ * rule every wall in this application is read by.
+ */
+export function theTypeAskedFor(said: unknown): string | undefined {
+  return theRoutesAskedFor(said).at(-1);
 }
 
 /**
@@ -193,7 +243,10 @@ function keyOf(entry: PileEntry): string {
  * quiet subtraction.
  */
 export function theReserveIsSaid(tonight: number, behind: number): string {
-  const said = `In no order. ${tonight} of the whole list I could start tonight.`;
+  // *Of what is here* rather than *of the whole list*, because the list can be narrowed by
+  // Type now (#64) and the count is over what the screen is showing: a sentence naming the
+  // whole list under a filter would be counting rows the owner cannot see.
+  const said = `In no order. ${tonight} of what is here I could start tonight.`;
   // One of them *stands*. A count that agrees with its verb on every number but one is a
   // sentence the owner reads as a bug in the library rather than in the prose.
   const stand = behind === 1 ? "stands" : "stand";
@@ -206,17 +259,15 @@ export function theReserveIsSaid(tonight: number, behind: number): string {
  * The Pile's address with one route's stops shown or put away, and every other route
  * left as it was.
  *
- * The screen's other parameters are deliberately **not** carried through, which is the
- * opposite of the Collection's rule and for the same reason it states: the only others here
- * are `refused` and `wished`, and both are the answer to a *write*. Looking behind a row is
- * not that write, so carrying the banner along would print a report again over an act nobody
- * just performed.
+ * **The narrowing goes with it and the two banners do not.** What the list is narrowed to is
+ * where the owner is standing, so opening a route must not quietly widen the list back out;
+ * `refused` and `wished` are the answer to a *write*, and looking behind a row is not that
+ * write, so carrying them along would print a report again over an act nobody just performed.
  */
-export function theAddressWith(shown: string[], asked: { show?: string; hide?: string }): string {
-  const routes = new Set(shown);
+export function theAddressWith(at: PileAddress, asked: { show?: string; hide?: string }): string {
+  const routes = new Set(at.shown);
   if (asked.hide) routes.delete(asked.hide);
   if (asked.show) routes.add(asked.show);
 
-  const said = new URLSearchParams([...routes].map((id) => [THE_ROUTE, id])).toString();
-  return said === "" ? "/pile" : `/pile?${said}`;
+  return thePileAt({ typeId: at.typeId, shown: [...routes] });
 }
