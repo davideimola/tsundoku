@@ -42,12 +42,8 @@ export type NewRating = {
   /**
    * The Pass this judgement came out of, where the owner knows it. Absent for a score
    * imported from a sheet with no Pass to point at.
-   *
-   * **Still spelled the old way on purpose.** A field name is read by the screens and by the
-   * MCP door, and this ticket renames the core without editing either (#57); it becomes
-   * `passId` in the contract step (#60), with the call sites that say it.
    */
-  readingId?: string | null;
+  passId?: string | null;
   prose?: string | null;
 };
 
@@ -81,7 +77,7 @@ export async function setRating(rating: NewRating): Promise<string> {
          returning id`,
         [
           rating.storyId,
-          rating.readingId ?? null,
+          rating.passId ?? null,
           rating.score,
           rating.prose ?? null,
           rating.provenanceId,

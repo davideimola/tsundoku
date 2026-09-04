@@ -120,7 +120,7 @@ export type PileRoute = {
  *
  * The fraction is the Story's own `HowFarItGot` and not a shape of this file's, so the row and
  * the Story's own page say *7 of 20* in the same words — `howFarItGot` in
- * `app/(owner)/stories/readings.ts` is the wording, and there is one of it. A run nobody has
+ * `app/(owner)/stories/passes.ts` is the wording, and there is one of it. A run nobody has
  * opened says *0 of 20* here where the Story's page says nothing at all, and that is the one
  * place the two part: the page answers *where am I in this pass*, and there is no pass, where
  * this answers *what do I read next*, which nought of twenty answers perfectly well.

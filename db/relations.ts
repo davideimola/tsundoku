@@ -181,8 +181,3 @@ export const pathItemRelations = relations(pathItem, ({one}) => ({
 	}),
 }));
 
-// The old names, for the one step in which the rest of the repository still says them.
-// See the note at the foot of `db/schema.ts`: these are the same relations under the old
-// words, and they go when nothing reaches for them.
-export const readingRelations = passRelations;
-export const readingListPinRelations = pilePinRelations;

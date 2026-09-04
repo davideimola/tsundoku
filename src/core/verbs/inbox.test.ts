@@ -138,7 +138,7 @@ describe("approving an entry", () => {
         title: "Slam Dunk",
         type: { id: "manga", name: "Manga" },
         state: "to-read",
-        readingCount: 0,
+        passCount: 0,
         latestScore: null,
       },
     ]);

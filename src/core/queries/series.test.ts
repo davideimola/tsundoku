@@ -401,7 +401,7 @@ describe("what a merge would carry", () => {
     });
 
     expect(await whatAMergeWouldCarry(series)).toEqual([
-      { id: narratives[1], title: "Slam Dunk 2", readings: 2, judged: false },
+      { id: narratives[1], title: "Slam Dunk 2", passes: 2, judged: false },
     ]);
   });
 
@@ -411,8 +411,8 @@ describe("what a merge would carry", () => {
     await recordPass({ storyId: narratives[0], medium: "paper", provenanceId: "remembered" });
 
     expect(await whatAMergeWouldCarry(series)).toEqual([
-      { id: narratives[0], title: "Slam Dunk 1", readings: 1, judged: false },
-      { id: narratives[2], title: "Slam Dunk 3", readings: 0, judged: true },
+      { id: narratives[0], title: "Slam Dunk 1", passes: 1, judged: false },
+      { id: narratives[2], title: "Slam Dunk 3", passes: 0, judged: true },
     ]);
   });
 

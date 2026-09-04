@@ -78,7 +78,7 @@ counted among them — while hiding it would answer the next question, *"what of
 to read"*, with silence. Recommend from \`read\` and suggest from \`notRead\`.
 
 \`read\` means opened and not necessarily finished or liked: **a Story the owner abandoned is in
-\`read\`**, because giving up on it is still a pass through it. \`readingCount\` says how many times
+\`read\`**, because giving up on it is still a pass through it. \`passCount\` says how many times
 they went through it and \`latestScore\` says what they thought; a Story in \`read\` with no score is
 one they never judged, and neither of those is evidence to recommend from on its own.
 

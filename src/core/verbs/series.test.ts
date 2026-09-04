@@ -952,7 +952,7 @@ describe("merging a Series into one Story", () => {
     });
     await setRating({
       storyId: narratives[0],
-      readingId: first,
+      passId: first,
       score: 8,
       provenanceId: "remembered",
     });

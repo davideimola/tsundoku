@@ -268,19 +268,19 @@ export default async function StoryPage({
 
   // The Pass the owner is in the middle of, which is what decides whether this page offers
   // *start* or *close*. It is `../passes`' answer and not a comparison written here.
-  const open = theOpenPass(story.readings);
+  const open = theOpenPass(story.passes);
 
   const panel = PANELS.find((one) => one === said(asked, "panel"));
   // **Which Pass a panel is about**, read against the stack rather than trusted: a
   // hand-edited `?pass=` naming nothing opens no panel, exactly as `?panel=banana` does.
   // Four panels are about one pass rather than about the Story — the judgement, where it got
   // to, and now the strike (ADR-0018) — so it is one derivation and not one per drawer.
-  const onePass = story.readings.find((pass) => pass.id === said(asked, "pass"));
+  const onePass = story.passes.find((pass) => pass.id === said(asked, "pass"));
   // And which judgement, read the same way over both places a Rating is drawn: under the pass
   // it came out of, and in the card for the scores that point at no pass at all. One lookup,
   // because a score is struck by its own id and the tile it was drawn in is not the act.
   const oneJudgement = [
-    ...story.readings.map((pass) => pass.rating),
+    ...story.passes.map((pass) => pass.rating),
     ...story.standaloneRatings,
   ].find((rating) => rating !== null && rating.id === said(asked, "rating"));
   const closesTo = `/stories/${id}`;
@@ -369,7 +369,7 @@ export default async function StoryPage({
                   <OpensDrawer href={panelled(id, START)} emphasis="loud">
                     Start it
                   </OpensDrawer>
-                  {story.readings.length > 0 ? (
+                  {story.passes.length > 0 ? (
                     <span className="text-sm text-muted-foreground">
                       Again — nothing below is replaced.
                     </span>
@@ -1120,7 +1120,7 @@ function Passes({ story }: { story: FoundStory }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {story.readings.length === 0 ? (
+        {story.passes.length === 0 ? (
           <p className="text-pretty text-sm text-muted-foreground">
             No Pass yet, which is the whole of why this Story reads{" "}
             <span className="font-mono text-xs uppercase tracking-eyebrow">
@@ -1130,7 +1130,7 @@ function Passes({ story }: { story: FoundStory }) {
           </p>
         ) : (
           <ol className="-my-1">
-            {story.readings.map((record) => (
+            {story.passes.map((record) => (
               <li key={record.id} className="border-t border-border py-3.5 first:border-t-0">
                 <p className="flex flex-wrap items-baseline justify-between gap-x-4">
                   <span className="font-mono text-xs tabular-nums">{whenItHappened(record)}</span>

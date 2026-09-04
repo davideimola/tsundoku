@@ -45,7 +45,7 @@ describe("creating a Story", () => {
       title: "Slam Dunk",
       type: { id: "manga", name: "Manga" },
       state: "to-read",
-      readings: [],
+      passes: [],
       standaloneRatings: [],
     });
   });
@@ -232,14 +232,14 @@ describe("amending a Story", () => {
       medium: "paper",
       provenanceId: "remembered",
     });
-    await setRating({ storyId: work, readingId: passId, score: 9, provenanceId: "remembered" });
+    await setRating({ storyId: work, passId: passId, score: 9, provenanceId: "remembered" });
 
     await amendStory(work, { title: "Slam Dunk" });
 
     expect(await findStory(work)).toMatchObject({
       title: "Slam Dunk",
       latestScore: 9,
-      readings: [{ id: passId }],
+      passes: [{ id: passId }],
     });
     expect(await query("select count(*)::int as n from story")).toEqual([{ n: 1 }]);
   });

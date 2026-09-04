@@ -340,7 +340,7 @@ export type NarrativeAMergeWouldCarry = {
   id: string;
   title: string;
   /** How many passes went through it. */
-  readings: number;
+  passes: number;
   /** Whether it carries a score of its own — a Rating naming no Pass. */
   judged: boolean;
 };
@@ -367,7 +367,7 @@ export async function whatAMergeWouldCarry(seriesId: string): Promise<NarrativeA
   return query<NarrativeAMergeWouldCarry>(
     `select s.id,
             s.title,
-            (select count(*)::int from pass r where r.story_id = s.id) as readings,
+            (select count(*)::int from pass r where r.story_id = s.id) as passes,
             exists (select 1 from rating g
                      where g.story_id = s.id and g.pass_id is null) as judged
        from story s

@@ -452,20 +452,3 @@ export const want = pgTable("want", {
 	unique("want_one_open_per_story").on(table.storyId),
 ]);
 
-// THE OLD NAMES, KEPT ALIVE FOR ONE STEP.
-//
-// The database calls a pass a Pass and the Reading list the Pile (#56), and this is the
-// expand half of an expand-contract rename: the new names are the real ones, and these are
-// the same two tables under the words the repository has not been swept of yet. They go in
-// the contract step (#57), once nothing reaches for them.
-//
-// They are aliases and not second tables — `reading` *is* `pass` — so there is no second
-// description of anything here and no way for the two to drift.
-//
-// **They carry what an alias can carry, and no more.** Nothing imports either symbol today,
-// because the queries above this file are SQL text and not a builder (ADR-0009): they name
-// `reading`, `reading_list_pin` and `reading_id` in strings, and quote constraint names in
-// strings, none of which an export reaches. Renaming those is the contract step's whole work
-// and it is not optional — as of `0013` there is nothing in the database under the old names.
-export const reading = pass;
-export const readingListPin = pilePin;

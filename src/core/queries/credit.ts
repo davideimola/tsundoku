@@ -117,7 +117,8 @@ export type CreditedStory = {
   type: { id: string; name: string };
   /** The roles this person held on this Story. Both, where they held both. */
   roles: CreditRole[];
-  readingCount: number;
+  /** How many Passes went through it. */
+  passCount: number;
   /** The score the owner set most recently, or `null` if they set none. */
   latestScore: number | null;
   /**
@@ -190,7 +191,7 @@ const CREDITED_STORY = `
         join credit_role cr on cr.id = c.role_id
        where c.person_id = p.id and c.story_id = s.id
     ),
-    'readingCount', (select count(*)::int from pass r where r.story_id = s.id),
+    'passCount', (select count(*)::int from pass r where r.story_id = s.id),
     'latestScore', (select g.score::float8
                       from rating g
                      where g.story_id = s.id

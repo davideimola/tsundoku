@@ -35,7 +35,7 @@ export type BandOfWork = {
   /**
    * How many of them went through a Pass, abandoned included.
    *
-   * The same reading of the word the Credits list counts by — it is `readingCount` and never
+   * The same reading of the word the Credits list counts by — it is `passCount` and never
    * the derived state, because *read* here means opened at all and the state says which of
    * the four opening it led to.
    */
@@ -65,7 +65,7 @@ export function bodyOfWork(person: PersonCredits): BandOfWork[] {
         role,
         title: `As ${role.name}`,
         stories,
-        read: stories.filter((story) => story.readingCount > 0).length,
+        read: stories.filter((story) => story.passCount > 0).length,
       };
     })
     .filter((band) => band.stories.length > 0);

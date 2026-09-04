@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../../src/core/db.ts";
 import { listPaths } from "../../src/core/queries/path.ts";
+import { recordPass } from "../../src/core/verbs/pass.ts";
 import { definePath, placeStoriesOnPath } from "../../src/core/verbs/path.ts";
 import { setRating } from "../../src/core/verbs/rating.ts";
-import { recordReading } from "../../src/core/verbs/reading.ts";
 import { declareSeries, placeVolumeInSeries } from "../../src/core/verbs/series.ts";
 import { createStory, createStoryCarriedBy } from "../../src/core/verbs/story.ts";
 import { recordVolumeCarriesStory } from "../../src/core/verbs/story-to-volume.ts";
@@ -169,7 +169,7 @@ describe("the guard", () => {
     const { runs } = await theLibraryAsItStands();
     const opm = runs.get("One-Punch Man");
     if (!opm) throw new Error("One-Punch Man was not built");
-    await recordReading({
+    await recordPass({
       storyId: opm.narratives[1],
       medium: "paper",
       provenanceId: "remembered",
@@ -210,7 +210,7 @@ describe("the guard", () => {
     const grembiule = runs.get("La via del grembiule");
     if (!slam || !grembiule) throw new Error("the runs were not built");
     await setRating({ storyId: slam.narratives[0], score: 9, provenanceId: "remembered" });
-    await recordReading({
+    await recordPass({
       storyId: grembiule.narratives[1],
       medium: "paper",
       provenanceId: "remembered",

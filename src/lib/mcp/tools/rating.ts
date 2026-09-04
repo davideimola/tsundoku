@@ -86,9 +86,8 @@ telling you now — that is "${FIRST_HAND}".`,
         score: numberArgument(input, "score") ?? Number.NaN,
         prose: stringArgument(input, "prose"),
         scale: stringArgument(input, "scale") as RatingScale | undefined,
-        // The core still calls this field `readingId`; the rename of the object fields is
-        // #60's sweep, and this door says `pass` where an assistant can read it.
-        readingId: stringArgument(input, "pass"),
+        // The core says `passId`; this door says `pass`, which is the word an assistant reads.
+        passId: stringArgument(input, "pass"),
         provenanceId: stringArgument(input, "provenance") ?? FIRST_HAND,
       }),
     };

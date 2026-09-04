@@ -210,13 +210,13 @@ export async function planTheConversion(): Promise<Plan> {
 
     for (const one of carrying) {
       const what =
-        one.readings > 0 && one.judged
+        one.passes > 0 && one.judged
           ? "has been read and carries a score"
           : one.judged
             ? "carries a score"
-            : one.readings === 1
+            : one.passes === 1
               ? "has been read once"
-              : `has been read ${one.readings} times`;
+              : `has been read ${one.passes} times`;
       refusals.push(
         `${one.title}, on ${nameOf(ledger)}, ${what}, and collapsing it would move that ` +
           "onto a narrative nobody was looking at."

@@ -139,7 +139,7 @@ describe("setting a Rating", () => {
     await expect(
       setRating({
         storyId: one,
-        readingId: passOfTheOther,
+        passId: passOfTheOther,
         score: 9,
         provenanceId: "remembered",
       })
@@ -178,17 +178,17 @@ describe("setting a Rating", () => {
       provenanceId: "remembered",
     });
 
-    await setRating({ storyId, readingId: passId, score: 7, provenanceId: "remembered" });
+    await setRating({ storyId, passId: passId, score: 7, provenanceId: "remembered" });
     await setRating({
       storyId,
-      readingId: passId,
+      passId: passId,
       score: 9,
       prose: "Better than I said.",
       provenanceId: "remembered",
     });
 
     const story = await findStory(storyId);
-    expect(story?.readings[0]?.rating).toMatchObject({ score: 9, prose: "Better than I said." });
+    expect(story?.passes[0]?.rating).toMatchObject({ score: 9, prose: "Better than I said." });
     expect(story?.standaloneRatings).toEqual([]);
   });
 });
@@ -238,7 +238,7 @@ describe("striking a Rating", () => {
     const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
     const ratingId = await setRating({
       storyId,
-      readingId: passId,
+      passId: passId,
       score: 8,
       provenanceId: "remembered",
     });
@@ -246,8 +246,8 @@ describe("striking a Rating", () => {
     await strikeRating(ratingId);
 
     const story = await findStory(storyId);
-    expect(story?.readings.map((one) => one.rating)).toEqual([null]);
-    expect(story?.readings).toHaveLength(1);
+    expect(story?.passes.map((one) => one.rating)).toEqual([null]);
+    expect(story?.passes).toHaveLength(1);
   });
 
   it("refuses a Rating the library does not have", async () => {

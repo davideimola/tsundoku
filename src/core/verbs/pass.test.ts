@@ -35,7 +35,7 @@ describe("recording a Pass", () => {
     });
 
     const story = await findStory(storyId);
-    expect(story?.readings).toEqual([
+    expect(story?.passes).toEqual([
       expect.objectContaining({
         medium: "paper",
         outcome: "finished",
@@ -58,7 +58,7 @@ describe("recording a Pass", () => {
     });
 
     const story = await findStory(storyId);
-    expect(story?.readings[0]).toMatchObject({
+    expect(story?.passes[0]).toMatchObject({
       medium: "digital",
       startedOn: null,
       endedOn: null,
@@ -166,7 +166,7 @@ describe("concluding a Pass", () => {
     await finishPass(passId, "2024-02-11");
 
     const story = await findStory(storyId);
-    expect(story?.readings[0]).toMatchObject({ outcome: "finished", endedOn: "2024-02-11" });
+    expect(story?.passes[0]).toMatchObject({ outcome: "finished", endedOn: "2024-02-11" });
   });
 
   it("abandons one that was in progress", async () => {
@@ -180,7 +180,7 @@ describe("concluding a Pass", () => {
     await abandonPass(passId, "2024-07-01");
 
     const story = await findStory(storyId);
-    expect(story?.readings[0]).toMatchObject({ outcome: "abandoned", endedOn: "2024-07-01" });
+    expect(story?.passes[0]).toMatchObject({ outcome: "abandoned", endedOn: "2024-07-01" });
   });
 
   it("refuses to conclude one that has already ended, because a Pass is never overwritten", async () => {
@@ -234,7 +234,7 @@ describe("the Instalment a pass reached", () => {
 
     const story = await findStory(storyId);
     expect(story).toMatchObject({ howFarItGot: { atInstalment: 7, instalments: 20 } });
-    expect(story?.readings[0]).toMatchObject({ atInstalment: 7, outcome: null });
+    expect(story?.passes[0]).toMatchObject({ atInstalment: 7, outcome: null });
   });
 
   it("takes it in the same breath as the Pass itself", async () => {
@@ -322,7 +322,7 @@ describe("the Instalment a pass reached", () => {
     // Where the owner is *now* is the open pass, which has read none of it — and the pass
     // that gave up in 2019 still says it got to nine.
     expect(story).toMatchObject({ howFarItGot: { atInstalment: 0, instalments: 20 } });
-    expect(story?.readings.map((pass) => pass.atInstalment)).toEqual([null, 9]);
+    expect(story?.passes.map((pass) => pass.atInstalment)).toEqual([null, 9]);
   });
 
   it("is written over rather than added to: I am at seven replaces I am at six", async () => {
@@ -410,7 +410,7 @@ describe("striking a Pass", () => {
     expect(await strikePass(passId)).toBe(storyId);
 
     const story = await findStory(storyId);
-    expect(story?.readings).toEqual([]);
+    expect(story?.passes).toEqual([]);
     // Derived on the way out, so there was never a field to put back — which is the whole
     // reason this verb is the only thing the correction needed.
     expect(story?.state).toBe("to-read");
@@ -433,7 +433,7 @@ describe("striking a Pass", () => {
 
     const story = await findStory(storyId);
     expect(story?.title).toBe("Slam Dunk");
-    expect(story?.readings.map((one) => one.id)).toEqual([first]);
+    expect(story?.passes.map((one) => one.id)).toEqual([first]);
     expect(story?.state).toBe("read");
   });
 
@@ -445,7 +445,7 @@ describe("striking a Pass", () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
     const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
     await finishPass(passId, "2024-01-01");
-    await setRating({ storyId, readingId: passId, score: 8, provenanceId: "remembered" });
+    await setRating({ storyId, passId: passId, score: 8, provenanceId: "remembered" });
 
     await expect(strikePass(passId)).rejects.toMatchObject({
       name: "Refusal",
@@ -455,7 +455,7 @@ describe("striking a Pass", () => {
     });
 
     // And nothing moved: a refused strike is not half a strike.
-    expect((await findStory(storyId))?.readings).toHaveLength(1);
+    expect((await findStory(storyId))?.passes).toHaveLength(1);
   });
 
   // The pair, end to end, and the reason `strikeRating` exists at all: the refusal above has
@@ -466,7 +466,7 @@ describe("striking a Pass", () => {
     await finishPass(passId, "2024-01-01");
     const ratingId = await setRating({
       storyId,
-      readingId: passId,
+      passId: passId,
       score: 8,
       provenanceId: "remembered",
     });

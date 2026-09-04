@@ -612,7 +612,7 @@ describe("striking a Path", () => {
       storyId,
       score: 9,
       provenanceId: "remembered",
-      readingId: passId,
+      passId: passId,
     });
 
     await strikePath(pathId);

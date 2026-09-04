@@ -54,7 +54,7 @@ export const STORY_STATE = `
 //
 // **The pass is picked the way the stack is ordered** — an open Pass first, then the
 // newest by the day it began — because that is the one the owner is in the middle of, and
-// `stories/readings.ts` finds the same one for the same reason. A second order here would be
+// `stories/passes.ts` finds the same one for the same reason. A second order here would be
 // the page and the sentence disagreeing about which reading is *now*.
 //
 // Exported as SQL under the rule `STORY_STATE` is exported under: there is one right place
@@ -210,14 +210,8 @@ export type Story = {
   howFarItGot: HowFarItGot | null;
   /** Who wrote it and who drew it, in the order roles are credited in. */
   credits: StoryCredit[];
-  /**
-   * Newest first. Several is the ordinary case, because rereading is.
-   *
-   * **Still spelled the old way on purpose**, like every field name in this module: the
-   * screens and the MCP door read it, and this ticket renames the core without editing
-   * either (#57). It becomes `passes` in the contract step (#60), with its readers.
-   */
-  readings: StoryPass[];
+  /** Newest first. Several is the ordinary case, because rereading is. */
+  passes: StoryPass[];
   /** Judgements attached to no Pass — a score imported with no act to point at. */
   standaloneRatings: StoryRating[];
 };
@@ -443,7 +437,7 @@ const STORY_COLUMNS = `
         from pass r
         join provenance rp on rp.id = r.provenance_id
        where r.story_id = s.id
-    ), '[]'::jsonb) as readings,
+    ), '[]'::jsonb) as passes,
     coalesce((
       select jsonb_agg(${RATING} order by g.set_at desc)
         from rating g
@@ -539,8 +533,8 @@ export type StorySummary = {
   title: string;
   type: StoryType;
   state: StoryState;
-  /** How many Passes went through it. Spelled the old way, like every field here (#57). */
-  readingCount: number;
+  /** How many Passes went through it. */
+  passCount: number;
   /** The score the owner set most recently, or `null` if they set none. */
   latestScore: number | null;
 };
@@ -559,7 +553,7 @@ export async function listStories(): Promise<StorySummary[]> {
        s.title,
        jsonb_build_object('id', t.id, 'name', t.name) as type,
        ${STORY_STATE} as state,
-       (select count(*)::int from pass r where r.story_id = s.id) as "readingCount",
+       (select count(*)::int from pass r where r.story_id = s.id) as "passCount",
        ${LATEST_SCORE} as "latestScore"
      from story s
      join type t on t.id = s.type_id

@@ -98,7 +98,7 @@ describe("everything read by one Credit", () => {
       provenanceId: "remembered",
     });
     await finishPass(read, "2023-02-20");
-    await setRating({ storyId: hush, readingId: read, score: 8, provenanceId: "remembered" });
+    await setRating({ storyId: hush, passId: read, score: 8, provenanceId: "remembered" });
 
     // Abandoned, which is still a Pass and therefore still something read *by* him.
     const gaveUp = await recordPass({
@@ -127,7 +127,7 @@ describe("everything read by one Credit", () => {
           title: "Batman: Hush",
           type: { id: "comic", name: "Comic" },
           roles: [{ id: "writer", name: "Writer" }],
-          readingCount: 1,
+          passCount: 1,
           latestScore: 8,
           state: "read",
           series: null,
@@ -140,7 +140,7 @@ describe("everything read by one Credit", () => {
           title: "Gotham Noir",
           type: { id: "comic", name: "Comic" },
           roles: [{ id: "writer", name: "Writer" }],
-          readingCount: 1,
+          passCount: 1,
           latestScore: null,
           // Opened and given up on, which is still something read *by* him — and the
           // state is what says which of the two it was, on the tile the body of work is
@@ -158,7 +158,7 @@ describe("everything read by one Credit", () => {
           title: "The Long Halloween",
           type: { id: "comic", name: "Comic" },
           roles: [{ id: "writer", name: "Writer" }],
-          readingCount: 0,
+          passCount: 0,
           latestScore: null,
           state: "to-read",
           series: null,

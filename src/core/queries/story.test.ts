@@ -125,7 +125,7 @@ describe("rereading a Story", () => {
     await finishPass(first, "2021-06-01");
     await setRating({
       storyId,
-      readingId: first,
+      passId: first,
       score: 7,
       prose: "Good, but I had read almost nothing else.",
       provenanceId: "remembered",
@@ -140,7 +140,7 @@ describe("rereading a Story", () => {
     await finishPass(second, "2026-02-01");
     await setRating({
       storyId,
-      readingId: second,
+      passId: second,
       score: 9,
       prose: "It reads differently now that I have the classics behind me.",
       provenanceId: "remembered",
@@ -148,11 +148,11 @@ describe("rereading a Story", () => {
 
     const story = await findStory(storyId);
     // Newest first: a Story is read from the last thing that happened to it.
-    expect(story?.readings.map((pass) => [pass.startedOn, pass.rating?.score])).toEqual([
+    expect(story?.passes.map((pass) => [pass.startedOn, pass.rating?.score])).toEqual([
       ["2026-01-10", 9],
       ["2021-05-01", 7],
     ]);
-    expect(story?.readings[1]?.rating?.prose).toBe("Good, but I had read almost nothing else.");
+    expect(story?.passes[1]?.rating?.prose).toBe("Good, but I had read almost nothing else.");
   });
 });
 
@@ -177,7 +177,7 @@ describe("the order a Story's Passes are stacked in", () => {
     );
     const open = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
-    expect((await findStory(storyId))?.readings.map((pass) => pass.id)[0]).toBe(open);
+    expect((await findStory(storyId))?.passes.map((pass) => pass.id)[0]).toBe(open);
   });
 
   // Below the open one, the settled Passes are newest first by the day they began, and a
@@ -207,7 +207,7 @@ describe("the order a Story's Passes are stacked in", () => {
     });
     await finishPass(newer, "2024-06-01");
 
-    expect((await findStory(storyId))?.readings.map((pass) => pass.id)).toEqual([
+    expect((await findStory(storyId))?.passes.map((pass) => pass.id)).toEqual([
       newer,
       older,
       dateless,
@@ -224,7 +224,7 @@ describe("the Stories, listed", () => {
       provenanceId: "remembered",
     });
     await finishPass(pass, "2024-02-02");
-    await setRating({ storyId: read, readingId: pass, score: 9.5, provenanceId: "remembered" });
+    await setRating({ storyId: read, passId: pass, score: 9.5, provenanceId: "remembered" });
 
     await createStory({ title: "Zeru", typeId: "novel" });
 
@@ -234,7 +234,7 @@ describe("the Stories, listed", () => {
         title: "Pluto",
         type: { id: "manga", name: "Manga" },
         state: "read",
-        readingCount: 1,
+        passCount: 1,
         latestScore: 9.5,
       },
       {
@@ -242,7 +242,7 @@ describe("the Stories, listed", () => {
         title: "Zeru",
         type: { id: "novel", name: "Novel" },
         state: "to-read",
-        readingCount: 0,
+        passCount: 0,
         latestScore: null,
       },
     ]);
@@ -259,7 +259,7 @@ describe("the Stories, listed", () => {
       outcome: "finished",
       provenanceId: "remembered",
     });
-    await setRating({ storyId, readingId: pass, score: 9, provenanceId: "remembered" });
+    await setRating({ storyId, passId: pass, score: 9, provenanceId: "remembered" });
     await setRating({ storyId, score: 7.5, provenanceId: "remembered" });
 
     expect((await listStories())[0]).toMatchObject({ title: "Sapiens", latestScore: 7.5 });
@@ -286,7 +286,7 @@ describe("what the owner has read", () => {
     await finishPass(pass, "2024-02-02");
     await setRating({
       storyId,
-      readingId: pass,
+      passId: pass,
       score: 9.5,
       prose: "The best thing Urasawa has done.",
       provenanceId: "remembered",
@@ -314,7 +314,7 @@ describe("what the owner has read", () => {
             role: { id: "writer", name: "Writer" },
           },
         ],
-        readings: [
+        passes: [
           {
             id: pass,
             medium: "paper",

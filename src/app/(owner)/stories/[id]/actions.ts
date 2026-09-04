@@ -178,9 +178,7 @@ export async function rate(form: FormData): Promise<void> {
   await saying(storyId, () =>
     setRating({
       storyId,
-      // The core still spells this field `readingId`, and #60 sweeps it (#57 left the
-      // object fields deliberately). The form the screen posts says `passId`.
-      readingId: text(form, "passId"),
+      passId: text(form, "passId"),
       score: Number(text(form, "score") ?? Number.NaN),
       prose: text(form, "prose"),
       provenanceId: FIRST_HAND,

@@ -12,15 +12,15 @@ import { bodyOfWork } from "./body-of-work";
 const WRITER = { id: "writer", name: "Writer" };
 const ARTIST = { id: "artist", name: "Artist" };
 
-function story(title: string, roles: { id: string; name: string }[], readings = 0): CreditedStory {
+function story(title: string, roles: { id: string; name: string }[], passes = 0): CreditedStory {
   return {
     id: title,
     title,
     type: { id: "manga", name: "Manga" },
     roles,
-    readingCount: readings,
+    passCount: passes,
     latestScore: null,
-    state: readings === 0 ? "to-read" : "read",
+    state: passes === 0 ? "to-read" : "read",
     series: null,
     cover: null,
     carriedBy: 1,
@@ -85,7 +85,7 @@ describe("a person's body of work", () => {
   });
 
   // Read means it went through a Pass, abandoned included — the same reading of the word
-  // the Credits list is counted by, and the reason it is `readingCount` and never the state.
+  // the Credits list is counted by, and the reason it is `passCount` and never the state.
   it("counts what of a band went through a Pass", () => {
     const [band] = bodyOfWork(
       person({
