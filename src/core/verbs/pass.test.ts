@@ -445,7 +445,7 @@ describe("striking a Pass", () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
     const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
     await finishPass(passId, "2024-01-01");
-    await setRating({ storyId, passId: passId, score: 8, provenanceId: "remembered" });
+    await setRating({ storyId, passId, score: 8, provenanceId: "remembered" });
 
     await expect(strikePass(passId)).rejects.toMatchObject({
       name: "Refusal",
@@ -466,7 +466,7 @@ describe("striking a Pass", () => {
     await finishPass(passId, "2024-01-01");
     const ratingId = await setRating({
       storyId,
-      passId: passId,
+      passId,
       score: 8,
       provenanceId: "remembered",
     });

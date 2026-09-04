@@ -178,10 +178,10 @@ describe("setting a Rating", () => {
       provenanceId: "remembered",
     });
 
-    await setRating({ storyId, passId: passId, score: 7, provenanceId: "remembered" });
+    await setRating({ storyId, passId, score: 7, provenanceId: "remembered" });
     await setRating({
       storyId,
-      passId: passId,
+      passId,
       score: 9,
       prose: "Better than I said.",
       provenanceId: "remembered",
@@ -238,7 +238,7 @@ describe("striking a Rating", () => {
     const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
     const ratingId = await setRating({
       storyId,
-      passId: passId,
+      passId,
       score: 8,
       provenanceId: "remembered",
     });

@@ -63,10 +63,10 @@ answer it briefly and say which project it belongs in.
    than a list of six. Where it disagrees with the obvious recommendation, the constraint wins,
    and saying so out loud beats obeying it quietly.
 2. **`pile_next`** — the Pile, the composed answer to *"what should I read next"*. Pinned
-   entries lead, then Paths in the owner's order, then Series. `atHand: true` can be started tonight;
-   `false` has to be bought first — for a novel that is often the whole difference. Each entry
-   carries the Path it extends and the `intent` written for it, so a suggestion can say which
-   route it continues. `proposedWish` is a proposal: nothing has been written.
+   entries lead, then Paths in the owner's order, then Series. `atHand: true` can be started
+   tonight; `false` has to be bought first — for a novel that is often the whole difference.
+   Each entry carries the Path it extends and the `intent` written for it, so a suggestion
+   can say which route it continues. `proposedWish` is a proposal: nothing has been written.
 3. **Weigh the evidence.** Read a Rating's prose before its score. Its Provenance says how far
    it can be trusted (*remembered* is the owner themselves; *goodreads-history* is weaker
    evidence of the same thing), and its scale is a separate axis — a "coarse" 8 is a four out
@@ -90,8 +90,8 @@ the owner spots immediately: `pass_record`, `pass_finish`, `pass_abandon`,
 
 *"I finished it last night, I'd give it an 8"* is a Pass and a Rating, recorded on the spot.
 On `digital` there is no Volume, by design. `pass_record` answers `{ pass }` — give that id to
-`rating_set` as `pass` so a second time through carries a score of its own beside the first, and write the **prose** they said: a bare number is a rank,
-prose is evidence.
+`rating_set` as `pass` so a second time through carries a score of its own beside the first,
+and write the **prose** they said: a bare number is a rank, prose is evidence.
 
 **You cannot create a Story, a Volume or a Series, and you must not try.** A title you
 half-remember becomes a permanent duplicate in a library kept for years, and every proposal is

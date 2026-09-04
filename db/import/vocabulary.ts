@@ -146,7 +146,7 @@ const BINDINGS: Record<string, string> = {
  * `Formato`, read as the comics sheet means it: a Binding.
  *
  * Never as a medium. A Volume has no medium at all — digital ownership is deliberately
- * not modelled — so the two passes of this column are not two spellings of one
+ * not modelled — so the two readings of this column are not two spellings of one
  * question, and nothing here falls back to the other table.
  */
 export function bindingOf(said: string): string {

@@ -1007,8 +1007,8 @@ function planBiblioteca(planner: Planner, tab: Tab): void {
 
     // **Every row of this sheet is a Pass with no Volume**, which is the whole reason
     // the model separates the two: going through a thing and owning it are unrelated facts
-    // (ADR-0001), and Goodreads history is testimony about going through and says nothing
-    // about a shelf. A row that was not read at all is a Story with no Pass rather than an
+    // (ADR-0001), and Goodreads history is testimony about reading and says nothing about
+    // a shelf. A row that was not read at all is a Story with no Pass rather than an
     // invented one.
     if (state.read) {
       planner.count(TALLY.readInTheBooks);

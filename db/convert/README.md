@@ -34,8 +34,8 @@ so that number goes unused and the journal still ends at 10.
 
 ## What it refuses
 
-The whole conversion, while **any** narrative it would collapse carries a Pass or a Rating — and it
-reads all five lines before it touches the first, so a foreseen refusal leaves nothing half
+The whole conversion, while **any** narrative it would collapse carries a Pass or a Rating —
+and it reads all five lines before it touches the first, so a foreseen refusal leaves nothing half
 done. On the live library today that count is zero, which is what makes this lossless; the
 guard is here so it stays true whenever the command is actually taken.
 

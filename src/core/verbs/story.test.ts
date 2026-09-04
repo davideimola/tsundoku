@@ -232,7 +232,7 @@ describe("amending a Story", () => {
       medium: "paper",
       provenanceId: "remembered",
     });
-    await setRating({ storyId: work, passId: passId, score: 9, provenanceId: "remembered" });
+    await setRating({ storyId: work, passId, score: 9, provenanceId: "remembered" });
 
     await amendStory(work, { title: "Slam Dunk" });
 

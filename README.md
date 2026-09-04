@@ -152,8 +152,8 @@ either, so the assert goes in each one.
 
 **And it goes in the navigation**, as one line in
 [`src/app/(owner)/navigation.ts`](src/app/(owner)/navigation.ts), under whichever of the
-three questions it answers — *Reading and playing*, *Owning*, *Repairing*. The shell renders that one
-map at both widths, so a destination cannot exist on the desk and not on the phone. A
+three questions it answers — *Reading and playing*, *Owning*, *Repairing*. The shell renders
+that one map at both widths, so a destination cannot exist on the desk and not on the phone. A
 screen that is in the tree and not in the map is a screen reachable only by typing its
 URL, which is the state this application was in until #20: eight links on the home page
 and no `<nav>` anywhere. It is a test rather than a paragraph, for the same reason the

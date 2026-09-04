@@ -54,7 +54,7 @@ describe("one Volume holding three Stories: L'uomo che ride", () => {
         outcome: "finished",
         provenanceId: "remembered",
       });
-      await setRating({ storyId, passId: passId, score, provenanceId: "remembered" });
+      await setRating({ storyId, passId, score, provenanceId: "remembered" });
     }
 
     return volumeId;
@@ -115,7 +115,7 @@ describe("one Story across twenty Volumes: Slam Dunk", () => {
     });
     await setRating({
       storyId,
-      passId: passId,
+      passId,
       score: 10,
       prose: "The one that made me read manga.",
       provenanceId: "remembered",
