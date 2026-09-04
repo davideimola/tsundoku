@@ -174,13 +174,21 @@ describe("why a row is on the list", () => {
 });
 
 describe("the line that decides whether it can be started tonight", () => {
-  it("is the medium, and then what stands between the owner and it", () => {
-    expect(entryStanding(entry({ medium: "digital" }))).toBe("digital · tonight");
-    expect(entryStanding(entry({ atHand: true }))).toBe("paper · on the shelf");
-    expect(entryStanding(entry({ atHand: false }))).toBe("paper · buy it first");
+  it("is what stands between the owner and it, and never what it is on", () => {
+    // An entry naming no medium is one no object carries, so there is nothing to get.
+    expect(entryStanding(entry({ medium: null }))).toBe("tonight");
+    expect(entryStanding(entry({ atHand: true }))).toBe("on the shelf");
+    expect(entryStanding(entry({ atHand: false }))).toBe("buy it first");
     expect(entryStanding(entry({ atHand: false, wishAlreadyOpen: true }))).toBe(
-      "paper · already on the shopping list"
+      "already on the shopping list"
     );
+  });
+
+  it("says the same four things of a game as of a book, which is why the medium is gone", () => {
+    // *Hades · digital · tonight* was the row saying something false about a game to say
+    // something true about the evening (#64). The Type is beside this line on the screen, and
+    // it is the fact the medium had been standing in for.
+    expect(entryStanding(entry({ medium: null, atHand: true }))).toBe("tonight");
   });
 });
 
@@ -224,7 +232,7 @@ describe("the line the tile takes its colour from", () => {
 // the row beside it another.
 describe("what the tile is described as", () => {
   it("is what it is called and whether it can be started tonight", () => {
-    expect(entryDetail(storyEntry({ medium: "digital" }))).toBe("Vagabond — digital · tonight");
+    expect(entryDetail(storyEntry({ medium: null }))).toBe("Vagabond — tonight");
   });
 });
 

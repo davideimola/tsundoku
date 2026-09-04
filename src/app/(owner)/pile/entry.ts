@@ -58,11 +58,25 @@ export function entryTitle(entry: PileEntry): string {
   return [series.name, series.editionLine, series.position].filter(Boolean).join(" ");
 }
 
-/** The one line that decides whether the entry is actionable tonight. */
+/**
+ * The one line that decides whether the entry is actionable tonight.
+ *
+ * **It says what it takes, and no longer says what it is on** (#64). It read *digital ·
+ * tonight* and *paper · on the shelf*, and the medium in front of the standing carried
+ * nothing the standing did not already carry: only a thing that goes through an object can be
+ * *on the shelf* or wait to be *bought*, and only a thing that goes through none can be
+ * started *tonight*. What it did carry was a lie the moment a videogame stood here — nothing
+ * is played on paper and nothing is played on `digital` either — so the row is *Hades ·
+ * Videogame · tonight*, and the Type beside it is the fact the medium had been standing in
+ * for.
+ *
+ * Read off `atHand` and then off whether the entry names a medium at all, which is the pair
+ * the core answers with: at hand and naming none is a thing nothing has to be done to get, and
+ * at hand naming one is the object sitting on the shelf.
+ */
 export function entryStanding(entry: PileEntry): string {
-  if (entry.medium === "digital") return "digital · tonight";
-  if (entry.atHand) return "paper · on the shelf";
-  return entry.wishAlreadyOpen ? "paper · already on the shopping list" : "paper · buy it first";
+  if (entry.atHand) return entry.medium === null ? "tonight" : "on the shelf";
+  return entry.wishAlreadyOpen ? "already on the shopping list" : "buy it first";
 }
 
 /**

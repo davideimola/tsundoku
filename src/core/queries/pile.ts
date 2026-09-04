@@ -9,6 +9,7 @@ import { listMedia } from "./medium.ts";
 import { type PathStop, stillAheadOnActivePaths } from "./path.ts";
 import { listMissingVolumes, type SeriesLedger } from "./series.ts";
 import { type HowFarItGot, listRunsInProgress, type StoryType } from "./story.ts";
+import { listTypes } from "./type.ts";
 import { listOpenWants } from "./want.ts";
 
 // **The Pile, which is a query and not a table.**
@@ -73,6 +74,31 @@ import { listOpenWants } from "./want.ts";
  * intention about one that has not.
  */
 export type PileMedium = string;
+
+/**
+ * **How the Pile is narrowed**, and there is one axis: the Type.
+ *
+ * The filter is an argument here rather than a `filter` on the screen, the way every wall's
+ * is (AGENTS.md), and there is deliberately no second axis: *what is startable tonight* is
+ * already on every row, and a list that could be narrowed to it would be a fifth way of
+ * saying what the row says.
+ *
+ * **One pile, filtered — never two lists.** The Type is a decision the owner has often
+ * already taken by the time they open the screen (*tonight I play*), and the list is
+ * unordered for exactly that reason; but the whole reason an external reader can weigh three
+ * unread manga against twelve unplayed games is that it is looking at one arrears, so the
+ * narrowing is the owner's and the door hands over everything (ADR-0021).
+ */
+export type PileFilter = {
+  /**
+   * The Type of the Story to keep, or nothing at all for the whole Pile.
+   *
+   * A Type the library does not have narrows to nothing rather than being refused, which is
+   * every wall's rule: a hand-typed `?type=banana` is an honest empty answer, and what the
+   * *controls* offer is only ever a Type standing on the list (`types` below).
+   */
+  typeId?: string;
+};
 
 /** The object an entry goes through, where the library knows of one. */
 export type PileObject = {
@@ -203,34 +229,44 @@ export type PileEntry = {
    */
   story: { id: string; title: string; type: StoryType } | null;
   /**
-   * **The intended medium, and it follows the object.** `paper` where an object carries
-   * this entry, `digital` where none does — because digital ownership is deliberately not
-   * modelled (CONTEXT.md), so a Story with no Volume is the ordinary shape of a Story read
-   * digitally, borrowed, or known only from Goodreads. A Series is a publisher's line of
-   * objects and is therefore `paper` whatever the library has catalogued.
+   * **The intended medium, and it follows the object — or it is `null`, which is an answer.**
    *
-   * It is **derived and not declared**, and it is the one judgement in this file the owner
-   * could reasonably overturn: a Story on a route that they mean to read on paper and have
-   * not catalogued an object for reads `digital` here, because nothing in the library says
-   * otherwise and an entry has no row to record an intention on. Cataloguing the object is
-   * what changes the answer.
+   * An object carrying this entry means the medium is the one that **goes through an
+   * object**, which the vocabulary says is paper and says alone (ADR-0022); a Series entry is
+   * that medium whatever the library has catalogued, because a Series is a publisher's line
+   * of *objects* and its next position is a thing to buy. No value is named here: the flag on
+   * the vocabulary row is read, so the answer survives the day a second medium goes through
+   * one.
+   *
+   * **`null` is where no object carries it, and it means the library has nothing to go on.**
+   * A medium is a fact about a **Pass** and never about the Story (ADR-0022), an entry is an
+   * intention nobody has passed through yet, and the entry has no row to record one on — so
+   * where there is no object to infer from, this names no medium rather than guessing at one.
+   * It read `digital` until a videogame could stand here (#64), and *Hades · digital* was a
+   * claim about a file nobody has: nothing is played on paper and nothing is played on
+   * `digital` either. Cataloguing an object is what fills it in.
+   *
+   * Null costs the answer nothing that mattered, because the question the medium exists for
+   * is `atHand` below and it is answered identically: an entry that goes through no object
+   * needs nothing bought.
    */
-  medium: PileMedium;
+  medium: PileMedium | null;
   /**
    * Whether the owner can start it tonight: **this medium needs no object, or the object is
    * in the house**. False is the entry that has to be bought first.
    *
    * The medium's own `goesThroughAnObject` is what answers the first half (ADR-0022), so the
    * sentence holds for a console the same way it holds for a file: paper needs the object,
-   * and nothing else does.
+   * and nothing else does. An entry naming **no** medium is an entry no object carries, which
+   * is the same answer arrived at without the claim.
    */
   atHand: boolean;
   /**
    * The object this entry goes through, where the library knows one — on the shelf or not.
    *
-   * Null means two different things, and `medium` tells them apart. On a `digital` entry
-   * there is no object to know. On a `paper` one the library does **not know** the object
-   * yet, which is a Series position nobody has catalogued: there is nothing to wish for,
+   * Null means two different things, and `medium` tells them apart. On an entry naming no
+   * medium there is no object to know. On one that names a medium the library does **not
+   * know** the object yet, which is a Series position nobody has catalogued: there is nothing to wish for,
    * and recording the object is the owner's act or an Inbox proposal (ADR-0005), never
    * this list's.
    */
@@ -271,6 +307,19 @@ export type Pile = {
    * an order matters the owner pins the row, which moves it to the head.
    */
   reserve: PileEntry[];
+  /**
+   * **Every Type standing on the Pile, in the Types' own stated order — and it ignores the
+   * narrowing.**
+   *
+   * It is here because a control may offer only what the list can be narrowed to (AGENTS.md):
+   * a picker naming a Type nothing is composed under is a control whose every use empties the
+   * screen. Read off the whole Pile rather than off the narrowed one, or choosing *Videogame*
+   * would take every other Type off the picker on the way in and leave no way back.
+   *
+   * A Series position contributes none, because it names an object and not a narrative
+   * (ADR-0001) and a Type is a fact about a Story.
+   */
+  types: StoryType[];
 };
 
 /**
@@ -282,19 +331,25 @@ export type Pile = {
  * `proposedWish` built out of what it would say, and `openWish` is not called: the owner
  * (or an assistant, on their word) opens it. Walking the whole list leaves the `wish` table
  * exactly as it was.
+ *
+ * **Narrowed by Type where the owner asks and whole where they do not** (#64). The filter
+ * decides *what is shown* and never the order: the reserve composes in the order it always
+ * composes in and the head stays in pin order, and narrowing takes rows out of both without
+ * moving any. `types` says what the list could be narrowed to, whatever it was narrowed by.
  */
-export async function composePile(): Promise<Pile> {
+export async function composePile(narrowing: PileFilter = {}): Promise<Pile> {
   // The four sources and the pins, read together. Five statements rather than one: the four
   // derivations already exist, tested, in `queries/want.ts`, `queries/path.ts`,
   // `queries/story.ts` and `queries/series.ts` (#35, #9, #43, #7), and re-deriving any of them
   // here to save a round trip would be keeping a second answer to a question that has one.
-  const [wanted, routes, runs, incomplete, pins, media] = await Promise.all([
+  const [wanted, routes, runs, incomplete, pins, media, vocabulary] = await Promise.all([
     listOpenWants(),
     stillAheadOnActivePaths(),
     listRunsInProgress(),
     listMissingVolumes(),
     pinnedSubjects(),
     listMedia(),
+    listTypes(),
   ]);
 
   // **One row per thing to read, and the order they arrive in is the reserve's order.** A
@@ -364,12 +419,32 @@ export async function composePile(): Promise<Pile> {
     );
   }
 
+  const composed = [...rows.values()];
+
+  // **What the list could be narrowed to, read off the whole of it** — and read here, before
+  // the narrowing below, so that choosing a Type does not take the others off the picker.
+  const types = vocabulary.filter((type) =>
+    composed.some((draft) => draft.story?.type.id === type.id)
+  );
+
+  // **The narrowing, and it takes rows out rather than moving any.** The Map's insertion
+  // order is the reserve's order and a filter keeps it, so *what is shown* changes and the
+  // order never does. A Series position drops out of any narrowing at all: it names an object
+  // and no Story (ADR-0001), so it has no Type to be one — and a list narrowed to *Manga*
+  // that still offered a volume nobody has said carries a manga would be the ledger talking
+  // over the filter.
+  const drafts =
+    narrowing.typeId === undefined
+      ? composed
+      : composed.filter((draft) => draft.story?.type.id === narrowing.typeId);
+
   // The objects the rows need, asked for in one statement each rather than per entry. Every
   // narrative row reaches the same question whatever put it there, so they ask it together.
-  const drafts = [...rows.values()];
+  // Asked for the rows that survived the narrowing, because a wall must not read what it does
+  // not show.
   const [carriers, positions] = await Promise.all([
     objectsCarrying(drafts.flatMap((draft) => (draft.story ? [draft.story.id] : []))),
-    objectsAtPositions(incomplete),
+    objectsAtPositions(narrowing.typeId === undefined ? incomplete : []),
   ]);
 
   // **Whether a medium goes through an object is the vocabulary's answer**, not this file's
@@ -379,22 +454,34 @@ export async function composePile(): Promise<Pile> {
   // needing an object, which is the conservative direction: an entry the library cannot
   // account for is not claimed to be startable tonight.
   const throughAnObject = new Map(media.map((known) => [known.id, known.goesThroughAnObject]));
-  const goesThroughAnObject = (id: PileMedium): boolean => throughAnObject.get(id) ?? true;
+  const goesThroughAnObject = (id: PileMedium | null): boolean =>
+    id === null ? false : (throughAnObject.get(id) ?? true);
+
+  // **The medium an object means, asked of the vocabulary and never named here** — the one
+  // that goes through an object, which is paper and is paper alone (ADR-0022). The first in
+  // the vocabulary's own order, so a second such medium would be a row rather than an edit to
+  // this file; nothing at all where the vocabulary has none, which is the same absence a
+  // narrative row with no object carries.
+  const theMediumAnObjectMeans = media.find((known) => known.goesThroughAnObject)?.id ?? null;
 
   const entries = new Map<string, PileEntry>();
   for (const draft of drafts) {
-    // **The medium follows the object** on a narrative row: paper where one carries the
-    // Story, digital where none does, which is the ordinary shape of a Story read digitally
-    // or borrowed. A Series row is **paper regardless**, and it is the one place the medium
-    // does not follow the object: a Series is a publisher's line of *objects*, so its next
-    // position is a thing to buy even where the library has catalogued nothing and there is
-    // nothing to propose. Digital would be a claim about a file this model does not hold.
+    // **The medium follows the object** on a narrative row: the medium that goes through an
+    // object where one carries the Story, and **none at all** where none does — because a
+    // medium is a fact about a Pass and there is no Pass, so a row nothing carries has
+    // nothing to go on and says so. A Series row names that medium **regardless**, and it is
+    // the one place the medium does not follow the object: a Series is a publisher's line of
+    // *objects*, so its next position is a thing to buy even where the library has catalogued
+    // nothing and there is nothing to propose.
     const carrier =
       draft.subject.kind === "story"
         ? carriers.get(draft.subject.id)
         : positions.get(at(draft.subject.id, draft.subject.position));
 
-    const medium = draft.subject.kind === "story" ? mediumOf(carrier) : THE_MEDIUM_AN_OBJECT_MEANS;
+    const medium =
+      draft.subject.kind === "story"
+        ? mediumOf(carrier, theMediumAnObjectMeans)
+        : theMediumAnObjectMeans;
 
     entries.set(theKeyOf(draft.subject), {
       subject: draft.subject,
@@ -417,6 +504,7 @@ export async function composePile(): Promise<Pile> {
     // **The reserve is everything else**, in the order it composed, and nothing sorts it
     // further.
     reserve: [...entries].flatMap(([id, entry]) => (pinned.has(id) ? [] : [entry])),
+    types,
   };
 }
 
@@ -468,25 +556,27 @@ export function theKeyOf(subject: PinnedSubject): string {
 /** An object the library knows about, and whether the owner already means to buy it. */
 type Carrier = { object: PileObject; wishAlreadyOpen: boolean };
 
-// **The two media the composition can name**, and they are named because this derivation is
-// about *objects* rather than about the vocabulary. An entry is an intention nobody has
-// recorded a medium for, so all the library has to go on is whether an object carries it: one
-// that does is paper, and one that does not is a file. Which media a Story could be gone
-// through by is the Type's business and not this list's, and nothing here refuses a
-// vocabulary that has grown — the flag on the row is what every judgement below reads.
-const THE_MEDIUM_AN_OBJECT_MEANS: PileMedium = "paper";
-const THE_MEDIUM_NO_OBJECT_MEANS: PileMedium = "digital";
+// **This file names no medium at all now**, which is the end of the road ADR-0022 started
+// down. It named two by hand — `paper` for a row an object carries and `digital` for one
+// nothing does — and the second was the lie: an entry is an intention nobody has passed
+// through, and *Hades · digital* was a claim about a file, said next to a game nobody plays on
+// one. The first was not a lie but was still a value written here, where the vocabulary
+// already carries the fact underneath it: only paper goes through an object. So both are read
+// off the rows now, and the fourth console changes neither.
 
 /**
- * The medium an entry going through this object — or through none — is intended in.
+ * The medium an entry going through this object — or **none at all** through none.
  *
  * **Both call sites say the medium out loud** rather than letting this be a default, because
  * the two halves answer it differently on purpose and a default would hide the one that
- * overrides: a Series entry is paper even where nothing is catalogued, since a Series is a
- * publisher's line of objects.
+ * overrides: a Series entry names the object's medium even where nothing is catalogued, since
+ * a Series is a publisher's line of objects.
  */
-function mediumOf(carrier: Carrier | undefined): PileMedium {
-  return carrier ? THE_MEDIUM_AN_OBJECT_MEANS : THE_MEDIUM_NO_OBJECT_MEANS;
+function mediumOf(
+  carrier: Carrier | undefined,
+  theMediumAnObjectMeans: PileMedium | null
+): PileMedium | null {
+  return carrier ? theMediumAnObjectMeans : null;
 }
 
 /**
@@ -511,7 +601,7 @@ const PROPOSED_PRIORITY = 2;
  */
 function through(
   carrier: Carrier | undefined,
-  medium: PileMedium,
+  medium: PileMedium | null,
   goesThroughAnObject: boolean
 ): Pick<PileEntry, "medium" | "atHand" | "object" | "proposedWish" | "wishAlreadyOpen"> {
   const inTheHouse = carrier?.object.inTheHouse ?? false;
@@ -521,7 +611,8 @@ function through(
     medium,
     // **A medium that needs no object needs nothing, and one that does needs the object on
     // the shelf.** It named `digital` by hand until the list of media grew (ADR-0022); the
-    // flag says the same thing about digital and about every console at once.
+    // flag says the same thing about digital and about every console at once, and an entry
+    // naming no medium at all is one no object carries, which needs nothing either.
     atHand: !goesThroughAnObject || inTheHouse,
     object: carrier?.object ?? null,
     // **Proposed, never opened.** Only where there is an object to name, the house does

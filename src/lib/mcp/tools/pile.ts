@@ -61,10 +61,17 @@ not claim to know.
 \`subject\` is the thing to take on — a Story, or a position of a Series — and it is what a pin names.
 
 \`medium\` is the **intended** medium and it is derived, never recorded. \`paper\` means an object is
-involved; \`digital\` means none is, because an owned ebook is not something this library models — so
-a Story no Volume carries needs nothing bought. \`atHand: true\` is *can be started tonight*;
-\`atHand: false\` is *has to be bought first*, and it is the difference between a recommendation the
-owner can act on this evening and one that costs money.
+involved. \`null\` means none is, and it is an answer rather than missing data: a medium is a fact
+about a **pass** and nobody has passed through this yet, so where no object carries it the library
+has nothing to go on and does not guess. Read it as *nothing has to be got first* — an unowned
+ebook, a borrowed book, a game — and never as a claim about how the owner will take it on.
+\`atHand: true\` is *can be started tonight*; \`atHand: false\` is *has to be bought first*, and it is
+the difference between a recommendation the owner can act on this evening and one that costs money.
+
+\`types\` is **every Type standing on the list**, in the order the library states them. The Pile
+crosses all of them in this one call and always will — three unread manga and twelve unplayed
+games are one arrears, which is the whole reason weighing them against each other is possible
+(ADR-0021) — so this is what the list *holds*, never a narrowing you have to undo.
 
 \`proposedWish\` is **a proposal and not a Wish**. Where an entry needs an object the owner does not
 have, this is what a Wish on it would say — the Volume's id and a priority — and nothing has been
@@ -73,7 +80,7 @@ deliberate act, and it is the owner's call rather than yours to make quietly.
 \`wishAlreadyOpen: true\` means they already mean to buy it, so there is nothing to propose and
 nothing wrong.
 
-Two absences to read correctly. A \`paper\` entry with **no \`object\`** is one whose Volume the
+Two absences to read correctly. An entry naming a \`medium\` with **no \`object\`** is one whose Volume the
 library has not catalogued — a Series position nobody recorded — so there is nothing to wish for and
 naming the object is the owner's act, or an Inbox proposal, never this list's. And **both lists
 empty** means every active route is walked out, nothing is wanted, every run is finished or set

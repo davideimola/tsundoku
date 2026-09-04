@@ -501,12 +501,16 @@ describe("what a run puts on the list", () => {
 });
 
 describe("the intended medium each entry carries", () => {
-  it("is digital where no object carries the Story: nothing to buy, start it tonight", async () => {
+  it("is none at all where no object carries the Story: nothing to buy, start it tonight", async () => {
     await angoloGiappone();
 
     const [entry] = await reserve();
 
-    expect(entry.medium).toBe("digital");
+    // It read `digital` until a videogame could stand here (#64). A medium is a fact about a
+    // **Pass** and there is no pass, so an entry no object carries has nothing to go on and
+    // names nothing — which costs the answer nothing, because the question the medium exists
+    // for is the line under it and it is the same either way.
+    expect(entry.medium).toBeNull();
     expect(entry.atHand).toBe(true);
     expect(entry.object).toBeNull();
   });
@@ -883,7 +887,7 @@ describe("the head the owner pinned", () => {
 
     // The pin is still stored, and the list is still composed. A pin is an order and
     // never an entry, so there is nothing here for it to bring to the front.
-    expect(await composePile()).toEqual({ head: [], reserve: [] });
+    expect(await composePile()).toEqual({ head: [], reserve: [], types: [] });
     const [{ stored }] = await query<{ stored: string }>("select count(*) as stored from pile_pin");
     expect(stored).toBe("1");
   });
@@ -1021,5 +1025,204 @@ describe("what an entry's tile is drawn from", () => {
     const [entry] = await reserve();
 
     expect(entry.object).toMatchObject({ seriesId: null, seriesNumber: null, cover: null });
+  });
+});
+
+// **A GAME STANDS ON THE PILE**, and the whole of what makes it possible is that it needs
+// nothing new (#64, ADR-0021). A videogame is a Story of Type `Videogame` carrying no object
+// at all, which is the ordinary shape of a Story this model has held since ADR-0001 — so the
+// two sources that name an object are silent for it, the two that name a narrative speak, and
+// the row says it can be started tonight because nothing has to be bought first.
+describe("what a videogame puts on the list", () => {
+  /** *Hades*, wanted and never played, which is the plainest game there is. */
+  async function hades(): Promise<string> {
+    const storyId = await createStory({ title: "Hades", typeId: "videogame" });
+    await openWant(storyId);
+    return storyId;
+  }
+
+  it("stands on the list through the Want, and the row says it can be started tonight", async () => {
+    await hades();
+
+    const [entry] = await reserve();
+
+    expect(entry.story?.title).toBe("Hades");
+    expect(entry.story?.type).toEqual({ id: "videogame", name: "Videogame" });
+    expect(why(entry)).toEqual(["want"]);
+    // Tonight, and it is the flag on the vocabulary that answers it rather than a value
+    // named in the query (ADR-0022): nothing carries this Story, so nothing has to be bought.
+    expect(entry.atHand).toBe(true);
+    expect(entry.object).toBeNull();
+    expect(entry.proposedWish).toBeNull();
+    // And it claims no medium. *Hades · digital* was the row saying something false about a
+    // game while getting the useful half right.
+    expect(entry.medium).toBeNull();
+  });
+
+  it("stands on an active Path, and everything still ahead on that route stands with it", async () => {
+    const pathId = await definePath({ name: "I tre Dark Souls" });
+    const saga = [
+      await createStory({ title: "Dark Souls", typeId: "videogame" }),
+      await createStory({ title: "Dark Souls II", typeId: "videogame" }),
+      await createStory({ title: "Dark Souls III", typeId: "videogame" }),
+    ];
+    await placeStoriesOnPath(pathId, saga);
+
+    const rows = await reserve();
+
+    // Not the next stop alone: what stands behind it has to be visible before it can be
+    // pinned, which is as true of a saga as it is of a run of Batman.
+    expect(rows.map(called)).toEqual(["Dark Souls", "Dark Souls II", "Dark Souls III"]);
+    expect(rows.map((entry) => entry.reasons[0].path?.place)).toEqual([1, 2, 3]);
+    expect(rows.every((entry) => entry.atHand)).toBe(true);
+  });
+
+  it("is put here by neither object source: no run, no line, and no row for either", async () => {
+    await hades();
+
+    const [entry] = await reserve();
+
+    // The run source names Instalments and the Series source names missing Volumes. A game
+    // declares no Instalments and stands in no line, so both have nothing to say — and say
+    // it by contributing nothing rather than by contributing an empty row.
+    expect(why(entry)).toEqual(["want"]);
+    expect(entry.reasons[0].run).toBeNull();
+    expect(entry.reasons[0].series).toBeNull();
+    expect(await reserve()).toHaveLength(1);
+  });
+
+  it("is one row however many reasons it has to be there", async () => {
+    const storyId = await hades();
+    const first = await definePath({ name: "Roguelike" });
+    const second = await definePath({ name: "Da finire" });
+    await placeStoriesOnPath(first, [storyId]);
+    await placeStoriesOnPath(second, [storyId]);
+
+    const rows = await reserve();
+
+    expect(rows).toHaveLength(1);
+    expect(why(rows[0])).toEqual(["want", "path", "path"]);
+  });
+
+  it("is pinned to the head exactly as any other Story is", async () => {
+    const storyId = await hades();
+
+    await pinToPile({ kind: "story", id: storyId });
+
+    const { head, reserve: rest } = await composePile();
+    expect(head.map(called)).toEqual(["Hades"]);
+    expect(head[0].subject).toEqual({ kind: "story", id: storyId });
+    expect(why(head[0])).toEqual(["want"]);
+    expect(rest).toEqual([]);
+
+    await unpinFromPile({ kind: "story", id: storyId });
+    expect((await reserve()).map(called)).toEqual(["Hades"]);
+  });
+});
+
+// **THE PILE, NARROWED BY TYPE** (#64). *Tonight I play* is a decision the owner has often
+// already taken by the time they open the screen, and the list is deliberately unordered for
+// exactly that reason — so the one thing worth doing to it is showing less of it. It changes
+// **what is shown and never the order**: one pile, filtered, because one arrears is what lets
+// a reader weigh three unread manga against twelve unplayed games in a single answer.
+describe("narrowing the Pile by Type", () => {
+  /** Two games and two manga, wanted in that order, so the composed order is known. */
+  async function bothHalves(): Promise<string[]> {
+    const wanted = [
+      await createStory({ title: "Vagabond", typeId: "manga" }),
+      await createStory({ title: "Hades", typeId: "videogame" }),
+      await createStory({ title: "Slam Dunk", typeId: "manga" }),
+      await createStory({ title: "Expedition 33", typeId: "videogame" }),
+    ];
+    for (const storyId of wanted) await openWant(storyId);
+
+    return wanted;
+  }
+
+  it("shows the whole list when nothing is asked for", async () => {
+    await bothHalves();
+
+    expect((await reserve()).map(called)).toEqual([
+      "Expedition 33",
+      "Slam Dunk",
+      "Hades",
+      "Vagabond",
+    ]);
+  });
+
+  it("changes what is shown and never the order", async () => {
+    await bothHalves();
+
+    const { reserve: games } = await composePile({ typeId: "videogame" });
+    expect(games.map(called)).toEqual(["Expedition 33", "Hades"]);
+
+    // The same two rows in the same places they stood in on the whole list: the filter takes
+    // rows out and moves none.
+    const { reserve: whole } = await composePile();
+    expect(whole.map(called).filter((title) => games.map(called).includes(title))).toEqual(
+      games.map(called)
+    );
+
+    const { reserve: manga } = await composePile({ typeId: "manga" });
+    expect(manga.map(called)).toEqual(["Slam Dunk", "Vagabond"]);
+  });
+
+  it("narrows the head the owner pinned, in pin order, without reordering it", async () => {
+    const [vagabond, hades] = await bothHalves();
+    await pinToPile({ kind: "story", id: vagabond });
+    await pinToPile({ kind: "story", id: hades });
+
+    const whole = await composePile();
+    expect(whole.head.map(called)).toEqual(["Hades", "Vagabond"]);
+
+    const games = await composePile({ typeId: "videogame" });
+    expect(games.head.map(called)).toEqual(["Hades"]);
+    expect(games.reserve.map(called)).toEqual(["Expedition 33"]);
+  });
+
+  it("drops a Series position, which names an object and therefore no Type", async () => {
+    await bothHalves();
+    const seriesId = await declareSeries({
+      name: "Death Note",
+      publisher: "Panini",
+      publishedCount: 2,
+      status: "concluded",
+    });
+    await declareSeriesCollected(seriesId);
+
+    expect((await reserve()).map(why)).toContainEqual(["series"]);
+    // A ledger does not claim to know what narrative a Volume carries (ADR-0001), so it has
+    // no Type to be narrowed by and a narrowed list does not offer it.
+    expect((await composePile({ typeId: "manga" })).reserve.map(why)).toEqual([["want"], ["want"]]);
+  });
+
+  it("narrows to nothing on a Type the library does not have, rather than refusing it", async () => {
+    await bothHalves();
+
+    const { head, reserve: rest } = await composePile({ typeId: "banana" });
+    expect(head).toEqual([]);
+    expect(rest).toEqual([]);
+  });
+
+  it("says which Types stand on it, in the Types' own order and whatever the narrowing", async () => {
+    await bothHalves();
+
+    // In the vocabulary's order and not in the order they composed, because the picker that
+    // reads this is offered beside the Story wall's own Type chips.
+    expect((await composePile()).types).toEqual([
+      { id: "manga", name: "Manga" },
+      { id: "videogame", name: "Videogame" },
+    ]);
+
+    // Read off the whole list, so choosing one Type does not take the others off the picker
+    // on the way in and leave no way back.
+    expect((await composePile({ typeId: "videogame" })).types).toEqual([
+      { id: "manga", name: "Manga" },
+      { id: "videogame", name: "Videogame" },
+    ]);
+  });
+
+  it("offers no Type at all where nothing stands on the list", async () => {
+    expect((await composePile()).types).toEqual([]);
   });
 });
