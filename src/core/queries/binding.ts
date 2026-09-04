@@ -15,7 +15,7 @@ import { db } from "../db.ts";
  * deployment.
  *
  * The word is Binding. `format` is the one word `CONTEXT.md` refuses, because in the
- * spreadsheets it meant this in one place and a Reading's medium in another.
+ * spreadsheets it meant this in one place and a Pass's medium in another.
  */
 export type Binding = {
   id: string;

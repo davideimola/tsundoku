@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { catalogueVolume, releaseVolume } from "../verbs/collection.ts";
+import { recordPass } from "../verbs/pass.ts";
 import { definePath, placeStoriesOnPath } from "../verbs/path.ts";
 import { setRating } from "../verbs/rating.ts";
-import { recordReading } from "../verbs/reading.ts";
 import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
@@ -47,14 +47,14 @@ describe("one Volume holding three Stories: L'uomo che ride", () => {
     for (const [title, score] of Object.entries(scores)) {
       const storyId = await createStory({ title, typeId: "comic" });
       await recordVolumeCarriesStory(volumeId, storyId);
-      const readingId = await recordReading({
+      const passId = await recordPass({
         storyId,
         medium: "paper",
         volumeId,
         outcome: "finished",
         provenanceId: "remembered",
       });
-      await setRating({ storyId, readingId, score, provenanceId: "remembered" });
+      await setRating({ storyId, readingId: passId, score, provenanceId: "remembered" });
     }
 
     return volumeId;
@@ -107,7 +107,7 @@ describe("one Story across twenty Volumes: Slam Dunk", () => {
       await recordVolumeCarriesStory(volumeId, storyId);
     }
 
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       outcome: "finished",
@@ -115,7 +115,7 @@ describe("one Story across twenty Volumes: Slam Dunk", () => {
     });
     await setRating({
       storyId,
-      readingId,
+      readingId: passId,
       score: 10,
       prose: "The one that made me read manga.",
       provenanceId: "remembered",
@@ -227,7 +227,7 @@ describe("neither side is derived from the other", () => {
   });
 });
 
-// A Volume the house does not hold still carries what it held: the Readings made through
+// A Volume the house does not hold still carries what it held: the Passes made through
 // it are true, and the owner asking *did I ever have this?* is asking about the past.
 describe("a Volume the owner released", () => {
   it("is still shown as carrying the Story, and says the house has it no more", async () => {
@@ -405,16 +405,16 @@ describe("what stands in the way of unmaking a narrative from the object carryin
     expect(carried?.whyItStands).toMatch(/other objects carry it too/);
   });
 
-  it("names a Reading, a Rating and a Path, each in its own words", async () => {
+  it("names a Pass, a Rating and a Path, each in its own words", async () => {
     const read = await ilLungoHalloween();
-    await recordReading({
+    await recordPass({
       storyId: read.storyId,
       medium: "paper",
       outcome: "finished",
       provenanceId: "remembered",
     });
     expect((await listStoriesInVolume(read.volumeId))[0]?.whyItStands).toMatch(
-      /a Reading went through it/
+      /a Pass went through it/
     );
 
     const judged = await ilLungoHalloween();

@@ -217,7 +217,7 @@ export async function recordVolumeCoversInstalments(
  * Take that fact back: this Volume does not carry this Story after all.
  *
  * It corrects a mistake and does nothing else — the Story stays in the library with its
- * Readings and its Ratings, and the Volume stays in the Collection. A Volume leaving the
+ * Passes and its Ratings, and the Volume stays in the Collection. A Volume leaving the
  * house is a different verb, and it does not touch this link either, because what an object
  * held is still true of the object.
  *

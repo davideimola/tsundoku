@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
 import { findStory } from "../queries/story.ts";
+import { recordPass } from "./pass.ts";
 import { setRating, strikeRating } from "./rating.ts";
-import { recordReading } from "./reading.ts";
 import { createStory } from "./story.ts";
 
 beforeEach(async () => {
@@ -126,10 +126,10 @@ describe("setting a Rating", () => {
     ).rejects.toMatchObject({ name: "Refusal", code: "not-found" });
   });
 
-  it("refuses a Rating pointing at a Reading of some other Story", async () => {
+  it("refuses a Rating pointing at a Pass of some other Story", async () => {
     const one = await createStory({ title: "Berserk", typeId: "manga" });
     const other = await createStory({ title: "Vagabond", typeId: "manga" });
-    const readingOfTheOther = await recordReading({
+    const passOfTheOther = await recordPass({
       storyId: other,
       medium: "paper",
       outcome: "finished",
@@ -139,19 +139,19 @@ describe("setting a Rating", () => {
     await expect(
       setRating({
         storyId: one,
-        readingId: readingOfTheOther,
+        readingId: passOfTheOther,
         score: 9,
         provenanceId: "remembered",
       })
     ).rejects.toMatchObject({
       name: "Refusal",
       code: "not-found",
-      message: "That Reading is not a Reading of this Story.",
+      message: "That Pass is not a Pass of this Story.",
     });
   });
 
   it("replaces the judgement of the Story itself rather than stacking a second one", async () => {
-    // One meaning of "set", whether or not a Reading is named. Without this the same verb
+    // One meaning of "set", whether or not a Pass is named. Without this the same verb
     // would replace in one case and accumulate in the other.
     const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
 
@@ -169,19 +169,19 @@ describe("setting a Rating", () => {
     ]);
   });
 
-  it("replaces the judgement carried by one Reading rather than stacking a second on it", async () => {
+  it("replaces the judgement carried by one Pass rather than stacking a second on it", async () => {
     const storyId = await createStory({ title: "Nausicaa", typeId: "manga" });
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       outcome: "finished",
       provenanceId: "remembered",
     });
 
-    await setRating({ storyId, readingId, score: 7, provenanceId: "remembered" });
+    await setRating({ storyId, readingId: passId, score: 7, provenanceId: "remembered" });
     await setRating({
       storyId,
-      readingId,
+      readingId: passId,
       score: 9,
       prose: "Better than I said.",
       provenanceId: "remembered",
@@ -220,7 +220,7 @@ describe("a Rating and a Volume", () => {
 
 // STRIKING A RATING (ADR-0018). Two acts wanted it: a score typed into the wrong row, which
 // `setRating` cannot answer — saying it again replaces the number and still asserts that the
-// owner judged this book — and the refusal `strikeReading` raises over a rated pass, which
+// owner judged this book — and the refusal `strikePass` raises over a rated pass, which
 // without this would be a refusal with no way to satisfy it.
 describe("striking a Rating", () => {
   it("takes the judgement out and answers with the Story it was about", async () => {
@@ -235,8 +235,13 @@ describe("striking a Rating", () => {
   // is struck by its own id and where it was drawn is not the act.
   it("takes a judgement off the pass it came out of, and leaves the pass standing", async () => {
     const storyId = await createStory({ title: "Pluto", typeId: "manga" });
-    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
-    const ratingId = await setRating({ storyId, readingId, score: 8, provenanceId: "remembered" });
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    const ratingId = await setRating({
+      storyId,
+      readingId: passId,
+      score: 8,
+      provenanceId: "remembered",
+    });
 
     await strikeRating(ratingId);
 

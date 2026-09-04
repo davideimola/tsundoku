@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
 import { listOpenWants, theWantOnTheStory } from "../queries/want.ts";
 import { isRefusal } from "../refusal.ts";
-import { recordReading } from "./reading.ts";
+import { recordPass } from "./pass.ts";
 import { createStory } from "./story.ts";
 import { openWant, strikeWant } from "./want.ts";
 
@@ -68,23 +68,23 @@ describe("opening a Want", () => {
 });
 
 describe("what ends a Want", () => {
-  it("falls quiet once a Reading begins after it, and nothing was written to retire it", async () => {
+  it("falls quiet once a Pass begins after it, and nothing was written to retire it", async () => {
     const storyId = await slamDunk();
     await openWant(storyId);
 
     expect(await listOpenWants()).toHaveLength(1);
 
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
     expect(await listOpenWants()).toEqual([]);
-    // The row is exactly as it was: what answered the Want is the Reading, by comparison.
+    // The row is exactly as it was: what answered the Want is the Pass, by comparison.
     expect(await wants()).toHaveLength(1);
     expect(await theWantOnTheStory(storyId)).toMatchObject({ quiet: true });
   });
 
   it("stands on a Story read years ago, and nothing anywhere says it is a reread", async () => {
     const storyId = await slamDunk();
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "goodreads-history",
@@ -99,10 +99,10 @@ describe("what ends a Want", () => {
     expect(await theWantOnTheStory(storyId)).toMatchObject({ quiet: false });
   });
 
-  it("falls quiet for a Reading dated today, because a date has no time of day", async () => {
+  it("falls quiet for a Pass dated today, because a date has no time of day", async () => {
     const storyId = await slamDunk();
     const today = new Date().toISOString().slice(0, 10);
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "typed-from-the-shelf",
@@ -112,17 +112,17 @@ describe("what ends a Want", () => {
     await openWant(storyId);
 
     // The compromise `queries/want.ts` states, pinned rather than left to be discovered: a
-    // Reading that says only *today* is compared by day, so it counts as having begun after a
+    // Pass that says only *today* is compared by day, so it counts as having begun after a
     // Want opened today. Read as midnight it would be before every Want opened this morning,
     // and the afternoon's reading would leave the Want standing on the list.
     expect(await listOpenWants()).toEqual([]);
   });
 
-  it("stands where an undated old Reading was recorded first, that same evening", async () => {
+  it("stands where an undated old Pass was recorded first, that same evening", async () => {
     const storyId = await slamDunk();
     // *I read this at some point* — no date at all, recorded now — and then *I want to read it
-    // again*. The Want was opened after the Reading was written down, so it is live.
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    // again*. The Want was opened after the Pass was written down, so it is live.
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
     await openWant(storyId);
 

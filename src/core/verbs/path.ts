@@ -59,7 +59,7 @@ export type NewPath = {
 /**
  * Define a Path. Returns its id.
  *
- * It starts **active**, so the Reading list composes from it at once: a route the owner
+ * It starts **active**, so the Pile composes from it at once: a route the owner
  * has just defined is one they mean to walk, and `deactivatePath` is the deliberate act
  * of putting it aside.
  *
@@ -134,13 +134,13 @@ export async function restatePathIntent(pathId: string, intent: string | null): 
   if (changed.length === 0) throw new Refusal("not-found", "That Path is not in the library.");
 }
 
-/** Mark a Path active: the Reading list composes from it again. */
+/** Mark a Path active: the Pile composes from it again. */
 export async function activatePath(pathId: string): Promise<void> {
   await setActive(pathId, true);
 }
 
 /**
- * Put a Path aside. The Reading list stops composing from it; the route survives whole.
+ * Put a Path aside. The Pile stops composing from it; the route survives whole.
  *
  * Inactive rather than deleted, because *Angolo Giappone* paused for a year is not
  * *Angolo Giappone* forgotten — the order in it is a judgement the owner made once and
@@ -174,7 +174,7 @@ async function setActive(pathId: string, active: boolean): Promise<void> {
  * nothing.** It is an order the owner decided, and a decision can be withdrawn by the person
  * who made it. So there is no rail here, and nothing refuses.
  *
- * What forced it is a route that was never one. The Reading list composed itself from active
+ * What forced it is a route that was never one. The Pile composed itself from active
  * Paths and Series alone, so *I want to read this* had no door but minting a named, uniquely
  * indexed route — and the owner minted *Slam Dunk* and hand-copied four of its twenty volumes
  * into it. Now that a **Want** is a fact of its own, that Path is a workaround with a name
@@ -184,9 +184,9 @@ async function setActive(pathId: string, active: boolean): Promise<void> {
  * order survives so the owner never makes it twice; this says *this was never a route*, and
  * the order goes because there was none to keep.
  *
- * **The Stories, the Readings and the Ratings are untouched**, and that is the whole of the
+ * **The Stories, the Passes and the Ratings are untouched**, and that is the whole of the
  * safety. A stop is the route's record of a Story rather than the Story, so what cascades is
- * `path_item`, the constraints declared on this route, and any Reading list pin naming it —
+ * `path_item`, the constraints declared on this route, and any Pile pin naming it —
  * every one of them a fact *about the route*, and worthless once the route is gone.
  *
  * **The owner's act, never the assistant's**, for the reason ADR-0014 gave and ADR-0015
@@ -200,7 +200,7 @@ export async function strikePath(pathId: string): Promise<string> {
   // One statement, and the schema does the rest: every reference to a Path is
   // `on delete cascade`, so the stops, the constraints declared on it and any pin naming it
   // follow it out without this verb naming them one by one. Nothing here has to be cleared
-  // first — a Reading, a Rating and a Story do not reference a route at all, which is the
+  // first — a Pass, a Rating and a Story do not reference a route at all, which is the
   // structural version of "they are left standing".
   const struck = await query<{ name: string }>("delete from path where id = $1 returning name", [
     pathId,
@@ -324,7 +324,7 @@ function noSuchStory(asked: number): string {
     : "One of those is not a Story the library knows.";
 }
 
-/** Take a Story off a Path. The Story, its Readings and its Rating are untouched. */
+/** Take a Story off a Path. The Story, its Passes and its Rating are untouched. */
 export async function removeStoryFromPath(pathId: string, storyId: string): Promise<void> {
   known(pathId, "Path");
   known(storyId, "Story");

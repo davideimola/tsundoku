@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { catalogueVolume, releaseVolume } from "../verbs/collection.ts";
-import { recordReading } from "../verbs/reading.ts";
+import { recordPass } from "../verbs/pass.ts";
 import { declareSeries, declareSeriesCollected, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
@@ -228,12 +228,12 @@ describe("the pile", () => {
     return createStory({ title, typeId: "manga" });
   }
 
-  it("is the Stories with no Reading, counted against every Story there is", async () => {
+  it("is the Stories with no Pass, counted against every Story there is", async () => {
     await unread("Vinland Saga");
     await unread("Vagabond");
 
     const read = await createStory({ title: "Slam Dunk", typeId: "manga" });
-    await recordReading({
+    await recordPass({
       storyId: read,
       medium: "paper",
       provenanceId: "remembered",
@@ -248,13 +248,13 @@ describe("the pile", () => {
 
   it("leaves out a Story being reread, because it is in the owner's hands", async () => {
     const reread = await createStory({ title: "Berserk", typeId: "manga" });
-    await recordReading({
+    await recordPass({
       storyId: reread,
       medium: "paper",
       provenanceId: "remembered",
       outcome: "finished",
     });
-    await recordReading({ storyId: reread, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId: reread, medium: "paper", provenanceId: "remembered" });
 
     const pile = await thePile();
 

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
 import { findPath } from "../queries/path.ts";
 import { isRefusal } from "../refusal.ts";
+import { recordPass } from "./pass.ts";
 import {
   activatePath,
   deactivatePath,
@@ -18,7 +19,6 @@ import {
   withdrawConstraint,
 } from "./path.ts";
 import { setRating } from "./rating.ts";
-import { recordReading } from "./reading.ts";
 import { createStory } from "./story.ts";
 
 // Seam 1, the write side of a Path. What is asserted here is the owner's judgement
@@ -598,28 +598,32 @@ describe("striking a Path", () => {
     expect(left.map((row) => row.prose)).toEqual(["don't accumulate too many unread books"]);
   });
 
-  it("leaves every Story, Reading and Rating the route named exactly as it was", async () => {
+  it("leaves every Story, Pass and Rating the route named exactly as it was", async () => {
     const pathId = await definePath({ name: "Slam Dunk" });
     const [storyId] = await batmanStories();
     await placeStoriesOnPath(pathId, [storyId]);
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "remembered",
       outcome: "finished",
     });
-    const ratingId = await setRating({ storyId, score: 9, provenanceId: "remembered", readingId });
+    const ratingId = await setRating({
+      storyId,
+      score: 9,
+      provenanceId: "remembered",
+      readingId: passId,
+    });
 
     await strikePath(pathId);
 
     expect(await query("select 1 from story where id = $1", [storyId])).toEqual([
       { "?column?": 1 },
     ]);
-    const [reading] = await query<{ outcome: string }>(
-      "select outcome from reading where id = $1",
-      [readingId]
-    );
-    expect(reading.outcome).toBe("finished");
+    const [pass] = await query<{ outcome: string }>("select outcome from pass where id = $1", [
+      passId,
+    ]);
+    expect(pass.outcome).toBe("finished");
     const [rating] = await query<{ score: string }>(
       "select score::text from rating where id = $1",
       [ratingId]

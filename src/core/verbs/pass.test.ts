@@ -2,17 +2,17 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { findStory } from "../queries/story.ts";
-import { setRating, strikeRating } from "./rating.ts";
 import {
-  abandonReading,
-  finishReading,
+  abandonPass,
+  finishPass,
   recordInstalmentReached,
-  recordReading,
-  strikeReading,
-} from "./reading.ts";
+  recordPass,
+  strikePass,
+} from "./pass.ts";
+import { setRating, strikeRating } from "./rating.ts";
 import { createStory, declareInstalments, strikeStories } from "./story.ts";
 
-// Seam 1, against the real Postgres. `truncate story cascade` takes the Readings and
+// Seam 1, against the real Postgres. `truncate story cascade` takes the Passes and
 // the Ratings with it and leaves the two data-row tables — Type and Provenance —
 // alone, because those are schema rather than fixtures.
 beforeEach(async () => {
@@ -21,11 +21,11 @@ beforeEach(async () => {
   await query("truncate story, volume cascade");
 });
 
-describe("recording a Reading", () => {
+describe("recording a Pass", () => {
   it("records when, by what medium, how it ended and how it is known", async () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
 
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2024-03-01",
@@ -47,10 +47,10 @@ describe("recording a Reading", () => {
     ]);
   });
 
-  it("records a Reading with no Volume anywhere in sight — digital, borrowed, or Goodreads history", async () => {
+  it("records a Pass with no Volume anywhere in sight — digital, borrowed, or Goodreads history", async () => {
     const storyId = await createStory({ title: "Vita di Pi", typeId: "novel" });
 
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "digital",
       outcome: "finished",
@@ -69,7 +69,7 @@ describe("recording a Reading", () => {
   it("refuses a medium the model does not have, because digital ownership is not modelled", async () => {
     const storyId = await createStory({ title: "Akira", typeId: "manga" });
 
-    const attempt = recordReading({
+    const attempt = recordPass({
       // @ts-expect-error the type says paper or digital; the database says so too
       medium: "audiobook",
       storyId,
@@ -79,12 +79,12 @@ describe("recording a Reading", () => {
     await expect(attempt).rejects.toMatchObject({
       name: "Refusal",
       code: "invalid",
-      message: "A Reading is on paper or digital, and nothing else.",
+      message: "A Pass is on paper or digital, and nothing else.",
     });
   });
 
-  it("refuses a Reading of a Story that is not in the library", async () => {
-    const attempt = recordReading({
+  it("refuses a Pass through a Story that is not in the library", async () => {
+    const attempt = recordPass({
       storyId: "00000000-0000-0000-0000-000000000000",
       medium: "paper",
       provenanceId: "remembered",
@@ -100,7 +100,7 @@ describe("recording a Reading", () => {
   it("refuses a Provenance nobody declared, so no reading arrives unattributed", async () => {
     const storyId = await createStory({ title: "Sandman", typeId: "comic" });
 
-    const attempt = recordReading({
+    const attempt = recordPass({
       storyId,
       medium: "paper",
       provenanceId: "somebody-told-me",
@@ -113,10 +113,10 @@ describe("recording a Reading", () => {
     });
   });
 
-  it("refuses a Reading that ended before it started", async () => {
+  it("refuses a Pass that ended before it started", async () => {
     const storyId = await createStory({ title: "Berserk", typeId: "manga" });
 
-    const attempt = recordReading({
+    const attempt = recordPass({
       storyId,
       medium: "paper",
       startedOn: "2024-05-10",
@@ -128,14 +128,14 @@ describe("recording a Reading", () => {
     await expect(attempt).rejects.toMatchObject({
       name: "Refusal",
       code: "invalid",
-      message: "A Reading cannot end before it started.",
+      message: "A Pass cannot end before it started.",
     });
   });
 
-  it("refuses an end date on a Reading that has not concluded", async () => {
+  it("refuses an end date on a Pass that has not concluded", async () => {
     const storyId = await createStory({ title: "Monster", typeId: "manga" });
 
-    const attempt = recordReading({
+    const attempt = recordPass({
       storyId,
       medium: "paper",
       endedOn: "2024-05-01",
@@ -145,22 +145,22 @@ describe("recording a Reading", () => {
     await expect(attempt).rejects.toMatchObject({
       name: "Refusal",
       code: "invalid",
-      message: "A Reading that has not ended has no end date.",
+      message: "A Pass that has not ended has no end date.",
     });
   });
 });
 
-describe("concluding a Reading", () => {
+describe("concluding a Pass", () => {
   it("finishes one that was in progress, and records the day it ended", async () => {
     const storyId = await createStory({ title: "Vinland Saga", typeId: "manga" });
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2024-01-02",
       provenanceId: "remembered",
     });
 
-    await finishReading(readingId, "2024-02-11");
+    await finishPass(passId, "2024-02-11");
 
     const story = await findStory(storyId);
     expect(story?.readings[0]).toMatchObject({ outcome: "finished", endedOn: "2024-02-11" });
@@ -168,39 +168,39 @@ describe("concluding a Reading", () => {
 
   it("abandons one that was in progress", async () => {
     const storyId = await createStory({ title: "Ulysses", typeId: "novel" });
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "digital",
       provenanceId: "remembered",
     });
 
-    await abandonReading(readingId, "2024-07-01");
+    await abandonPass(passId, "2024-07-01");
 
     const story = await findStory(storyId);
     expect(story?.readings[0]).toMatchObject({ outcome: "abandoned", endedOn: "2024-07-01" });
   });
 
-  it("refuses to conclude one that has already ended, because a Reading is never overwritten", async () => {
+  it("refuses to conclude one that has already ended, because a Pass is never overwritten", async () => {
     const storyId = await createStory({ title: "Pluto", typeId: "manga" });
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       outcome: "finished",
       provenanceId: "remembered",
     });
 
-    await expect(abandonReading(readingId)).rejects.toMatchObject({
+    await expect(abandonPass(passId)).rejects.toMatchObject({
       name: "Refusal",
       code: "not-allowed",
-      message: "That Reading has already ended. Reading it again is a new Reading.",
+      message: "That Pass has already ended. Going through it again is a new Pass.",
     });
   });
 
-  it("refuses to conclude a Reading that does not exist", async () => {
-    await expect(finishReading("00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({
+  it("refuses to conclude a Pass that does not exist", async () => {
+    await expect(finishPass("00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({
       name: "Refusal",
       code: "not-found",
-      message: "That Reading is not in the library.",
+      message: "That Pass is not in the library.",
     });
   });
 });
@@ -220,24 +220,24 @@ describe("the Instalment a pass reached", () => {
 
   it("records the last Instalment this pass finished, and the run reads 7 of 20", async () => {
     const storyId = await slamDunk();
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2026-01-01",
       provenanceId: "remembered",
     });
 
-    await recordInstalmentReached(readingId, 7);
+    await recordInstalmentReached(passId, 7);
 
     const story = await findStory(storyId);
     expect(story).toMatchObject({ howFarItGot: { atInstalment: 7, instalments: 20 } });
     expect(story?.readings[0]).toMatchObject({ atInstalment: 7, outcome: null });
   });
 
-  it("takes it in the same breath as the Reading itself", async () => {
+  it("takes it in the same breath as the Pass itself", async () => {
     const storyId = await slamDunk();
 
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "goodreads-history",
@@ -251,7 +251,7 @@ describe("the Instalment a pass reached", () => {
 
   it("reads 0 of 20 while nobody has said where they are, which is a measurement", async () => {
     const storyId = await slamDunk();
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
     expect(await findStory(storyId)).toMatchObject({
       howFarItGot: { atInstalment: 0, instalments: 20 },
@@ -268,7 +268,7 @@ describe("the Instalment a pass reached", () => {
 
   it("says nothing at all about a Story nobody numbered", async () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
     expect(await findStory(storyId)).toMatchObject({ howFarItGot: null });
   });
@@ -283,14 +283,14 @@ describe("the Instalment a pass reached", () => {
       binding: "deluxe",
       language: "it",
     });
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       volumeId: omnibus,
       provenanceId: "remembered",
     });
 
-    await recordInstalmentReached(readingId, 12);
+    await recordInstalmentReached(passId, 12);
 
     expect(await findStory(storyId)).toMatchObject({
       howFarItGot: { atInstalment: 12, instalments: 20 },
@@ -299,16 +299,16 @@ describe("the Instalment a pass reached", () => {
 
   it("starts a reread again at nothing, and the pass before it keeps where it got", async () => {
     const storyId = await slamDunk();
-    const gaveUp = await recordReading({
+    const gaveUp = await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2019-01-01",
       provenanceId: "remembered",
     });
     await recordInstalmentReached(gaveUp, 9);
-    await abandonReading(gaveUp, "2019-03-01");
+    await abandonPass(gaveUp, "2019-03-01");
 
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2026-01-01",
@@ -319,15 +319,15 @@ describe("the Instalment a pass reached", () => {
     // Where the owner is *now* is the open pass, which has read none of it — and the pass
     // that gave up in 2019 still says it got to nine.
     expect(story).toMatchObject({ howFarItGot: { atInstalment: 0, instalments: 20 } });
-    expect(story?.readings.map((reading) => reading.atInstalment)).toEqual([null, 9]);
+    expect(story?.readings.map((pass) => pass.atInstalment)).toEqual([null, 9]);
   });
 
   it("is written over rather than added to: I am at seven replaces I am at six", async () => {
     const storyId = await slamDunk();
-    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
-    await recordInstalmentReached(readingId, 6);
-    await recordInstalmentReached(readingId, 7);
+    await recordInstalmentReached(passId, 6);
+    await recordInstalmentReached(passId, 7);
 
     expect(await findStory(storyId)).toMatchObject({
       howFarItGot: { atInstalment: 7, instalments: 20 },
@@ -336,10 +336,10 @@ describe("the Instalment a pass reached", () => {
 
   it("stops counting again, and the run goes back to saying nothing about where it is", async () => {
     const storyId = await slamDunk();
-    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
-    await recordInstalmentReached(readingId, 7);
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    await recordInstalmentReached(passId, 7);
 
-    await recordInstalmentReached(readingId, null);
+    await recordInstalmentReached(passId, null);
 
     expect(await findStory(storyId)).toMatchObject({
       howFarItGot: { atInstalment: 0, instalments: 20 },
@@ -350,9 +350,9 @@ describe("the Instalment a pass reached", () => {
   // the Story, so the migration's trigger is where the rule lives.
   it("refuses an Instalment past the end of the work", async () => {
     const storyId = await slamDunk();
-    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
-    await expect(recordInstalmentReached(readingId, 21)).rejects.toMatchObject({
+    await expect(recordInstalmentReached(passId, 21)).rejects.toMatchObject({
       name: "Refusal",
       code: "invalid",
       message: "That is past the end of this Story. A pass cannot get further than the work goes.",
@@ -361,9 +361,9 @@ describe("the Instalment a pass reached", () => {
 
   it("refuses to stand at an Instalment of a Story that has none", async () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
-    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
-    await expect(recordInstalmentReached(readingId, 2)).rejects.toMatchObject({
+    await expect(recordInstalmentReached(passId, 2)).rejects.toMatchObject({
       name: "Refusal",
       code: "invalid",
       message:
@@ -373,38 +373,38 @@ describe("the Instalment a pass reached", () => {
 
   it("refuses an Instalment that is not a whole part of the work", async () => {
     const storyId = await slamDunk();
-    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
-    await expect(recordInstalmentReached(readingId, 0)).rejects.toMatchObject({
+    await expect(recordInstalmentReached(passId, 0)).rejects.toMatchObject({
       name: "Refusal",
       code: "invalid",
       message: "An Instalment is a whole part of the work, counted from one.",
     });
   });
 
-  it("refuses a Reading the library does not have", async () => {
+  it("refuses a Pass the library does not have", async () => {
     await expect(
       recordInstalmentReached("00000000-0000-0000-0000-000000000000", 3)
     ).rejects.toMatchObject({ name: "Refusal", code: "not-found" });
   });
 });
 
-// STRIKING A READING (ADR-0018). **The pass that never happened**, which the four verbs above
+// STRIKING A PASS (ADR-0018). **The pass that never happened**, which the four verbs above
 // had no answer for: *Start reading it* pressed on the wrong tile in a shop put a Story in
 // `reading` for ever, because the only exits were finishing and giving up — both false
 // statements about a book nobody opened — and striking the Story is refused the moment a
-// Reading exists.
+// Pass exists.
 //
 // It is ADR-0014's boundary applied here: not *is this a delete* but *did anything happen to
 // this record*. The one thing that can have happened to a pass is a judgement.
-describe("striking a Reading", () => {
+describe("striking a Pass", () => {
   it("takes the pass out, and the state follows from what is left", async () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
-    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
     expect((await findStory(storyId))?.state).toBe("reading");
 
-    expect(await strikeReading(readingId)).toBe(storyId);
+    expect(await strikePass(passId)).toBe(storyId);
 
     const story = await findStory(storyId);
     expect(story?.readings).toEqual([]);
@@ -417,16 +417,16 @@ describe("striking a Reading", () => {
   // was real even when the reading of it was a mis-tap.
   it("leaves the Story standing, and the other passes through it", async () => {
     const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
-    const first = await recordReading({
+    const first = await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2019-01-01",
       provenanceId: "remembered",
     });
-    await finishReading(first, "2019-02-01");
-    const misTap = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishPass(first, "2019-02-01");
+    const misTap = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
-    await strikeReading(misTap);
+    await strikePass(misTap);
 
     const story = await findStory(storyId);
     expect(story?.title).toBe("Slam Dunk");
@@ -435,20 +435,20 @@ describe("striking a Reading", () => {
   });
 
   // **The one refusal, and it is the schema's opinion made explicit.**
-  // `rating_belongs_to_the_read_story` is `on delete set null (reading_id)`, so a delete would
+  // `rating_belongs_to_the_story_passed_through` is `on delete set null (pass_id)`, so a delete would
   // leave the judgement standing and quietly turn *what I thought of that reading* into *what
   // I think of the narrative*. That is a different sentence, written by nobody.
   it("refuses a pass the owner judged, and says how to answer it", async () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
-    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
-    await finishReading(readingId, "2024-01-01");
-    await setRating({ storyId, readingId, score: 8, provenanceId: "remembered" });
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishPass(passId, "2024-01-01");
+    await setRating({ storyId, readingId: passId, score: 8, provenanceId: "remembered" });
 
-    await expect(strikeReading(readingId)).rejects.toMatchObject({
+    await expect(strikePass(passId)).rejects.toMatchObject({
       name: "Refusal",
       code: "not-allowed",
       message:
-        "That Reading stays: you judged that reading. Strike the score first — a judgement of a pass is not a judgement of the narrative, and this is the one act that could quietly make it one.",
+        "That Pass stays: you judged that pass. Strike the score first — a judgement of a pass is not a judgement of the narrative, and this is the one act that could quietly make it one.",
     });
 
     // And nothing moved: a refused strike is not half a strike.
@@ -459,17 +459,17 @@ describe("striking a Reading", () => {
   // to be answerable, or it is the dead end this ADR was written about.
   it("goes through once the judgement is struck, and the Story can then be struck too", async () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
-    const readingId = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
-    await finishReading(readingId, "2024-01-01");
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishPass(passId, "2024-01-01");
     const ratingId = await setRating({
       storyId,
-      readingId,
+      readingId: passId,
       score: 8,
       provenanceId: "remembered",
     });
 
     await strikeRating(ratingId);
-    await strikeReading(readingId);
+    await strikePass(passId);
 
     // Nothing has happened to it any more, so the last door opens as well — which is what
     // being able to undo a mis-tap actually means.
@@ -477,18 +477,18 @@ describe("striking a Reading", () => {
     expect(await findStory(storyId)).toBeNull();
   });
 
-  it("refuses a Reading the library does not have", async () => {
-    await expect(strikeReading("00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({
+  it("refuses a Pass the library does not have", async () => {
+    await expect(strikePass("00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({
       name: "Refusal",
       code: "not-found",
-      message: "That Reading is not in the library.",
+      message: "That Pass is not in the library.",
     });
   });
 
   // A malformed id is the same event as an unknown one, never a syntax error crossing the
   // core's edge as a 500 (`verbs/path.ts` states the rule).
   it("refuses an id no row could have", async () => {
-    await expect(strikeReading("banana")).rejects.toMatchObject({
+    await expect(strikePass("banana")).rejects.toMatchObject({
       name: "Refusal",
       code: "not-found",
     });

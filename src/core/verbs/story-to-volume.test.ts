@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { listStoriesInVolume, listVolumesCarryingStory } from "../queries/story-to-volume.ts";
-import { recordReading } from "./reading.ts";
+import { recordPass } from "./pass.ts";
 import { declareSeries, placeVolumeInSeries } from "./series.ts";
 import { createStory, declareInstalments } from "./story.ts";
 import {
@@ -116,14 +116,14 @@ describe("recording that a Volume no longer carries a Story", () => {
   });
 });
 
-// The third fact this join makes expressible, and the column the Reading slice left out
+// The third fact this join makes expressible, and the column the Pass slice left out
 // rather than pointing at a table nothing had built.
-describe("the Volume a Reading went through", () => {
+describe("the Volume a Pass went through", () => {
   it("is recorded where there was one", async () => {
     const volumeId = await aVolume("L'uomo che ride");
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
 
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       volumeId,
@@ -132,36 +132,36 @@ describe("the Volume a Reading went through", () => {
     });
 
     const [row] = await query<{ volume_id: string | null }>(
-      "select volume_id from reading where story_id = $1",
+      "select volume_id from pass where story_id = $1",
       [storyId]
     );
     expect(row.volume_id).toBe(volumeId);
   });
 
-  it("is absent for a Reading that went through no object, which is the ordinary case", async () => {
+  it("is absent for a Pass that went through no object, which is the ordinary case", async () => {
     const storyId = await createStory({ title: "Vita di Pi", typeId: "novel" });
 
-    await recordReading({ storyId, medium: "digital", provenanceId: "goodreads-history" });
+    await recordPass({ storyId, medium: "digital", provenanceId: "goodreads-history" });
 
     const [row] = await query<{ volume_id: string | null }>(
-      "select volume_id from reading where story_id = $1",
+      "select volume_id from pass where story_id = $1",
       [storyId]
     );
     expect(row.volume_id).toBeNull();
   });
 
-  // Digital ownership is not modelled, so there is no object a digital Reading could have
-  // gone through: an ebook is a Reading with a digital medium and no Volume.
-  it("cannot be a digital Reading's, because there is no digital object", async () => {
+  // Digital ownership is not modelled, so there is no object a digital Pass could have
+  // gone through: an ebook is a Pass with a digital medium and no Volume.
+  it("cannot be a digital Pass's, because there is no digital object", async () => {
     const volumeId = await aVolume("L'uomo che ride");
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
 
     await expect(
-      recordReading({ storyId, medium: "digital", volumeId, provenanceId: "remembered" })
+      recordPass({ storyId, medium: "digital", volumeId, provenanceId: "remembered" })
     ).rejects.toMatchObject({
       name: "Refusal",
       code: "invalid",
-      message: "A Reading on digital went through no Volume: an owned ebook is not a thing here.",
+      message: "A Pass on digital went through no Volume: an owned ebook is not a thing here.",
     });
   });
 
@@ -169,7 +169,7 @@ describe("the Volume a Reading went through", () => {
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
 
     await expect(
-      recordReading({ storyId, medium: "paper", volumeId: NO_SUCH_ID, provenanceId: "remembered" })
+      recordPass({ storyId, medium: "paper", volumeId: NO_SUCH_ID, provenanceId: "remembered" })
     ).rejects.toMatchObject({
       name: "Refusal",
       code: "not-found",

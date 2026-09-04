@@ -375,7 +375,7 @@ export async function recordSeriesPublishesStory(
 /**
  * Take that back: this Series publishes no Story after all.
  *
- * The Story stays in the library with its Readings, its Ratings and every object carrying
+ * The Story stays in the library with its Passes, its Ratings and every object carrying
  * it, and the Series stays a ledger with everything it counts — what goes is the arrow, and
  * the Series simply stops saying what it prints, which is where every Series stood before
  * this fact existed. A Volume placed in it afterwards attaches to nothing again.
@@ -543,7 +543,7 @@ export async function placeVolumeInSeries(
 // **What is carried across is everything the owner has lived with**, because the collapse must
 // not be a way of losing a fact:
 //
-//   the Ratings and the Readings  the events and the judgement move onto the work, which is the
+//   the Ratings and the Passes  the events and the judgement move onto the work, which is the
 //                                 whole point — a score given to volume seven was always a score
 //                                 about the run
 //   the Credits                   an attribution is of a **narrative** (ADR-0012), so twenty
@@ -599,7 +599,7 @@ const JUDGED_APART =
  * from is the only difference between them**. Standing on a Story, they say *this line
  * publishes this*; standing on nothing, the work has to be made before it can be published.
  * Everything after that sentence — the collapse, the seven refusals, the Ratings and the
- * Readings and the Credits and the stops carried across — is one piece of behaviour.
+ * Passes and the Credits and the stops carried across — is one piece of behaviour.
  */
 export type TheWorkTheLinePrints = {
   /**
@@ -690,7 +690,7 @@ export async function mergeSeriesIntoOneStory(
             `select s.id,
                     s.title,
                     exists (select 1 from rating g
-                             where g.story_id = s.id and g.reading_id is null) as judged
+                             where g.story_id = s.id and g.pass_id is null) as judged
                from story s
               where s.id = $1`,
             [work.storyId]
@@ -726,8 +726,8 @@ export async function mergeSeriesIntoOneStory(
                        where other.story_id = s.id
                          and ov.series_id is distinct from $1) as elsewhere,
               exists (select 1 from rating g
-                       where g.story_id = s.id and g.reading_id is null) as judged,
-              exists (select 1 from reading r
+                       where g.story_id = s.id and g.pass_id is null) as judged,
+              exists (select 1 from pass r
                        where r.story_id = s.id and r.at_instalment is not null) as counted
          from story s
         where exists (select 1
@@ -768,10 +768,10 @@ export async function mergeSeriesIntoOneStory(
       );
     }
 
-    // A work has one score, and the schema says so: one Rating per Story that names no Reading.
+    // A work has one score, and the schema says so: one Rating per Story that names no Pass.
     // So two of them are two judgements the collapse cannot keep, and it is refused rather than
-    // quietly keeping whichever Postgres reached first. A Rating that names a Reading travels
-    // with that Reading and collides with nothing.
+    // quietly keeping whichever Postgres reached first. A Rating that names a Pass travels
+    // with that Pass and collides with nothing.
     //
     // **The work counts as one of the judgements**, and it leads them: a Story the owner has
     // already scored, published by a line one of whose narratives is scored too, is two scores
@@ -841,8 +841,8 @@ export async function mergeSeriesIntoOneStory(
       () => "The objects of this Series could not be said to carry one Story."
     );
 
-    // **One statement, because the two halves refer to each other.** A Rating names the Reading
-    // it came out of *and* the Story that Reading went through, as one foreign key, so moving
+    // **One statement, because the two halves refer to each other.** A Rating names the Pass
+    // it came out of *and* the Story that Pass went through, as one foreign key, so moving
     // either on its own leaves the pair disagreeing for as long as the statement lasts — and
     // that key is checked at the end of each statement rather than at the end of the
     // transaction. Moved together, they are consistent when anybody looks.
@@ -850,7 +850,7 @@ export async function mergeSeriesIntoOneStory(
       () =>
         run(
           `with passes as (
-             update reading set story_id = $1 where story_id = any($2::uuid[]) returning id
+             update pass set story_id = $1 where story_id = any($2::uuid[]) returning id
            ), judgements as (
              update rating set story_id = $1 where story_id = any($2::uuid[]) returning id
            )
@@ -859,9 +859,9 @@ export async function mergeSeriesIntoOneStory(
         ),
       (constraint) => {
         switch (constraint) {
-          case "reading_at_instalment_is_within_the_work":
+          case "pass_at_instalment_is_within_the_work":
             return "A pass through one of these narratives got further than this line goes. Nothing was merged.";
-          case "rating_is_one_per_story_and_reading":
+          case "rating_is_one_per_story_and_pass":
             return `Two of these narratives ${JUDGED_APART}`;
           default:
             return "What you have read of this line could not be carried onto one Story.";
@@ -909,7 +909,7 @@ export async function mergeSeriesIntoOneStory(
     );
 
     // One open Want per Story, so several become one — and it is the **most recent** of them
-    // rather than the first. A Want falls quiet when a Reading began after it was opened, so
+    // rather than the first. A Want falls quiet when a Pass began after it was opened, so
     // keeping the oldest could quiet an intention that was live a moment ago; keeping the newest
     // never does, and a merge must not answer a Want the owner had not answered. The work's own
     // open Want is one of them where the owner named a Story they already meant to read, and it
@@ -942,12 +942,12 @@ export async function mergeSeriesIntoOneStory(
       () =>
         run(
           `with gone as (
-             delete from reading_list_pin where story_id = any($2::uuid[]) or story_id = $1
+             delete from pile_pin where story_id = any($2::uuid[]) or story_id = $1
              returning pinned_at
            ), kept as (
              select max(pinned_at) as pinned_at from gone
            )
-           insert into reading_list_pin (story_id, pinned_at)
+           insert into pile_pin (story_id, pinned_at)
            select $1, pinned_at from kept where pinned_at is not null`,
           [printed, collapsed]
         ),

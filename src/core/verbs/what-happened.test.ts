@@ -52,10 +52,10 @@ async function stories(): Promise<{ id: string; title: string }[]> {
   return query("select id, title from story order by title");
 }
 
-async function readings(): Promise<
+async function passes(): Promise<
   { story_id: string; medium: string; volume_id: string | null; outcome: string | null }[]
 > {
-  return query("select story_id, medium, volume_id, outcome from reading");
+  return query("select story_id, medium, volume_id, outcome from pass");
 }
 
 async function wants(): Promise<{ story_id: string }[]> {
@@ -388,7 +388,7 @@ describe("I bought it", () => {
 });
 
 describe("I read it", () => {
-  it("records a Reading with no object at all, and the Story appears", async () => {
+  it("records a Pass with no object at all, and the Story appears", async () => {
     const said = await sayWhatHappened({
       title: "Daredevil: L'Uomo Senza Paura",
       typeId: "comic",
@@ -401,7 +401,7 @@ describe("I read it", () => {
     expect(said.appeared).toEqual([storyId]);
     expect(said.volumeId).toBeNull();
 
-    expect(await readings()).toEqual([
+    expect(await passes()).toEqual([
       { story_id: storyId, medium: "digital", volume_id: null, outcome: "finished" },
     ]);
 
@@ -421,16 +421,16 @@ describe("I read it", () => {
     });
 
     const [storyId] = said.storyIds;
-    expect(await readings()).toEqual([
+    expect(await passes()).toEqual([
       { story_id: storyId, medium: "paper", volume_id: null, outcome: "finished" },
     ]);
 
     expect(await query("select id from volume")).toEqual([]);
   });
 
-  // The medium is the Reading's own check constraint and the prose is `recordReading`'s: this
+  // The medium is the Pass's own check constraint and the prose is `recordPass`'s: this
   // door has no copy of it to keep true, and the sentence the owner reads is the verb's.
-  it("refuses a medium that is neither, in the Reading's own words", async () => {
+  it("refuses a medium that is neither, in the Pass's own words", async () => {
     await expect(
       sayWhatHappened({
         title: "Il nome della rosa",
@@ -440,7 +440,7 @@ describe("I read it", () => {
       })
     ).rejects.toMatchObject({
       name: "Refusal",
-      message: "A Reading is on paper or digital, and nothing else.",
+      message: "A Pass is on paper or digital, and nothing else.",
     });
 
     // The whole sentence is one transaction, so a medium that is not one leaves no narrative
@@ -469,7 +469,7 @@ describe("I want to read it", () => {
     expect(await stories()).toEqual([{ id: storyId, title: "Vagabond" }]);
     expect(await wants()).toEqual([{ story_id: storyId }]);
     expect(await query("select id from volume")).toEqual([]);
-    expect(await readings()).toEqual([]);
+    expect(await passes()).toEqual([]);
   });
 
   it("says nothing about a Path, a Wish or an order", async () => {
@@ -511,7 +511,7 @@ describe("I want to buy it", () => {
     expect(await inside(object.id)).toEqual(["Vinland Saga 1"]);
   });
 
-  it("says nothing about reading it: no Want, no Reading", async () => {
+  it("says nothing about reading it: no Want, no Pass", async () => {
     await sayWhatHappened({
       title: "Vinland Saga 1",
       typeId: "manga",
@@ -520,7 +520,7 @@ describe("I want to buy it", () => {
     });
 
     expect(await wants()).toEqual([]);
-    expect(await readings()).toEqual([]);
+    expect(await passes()).toEqual([]);
   });
 
   // The arrow reaches this sentence the way it reaches the other one, and it now reaches it

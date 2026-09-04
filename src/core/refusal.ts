@@ -86,11 +86,11 @@ type DatabaseError = { code?: string; constraint?: string; detail?: string };
  *
  * ```ts
  * await refusing(
- *   () => query("insert into reading (…) values ($1, $2)", [storyId, readAt]),
+ *   () => query("insert into pass (…) values ($1, $2)", [storyId, readAt]),
  *   (constraint) =>
- *     constraint === "reading_story_exists"
+ *     constraint === "pass_story_exists"
  *       ? "That Story is not in the library yet."
- *       : "That Reading could not be recorded."
+ *       : "That Pass could not be recorded."
  * );
  * ```
  *

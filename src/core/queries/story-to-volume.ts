@@ -103,7 +103,7 @@ export type CarryingVolume = {
   seriesNumber: number | null;
   /**
    * Whether the Collection claims it right now. A Volume the house does not hold still
-   * carries what it held — the Reading made through it is still true — so it is answered
+   * carries what it held — the Pass made through it is still true — so it is answered
    * with rather than hidden, and marked.
    *
    * A boolean rather than the day it left, since the catalogue and the Collection came
@@ -373,7 +373,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // It is a **gap and not a state** (`CONTEXT.md`, Volume): nothing refuses such an object, and
 // two ordinary paths produce one — a Volume approved from the Inbox, which may name Stories
 // only by an id the assistant found and often names none, and one catalogued from a
-// photograph before the owner knows what is inside. But it stands in no Reading list and
+// photograph before the owner knows what is inside. But it stands in no Pile and
 // takes no judgement, so left alone it sits where no screen reaches. There is no verb here
 // and nothing to repair: what closes the gap is the owner naming the contents where the
 // object is, and this query is only how they find the object.

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
+import { abandonPass, finishPass, recordPass } from "../verbs/pass.ts";
 import {
   deactivatePath,
   declareConstraint,
@@ -8,7 +9,6 @@ import {
   moveStoryOnPath,
   placeStoriesOnPath,
 } from "../verbs/path.ts";
-import { abandonReading, finishReading, recordReading } from "../verbs/reading.ts";
 import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
@@ -94,11 +94,11 @@ describe("a Path, whole", () => {
   it("says where the owner is with each Story, derived and not stored", async () => {
     const { pathId, stories } = await angoloGiappone();
 
-    await finishReading(
-      await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
+    await finishPass(
+      await recordPass({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
       "2024-02-02"
     );
-    await recordReading({ storyId: stories[1], medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId: stories[1], medium: "paper", provenanceId: "remembered" });
 
     expect((await findPath(pathId))?.stops.map((stop) => stop.state)).toEqual([
       "read",
@@ -125,8 +125,8 @@ describe("the next unread Story of a Path", () => {
   it("moves on when the owner finishes one", async () => {
     const { pathId, stories } = await angoloGiappone();
 
-    await finishReading(
-      await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
+    await finishPass(
+      await recordPass({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
       "2024-02-02"
     );
 
@@ -136,7 +136,7 @@ describe("the next unread Story of a Path", () => {
   it("skips a Story the owner is in the middle of, because it is not what comes next", async () => {
     const { pathId, stories } = await angoloGiappone();
 
-    await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId: stories[0], medium: "paper", provenanceId: "remembered" });
 
     expect((await nextUnreadOnPath(pathId))?.title).toBe("Lone Wolf and Cub");
   });
@@ -144,8 +144,8 @@ describe("the next unread Story of a Path", () => {
   it("skips a Story the owner gave up on", async () => {
     const { pathId, stories } = await angoloGiappone();
 
-    await abandonReading(
-      await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
+    await abandonPass(
+      await recordPass({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
       "2024-02-02"
     );
 
@@ -165,8 +165,8 @@ describe("the next unread Story of a Path", () => {
     const { pathId, stories } = await angoloGiappone();
 
     for (const story of stories) {
-      await finishReading(
-        await recordReading({ storyId: story, medium: "paper", provenanceId: "remembered" }),
+      await finishPass(
+        await recordPass({ storyId: story, medium: "paper", provenanceId: "remembered" }),
         "2024-02-02"
       );
     }
@@ -222,8 +222,8 @@ describe("what comes next on every active Path", () => {
   it("leaves out an exhausted route rather than answering with nothing for it", async () => {
     const { stories } = await angoloGiappone();
     for (const story of stories) {
-      await finishReading(
-        await recordReading({ storyId: story, medium: "paper", provenanceId: "remembered" }),
+      await finishPass(
+        await recordPass({ storyId: story, medium: "paper", provenanceId: "remembered" }),
         "2024-02-02"
       );
     }
@@ -252,15 +252,15 @@ describe("what comes next on every active Path", () => {
 describe("everything still ahead on every active Path", () => {
   it("is every stop still to read, in the owner's order and not just the next one", async () => {
     const { stories } = await angoloGiappone();
-    await finishReading(
-      await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
+    await finishPass(
+      await recordPass({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
       "2024-02-02"
     );
 
     const [route] = await stillAheadOnActivePaths();
 
     // What stands behind the next stop has to be visible before the owner can pin it,
-    // which is what the Reading list's head is for (#40).
+    // which is what the Pile's head is for (#40).
     expect(route.path.name).toBe("Angolo Giappone");
     expect(titles(route.ahead)).toEqual(["Lone Wolf and Cub", "Musashi"]);
   });
@@ -284,8 +284,8 @@ describe("everything still ahead on every active Path", () => {
 
     const walked = await definePath({ name: "Recupero Batman" });
     await placeStoriesOnPath(walked, [stories[0]]);
-    await finishReading(
-      await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
+    await finishPass(
+      await recordPass({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
       "2024-02-02"
     );
 
@@ -296,8 +296,8 @@ describe("everything still ahead on every active Path", () => {
 describe("the Paths, as a list", () => {
   it("counts the route and what is left of it, and puts the active ones first", async () => {
     const { pathId, stories } = await angoloGiappone();
-    await finishReading(
-      await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
+    await finishPass(
+      await recordPass({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
       "2024-02-02"
     );
 

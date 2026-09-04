@@ -192,7 +192,7 @@ export async function libraryInFigures(): Promise<LibraryInFigures> {
  * library.
  *
  * A Story being reread is not in it. That is `STORY_STATE`'s judgement and not this file's —
- * an open Reading wins over a finished one, so a Story in the owner's hands right now is
+ * an open Pass wins over a finished one, so a Story in the owner's hands right now is
  * `reading` and the pile is what has never been opened.
  */
 export type ThePile = {

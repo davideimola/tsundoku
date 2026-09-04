@@ -12,7 +12,7 @@ import {
   strikeVolumes,
 } from "./collection.ts";
 import { writeEditionNote } from "./edition-note.ts";
-import { recordReading } from "./reading.ts";
+import { recordPass } from "./pass.ts";
 import { createStory } from "./story.ts";
 import { openWish } from "./wish.ts";
 
@@ -20,7 +20,7 @@ import { openWish } from "./wish.ts";
 // what the owner can see afterwards — the Collection — rather than the row that was
 // written, because the row is the schema's business and the Collection is the product.
 // `cascade` since the Story to Volume slice: a Volume is now referred to by the join saying
-// what it carries, by its Edition note, by an acquisition and by the Readings that went
+// what it carries, by its Edition note, by an acquisition and by the Passes that went
 // through it, so truncating it alone is refused. Those go with it, which is what this file
 // wants; Binding stays, because a data row is schema rather than a fixture.
 beforeEach(async () => {
@@ -335,10 +335,10 @@ describe("striking a Volume from the catalogue", () => {
     );
   });
 
-  it("refuses one a Reading went through, because that is an event in the owner's life", async () => {
+  it("refuses one a Pass went through, because that is an event in the owner's life", async () => {
     const read = await volumeInTheHouse(aTankobon());
     const story = await createStory({ title: "Slam Dunk", typeId: "manga" });
-    await recordReading({
+    await recordPass({
       storyId: story,
       medium: "paper",
       volumeId: read,
@@ -347,7 +347,7 @@ describe("striking a Volume from the catalogue", () => {
     await releaseVolume(read);
 
     await expect(strikeVolumes([read])).rejects.toSatisfy(
-      (error: unknown) => isRefusal(error) && error.message.includes("Reading")
+      (error: unknown) => isRefusal(error) && error.message.includes("Pass")
     );
   });
 

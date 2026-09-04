@@ -7,9 +7,9 @@ import { listStoriesInVolume } from "../queries/story-to-volume.ts";
 import { isRefusal } from "../refusal.ts";
 import { catalogueVolume } from "./collection.ts";
 import { creditStory } from "./credit.ts";
+import { recordInstalmentReached, recordPass } from "./pass.ts";
 import { definePath, placeStoriesOnPath } from "./path.ts";
 import { setRating } from "./rating.ts";
-import { recordInstalmentReached, recordReading } from "./reading.ts";
 import {
   declareSeries,
   placeVolumeInSeries,
@@ -217,8 +217,8 @@ describe("amending a Story", () => {
 
   // Everything the record is *about* is about this same row, so renaming reaches all of it and
   // moves none of it. Asserted because the alternative — a rename that minted a second Story
-  // and left the Readings on the first — is exactly the drift the one door was built to end.
-  it("leaves the Readings, the Rating and the objects on the record it renamed", async () => {
+  // and left the Passes on the first — is exactly the drift the one door was built to end.
+  it("leaves the Passes, the Rating and the objects on the record it renamed", async () => {
     const work = await createStory({ title: "Slam Dunk 1", typeId: "manga" });
     const { id: volumeId } = await catalogueVolume({
       title: "Slam Dunk 1",
@@ -227,19 +227,19 @@ describe("amending a Story", () => {
       language: "it",
     });
     await recordVolumeCarriesStory(volumeId, work);
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId: work,
       medium: "paper",
       provenanceId: "remembered",
     });
-    await setRating({ storyId: work, readingId, score: 9, provenanceId: "remembered" });
+    await setRating({ storyId: work, readingId: passId, score: 9, provenanceId: "remembered" });
 
     await amendStory(work, { title: "Slam Dunk" });
 
     expect(await findStory(work)).toMatchObject({
       title: "Slam Dunk",
       latestScore: 9,
-      readings: [{ id: readingId }],
+      readings: [{ id: passId }],
     });
     expect(await query("select count(*)::int as n from story")).toEqual([{ n: 1 }]);
   });
@@ -345,18 +345,18 @@ describe("striking a Story from the library", () => {
     );
   });
 
-  it("refuses one a Reading went through, because that is an event in the owner's life", async () => {
+  it("refuses one a Pass went through, because that is an event in the owner's life", async () => {
     const read = await aRecorded("Slam Dunk");
-    await recordReading({ storyId: read, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId: read, medium: "paper", provenanceId: "remembered" });
 
     await expect(strikeStories([read])).rejects.toSatisfy(
-      (error: unknown) => isRefusal(error) && error.message.includes("Reading")
+      (error: unknown) => isRefusal(error) && error.message.includes("Pass")
     );
   });
 
   // The judgement is the one record that is only ever about the narrative (ADR-0001), so a
-  // score with no Reading behind it — a sheet's column, imported — still refuses.
-  it("refuses one the owner judged, even with no Reading to point at", async () => {
+  // score with no Pass behind it — a sheet's column, imported — still refuses.
+  it("refuses one the owner judged, even with no Pass to point at", async () => {
     const judged = await aRecorded("Vinland Saga");
     await setRating({ storyId: judged, score: 9, provenanceId: "remembered" });
 
@@ -379,7 +379,7 @@ describe("striking a Story from the library", () => {
   it("strikes nothing at all when one of the selection stands", async () => {
     const duplicate = await aRecorded("Slam Dunk 5");
     const read = await aRecorded("Slam Dunk 6");
-    await recordReading({ storyId: read, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId: read, medium: "paper", provenanceId: "remembered" });
 
     await expect(strikeStories([duplicate, read])).rejects.toSatisfy(isRefusal);
     expect(await listStoriesNothingHasHappenedTo()).toMatchObject([{ id: duplicate }]);
@@ -439,7 +439,7 @@ describe("the Stories nothing has happened to", () => {
 
   it("holds none of the four the verb refuses, so no tick can reach one", async () => {
     const read = await createStory({ title: "Slam Dunk", typeId: "manga" });
-    await recordReading({ storyId: read, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId: read, medium: "paper", provenanceId: "remembered" });
 
     const judged = await createStory({ title: "Vinland Saga", typeId: "manga" });
     await setRating({ storyId: judged, score: 9, provenanceId: "remembered" });
@@ -482,7 +482,7 @@ describe("the Stories nothing has happened to", () => {
 // narrative it stood for is dropped in the same act.
 //
 // The refusals are the whole of it, and they are Striking's own posture asked about a
-// narrative the object stands for: a Reading or a Rating is something the owner has lived
+// narrative the object stands for: a Pass or a Rating is something the owner has lived
 // with, and a split that took either with it would be a delete of their past wearing a
 // tidier name (ADR-0015).
 describe("splitting an object into the Stories it holds", () => {
@@ -573,13 +573,13 @@ describe("splitting an object into the Stories it holds", () => {
     expect(await findStory(legno ?? "")).toMatchObject({ title: "Uomo di legno" });
   });
 
-  it("refuses once a Reading has gone through the narrative, and splits nothing", async () => {
+  it("refuses once a Pass has gone through the narrative, and splits nothing", async () => {
     const { volumeId, storyId } = await lUomoCheRide();
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
     await expect(splitVolumeIntoStories(volumeId, THE_THREE)).rejects.toSatisfy(
       (error: unknown) =>
-        isRefusal(error) && error.code === "not-allowed" && error.message.includes("a Reading")
+        isRefusal(error) && error.code === "not-allowed" && error.message.includes("a Pass")
     );
 
     expect((await listStoriesInVolume(volumeId)).map((story) => story.id)).toEqual([storyId]);
@@ -657,7 +657,7 @@ describe("splitting an object into the Stories it holds", () => {
 
   // **The edge this gesture leaves open, pinned rather than left silent.** Striking refuses a
   // Story a Path names as a stop (ADR-0015); a split does not, because the decision behind it
-  // names a Reading and a Rating and nothing else. So the stop goes with the narrative it
+  // names a Pass and a Rating and nothing else. So the stop goes with the narrative it
   // named, the route keeps its other stops, and this test is where that is written down until
   // the owner says which of the two acts is right.
   it("takes a Path stop naming the dropped narrative with it, and leaves the route standing", async () => {
@@ -754,12 +754,12 @@ describe("declaring how many Instalments a Story has", () => {
   it("refuses to shorten a work past a pass that has already got further", async () => {
     const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
     await declareInstalments(storyId, 20);
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "remembered",
     });
-    await recordInstalmentReached(readingId, 7);
+    await recordInstalmentReached(passId, 7);
 
     await expect(declareInstalments(storyId, 5)).rejects.toMatchObject({
       name: "Refusal",
@@ -774,12 +774,12 @@ describe("declaring how many Instalments a Story has", () => {
   it("refuses to take the numbering away while a pass stands at one of its Instalments", async () => {
     const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
     await declareInstalments(storyId, 20);
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "remembered",
     });
-    await recordInstalmentReached(readingId, 7);
+    await recordInstalmentReached(passId, 7);
 
     await expect(declareInstalments(storyId, null)).rejects.toMatchObject({
       name: "Refusal",
@@ -934,12 +934,12 @@ describe("the count of Instalments following the line", () => {
   // arrives on the ledger's own verb, because that is the write the owner made.
   it("refuses lowering the count published under a pass that has read further", async () => {
     const { storyId, seriesId } = await aLinePublishing("Slam Dunk", 20);
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "remembered",
     });
-    await recordInstalmentReached(readingId, 7);
+    await recordInstalmentReached(passId, 7);
 
     await expect(recordVolumesPublished(seriesId, 5)).rejects.toMatchObject({
       name: "Refusal",
@@ -1073,9 +1073,9 @@ describe("striking a narrative from the object that carries it", () => {
     expect(await findStory(storyId)).not.toBeNull();
   });
 
-  it("refuses a narrative a Reading went through", async () => {
+  it("refuses a narrative a Pass went through", async () => {
     const { volumeId, storyId } = await ilLungoHalloween();
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       volumeId,
@@ -1084,7 +1084,7 @@ describe("striking a narrative from the object that carries it", () => {
     });
 
     await expect(strikeStoryCarriedBy(volumeId, storyId)).rejects.toSatisfy(
-      (error) => isRefusal(error) && /a Reading went through it/.test(error.message)
+      (error) => isRefusal(error) && /a Pass went through it/.test(error.message)
     );
     expect(await findStory(storyId)).not.toBeNull();
   });

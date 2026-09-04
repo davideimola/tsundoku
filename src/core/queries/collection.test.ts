@@ -19,7 +19,7 @@ import {
 // Seam 1. The Collection is the question asked standing in a shop, so what is asserted
 // here is what the owner sees after typing a word into it.
 // `cascade` since the Story to Volume slice: a Volume is now referred to by the join that
-// says what it carries, and by the Readings that went through it, so truncating it alone is
+// says what it carries, and by the Passes that went through it, so truncating it alone is
 // refused. Both go with it, which is what this file wants — and the two data-row tables,
 // Type and Binding, stay, because those are schema rather than fixtures.
 // `series` joined them when the wall arrived: the wall is *ordered* by the line an object

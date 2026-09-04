@@ -20,7 +20,7 @@ import {
 //   recomputed by the owner every time they finish something. Here it is
 //   `nextUnreadOnPath`, and there is nowhere it could be stored stale.
 // - **Whether a Story is unread** is not a column either: it is the Story's state derived
-//   from its Readings (`queries/story.ts`), and this file compares against it rather than
+//   from its Passes (`queries/story.ts`), and this file compares against it rather than
 //   keeping a second answer.
 //
 // The order of a route is read and never computed. Every statement below orders by
@@ -32,7 +32,7 @@ export type PathStop = {
   title: string;
   /** A Story's Type, which a Path crosses freely — it constrains nothing here. */
   type: StoryType;
-  /** Derived from the Story's Readings, never stored. `to-read` is what "unread" means. */
+  /** Derived from the Story's Passes, never stored. `to-read` is what "unread" means. */
   state: StoryState;
 };
 
@@ -55,7 +55,7 @@ export type PathSummary = {
   name: string;
   /** The owner's own words about the route, where they wrote some. */
   intent: string | null;
-  /** The Reading list composes itself from the active ones only. */
+  /** The Pile composes itself from the active ones only. */
   active: boolean;
   /** How many Stories are on the route. */
   stops: number;
@@ -177,7 +177,7 @@ export async function findPath(pathId: string): Promise<Path | null> {
 /**
  * **The next unread Story of one Path**, or `null` when the route is exhausted.
  *
- * This is the function the Reading list (#11) composes from, one call per active Path —
+ * This is the function the Pile (#11) composes from, one call per active Path —
  * or `nextUnreadOnActivePaths` below, which is the same answer for all of them in one
  * statement. Read both before writing a third.
  *
@@ -188,7 +188,7 @@ export async function findPath(pathId: string): Promise<Path | null> {
  * left is a route the owner has walked, and the honest answer for it is nothing.
  *
  * Whether the Path is active is not asked here. A route put aside can still be walked
- * deliberately; composing the Reading list is where `active` is the filter, which is what
+ * deliberately; composing the Pile is where `active` is the filter, which is what
  * `nextUnreadOnActivePaths` does.
  */
 export async function nextUnreadOnPath(pathId: string): Promise<PathStop | null> {
@@ -246,7 +246,7 @@ export type PathStillAhead = {
  * **Everything still ahead on every active Path**: not the next stop of each route, but all
  * of them, in one statement.
  *
- * The Reading list's reserve composes from this (#40, user story 11), and what it adds to
+ * The Pile's reserve composes from this (#40, user story 11), and what it adds to
  * *the next stop of each route* is the whole reason it exists. A route that contributes one
  * stop is a route the owner can only pin *whole* — pinning Marvel pins whatever Marvel is
  * offering — so *three Marvel stories and then a DC one* was unsayable however the pin was
@@ -305,7 +305,7 @@ export type PathCandidate = {
   id: string;
   title: string;
   type: StoryType;
-  /** Derived from its Readings. A route usually grows from `to-read`, and never only. */
+  /** Derived from its Passes. A route usually grows from `to-read`, and never only. */
   state: StoryState;
   /**
    * The line the objects carrying it stand in, or `null` for one that stands in none — read

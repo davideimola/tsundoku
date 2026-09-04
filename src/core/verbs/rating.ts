@@ -14,7 +14,7 @@ import { Refusal, refusing } from "../refusal.ts";
 /**
  * The grain a score was given in — its own axis, and not a Provenance (ADR-0008).
  *
- * A literal union rather than a data row, for the reason a Reading's medium is a check
+ * A literal union rather than a data row, for the reason a Pass's medium is a check
  * constraint and `credit_role` is a table: these two are not a vocabulary that grows, they
  * are the model's own shape. `half-points` is the owner's scale; `coarse` is a score given
  * out of 5 and doubled onto it, which the books sheet is full of. A third grain would be a
@@ -36,8 +36,12 @@ export type NewRating = {
    */
   scale?: RatingScale;
   /**
-   * The act of reading this judgement came out of, where the owner knows it. Absent for
-   * a score imported from a sheet with no Reading to point at.
+   * The Pass this judgement came out of, where the owner knows it. Absent for a score
+   * imported from a sheet with no Pass to point at.
+   *
+   * **Still spelled the old way on purpose.** A field name is read by the screens and by the
+   * MCP door, and this ticket renames the core without editing either (#57); it becomes
+   * `passId` in the contract step (#60), with the call sites that say it.
    */
   readingId?: string | null;
   prose?: string | null;
@@ -47,9 +51,9 @@ export type NewRating = {
  * Record what the owner thought of a Story, replacing what they said before about the
  * same act of reading. Returns the Rating's id.
  *
- * **Set, in one sense of the word.** There is one Rating per Story per Reading, so
- * saying it again is an edit of the same judgement — whether or not it names a Reading.
- * A second opinion after reading the Story *again* is a second Reading carrying a Rating
+ * **Set, in one sense of the word.** There is one Rating per Story per Pass, so
+ * saying it again is an edit of the same judgement — whether or not it names a Pass.
+ * A second opinion after reading the Story *again* is a second Pass carrying a Rating
  * of its own, and both survive: that is the only way a Story ends up with two.
  *
  * A score converted from a coarser scale says so in its `scale`, and says where it came
@@ -62,9 +66,9 @@ export async function setRating(rating: NewRating): Promise<string> {
   const rows = await refusing(
     () =>
       query<{ id: string }>(
-        `insert into rating (story_id, reading_id, score, prose, provenance_id, scale)
+        `insert into rating (story_id, pass_id, score, prose, provenance_id, scale)
          values ($1, $2, $3, $4, $5, $6)
-         on conflict on constraint rating_is_one_per_story_and_reading do update
+         on conflict on constraint rating_is_one_per_story_and_pass do update
             set score = excluded.score,
                 prose = excluded.prose,
                 provenance_id = excluded.provenance_id,
@@ -91,8 +95,8 @@ export async function setRating(rating: NewRating): Promise<string> {
         return "That is not a Provenance this library knows.";
       if (constraint === "rating_scale_is_coarse_or_half_points")
         return "A score was given either in half points or out of 5 and doubled: coarse or half-points.";
-      if (constraint === "rating_belongs_to_the_read_story")
-        return "That Reading is not a Reading of this Story.";
+      if (constraint === "rating_belongs_to_the_story_passed_through")
+        return "That Pass is not a Pass of this Story.";
       return "That Rating could not be recorded.";
     }
   );
@@ -106,14 +110,14 @@ export async function setRating(rating: NewRating): Promise<string> {
  * Strike a Rating: the library stops knowing the owner ever judged this.
  *
  * Returns the Story it was about, off the deleted row rather than out of the form
- * (`strikePath`, and `strikeReading` beside it).
+ * (`strikePath`, and `strikePass` beside it).
  *
  * **Nothing refuses it**, which is ADR-0016's answer rather than ADR-0014's four: no record
  * in this schema points at a Rating, so there is nothing that could be quietly changed by its
  * going and nothing to clear first. A score is the owner's own sentence about a narrative, and
  * a sentence they did not mean to write is a sentence they may unwrite.
  *
- * It exists as the other half of `strikeReading`'s one refusal (ADR-0018): a rated pass stays
+ * It exists as the other half of `strikePass`'s one refusal (ADR-0018): a rated pass stays
  * until the judgement goes, and a refusal the owner has no way to satisfy is the dead end that
  * door was opened to end. It is also the answer on its own to a score typed into the wrong
  * row, which `setRating` cannot give — setting it again replaces the number and still asserts

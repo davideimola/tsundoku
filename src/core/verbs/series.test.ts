@@ -5,10 +5,10 @@ import { listSeries } from "../queries/series.ts";
 import { isRefusal } from "../refusal.ts";
 import { acquireVolume, catalogueVolume, releaseVolume } from "./collection.ts";
 import { creditStory } from "./credit.ts";
+import { recordPass } from "./pass.ts";
 import { definePath, placeStoriesOnPath } from "./path.ts";
+import { pinToPile } from "./pile.ts";
 import { setRating } from "./rating.ts";
-import { recordReading } from "./reading.ts";
-import { pinToReadingList } from "./reading-list.ts";
 import {
   amendSeries,
   concludeSeries,
@@ -755,7 +755,7 @@ describe("a Volume joining a Series that names a Story", () => {
 //
 // The gesture that undoes a split the owner never asked for: twenty tankōbon standing as
 // twenty narratives become one work carried by twenty objects. What is asserted here is the
-// pair of halves the ticket is about — **what is carried across** (a Rating, the Readings, the
+// pair of halves the ticket is about — **what is carried across** (a Rating, the Passes, the
 // Credits, the Path stops, the Wants, the arrow) and **what is untouched** (every Volume,
 // every Acquisition and the completeness ledger) — and the refusals that stop the collapse
 // losing something.
@@ -942,9 +942,9 @@ describe("merging a Series into one Story", () => {
     expect(Number(row.score)).toBe(9);
   });
 
-  it("carries every Reading across, with what it reached and the Rating it carried", async () => {
+  it("carries every Pass across, with what it reached and the Rating it carried", async () => {
     const { series, narratives } = await aLineOfTankobon(3);
-    const first = await recordReading({
+    const first = await recordPass({
       storyId: narratives[0],
       medium: "paper",
       provenanceId: "remembered",
@@ -956,7 +956,7 @@ describe("merging a Series into one Story", () => {
       score: 8,
       provenanceId: "remembered",
     });
-    await recordReading({
+    await recordPass({
       storyId: narratives[2],
       medium: "digital",
       provenanceId: "remembered",
@@ -964,17 +964,17 @@ describe("merging a Series into one Story", () => {
 
     const work = await mergeSeriesIntoOneStory(series);
 
-    const readings = await query<{ story_id: string; medium: string }>(
-      "select story_id, medium from reading order by medium"
+    const passes = await query<{ story_id: string; medium: string }>(
+      "select story_id, medium from pass order by medium"
     );
-    expect(readings).toEqual([
+    expect(passes).toEqual([
       { story_id: work, medium: "digital" },
       { story_id: work, medium: "paper" },
     ]);
-    const [rating] = await query<{ story_id: string; reading_id: string }>(
-      "select story_id, reading_id from rating"
+    const [rating] = await query<{ story_id: string; pass_id: string }>(
+      "select story_id, pass_id from rating"
     );
-    expect(rating).toEqual({ story_id: work, reading_id: first });
+    expect(rating).toEqual({ story_id: work, pass_id: first });
   });
 
   it("carries the Credits across, once each, and leaves the people standing", async () => {
@@ -1031,26 +1031,26 @@ describe("merging a Series into one Story", () => {
   // made off the front of their own list without saying so.
   it("repoints a pin at the work, keeping the most recent of them", async () => {
     const { series, narratives } = await aLineOfTankobon(3);
-    await pinToReadingList({ kind: "story", id: narratives[0] });
-    await query("update reading_list_pin set pinned_at = now() - interval '3 days'");
-    await pinToReadingList({ kind: "story", id: narratives[2] });
+    await pinToPile({ kind: "story", id: narratives[0] });
+    await query("update pile_pin set pinned_at = now() - interval '3 days'");
+    await pinToPile({ kind: "story", id: narratives[2] });
 
     const work = await mergeSeriesIntoOneStory(series);
 
     const pins = await query<{ story_id: string; recent: boolean }>(
-      "select story_id, pinned_at > now() - interval '1 day' as recent from reading_list_pin"
+      "select story_id, pinned_at > now() - interval '1 day' as recent from pile_pin"
     );
     expect(pins).toEqual([{ story_id: work, recent: true }]);
   });
 
   it("leaves a pin on a position of the line alone: the shopping half names an object", async () => {
     const { series } = await aLineOfTankobon(2);
-    await pinToReadingList({ kind: "series", id: series, position: 3 });
+    await pinToPile({ kind: "series", id: series, position: 3 });
 
     const work = await mergeSeriesIntoOneStory(series);
 
     const pins = await query<{ story_id: string | null; series_position: number | null }>(
-      "select story_id, series_position from reading_list_pin"
+      "select story_id, series_position from pile_pin"
     );
     expect(pins).toEqual([{ story_id: null, series_position: 3 }]);
     expect(work).toBeTruthy();
@@ -1087,7 +1087,7 @@ describe("merging a Series into one Story", () => {
     // Three of *that* is not three of the line, so the collapse would change what the number
     // means rather than move it.
     await declareInstalments(narratives[0], 5);
-    await recordReading({
+    await recordPass({
       storyId: narratives[0],
       medium: "paper",
       provenanceId: "remembered",
@@ -1106,7 +1106,7 @@ describe("merging a Series into one Story", () => {
 
   it("carries a pass that counted nothing, which is every ordinary pass", async () => {
     const { series, narratives } = await aLineOfTankobon(2);
-    await recordReading({
+    await recordPass({
       storyId: narratives[0],
       medium: "paper",
       provenanceId: "remembered",
@@ -1116,7 +1116,7 @@ describe("merging a Series into one Story", () => {
     const work = await mergeSeriesIntoOneStory(series);
 
     const [row] = await query<{ story_id: string; at_instalment: number | null }>(
-      "select story_id, at_instalment from reading"
+      "select story_id, at_instalment from pass"
     );
     expect(row).toEqual({ story_id: work, at_instalment: null });
   });
@@ -1242,7 +1242,7 @@ describe("merging a Series into one Story", () => {
       const work = await aWorkAlreadyInTheLibrary();
       const { series, narratives } = await aLineOfTankobon(3);
       await setRating({ storyId: narratives[1], score: 9, provenanceId: "remembered" });
-      await recordReading({
+      await recordPass({
         storyId: narratives[0],
         medium: "paper",
         provenanceId: "remembered",
@@ -1253,7 +1253,7 @@ describe("merging a Series into one Story", () => {
       await mergeSeriesIntoOneStory(series, { storyId: work });
 
       expect(await query("select story_id from rating")).toEqual([{ story_id: work }]);
-      expect(await query("select story_id from reading")).toEqual([{ story_id: work }]);
+      expect(await query("select story_id from pass")).toEqual([{ story_id: work }]);
       expect(await query("select story_id from want")).toEqual([{ story_id: work }]);
     });
 
@@ -1272,17 +1272,17 @@ describe("merging a Series into one Story", () => {
       const work = await aWorkAlreadyInTheLibrary();
       const route = await definePath({ name: "Marvel" });
       await placeStoriesOnPath(route, [work]);
-      await pinToReadingList({ kind: "story", id: work });
+      await pinToPile({ kind: "story", id: work });
       const { series, narratives } = await aLineOfTankobon(2);
       await placeStoriesOnPath(route, [narratives[1]]);
-      await pinToReadingList({ kind: "story", id: narratives[1] });
+      await pinToPile({ kind: "story", id: narratives[1] });
 
       await mergeSeriesIntoOneStory(series, { storyId: work });
 
       // One stop, at the place the owner had already decided for it: their own was the
       // earlier of the two, and the route holds one stop per Story either way.
       expect(await query("select story_id from path_item")).toEqual([{ story_id: work }]);
-      expect(await query("select story_id from reading_list_pin")).toEqual([{ story_id: work }]);
+      expect(await query("select story_id from pile_pin")).toEqual([{ story_id: work }]);
     });
 
     it("is two ledgers over one narrative: a second line publishes it without minting anything", async () => {
@@ -1319,7 +1319,7 @@ describe("merging a Series into one Story", () => {
       const work = await aWorkAlreadyInTheLibrary();
       const { series, narratives } = await aLineOfTankobon(2);
       await declareInstalments(narratives[0], 5);
-      await recordReading({
+      await recordPass({
         storyId: narratives[0],
         medium: "paper",
         provenanceId: "remembered",

@@ -1,8 +1,8 @@
 import "server-only";
 
 import { query } from "../db.ts";
+import type { Medium, Outcome } from "../verbs/pass.ts";
 import type { RatingScale } from "../verbs/rating.ts";
-import type { Medium, Outcome } from "../verbs/reading.ts";
 import { WHY_A_STORY_STANDS } from "../verbs/story.ts";
 import { IN_THE_HOUSE, THE_ORDER_A_RUN_OF_OBJECTS_STANDS_IN } from "./collection.ts";
 import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
@@ -11,12 +11,12 @@ import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
 //
 // The interesting thing in this file is that **a Story's state is not in it**. The
 // sheets kept a `Stato lettura` column and it was wrong the moment a reread began;
-// here the state is an expression over the Readings, computed on the way out, and there
+// here the state is an expression over the Passes, computed on the way out, and there
 // is nowhere it could be stored inconsistently. That is the shape every derivation in
 // this repo takes (README, "The schema").
 
 /**
- * Where the owner is with a Story, derived from its Readings and stored nowhere.
+ * Where the owner is with a Story, derived from its Passes and stored nowhere.
  *
  * A literal union rather than a data row, unlike Type and Provenance: these four are not
  * a vocabulary that could grow by an insert. They are the four cases the expression
@@ -33,36 +33,36 @@ export type StoryState = "to-read" | "reading" | "read" | "abandoned";
  * second copy of them would be a second answer. The fragment names the Story `s`, so a
  * statement using it joins `story s`.
  *
- * The order of the branches is the judgement in it: **an open Reading wins over a
+ * The order of the branches is the judgement in it: **an open Pass wins over a
  * finished one**, so a Story being reread reads `reading` and an assistant does not
- * recommend what is currently in the owner's hands (user story 33). A finished Reading
+ * recommend what is currently in the owner's hands (user story 33). A finished Pass
  * then wins over an abandoned one, because having given up in 2019 and finished it in
  * 2024 means the owner has read it.
  */
 export const STORY_STATE = `
   case
-    when not exists (select 1 from reading r where r.story_id = s.id)
+    when not exists (select 1 from pass r where r.story_id = s.id)
       then 'to-read'
-    when exists (select 1 from reading r where r.story_id = s.id and r.outcome is null)
+    when exists (select 1 from pass r where r.story_id = s.id and r.outcome is null)
       then 'reading'
-    when exists (select 1 from reading r where r.story_id = s.id and r.outcome = 'finished')
+    when exists (select 1 from pass r where r.story_id = s.id and r.outcome = 'finished')
       then 'read'
     else 'abandoned'
   end`;
 
 // How far the pass the owner is on has got, in the work's own units.
 //
-// **The pass is picked the way the stack is ordered** — an open Reading first, then the
+// **The pass is picked the way the stack is ordered** — an open Pass first, then the
 // newest by the day it began — because that is the one the owner is in the middle of, and
 // `stories/readings.ts` finds the same one for the same reason. A second order here would be
 // the page and the sentence disagreeing about which reading is *now*.
 //
 // Exported as SQL under the rule `STORY_STATE` is exported under: there is one right place
-// for the pick, and the Reading list asking *what comes next in this run* must ask it the
+// for the pick, and the Pile asking *what comes next in this run* must ask it the
 // same way. It names the Story `s`, so a statement spending it joins `story s`.
 export const THE_INSTALMENT_THE_CURRENT_PASS_REACHED = `
   (select r.at_instalment
-     from reading r
+     from pass r
     where r.story_id = s.id
     order by (r.outcome is null) desc, r.started_on desc nulls last, r.created_at desc
     limit 1)`;
@@ -80,7 +80,7 @@ export const THE_INSTALMENT_THE_CURRENT_PASS_REACHED = `
 const HOW_FAR_IT_GOT = `
   case
     when s.instalments is null then null
-    when not exists (select 1 from reading r where r.story_id = s.id) then null
+    when not exists (select 1 from pass r where r.story_id = s.id) then null
     else jsonb_build_object(
       'atInstalment', coalesce(${THE_INSTALMENT_THE_CURRENT_PASS_REACHED}, 0),
       'instalments', s.instalments
@@ -114,7 +114,7 @@ export type StoryCredit = {
   role: { id: string; name: string };
 };
 
-/** A Provenance, as a Reading or a Rating carries it. */
+/** A Provenance, as a Pass or a Rating carries it. */
 export type StoryProvenance = { id: string; name: string };
 
 /** The owner's judgement of a Story. Never of an object (ADR-0001). */
@@ -136,8 +136,8 @@ export type StoryRating = {
   scale: RatingScale;
 };
 
-/** One act of reading, with the judgement it carried. */
-export type StoryReading = {
+/** One act of going through the Story, with the judgement it carried. */
+export type StoryPass = {
   id: string;
   medium: Medium;
   /**
@@ -149,7 +149,7 @@ export type StoryReading = {
    * it forgetting where it reached.
    */
   atInstalment: number | null;
-  /** `null` while the Reading is still open, which is what makes the Story `reading`. */
+  /** `null` while the Pass is still open, which is what makes the Story `reading`. */
   outcome: Outcome | null;
   /** `YYYY-MM-DD`, or `null` where the owner only knows that it happened. */
   startedOn: string | null;
@@ -157,6 +157,12 @@ export type StoryReading = {
   provenance: StoryProvenance;
   rating: StoryRating | null;
 };
+
+/**
+ * The old name for a `StoryPass`, kept alive for exactly as long as the rename takes (#57).
+ * The Story screen still says Reading; **it goes in the contract step (#60)**.
+ */
+export type StoryReading = StoryPass;
 
 /**
  * *Seven of twenty*, as the Story answers it.
@@ -204,9 +210,15 @@ export type Story = {
   howFarItGot: HowFarItGot | null;
   /** Who wrote it and who drew it, in the order roles are credited in. */
   credits: StoryCredit[];
-  /** Newest first. Several is the ordinary case, because rereading is. */
-  readings: StoryReading[];
-  /** Judgements attached to no Reading — a score imported with no act to point at. */
+  /**
+   * Newest first. Several is the ordinary case, because rereading is.
+   *
+   * **Still spelled the old way on purpose**, like every field name in this module: the
+   * screens and the MCP door read it, and this ticket renames the core without editing
+   * either (#57). It becomes `passes` in the contract step (#60), with its readers.
+   */
+  readings: StoryPass[];
+  /** Judgements attached to no Pass — a score imported with no act to point at. */
   standaloneRatings: StoryRating[];
 };
 
@@ -362,10 +374,10 @@ const RATING = `
   )`;
 
 /**
- * One Story with its Readings, each carrying the Rating it carried, and the judgements
- * that point at no Reading. `null` when there is no such Story.
+ * One Story with its Passes, each carrying the Rating it carried, and the judgements
+ * that point at no Pass. `null` when there is no such Story.
  *
- * One statement rather than one per list: the Readings and the Ratings are the answer to
+ * One statement rather than one per list: the Passes and the Ratings are the answer to
  * the same question, and reading them in three round trips would be reading three
  * different moments.
  */
@@ -414,21 +426,21 @@ const STORY_COLUMNS = `
             select ${RATING}
               from rating g
               join provenance gp on gp.id = g.provenance_id
-             where g.reading_id = r.id
+             where g.pass_id = r.id
           )
         )
         -- **What is open leads.** The same judgement STORY_STATE makes one screen up: an
-        -- open Reading wins over a finished one, because it is what is happening to the Story
-        -- now rather than what happened to it. It matters because the day a Reading started
+        -- open Pass wins over a finished one, because it is what is happening to the Story
+        -- now rather than what happened to it. It matters because the day a Pass started
         -- is optional and routinely absent — the owner opens one from their own screen and
         -- leaves the date empty, since that it is open is the fact — and ordering by the day
-        -- alone would drop the book in their hands under a Reading from 2019. Below it, newest
-        -- first by the day it began, and a Reading nobody recorded a day for after the ones
+        -- alone would drop the book in their hands under a Pass from 2019. Below it, newest
+        -- first by the day it began, and a Pass nobody recorded a day for after the ones
         -- with one: a Goodreads import full of dateless acts must not crowd out the history
         -- that has dates.
         order by (r.outcome is null) desc, r.started_on desc nulls last, r.created_at desc
       )
-        from reading r
+        from pass r
         join provenance rp on rp.id = r.provenance_id
        where r.story_id = s.id
     ), '[]'::jsonb) as readings,
@@ -436,7 +448,7 @@ const STORY_COLUMNS = `
       select jsonb_agg(${RATING} order by g.set_at desc)
         from rating g
         join provenance gp on gp.id = g.provenance_id
-       where g.story_id = s.id and g.reading_id is null
+       where g.story_id = s.id and g.pass_id is null
     ), '[]'::jsonb) as "standaloneRatings"`;
 
 /** Where a Story is read from. Named beside the columns, because the two are one statement. */
@@ -500,7 +512,7 @@ export async function findStory(storyId: string): Promise<FoundStory | null> {
 }
 
 /**
- * Every Story the owner has read, whole: the Readings that finished it and the Rating
+ * Every Story the owner has read, whole: the Passes that finished it and the Rating
  * each one carried, prose and Provenance included.
  *
  * **This is the corpus an external reader recommends from** (ADR-0002, user story 32),
@@ -527,6 +539,7 @@ export type StorySummary = {
   title: string;
   type: StoryType;
   state: StoryState;
+  /** How many Passes went through it. Spelled the old way, like every field here (#57). */
   readingCount: number;
   /** The score the owner set most recently, or `null` if they set none. */
   latestScore: number | null;
@@ -546,7 +559,7 @@ export async function listStories(): Promise<StorySummary[]> {
        s.title,
        jsonb_build_object('id', t.id, 'name', t.name) as type,
        ${STORY_STATE} as state,
-       (select count(*)::int from reading r where r.story_id = s.id) as "readingCount",
+       (select count(*)::int from pass r where r.story_id = s.id) as "readingCount",
        ${LATEST_SCORE} as "latestScore"
      from story s
      join type t on t.id = s.type_id
@@ -559,7 +572,7 @@ export type WallStory = {
   id: string;
   title: string;
   type: StoryType;
-  /** The axis the wall is split along, derived from the Readings like everywhere else. */
+  /** The axis the wall is split along, derived from the Passes like everywhere else. */
   state: StoryState;
   /** The score the owner set most recently, or `null` where they judged it never. */
   latestScore: number | null;
@@ -612,7 +625,7 @@ export type StoryWallFilter = {
 // The state, derived once per row rather than twice.
 //
 // This wall both *reports* the state and *narrows* by it, and interpolating the expression
-// into the select list and into the `where` would walk the Readings of every Story twice
+// into the select list and into the `where` would walk the Passes of every Story twice
 // for the one answer. Joined laterally, which is how `queries/series.ts` computes a Series'
 // missing Volumes for the three questions that read it — same shape, same reason.
 const STATE_ONCE = `cross join lateral (select ${STORY_STATE} as state) derived`;
@@ -712,7 +725,7 @@ export async function listStoriesNothingHasHappenedTo(): Promise<StoryNothingHas
   );
 }
 
-// **A run with somewhere left to go**, which is the fourth source the Reading list composes
+// **A run with somewhere left to go**, which is the fourth source the Pile composes
 // from (#43, user stories 14, 30 and 31).
 //
 // The case this exists for is the one that started the whole tracker: *Slam Dunk* collected,
@@ -725,8 +738,8 @@ export async function listStoriesNothingHasHappenedTo(): Promise<StoryNothingHas
 // serialized Story with no pass at all.
 //
 // It is a Story question and lives here for that reason: what a run is, how far a pass got and
-// what comes next are facts about the narrative and its Readings. The Reading list asks it,
-// lays it beside the other three and adds the objects (`queries/reading-list.ts`).
+// what comes next are facts about the narrative and its Passes. The Pile asks it,
+// lays it beside the other three and adds the objects (`queries/pile.ts`).
 
 // **A run is all on the shelf**, as SQL: a line that publishes this work has put out more than
 // nought Volumes and the house holds at least that many of them.
@@ -794,14 +807,14 @@ export type RunInProgress = {
  *     the run is done, and one that was abandoned says the owner gave up — being told to
  *     carry on with either is the recommendation this list exists not to make;
  *   - it has **somewhere left to go**. A pass standing at the last Instalment is still open —
- *     finishing is a separate act (`verbs/reading.ts`) — and there is nothing left to read;
+ *     finishing is a separate act (`verbs/pass.ts`) — and there is nothing left to read;
  *   - and it is either **all on the shelf** or the owner has **begun it**.
  *
  * **The fourth is the one #34 was amended to add** (ADR-0017), and the reason is that
  * declaring a run stopped being an act. While the count of Instalments was typed, a
  * serialized Story was a Story the owner had said something about; now it *follows the line*,
  * so nearly every work with a ledger behind it declares parts — and the three conditions above
- * would put the whole shelf on the Reading list, Berserk at two of forty-three beside the
+ * would put the whole shelf on the Pile, Berserk at two of forty-three beside the
  * twenty of *Slam Dunk* that are actually there.
  *
  * It is the reading that satisfies both halves of the tracker, which pull against each other.

@@ -2,14 +2,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { catalogueVolume, releaseVolume } from "../verbs/collection.ts";
+import { abandonPass, finishPass, recordInstalmentReached, recordPass } from "../verbs/pass.ts";
 import { deactivatePath, definePath, placeStoriesOnPath } from "../verbs/path.ts";
-import {
-  abandonReading,
-  finishReading,
-  recordInstalmentReached,
-  recordReading,
-} from "../verbs/reading.ts";
-import { pinToReadingList, unpinFromReadingList } from "../verbs/reading-list.ts";
+import { pinToPile, unpinFromPile } from "../verbs/pile.ts";
 import {
   declareSeries,
   declareSeriesCollected,
@@ -20,7 +15,7 @@ import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import { openWant } from "../verbs/want.ts";
 import { openWish } from "../verbs/wish.ts";
-import { composeReadingList, type ReadingListEntry, theKeyOf } from "./reading-list.ts";
+import { composePile, type PileEntry, theKeyOf } from "./pile.ts";
 
 // Seam 1, and **the product** (#1). Everything asserted in this file is a derivation with
 // no row behind it: the two halves of the list, their order, the reasons each row carries,
@@ -32,19 +27,19 @@ beforeEach(async () => {
 });
 
 /** The reserve, which is where everything composes before the owner has decided anything. */
-async function reserve(): Promise<ReadingListEntry[]> {
-  return (await composeReadingList()).reserve;
+async function reserve(): Promise<PileEntry[]> {
+  return (await composePile()).reserve;
 }
 
 /** What a row is called, which for a Story is its title and for a line its position. */
-function called(entry: ReadingListEntry): string {
+function called(entry: PileEntry): string {
   return (
     entry.story?.title ?? `${entry.reasons[0]?.series?.name} ${entry.reasons[0]?.series?.position}`
   );
 }
 
 /** Which sources put a row on the list, in the order they were composed. */
-function why(entry: ReadingListEntry): string[] {
+function why(entry: PileEntry): string[] {
   return entry.reasons.map((reason) => reason.because);
 }
 
@@ -64,7 +59,7 @@ async function angoloGiappone(): Promise<{ pathId: string; stories: string[] }> 
   return { pathId, stories };
 }
 
-describe("what the Reading list composes itself from", () => {
+describe("what the Pile composes itself from", () => {
   it("offers every unread stop of an active Path, in the owner's order", async () => {
     await angoloGiappone();
 
@@ -77,8 +72,8 @@ describe("what the Reading list composes itself from", () => {
   it("drops a stop the owner has read, and the rest of the route closes up", async () => {
     const { stories } = await angoloGiappone();
 
-    await finishReading(
-      await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
+    await finishPass(
+      await recordPass({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
       "2024-02-02"
     );
 
@@ -111,8 +106,8 @@ describe("what the Reading list composes itself from", () => {
     // nothing for a different reason and with the same answer.
     const walked = await definePath({ name: "Recupero Batman" });
     await placeStoriesOnPath(walked, [stories[0]]);
-    await finishReading(
-      await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
+    await finishPass(
+      await recordPass({ storyId: stories[0], medium: "paper", provenanceId: "remembered" }),
       "2024-02-02"
     );
 
@@ -122,7 +117,7 @@ describe("what the Reading list composes itself from", () => {
   it("skips a Story the owner is in the middle of rather than telling them to start it", async () => {
     const { stories } = await angoloGiappone();
 
-    await recordReading({ storyId: stories[0], medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId: stories[0], medium: "paper", provenanceId: "remembered" });
 
     expect((await reserve()).map(called)).toEqual(["Lone Wolf and Cub"]);
   });
@@ -201,7 +196,7 @@ describe("what a Want puts on the list", () => {
 
   it("stays on the list when the Story was read years ago, and calls it nothing special", async () => {
     const storyId = await createStory({ title: "Berserk", typeId: "manga" });
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "goodreads-history",
@@ -231,13 +226,13 @@ describe("what a Want puts on the list", () => {
     );
   });
 
-  it("falls quiet once a Reading begins after it, and the ordinary case behaves identically", async () => {
+  it("falls quiet once a Pass begins after it, and the ordinary case behaves identically", async () => {
     const storyId = await createStory({ title: "Vagabond", typeId: "manga" });
     await openWant(storyId);
 
     expect(await reserve()).toHaveLength(1);
 
-    await recordReading({ storyId, medium: "digital", provenanceId: "remembered" });
+    await recordPass({ storyId, medium: "digital", provenanceId: "remembered" });
 
     expect(await reserve()).toEqual([]);
   });
@@ -281,8 +276,8 @@ describe("what a Want puts on the list", () => {
     const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
     await openWant(storyId);
 
-    await composeReadingList();
-    await composeReadingList();
+    await composePile();
+    await composePile();
 
     expect(await query("select story_id from want")).toEqual([{ story_id: storyId }]);
   });
@@ -328,7 +323,7 @@ describe("what a run puts on the list", () => {
 
   it("puts the run there, naming how far it got and what comes next", async () => {
     const storyId = await slamDunk();
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "remembered",
@@ -355,7 +350,7 @@ describe("what a run puts on the list", () => {
 
   it("needs no Path minted for it, and no Series marked as anything", async () => {
     const storyId = await slamDunk();
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 3 });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 3 });
     expect(storyId).toBeTruthy();
 
     expect((await reserve()).map(called)).toEqual(["Slam Dunk"]);
@@ -397,7 +392,7 @@ describe("what a run puts on the list", () => {
 
     // And the moment the owner opens it the Want falls quiet by itself, with the run left
     // saying where they are: one row throughout, and nothing was maintained to make it so.
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 1 });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 1 });
 
     const started = await reserve();
     expect(started).toHaveLength(1);
@@ -407,7 +402,7 @@ describe("what a run puts on the list", () => {
 
   it("merges into the row a Want already stands on rather than opening a second", async () => {
     const storyId = await slamDunk();
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "remembered",
@@ -415,7 +410,7 @@ describe("what a run puts on the list", () => {
       atInstalment: 7,
     });
     // Said while already in the middle of it — *I really do mean to get through this* — so
-    // the Want stands: no Reading began after it.
+    // the Want stands: no Pass began after it.
     await openWant(storyId);
 
     const rows = await reserve();
@@ -427,8 +422,8 @@ describe("what a run puts on the list", () => {
 
   it("stops contributing when the pass finishes, and when it was abandoned", async () => {
     const finished = await createStory({ title: "Pluto", typeId: "manga", instalments: 8 });
-    await finishReading(
-      await recordReading({
+    await finishPass(
+      await recordPass({
         storyId: finished,
         medium: "paper",
         provenanceId: "remembered",
@@ -438,8 +433,8 @@ describe("what a run puts on the list", () => {
     );
 
     const abandoned = await createStory({ title: "Ulysses", typeId: "novel", instalments: 18 });
-    await abandonReading(
-      await recordReading({
+    await abandonPass(
+      await recordPass({
         storyId: abandoned,
         medium: "digital",
         provenanceId: "remembered",
@@ -455,7 +450,7 @@ describe("what a run puts on the list", () => {
 
   it("stops contributing when the pass has reached the end of the work", async () => {
     const storyId = await createStory({ title: "Death Note", typeId: "manga", instalments: 12 });
-    const pass = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    const pass = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
     await recordInstalmentReached(pass, 11);
 
     expect((await reserve()).map(called)).toEqual(["Death Note"]);
@@ -469,7 +464,7 @@ describe("what a run puts on the list", () => {
 
   it("follows the object the way every other narrative row does", async () => {
     const storyId = await slamDunk();
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 7 });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 7 });
 
     const [entry] = await reserve();
 
@@ -481,7 +476,7 @@ describe("what a run puts on the list", () => {
   it("comes after the routes and before the ledger, which is the shopping half", async () => {
     await angoloGiappone();
     const storyId = await slamDunk();
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 7 });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 7 });
     const seriesId = await declareSeries({
       name: "Death Note",
       publisher: "Panini",
@@ -495,11 +490,11 @@ describe("what a run puts on the list", () => {
 
   it("carries its reason into the head when the owner pins it", async () => {
     const storyId = await slamDunk();
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 7 });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 7 });
 
-    await pinToReadingList({ kind: "story", id: storyId });
+    await pinToPile({ kind: "story", id: storyId });
 
-    const { head } = await composeReadingList();
+    const { head } = await composePile();
     expect(why(head[0])).toEqual(["run"]);
     expect(head[0].reasons[0].run?.howFarItGot).toEqual({ atInstalment: 7, instalments: 20 });
   });
@@ -572,7 +567,7 @@ describe("the intended medium each entry carries", () => {
     const [entry] = await reserve();
 
     // The owner can start it tonight, and an entry that offered to buy the deluxe while
-    // the tankōbon sat on the shelf would be the shopping list talking over the Reading list.
+    // the tankōbon sat on the shelf would be the shopping list talking over the Pile.
     expect(entry.object?.title).toBe("Vagabond 1");
     expect(entry.atHand).toBe(true);
   });
@@ -620,7 +615,7 @@ describe("an entry that needs a Volume the owner does not own", () => {
   it("proposes it and does not open it: reading the whole list leaves no Wish behind", async () => {
     await toBuy();
 
-    const { head, reserve: rest } = await composeReadingList();
+    const { head, reserve: rest } = await composePile();
     // Walked, entry by entry, the way a screen renders it and an assistant reads it.
     for (const entry of [...head, ...rest]) expect(entry.reasons.length).toBeGreaterThan(0);
 
@@ -784,9 +779,9 @@ describe("the head the owner pinned", () => {
   it("holds the pinned rows and the reserve holds the rest, with nothing in both", async () => {
     const { stories } = await angoloGiappone();
 
-    await pinToReadingList({ kind: "story", id: stories[1] });
+    await pinToPile({ kind: "story", id: stories[1] });
 
-    const { head, reserve: rest } = await composeReadingList();
+    const { head, reserve: rest } = await composePile();
     expect(head.map(called)).toEqual(["Lone Wolf and Cub"]);
     expect(rest.map(called)).toEqual(["Vagabond"]);
   });
@@ -797,10 +792,10 @@ describe("the head the owner pinned", () => {
     await openWant(first);
     await openWant(second);
 
-    await pinToReadingList({ kind: "story", id: first });
-    await pinToReadingList({ kind: "story", id: second });
+    await pinToPile({ kind: "story", id: first });
+    await pinToPile({ kind: "story", id: second });
 
-    expect((await composeReadingList()).head.map(called)).toEqual(["Berserk", "Slam Dunk"]);
+    expect((await composePile()).head.map(called)).toEqual(["Berserk", "Slam Dunk"]);
   });
 
   it("takes the second and third stop of one route, in pin order", async () => {
@@ -816,15 +811,15 @@ describe("the head the owner pinned", () => {
     const batman = await createStory({ title: "Batman: Anno Uno", typeId: "comic" });
     await placeStoriesOnPath(dc, [batman]);
 
-    await pinToReadingList({ kind: "story", id: stops[0] });
-    await pinToReadingList({ kind: "story", id: stops[1] });
-    await pinToReadingList({ kind: "story", id: stops[2] });
-    await pinToReadingList({ kind: "story", id: batman });
+    await pinToPile({ kind: "story", id: stops[0] });
+    await pinToPile({ kind: "story", id: stops[1] });
+    await pinToPile({ kind: "story", id: stops[2] });
+    await pinToPile({ kind: "story", id: batman });
 
     // Pinned in reading order, so the head reads back newest first. What matters is that
     // three stops of one route stand in it at once, which a pin on the *route* could never
     // have said.
-    const { head, reserve: rest } = await composeReadingList();
+    const { head, reserve: rest } = await composePile();
     expect(head.map(called)).toEqual([
       "Batman: Anno Uno",
       "Civil War",
@@ -843,11 +838,11 @@ describe("the head the owner pinned", () => {
       );
     }
     await placeStoriesOnPath(path, stops);
-    for (const storyId of stops) await pinToReadingList({ kind: "story", id: storyId });
+    for (const storyId of stops) await pinToPile({ kind: "story", id: storyId });
 
     // Twenty decisions look wrong on a screen, and the library refuses none of them: a cap
     // here would be an opinion nobody asked it for.
-    const { head, reserve: rest } = await composeReadingList();
+    const { head, reserve: rest } = await composePile();
     expect(head).toHaveLength(20);
     expect(rest).toEqual([]);
   });
@@ -862,9 +857,9 @@ describe("the head the owner pinned", () => {
     });
     await declareSeriesCollected(seriesId);
 
-    await pinToReadingList({ kind: "series", id: seriesId, position: 1 });
+    await pinToPile({ kind: "series", id: seriesId, position: 1 });
 
-    const { head } = await composeReadingList();
+    const { head } = await composePile();
     expect(head.map(why)).toEqual([["series"]]);
     expect(head[0].subject).toEqual({ kind: "series", id: seriesId, position: 1 });
   });
@@ -872,10 +867,10 @@ describe("the head the owner pinned", () => {
   it("gives the entry back its composed place when the pin is lifted", async () => {
     const { stories } = await angoloGiappone();
 
-    await pinToReadingList({ kind: "story", id: stories[1] });
-    await unpinFromReadingList({ kind: "story", id: stories[1] });
+    await pinToPile({ kind: "story", id: stories[1] });
+    await unpinFromPile({ kind: "story", id: stories[1] });
 
-    const { head, reserve: rest } = await composeReadingList();
+    const { head, reserve: rest } = await composePile();
     expect(head).toEqual([]);
     expect(rest.map(called)).toEqual(["Vagabond", "Lone Wolf and Cub"]);
   });
@@ -883,15 +878,13 @@ describe("the head the owner pinned", () => {
   it("introduces nothing: a pin on a Story no source names contributes no entry at all", async () => {
     const { pathId, stories } = await angoloGiappone();
 
-    await pinToReadingList({ kind: "story", id: stories[0] });
+    await pinToPile({ kind: "story", id: stories[0] });
     await deactivatePath(pathId);
 
     // The pin is still stored, and the list is still composed. A pin is an order and
     // never an entry, so there is nothing here for it to bring to the front.
-    expect(await composeReadingList()).toEqual({ head: [], reserve: [] });
-    const [{ stored }] = await query<{ stored: string }>(
-      "select count(*) as stored from reading_list_pin"
-    );
+    expect(await composePile()).toEqual({ head: [], reserve: [] });
+    const [{ stored }] = await query<{ stored: string }>("select count(*) as stored from pile_pin");
     expect(stored).toBe("1");
   });
 
@@ -901,9 +894,9 @@ describe("the head the owner pinned", () => {
     await placeStoriesOnPath(dc, [storyId]);
     await openWant(storyId);
 
-    await pinToReadingList({ kind: "story", id: storyId });
+    await pinToPile({ kind: "story", id: storyId });
 
-    const { head } = await composeReadingList();
+    const { head } = await composePile();
     expect(why(head[0])).toEqual(["want", "path"]);
   });
 });
@@ -932,22 +925,22 @@ describe("what identifies an entry", () => {
   });
 });
 
-describe("where the Reading list is stored", () => {
+describe("where the Pile is stored", () => {
   it("is nowhere: the only table this area added holds pins, and holds nothing else", async () => {
-    // The criterion, as a query. A `reading_list` table of entries is the failure mode
+    // The criterion, as a query. A `pile` table of entries is the failure mode
     // this whole slice is shaped to avoid, and its absence is worth asserting rather than
     // trusting: the `Prossimo` column of the spreadsheet is exactly such a table, kept by
     // hand and wrong the moment the owner finishes something (#1).
     const tables = await query<{ table_name: string }>(
       `select table_name from information_schema.tables
-        where table_schema = 'public' and table_name like '%reading_list%'
+        where table_schema = 'public' and table_name like '%pile%'
         order by table_name`
     );
-    expect(tables.map((table) => table.table_name)).toEqual(["reading_list_pin"]);
+    expect(tables.map((table) => table.table_name)).toEqual(["pile_pin"]);
 
     const columns = await query<{ column_name: string }>(
       `select column_name from information_schema.columns
-        where table_schema = 'public' and table_name = 'reading_list_pin'
+        where table_schema = 'public' and table_name = 'pile_pin'
         order by column_name`
     );
     expect(columns.map((column) => column.column_name)).toEqual([

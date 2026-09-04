@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db.ts";
-import { recordReading } from "../verbs/reading.ts";
+import { recordPass } from "../verbs/pass.ts";
 import { createStory } from "../verbs/story.ts";
 import { openWant } from "../verbs/want.ts";
 import { listOpenWants, theWantOnTheStory } from "./want.ts";
@@ -35,13 +35,13 @@ describe("the open Wants", () => {
     ]);
   });
 
-  it("leaves out the ones a Reading has answered, and keeps the ones it has not", async () => {
+  it("leaves out the ones a Pass has answered, and keeps the ones it has not", async () => {
     const read = await createStory({ title: "Death Note", typeId: "manga" });
     const wanted = await createStory({ title: "Vagabond", typeId: "manga" });
     await openWant(read);
     await openWant(wanted);
 
-    await recordReading({ storyId: read, medium: "digital", provenanceId: "remembered" });
+    await recordPass({ storyId: read, medium: "digital", provenanceId: "remembered" });
 
     expect((await listOpenWants()).map((want) => want.story.title)).toEqual(["Vagabond"]);
   });
@@ -62,7 +62,7 @@ describe("the Want standing on one Story", () => {
 
     expect(await theWantOnTheStory(storyId)).toMatchObject({ id, quiet: false });
 
-    await recordReading({ storyId, medium: "digital", provenanceId: "remembered" });
+    await recordPass({ storyId, medium: "digital", provenanceId: "remembered" });
 
     expect(await theWantOnTheStory(storyId)).toMatchObject({ id, quiet: true });
   });

@@ -16,7 +16,7 @@ import { db } from "../db.ts";
 
 /** One Provenance, with the sentence that says how much it is worth. */
 export type Provenance = {
-  /** The slug a Reading or a Rating carries: `remembered`, `goodreads-history`. */
+  /** The slug a Pass or a Rating carries: `remembered`, `goodreads-history`. */
   id: string;
   /** What the owner reads on screen. */
   name: string;
@@ -31,7 +31,7 @@ export type Provenance = {
  * carries* is a statement about the model: the owner telling an assistant what they read is
  * the same first-hand evidence as typing it themselves, so it is `remembered` and not a
  * Provenance of its own. A door that wrote the slug itself would be a second place that
- * judgement lives — and there would be two of them, since both the Reading and the Rating
+ * judgement lives — and there would be two of them, since both the Pass and the Rating
  * side of *"I finished volume 23, I'd give it an 8"* need it.
  *
  * The rest of the vocabulary is deliberately not named in TypeScript. Read it.

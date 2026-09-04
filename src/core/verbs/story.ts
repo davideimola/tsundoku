@@ -115,7 +115,7 @@ const NOT_A_COUNT_OF_PARTS =
  * Say how many Instalments this Story has, or take the numbering back off it with `null`.
  *
  * It changes nothing else: what a work is and what was done with it are unrelated facts
- * (ADR-0001), so no Reading, no Rating and no Volume follows from it. What it *is* refused by
+ * (ADR-0001), so no Pass, no Rating and no Volume follows from it. What it *is* refused by
  * is the other end of the same rule — a work cannot be made shorter than what a pass has
  * already read of it, or than what an object already covers of it, and Postgres says so
  * rather than this file (see the migration's `the_work_still_holds_what_was_read`).
@@ -161,7 +161,7 @@ function whyStoryRefused(constraint: string | undefined, otherwise: string): str
   if (constraint === "story_type_exists") return "That is not a Type this library knows.";
   if (constraint === "story_instalments_are_positive") return NOT_A_COUNT_OF_PARTS;
   // The two the migration's trigger raises, and the reason it is a trigger: a check
-  // constraint cannot read the Readings or the objects, and a work that has been read to
+  // constraint cannot read the Passes or the objects, and a work that has been read to
   // instalment seven is not a work of five.
   if (constraint === "story_instalments_still_hold_what_was_read") {
     return "A pass through this Story has got further than that. It cannot be shorter than what you have read of it.";
@@ -215,7 +215,7 @@ export type StoryAmendment = {
  * proposed as an Amendment and waits for a decision. `run` is how that approval calls this
  * inside its own transaction (see `../transaction.ts`).
  *
- * No Reading, no Rating and no Volume follow from it: what a Story is and what was done
+ * No Pass, no Rating and no Volume follow from it: what a Story is and what was done
  * with it are unrelated facts (ADR-0001).
  */
 export async function amendStory(
@@ -288,7 +288,7 @@ export async function amendStory(
 //   an object in the house    something on a shelf carries it. The narrative is as real as
 //                             the thing holding it — this is the rail, and it is the reason a
 //                             bulk control over the wall is safe at all
-//   a Reading                 an event in the owner's life names it. No duplicate has one
+//   a Pass                 an event in the owner's life names it. No duplicate has one
 //   a Rating                  the judgement, which is the one record that is only ever about
 //                             a narrative and never about an object (ADR-0001)
 //   a Path                    a stop on a route the owner planned. Their own ordering
@@ -313,8 +313,8 @@ export async function amendStory(
 //
 // It names the Story `s`, so a `case` spending it joins `story s`.
 const WHAT_THE_OWNER_HAS_LIVED_WITH = `
-    when exists (select 1 from reading r where r.story_id = s.id)
-      then 'a Reading went through it. That is an event in your life, and it names this narrative.'
+    when exists (select 1 from pass r where r.story_id = s.id)
+      then 'a Pass went through it. That is an event in your life, and it names this narrative.'
     when exists (select 1 from rating g where g.story_id = s.id)
       then 'you judged it. A score is the one record that is only ever about the narrative itself.'`;
 
@@ -359,7 +359,7 @@ type WhyItStands = { title: string; because: string | null };
  * and names itself, and nothing has moved when the screen comes back.
  *
  * It takes the Credits on each with it and leaves the people standing, and it takes the record
- * of which Volumes carried it. A Reading, a Rating and a Path stop cannot go with it, because
+ * of which Volumes carried it. A Pass, a Rating and a Path stop cannot go with it, because
  * any of them refuses instead.
  *
  * Returns how many were struck. An empty selection is refused rather than passing quietly: a
@@ -467,7 +467,7 @@ const THIS_OBJECT_DOES_NOT_CARRY_IT = "That Volume does not carry that Story.";
  * **One gesture, one transaction**: the link and the Story go together, and nothing can be
  * read, judged or placed on a route between the check and the act.
  *
- * Refused where anything else carries it, where a Reading went through it, where the owner
+ * Refused where anything else carries it, where a Pass went through it, where the owner
  * judged it, and where a Path names it as a stop — each in the words that say which. Nothing
  * about the object changes either way: it keeps its acquisitions, its place in a line and
  * everything else it holds.
@@ -522,7 +522,7 @@ export async function strikeStoryCarriedBy(volumeId: string, storyId: string): P
 //
 // **What makes it safe is Striking's posture asked about a narrative** (ADR-0015): the Story
 // the object stood for is dropped only while nothing the owner has *lived with* has attached
-// to it — no Reading, no Rating — and it refuses otherwise, naming which of the two it is. The
+// to it — no Pass, no Rating — and it refuses otherwise, naming which of the two it is. The
 // four questions striking asks are not all askable here: *an object in the house carries it*
 // is true by construction, since the object doing the splitting is one.
 //
@@ -534,7 +534,7 @@ export async function strikeStoryCarriedBy(volumeId: string, storyId: string): P
 // **That second one is a conflict with ADR-0015 and it is left standing deliberately.**
 // Striking refuses a Story a Path names as a stop — it is the fourth of its four — and this
 // gesture does not, because the decision behind it says the auto-made Story is dropped while
-// nothing has attached to it, *no Reading, no Rating*, and names no third thing. Refusing on a
+// nothing has attached to it, *no Pass, no Rating*, and names no third thing. Refusing on a
 // route would be a rule nobody wrote, and cascading it away quietly would be one too. So it
 // cascades, it is tested by name below, the panel says so before the press, and the ADR is
 // where the answer belongs the day the owner gives one.
@@ -575,14 +575,14 @@ type CarriedNarrative = {
  * of them new and one of them the thing they replace.
  *
  * Each new Story takes the Type of the narrative being replaced, so a split asks for titles
- * and nothing else. They are ordinary Stories from the moment they exist: a Rating, a Reading,
+ * and nothing else. They are ordinary Stories from the moment they exist: a Rating, a Pass,
  * a Credit and a Path stop all attach to each one separately, which is the whole reason the
  * owner split the object.
  *
  * **Nothing about the object changes.** The Volume, its acquisitions and its place in a Series
  * are untouched — a split changes what the owner judges and never what they own.
  *
- * Refused where the narrative being replaced is one the owner has lived with — a Reading went
+ * Refused where the narrative being replaced is one the owner has lived with — a Pass went
  * through it, or they judged it — and where it is not this object's to unmake, because other
  * objects carry it too. Refused on fewer than two titles, since an object standing for one
  * narrative is not split.

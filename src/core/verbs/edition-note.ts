@@ -20,7 +20,7 @@ const NO_VOLUME = "That Volume is not in the library.";
 /**
  * Record what the owner thinks of the object, replacing what they thought before.
  *
- * **Replacing, unlike a Rating.** A second thought about a Story is a second Reading and
+ * **Replacing, unlike a Rating.** A second thought about a Story is a second Pass and
  * both judgements survive, because rereading is a second act; a second thought about an
  * object is simply the verdict now, because print quality does not happen twice.
  *

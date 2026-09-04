@@ -10,7 +10,7 @@ import type { Executor } from "../transaction.ts";
  * it should cost, what it does cost and where.
  *
  * **This type is the proposal.** A caller that wants to *suggest* a Wish rather than open
- * one — the Reading list, when an entry needs a Volume the owner does not own — builds one
+ * one — the Pile, when an entry needs a Volume the owner does not own — builds one
  * of these, shows it, and does not call `openWish`. Buying stays a decision: nothing in
  * this module writes until the verb is called, and there is no second path that writes.
  */
@@ -47,7 +47,7 @@ const NOT_A_PRIORITY = "A priority is 1 (next), 2 (soon) or 3 (someday).";
  * an Inbox proposal the owner approves, not a row this verb writes (ADR-0005).
  *
  * Nothing else follows from it. The Volume is not touched, the Collection does not change,
- * and no Reading or Series is implied: a Wish is an intention and the only thing it changes
+ * and no Pass or Series is implied: a Wish is an intention and the only thing it changes
  * is what the owner is planning to buy.
  *
  * Refused where there is already an open Wish for that Volume, so that the list cannot say

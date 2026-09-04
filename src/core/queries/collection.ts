@@ -98,7 +98,7 @@ export type CollectionFilter = {
  * A Volume the library knows but the owner does not own — the wishlist's twenty-one, an
  * object released years ago — is not here, and answering *no* about one of those is the
  * whole point of the question. Every row here has an open acquisition; nothing is deleted
- * to make that true, because Readings made through an object are still true after it goes.
+ * to make that true, because Passes made through an object are still true after it goes.
  */
 export async function searchCollection(filter: CollectionFilter): Promise<CollectionVolume[]> {
   return query<CollectionVolume>(

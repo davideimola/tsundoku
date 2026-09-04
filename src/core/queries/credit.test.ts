@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { creditStory } from "../verbs/credit.ts";
+import { abandonPass, finishPass, recordPass } from "../verbs/pass.ts";
 import { setRating } from "../verbs/rating.ts";
-import { abandonReading, finishReading, recordReading } from "../verbs/reading.ts";
 import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
@@ -38,12 +38,12 @@ describe("the people the library credits", () => {
     await creditStory({ storyId: mob, person: "ONE", roleId: "artist" });
 
     // Only One-Punch Man was ever opened, so only it counts as read.
-    const reading = await recordReading({
+    const pass = await recordPass({
       storyId: punch,
       medium: "paper",
       provenanceId: "remembered",
     });
-    await finishReading(reading, "2024-05-05");
+    await finishPass(pass, "2024-05-05");
 
     expect(await listCreditedPeople()).toEqual([
       {
@@ -74,10 +74,10 @@ describe("the people the library credits", () => {
 });
 
 // The question the owner asks in front of the Batman shelf: *what have I actually read
-// by Jeph Loeb?* — and "read" means it went through the Readings, not merely that the
+// by Jeph Loeb?* — and "read" means it went through the Passes, not merely that the
 // Story is in the library.
 describe("everything read by one Credit", () => {
-  it("puts the Stories that went through a Reading on one side and the rest on the other", async () => {
+  it("puts the Stories that went through a Pass on one side and the rest on the other", async () => {
     const hush = await createStory({ title: "Batman: Hush", typeId: "comic" });
     const noir = await createStory({ title: "Gotham Noir", typeId: "comic" });
     const longHalloween = await createStory({ title: "The Long Halloween", typeId: "comic" });
@@ -91,24 +91,24 @@ describe("everything read by one Credit", () => {
     await creditStory({ storyId: longHalloween, person: "Jeph Loeb", roleId: "writer" });
 
     // Read, and rated.
-    const read = await recordReading({
+    const read = await recordPass({
       storyId: hush,
       medium: "paper",
       startedOn: "2023-02-01",
       provenanceId: "remembered",
     });
-    await finishReading(read, "2023-02-20");
+    await finishPass(read, "2023-02-20");
     await setRating({ storyId: hush, readingId: read, score: 8, provenanceId: "remembered" });
 
-    // Abandoned, which is still a Reading and therefore still something read *by* him.
-    const gaveUp = await recordReading({
+    // Abandoned, which is still a Pass and therefore still something read *by* him.
+    const gaveUp = await recordPass({
       storyId: noir,
       medium: "digital",
       provenanceId: "remembered",
     });
-    await abandonReading(gaveUp, "2022-01-01");
+    await abandonPass(gaveUp, "2022-01-01");
 
-    // The Long Halloween has no Reading at all: it is in the library and it is not read.
+    // The Long Halloween has no Pass at all: it is in the library and it is not read.
 
     expect(await findCreditedPerson(personId)).toEqual({
       id: personId,

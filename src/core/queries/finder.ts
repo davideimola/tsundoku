@@ -23,7 +23,7 @@ import { query } from "../db.ts";
  * The kinds of record a name can belong to.
  *
  * Five, and they are the five things in this library that **have a name the owner would
- * type**. A Reading, a Rating, an acquisition and a Wish are not here and should not be:
+ * type**. A Pass, a Rating, an acquisition and a Wish are not here and should not be:
  * none of them is called anything, and each is reached through the record that is.
  */
 export type FoundKind = "story" | "volume" | "series" | "person" | "path";

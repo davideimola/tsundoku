@@ -62,9 +62,9 @@ const NO_SUCH_VOLUME = "No Volume has that id.";
  * the owner does not own, and what lets the import read the wishlist without claiming
  * twenty-one books off the shelf. `acquireVolume` is the other act.
  *
- * Nothing about the reading follows from it either — no Story, no Reading, no Rating —
+ * Nothing about the reading follows from it either — no Story, no Pass, no Rating —
  * because being read and being owned are unrelated facts (ADR-0001). There is no medium to
- * give: an owned ebook is not representable, so a digital book is a Reading and never this.
+ * give: an owned ebook is not representable, so a digital book is a Pass and never this.
  *
  * `run` is how the Inbox's approval calls it inside its own transaction: an assistant may
  * only *propose* an object, and approving that proposal is one act — the Volume and the
@@ -296,7 +296,7 @@ export async function acquireVolume(
  * Collection stops claiming it.
  *
  * The catalogue keeps the object and the acquisition keeps its history rather than being
- * deleted. A Reading made through it, and the Edition note written about it, are facts
+ * deleted. A Pass made through it, and the Edition note written about it, are facts
  * about the owner's past that a delete would take with them — so what changes is only
  * whether the Collection answers with it. Acquiring it again later is a new acquisition.
  *
@@ -350,7 +350,7 @@ export async function releaseVolume(volumeId: string): Promise<void> {
 // STRIKING A VOLUME FROM THE CATALOGUE, and why this is not the delete ADR-0007 refuses.
 //
 // **Releasing is about the world; striking is about the record.** `releaseVolume` says the
-// object left the house and keeps everything, because a Reading made through it and the note
+// object left the house and keeps everything, because a Pass made through it and the note
 // written about it are facts about the owner's past that a delete would take with them. That
 // rule protects an object that *was real*. It has nothing to say about a row that never
 // stood for anything — a duplicate an assistant proposed, the owner approved in a bulk of
@@ -362,7 +362,7 @@ export async function releaseVolume(volumeId: string): Promise<void> {
 //
 //   in the house      an object on a shelf. Release it first, and then think again — this
 //                     is the rail that makes a bulk control over the catalogue safe at all
-//   a Reading         an event in the owner's life names this object. The strongest signal
+//   a Pass         an event in the owner's life names this object. The strongest signal
 //                     the thing was real, and no duplicate ever has one
 //   an Edition note   prose the owner wrote about this object as an object
 //   a Wish            an intention they recorded against this exact Volume
@@ -408,8 +408,8 @@ export async function strikeVolumes(volumeIds: readonly string[]): Promise<numbe
                 when exists (select 1 from acquisition a
                               where a.volume_id = v.id and a.released_on is null)
                   then 'it is in the house. Release it first — the catalogue is not where an object on a shelf is removed.'
-                when exists (select 1 from reading r where r.volume_id = v.id)
-                  then 'a Reading went through it. That is an event in your life, and it names this object.'
+                when exists (select 1 from pass r where r.volume_id = v.id)
+                  then 'a Pass went through it. That is an event in your life, and it names this object.'
                 when exists (select 1 from edition_note n where n.volume_id = v.id)
                   then 'you wrote an Edition note about it.'
                 when exists (select 1 from wish w where w.volume_id = v.id)
@@ -433,7 +433,7 @@ export async function strikeVolumes(volumeIds: readonly string[]): Promise<numbe
     // while any of them stands — and that refusal is the schema saying what this verb had
     // to decide out loud: an acquisition is history, and striking says the history was
     // fiction. The Edition note and the Stories it carried follow the Volume by cascade,
-    // and a Reading through it cannot exist, because one would have refused the gesture.
+    // and a Pass through it cannot exist, because one would have refused the gesture.
     await run(`delete from acquisition where volume_id = any($1::uuid[])`, [asked]);
 
     const struck = await refusing(

@@ -65,7 +65,7 @@ export type CreditedPerson = {
   /** Stories they are credited on. */
   storyCount: number;
   /**
-   * How many of those went through a Reading — which is what makes the difference
+   * How many of those went through a Pass — which is what makes the difference
    * between having heard of someone and having read them.
    */
   readCount: number;
@@ -88,13 +88,13 @@ export async function listCreditedPeople(): Promise<CreditedPerson[]> {
        (select count(distinct c.story_id)::int
           from credit c
          where c.person_id = p.id) as "storyCount",
-       -- "Read" goes through the Readings and never through the Stories that merely
-       -- exist. An abandoned Reading counts: giving up on it is still an act of reading,
+       -- "Read" goes through the Passes and never through the Stories that merely
+       -- exist. An abandoned Pass counts: giving up on it is still an act of reading,
        -- and the Story's state says which it was.
        (select count(distinct c.story_id)::int
           from credit c
          where c.person_id = p.id
-           and exists (select 1 from reading r where r.story_id = c.story_id)) as "readCount"
+           and exists (select 1 from pass r where r.story_id = c.story_id)) as "readCount"
      from person p
     where exists (select 1 from credit c where c.person_id = p.id)
     order by lower(p.name), p.id`
@@ -106,7 +106,7 @@ export async function listCreditedPeople(): Promise<CreditedPerson[]> {
  * so what it carries is what the tile is drawn from.
  *
  * The three facts beyond the title are the Story wall's own, read here through the same
- * fragments (`queries/story.ts`): the state, derived from the Readings and stored nowhere;
+ * fragments (`queries/story.ts`): the state, derived from the Passes and stored nowhere;
  * the line it stands in, for the colour; and the jacket, where an object carrying it has
  * one. A Story is the same tile wherever it is drawn, and that is what makes a wall of
  * somebody's work recognisable to an owner who has learnt their shelf.
@@ -122,7 +122,7 @@ export type CreditedStory = {
   latestScore: number | null;
   /**
    * Where the owner is with it — `to-read`, `reading`, `read`, `abandoned` — derived from
-   * the Readings on this request like everywhere else.
+   * the Passes on this request like everywhere else.
    *
    * It is **finer than the split below and does not replace it**: `read` and `notRead`
    * answer *what have I read by them*, and this says which of the four a Story in either
@@ -167,7 +167,7 @@ export type PersonCredits = {
    */
   roles: CreditRole[];
   /**
-   * The Stories credited to them that went through at least one Reading — *everything
+   * The Stories credited to them that went through at least one Pass — *everything
    * read by this Credit*, which is the question the screen exists for.
    */
   read: CreditedStory[];
@@ -190,7 +190,7 @@ const CREDITED_STORY = `
         join credit_role cr on cr.id = c.role_id
        where c.person_id = p.id and c.story_id = s.id
     ),
-    'readingCount', (select count(*)::int from reading r where r.story_id = s.id),
+    'readingCount', (select count(*)::int from pass r where r.story_id = s.id),
     'latestScore', (select g.score::float8
                       from rating g
                      where g.story_id = s.id
@@ -204,7 +204,7 @@ const CREDITED_STORY = `
   )`;
 
 // The two lists, which differ by one word. `whetherRead` is `exists` for what went
-// through a Reading and `not exists` for the rest — written once, because the two halves
+// through a Pass and `not exists` for the rest — written once, because the two halves
 // answering one question in two copies of the same block is how they would come to
 // disagree about what "read" means.
 const CREDITED_STORIES = (whetherRead: "exists" | "not exists") => `
@@ -214,7 +214,7 @@ const CREDITED_STORIES = (whetherRead: "exists" | "not exists") => `
       join type t on t.id = s.type_id
      where exists (select 1 from credit c
                     where c.person_id = p.id and c.story_id = s.id)
-       and ${whetherRead} (select 1 from reading r where r.story_id = s.id)
+       and ${whetherRead} (select 1 from pass r where r.story_id = s.id)
   ), '[]'::jsonb)`;
 
 // A person's id is generated, so a malformed one is the same event as an unknown one —
@@ -226,7 +226,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * no such person.
  *
  * The split is the answer: *"what have I read by Jeph Loeb before I commit to the
- * omnibus"* is about the Readings, so a Story sitting credited and unopened must not be
+ * omnibus"* is about the Passes, so a Story sitting credited and unopened must not be
  * counted among them — while hiding it altogether would answer the next question
  * (*"what of his do I still have to read"*) with silence.
  *

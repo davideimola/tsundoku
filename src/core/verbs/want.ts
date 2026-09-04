@@ -9,7 +9,7 @@ import type { Executor } from "../transaction.ts";
 //
 // Two verbs, and the shape of the pair is the whole design. Opening one is the fact; there is
 // no verb here that *closes* one, and there must not be. A Want ends by itself — it falls
-// quiet when a Reading began after it was opened, derived in `queries/want.ts` — which is
+// quiet when a Pass began after it was opened, derived in `queries/want.ts` — which is
 // exactly where it parts from the Wish beside it, and what keeps the owner from maintaining a
 // second list of what is done.
 //
@@ -27,7 +27,7 @@ const NO_SUCH_STORY =
   "That Story is not in the library yet. A title nobody recorded is a proposal, not a Want.";
 
 /**
- * Open a Want: the owner means to read this Story, and it joins the Reading list.
+ * Open a Want: the owner means to read this Story, and it joins the Pile.
  *
  * It names a Story that already exists and never creates one — a title nobody recorded is an
  * Inbox proposal the owner approves, not a row this verb writes (ADR-0005).
@@ -37,7 +37,7 @@ const NO_SUCH_STORY =
  * and meaning to own an object are unrelated facts, and the whole reason this verb exists is
  * that saying the first used to cost a named, ordered route.
  *
- * **Nothing closes it either.** It falls quiet on its own once a Reading begins after it — a
+ * **Nothing closes it either.** It falls quiet on its own once a Pass begins after it — a
  * comparison of dates rather than a state — which is what makes a planned reread ordinary: a
  * Want opened today on a Story read in 2019 stands until the owner actually rereads it.
  *
@@ -85,12 +85,12 @@ export async function openWant(storyId: string, run: Executor = query): Promise<
  *
  * **This is not closing one, and the difference is the whole of why it is called striking.** A
  * Want the owner has simply not acted on is still true, and there is no verb in this file that
- * retires it — the Reading is what answers a Want, and it does so by comparison rather than by
+ * retires it — the Pass is what answers a Want, and it does so by comparison rather than by
  * writing anything. What this removes is a sentence that was a slip: the wrong Story picked
  * from a list, an assistant's misheard title. So a slip leaves no trace, exactly as a struck
  * Volume or a struck Story does (ADR-0014, ADR-0015).
  *
- * Nothing refuses it. A Want holds no history — no Reading went through it, no judgement rests
+ * Nothing refuses it. A Want holds no history — no Pass went through it, no judgement rests
  * on it, and the Story it named is untouched — so there is nothing here the owner could have
  * lived with, and none of the four questions a Story's strike asks has anything to say about
  * one.

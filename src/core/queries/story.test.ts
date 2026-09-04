@@ -2,13 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { creditStory } from "../verbs/credit.ts";
+import { abandonPass, finishPass, recordInstalmentReached, recordPass } from "../verbs/pass.ts";
 import { setRating } from "../verbs/rating.ts";
-import {
-  abandonReading,
-  finishReading,
-  recordInstalmentReached,
-  recordReading,
-} from "../verbs/reading.ts";
 import { declareSeries, placeVolumeInSeries, recordSeriesPublishesStory } from "../verbs/series.ts";
 import { createStory, declareInstalments } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
@@ -26,19 +21,19 @@ beforeEach(async () => {
 
 // The state a Story is in is the thing the owner never wants to maintain again: the
 // sheets had a `Stato lettura` column and it was wrong the moment a reread began. Here
-// it is derived from the Readings and **stored nowhere**, which is why every transition
+// it is derived from the Passes and **stored nowhere**, which is why every transition
 // is walked through the verbs rather than asserted on a fixture.
-describe("a Story's state, derived from its Readings", () => {
-  it("is `to read` while there is no Reading at all", async () => {
+describe("a Story's state, derived from its Passes", () => {
+  it("is `to read` while there is no Pass at all", async () => {
     const storyId = await createStory({ title: "Vagabond", typeId: "manga" });
 
     expect((await findStory(storyId))?.state).toBe("to-read");
   });
 
-  it("becomes `reading` when a Reading opens, and `read` when it finishes", async () => {
+  it("becomes `reading` when a Pass opens, and `read` when it finishes", async () => {
     const storyId = await createStory({ title: "Vinland Saga", typeId: "manga" });
 
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2024-01-02",
@@ -46,30 +41,30 @@ describe("a Story's state, derived from its Readings", () => {
     });
     expect((await findStory(storyId))?.state).toBe("reading");
 
-    await finishReading(readingId, "2024-03-03");
+    await finishPass(passId, "2024-03-03");
     expect((await findStory(storyId))?.state).toBe("read");
   });
 
-  it("becomes `abandoned` when the only Reading was abandoned", async () => {
+  it("becomes `abandoned` when the only Pass was abandoned", async () => {
     const storyId = await createStory({ title: "Ulysses", typeId: "novel" });
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId,
       medium: "digital",
       provenanceId: "remembered",
     });
 
-    await abandonReading(readingId, "2024-07-01");
+    await abandonPass(passId, "2024-07-01");
 
     expect((await findStory(storyId))?.state).toBe("abandoned");
   });
 
   it("is `read` once anything was finished, whatever was abandoned before it", async () => {
     const storyId = await createStory({ title: "Berserk", typeId: "manga" });
-    const gaveUp = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
-    await abandonReading(gaveUp, "2019-04-04");
+    const gaveUp = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    await abandonPass(gaveUp, "2019-04-04");
 
-    const tried = await recordReading({ storyId, medium: "digital", provenanceId: "remembered" });
-    await finishReading(tried, "2024-04-04");
+    const tried = await recordPass({ storyId, medium: "digital", provenanceId: "remembered" });
+    await finishPass(tried, "2024-04-04");
 
     expect((await findStory(storyId))?.state).toBe("read");
   });
@@ -79,11 +74,11 @@ describe("a Story's state, derived from its Readings", () => {
       title: "La storia della mia vita - Spider-Man",
       typeId: "comic",
     });
-    const first = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
-    await finishReading(first, "2021-06-01");
+    const first = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishPass(first, "2021-06-01");
     expect((await findStory(storyId))?.state).toBe("read");
 
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2026-08-01",
@@ -115,19 +110,19 @@ describe("a Story's state, derived from its Readings", () => {
 });
 
 describe("rereading a Story", () => {
-  it("keeps both Readings, each with the Rating it carried", async () => {
+  it("keeps both Passes, each with the Rating it carried", async () => {
     const storyId = await createStory({
       title: "La storia della mia vita - Spider-Man",
       typeId: "comic",
     });
 
-    const first = await recordReading({
+    const first = await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2021-05-01",
       provenanceId: "remembered",
     });
-    await finishReading(first, "2021-06-01");
+    await finishPass(first, "2021-06-01");
     await setRating({
       storyId,
       readingId: first,
@@ -136,13 +131,13 @@ describe("rereading a Story", () => {
       provenanceId: "remembered",
     });
 
-    const second = await recordReading({
+    const second = await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2026-01-10",
       provenanceId: "remembered",
     });
-    await finishReading(second, "2026-02-01");
+    await finishPass(second, "2026-02-01");
     await setRating({
       storyId,
       readingId: second,
@@ -153,7 +148,7 @@ describe("rereading a Story", () => {
 
     const story = await findStory(storyId);
     // Newest first: a Story is read from the last thing that happened to it.
-    expect(story?.readings.map((reading) => [reading.startedOn, reading.rating?.score])).toEqual([
+    expect(story?.readings.map((pass) => [pass.startedOn, pass.rating?.score])).toEqual([
       ["2026-01-10", 9],
       ["2021-05-01", 7],
     ]);
@@ -162,17 +157,17 @@ describe("rereading a Story", () => {
 });
 
 // **What is open leads the stack**, and it is the same judgement `STORY_STATE` already makes
-// one screen up: an open Reading wins over a finished one, because it is what is happening to
-// the Story now. It matters because the day a Reading started is optional and routinely
+// one screen up: an open Pass wins over a finished one, because it is what is happening to
+// the Story now. It matters because the day a Pass started is optional and routinely
 // absent — the owner opens one from their own screen and leaves the date empty, since *that
 // it is open* is the fact — and ordering by the date alone would drop the thing in their hands
-// to the bottom of the stack, under a Reading from 2019.
-describe("the order a Story's Readings are stacked in", () => {
-  it("puts the Reading that is open first, whether or not it has a day", async () => {
+// to the bottom of the stack, under a Pass from 2019.
+describe("the order a Story's Passes are stacked in", () => {
+  it("puts the Pass that is open first, whether or not it has a day", async () => {
     const storyId = await createStory({ title: "Vinland Saga", typeId: "manga" });
 
-    await finishReading(
-      await recordReading({
+    await finishPass(
+      await recordPass({
         storyId,
         medium: "paper",
         startedOn: "2019-01-01",
@@ -180,39 +175,39 @@ describe("the order a Story's Readings are stacked in", () => {
       }),
       "2019-02-01"
     );
-    const open = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    const open = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
-    expect((await findStory(storyId))?.readings.map((reading) => reading.id)[0]).toBe(open);
+    expect((await findStory(storyId))?.readings.map((pass) => pass.id)[0]).toBe(open);
   });
 
-  // Below the open one, the settled Readings are newest first by the day they began, and a
-  // Reading nobody recorded a day for stands after the ones with one: a Goodreads import full
+  // Below the open one, the settled Passes are newest first by the day they began, and a
+  // Pass nobody recorded a day for stands after the ones with one: a Goodreads import full
   // of dateless acts must not crowd out the dated history.
   it("stacks what has ended newest first, and the dateless after the dated", async () => {
     const storyId = await createStory({ title: "Pluto", typeId: "manga" });
 
-    const dateless = await recordReading({
+    const dateless = await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "goodreads-history",
     });
-    await finishReading(dateless);
-    const older = await recordReading({
+    await finishPass(dateless);
+    const older = await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2018-03-01",
       provenanceId: "remembered",
     });
-    await finishReading(older, "2018-04-01");
-    const newer = await recordReading({
+    await finishPass(older, "2018-04-01");
+    const newer = await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2024-05-01",
       provenanceId: "remembered",
     });
-    await finishReading(newer, "2024-06-01");
+    await finishPass(newer, "2024-06-01");
 
-    expect((await findStory(storyId))?.readings.map((reading) => reading.id)).toEqual([
+    expect((await findStory(storyId))?.readings.map((pass) => pass.id)).toEqual([
       newer,
       older,
       dateless,
@@ -223,13 +218,13 @@ describe("the order a Story's Readings are stacked in", () => {
 describe("the Stories, listed", () => {
   it("carry their Type, their state and their best-known score", async () => {
     const read = await createStory({ title: "Pluto", typeId: "manga" });
-    const reading = await recordReading({
+    const pass = await recordPass({
       storyId: read,
       medium: "paper",
       provenanceId: "remembered",
     });
-    await finishReading(reading, "2024-02-02");
-    await setRating({ storyId: read, readingId: reading, score: 9.5, provenanceId: "remembered" });
+    await finishPass(pass, "2024-02-02");
+    await setRating({ storyId: read, readingId: pass, score: 9.5, provenanceId: "remembered" });
 
     await createStory({ title: "Zeru", typeId: "novel" });
 
@@ -258,13 +253,13 @@ describe("the Stories, listed", () => {
     // judgement was *set* rather than by when the row appeared.
     const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
     await setRating({ storyId, score: 6, provenanceId: "remembered" });
-    const reading = await recordReading({
+    const pass = await recordPass({
       storyId,
       medium: "paper",
       outcome: "finished",
       provenanceId: "remembered",
     });
-    await setRating({ storyId, readingId: reading, score: 9, provenanceId: "remembered" });
+    await setRating({ storyId, readingId: pass, score: 9, provenanceId: "remembered" });
     await setRating({ storyId, score: 7.5, provenanceId: "remembered" });
 
     expect((await listStories())[0]).toMatchObject({ title: "Sapiens", latestScore: 7.5 });
@@ -282,16 +277,16 @@ describe("the Stories, listed", () => {
 describe("what the owner has read", () => {
   it("carries every Rating with its prose and its Provenance", async () => {
     const storyId = await createStory({ title: "Pluto", typeId: "manga" });
-    const reading = await recordReading({
+    const pass = await recordPass({
       storyId,
       medium: "paper",
       startedOn: "2024-01-02",
       provenanceId: "goodreads-history",
     });
-    await finishReading(reading, "2024-02-02");
+    await finishPass(pass, "2024-02-02");
     await setRating({
       storyId,
-      readingId: reading,
+      readingId: pass,
       score: 9.5,
       prose: "The best thing Urasawa has done.",
       provenanceId: "remembered",
@@ -321,7 +316,7 @@ describe("what the owner has read", () => {
         ],
         readings: [
           {
-            id: reading,
+            id: pass,
             medium: "paper",
             outcome: "finished",
             atInstalment: null,
@@ -355,23 +350,23 @@ describe("what the owner has read", () => {
     await createStory({ title: "Vagabond", typeId: "manga" });
 
     const inHand = await createStory({ title: "Vinland Saga", typeId: "manga" });
-    await recordReading({ storyId: inHand, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId: inHand, medium: "paper", provenanceId: "remembered" });
 
     const gaveUp = await createStory({ title: "Ulysses", typeId: "novel" });
-    const attempt = await recordReading({
+    const attempt = await recordPass({
       storyId: gaveUp,
       medium: "digital",
       provenanceId: "remembered",
     });
-    await abandonReading(attempt, "2019-04-04");
+    await abandonPass(attempt, "2019-04-04");
 
     const finished = await createStory({ title: "Sapiens", typeId: "non-fiction" });
-    const reading = await recordReading({
+    const pass = await recordPass({
       storyId: finished,
       medium: "paper",
       provenanceId: "remembered",
     });
-    await finishReading(reading, "2024-05-05");
+    await finishPass(pass, "2024-05-05");
 
     expect((await listReadStories()).map((story) => story.title)).toEqual(["Sapiens"]);
   });
@@ -381,11 +376,11 @@ describe("what the owner has read", () => {
   // one derivation and not two.
   it("drops a Story the owner has started reading again", async () => {
     const storyId = await createStory({ title: "Berserk", typeId: "manga" });
-    const first = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
-    await finishReading(first, "2021-06-01");
+    const first = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishPass(first, "2021-06-01");
     expect((await listReadStories()).map((story) => story.title)).toEqual(["Berserk"]);
 
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
     expect(await listReadStories()).toEqual([]);
   });
@@ -393,10 +388,10 @@ describe("what the owner has read", () => {
   // A score imported from a spreadsheet has no act of reading to point at. It is still
   // the owner's judgement, so it travels — with the grain it was given in and, separately,
   // where it came from (ADR-0008).
-  it("carries a judgement that points at no Reading, marked for what it is", async () => {
+  it("carries a judgement that points at no Pass, marked for what it is", async () => {
     const storyId = await createStory({ title: "Death Note", typeId: "manga" });
-    const reading = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
-    await finishReading(reading, "2020-01-01");
+    const pass = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishPass(pass, "2020-01-01");
     await setRating({
       storyId,
       score: 8,
@@ -421,8 +416,8 @@ describe("what the owner has read", () => {
   it("is by title, so that reading it twice reads the same", async () => {
     for (const title of ["Zeru", "Akira", "Monster"]) {
       const storyId = await createStory({ title, typeId: "manga" });
-      const reading = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
-      await finishReading(reading, "2024-01-01");
+      const pass = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+      await finishPass(pass, "2024-01-01");
     }
 
     expect((await listReadStories()).map((story) => story.title)).toEqual([
@@ -563,15 +558,15 @@ describe("the Story wall", () => {
   });
 
   it("narrows to one state, and the state is still derived", async () => {
-    const reading = await createStory({ title: "Berserk", typeId: "manga" });
-    await recordReading({ storyId: reading, medium: "paper", provenanceId: "remembered" });
+    const underWay = await createStory({ title: "Berserk", typeId: "manga" });
+    await recordPass({ storyId: underWay, medium: "paper", provenanceId: "remembered" });
     const finished = await createStory({ title: "Pluto", typeId: "manga" });
-    const readingId = await recordReading({
+    const passId = await recordPass({
       storyId: finished,
       medium: "paper",
       provenanceId: "remembered",
     });
-    await finishReading(readingId, "2024-02-02");
+    await finishPass(passId, "2024-02-02");
     await createStory({ title: "Vagabond", typeId: "manga" });
 
     expect((await listStoryWall({ state: "reading" })).map((story) => story.title)).toEqual([
@@ -594,10 +589,10 @@ describe("the Story wall", () => {
 
   it("narrows by both at once, because the URL can carry both", async () => {
     const manga = await createStory({ title: "Akira", typeId: "manga" });
-    await recordReading({ storyId: manga, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId: manga, medium: "paper", provenanceId: "remembered" });
     await createStory({ title: "Monster", typeId: "manga" });
     const novel = await createStory({ title: "Ulysses", typeId: "novel" });
-    await recordReading({ storyId: novel, medium: "digital", provenanceId: "remembered" });
+    await recordPass({ storyId: novel, medium: "digital", provenanceId: "remembered" });
 
     expect(
       (await listStoryWall({ typeId: "manga", state: "reading" })).map((story) => story.title)
@@ -679,7 +674,7 @@ describe("the Story, faced as its own page draws it", () => {
   });
 });
 
-// **A run with somewhere left to go**, which is the fourth source of the Reading list (#43,
+// **A run with somewhere left to go**, which is the fourth source of the Pile (#43,
 // user stories 14, 30 and 31). The run itself is the signal: no Path minted for it, no flag on
 // the Series, no Want required, nothing copied by hand. What this answers is *which runs is
 // the owner not done with, and where next* — and it is derived from the same pick the Story's
@@ -689,7 +684,7 @@ describe("a run with somewhere left to go", () => {
   /** *Slam Dunk*: twenty Instalments, and a pass that has finished seven of them. */
   async function atSevenOfTwenty(): Promise<string> {
     const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "remembered",
@@ -713,7 +708,7 @@ describe("a run with somewhere left to go", () => {
 
   it("stands at nought and points at the first where an open pass has finished none", async () => {
     const storyId = await createStory({ title: "Berserk", typeId: "manga", instalments: 42 });
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
 
     expect(await listRunsInProgress()).toEqual([
       {
@@ -728,18 +723,18 @@ describe("a run with somewhere left to go", () => {
 
   it("says nothing about a run whose pass has reached the end of the work", async () => {
     const storyId = await createStory({ title: "Death Note", typeId: "manga", instalments: 12 });
-    const pass = await recordReading({ storyId, medium: "paper", provenanceId: "remembered" });
+    const pass = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
     await recordInstalmentReached(pass, 12);
 
     // Still open — finishing is a separate act — and there is nowhere left to go, so the
-    // Reading list has nothing to say about it.
+    // Pile has nothing to say about it.
     expect(await listRunsInProgress()).toEqual([]);
   });
 
   it("says nothing about a run whose pass has finished, nor one that was abandoned", async () => {
     const finished = await createStory({ title: "Pluto", typeId: "manga", instalments: 8 });
-    await finishReading(
-      await recordReading({
+    await finishPass(
+      await recordPass({
         storyId: finished,
         medium: "paper",
         provenanceId: "remembered",
@@ -749,8 +744,8 @@ describe("a run with somewhere left to go", () => {
     );
 
     const abandoned = await createStory({ title: "Ulysses", typeId: "novel", instalments: 18 });
-    await abandonReading(
-      await recordReading({
+    await abandonPass(
+      await recordPass({
         storyId: abandoned,
         medium: "digital",
         provenanceId: "remembered",
@@ -844,7 +839,7 @@ describe("a run with somewhere left to go", () => {
 
     expect(await listRunsInProgress()).toEqual([]);
 
-    await recordReading({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 3 });
+    await recordPass({ storyId, medium: "paper", provenanceId: "remembered", atInstalment: 3 });
 
     // Begun, and that is the only signal needed (user story 31): no flag on the line, no Want
     // opened, and the ledger still says nothing about how long the line is.
@@ -885,8 +880,8 @@ describe("a run with somewhere left to go", () => {
 
   it("still says nothing about a whole shelf once the pass through it has finished", async () => {
     const storyId = await aLine("Slam Dunk", 20, 20);
-    await finishReading(
-      await recordReading({
+    await finishPass(
+      await recordPass({
         storyId,
         medium: "paper",
         provenanceId: "remembered",
@@ -903,7 +898,7 @@ describe("a run with somewhere left to go", () => {
 
   it("says nothing about a Story that declares no Instalments, open pass or not", async () => {
     const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
-    await recordReading({ storyId, medium: "digital", provenanceId: "remembered" });
+    await recordPass({ storyId, medium: "digital", provenanceId: "remembered" });
 
     // There is no run to be in the middle of. The ordinary Story is this one, and it asks
     // nothing of anybody.
@@ -912,8 +907,8 @@ describe("a run with somewhere left to go", () => {
 
   it("reads the pass the owner is on, not the furthest any pass ever reached", async () => {
     const storyId = await createStory({ title: "Slam Dunk", typeId: "manga", instalments: 20 });
-    await abandonReading(
-      await recordReading({
+    await abandonPass(
+      await recordPass({
         storyId,
         medium: "paper",
         provenanceId: "remembered",
@@ -922,7 +917,7 @@ describe("a run with somewhere left to go", () => {
       }),
       "2019-06-01"
     );
-    await recordReading({
+    await recordPass({
       storyId,
       medium: "paper",
       provenanceId: "remembered",
@@ -940,7 +935,7 @@ describe("a run with somewhere left to go", () => {
   it("stands the runs by title, which is the only order that is not an opinion", async () => {
     await atSevenOfTwenty();
     const other = await createStory({ title: "Berserk", typeId: "manga", instalments: 42 });
-    await recordReading({ storyId: other, medium: "paper", provenanceId: "remembered" });
+    await recordPass({ storyId: other, medium: "paper", provenanceId: "remembered" });
 
     expect((await listRunsInProgress()).map((run) => run.story.title)).toEqual([
       "Berserk",
