@@ -1,8 +1,8 @@
 import type { OpenWish } from "@/core/queries/wish";
 
-// **How a shopping list is read**, and it is a file for the reason `../reading-list/entry.ts`
+// **How a shopping list is read**, and it is a file for the reason `../pile/entry.ts`
 // is one: two screens say it now. The Wishes screen bands the list by priority, and the
-// Reading list offers the same three words in the picker beside *Want it* — where they were a
+// Pile offers the same three words in the picker beside *Want it* — where they were a
 // second copy under a comment saying *as the Wishes screen names them*, which is a second
 // answer waiting to happen.
 //

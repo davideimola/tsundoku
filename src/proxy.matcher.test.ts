@@ -28,7 +28,7 @@ describe("the proxy's matcher", () => {
 
   // Everything the owner looks at, starting with the home page — which is the whole
   // of the web view today and the reason the exclusions have to be a short list.
-  it.each(["/", "/collection", "/story/abc", "/reading-list", "/anything-a-later-slice-adds"])(
+  it.each(["/", "/collection", "/story/abc", "/pile", "/anything-a-later-slice-adds"])(
     "covers %s",
     (pathname) => {
       expect(gateCovers(pathname)).toBe(true);

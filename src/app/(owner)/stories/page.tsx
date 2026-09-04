@@ -29,8 +29,8 @@ import { bandName, StoryScore, stateWord, storyDetail, WALL_STATES } from "./sto
 //      wall of covers, each in its Series' own tint (`@/lib/tint`). The tint is derived
 //      from the Series' identity, so it is the same on every deploy and the owner can learn
 //      it; a Story that stands in no line gets a legible tile rather than a gap.
-//   2. **The wall is split by state** — reading, the pile, read, abandoned — which is the
-//      one genuinely good idea in Goodreads, derived here from the Readings on this request
+//   2. **The wall is split by state** — under way, not started, finished, abandoned — which
+//      is the one genuinely good idea in Goodreads, derived here from the Passes on this request
 //      instead of maintained by hand.
 //   3. **Narrowing is a `GET`, and the state is in the URL.** Every control on this page is
 //      a link: the narrowed wall is bookmarkable, survives a refresh, and works with
@@ -133,7 +133,7 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           <h1 className="font-heading text-2xl sm:text-3xl">Stories</h1>
           <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
             The narrative unit, at whatever granularity was the right one — and where the owner is
-            with each one, derived from its Readings on this request and stored nowhere.
+            with each one, derived from its Passes on this request and stored nowhere.
           </p>
         </div>
 
@@ -407,7 +407,7 @@ function Band({ state, stories }: { state: StoryState; stories: WallStory[] }) {
 }
 
 const NOTHING_YET =
-  "No Stories yet. Record one, and its state follows from the Readings you give it.";
+  "No Stories yet. Record one, and its state follows from the Passes you give it.";
 
 /**
  * Why the wall came back empty, said in the words it was narrowed by.
@@ -415,8 +415,8 @@ const NOTHING_YET =
  * Written per case rather than once, because *"no Story is both of those things"* is a
  * sentence about two filters and the owner may only have set one — and a screen that says
  * *both* over a single filter is a screen that has stopped reading its own state. The band
- * is named rather than the state worded, because *no Novel is reading* says that a novel
- * is doing the reading.
+ * is named rather than the state worded, because *no Novel is under way* reads as a claim
+ * about the novel rather than about the band.
  */
 function emptily(typeId: string | undefined, state: StoryState | undefined, types: Type[]) {
   const type = types.find((one) => one.id === typeId)?.name;

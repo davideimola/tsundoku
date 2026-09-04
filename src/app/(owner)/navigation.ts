@@ -10,13 +10,27 @@
  * until they are holding the phone.
  *
  * **Three sections, because the owner asks three different questions at three different
- * moments** — not because nine links wanted grouping. *Reading* is the desk at night:
- * what am I in the middle of, what is next, what did I think of it. *Owning* is the
+ * moments** — not because nine links wanted grouping. *Reading and playing* is the desk at
+ * night: what am I in the middle of, what is next, what did I think of it. *Owning* is the
  * question asked standing in a fumetteria: do I have this, what am I missing, what was I
  * going to buy. *Repairing* is the maintenance of the catalogue itself — what an
  * assistant asked for, and the people nobody has credited yet. A screen goes in the
  * section whose question it answers, and if it answers none of them the section is wrong
  * rather than the screen.
+ *
+ * **The first question is called *Reading and playing*, and the two words are one name**
+ * (#58, ADR-0021). It was *Reading* while every Story in the library was printed; a
+ * videogame is a Story by the same test a manga is, so the question the section groups —
+ * what am I in the middle of — stopped being about reading alone. The alternative was a
+ * word that covers both without naming either, and every candidate for it was worse than
+ * the pair: *Going through* names the act and not the evening, *Stories* names the records
+ * rather than the question, and a section titled with the abstraction is a section the
+ * owner has to translate. So it says both, at both widths, and the map is where that is
+ * decided rather than in the markup that renders it twice.
+ *
+ * The destination under it is **the Pile**, which is the screen's own name and the
+ * glossary's: the thing the application is named after, holding a game and a novel without
+ * leaning towards either.
  *
  * No icons on the destinations, and no icon library: #19 bought none, one mark does not
  * earn a dependency, and destinations named in words are shorter to read than glyphs to
@@ -37,7 +51,7 @@ export type Destination = {
    * question — *is this worth a thumb?* — is answered where the destination is declared
    * and cannot drift out of step with it.
    *
-   * Four carry it. The home page is where an evening starts, the Reading list is what
+   * Four carry it. The home page is where an evening starts, the Pile is what
    * gets opened on a sofa, the Collection is the one question that is *only* ever asked
    * away from the desk — do I already have volume 12 — and the Inbox is the one that
    * fills up while nobody is looking. Nobody opens Paths standing in a fumetteria, and
@@ -47,16 +61,16 @@ export type Destination = {
 };
 
 export type Section = {
-  readonly title: "Reading" | "Owning" | "Repairing";
+  readonly title: "Reading and playing" | "Owning" | "Repairing";
   readonly destinations: readonly Destination[];
 };
 
 export const NAVIGATION: readonly Section[] = [
   {
-    title: "Reading",
+    title: "Reading and playing",
     destinations: [
       { href: "/", label: "Home", onTheBar: true },
-      { href: "/reading-list", label: "Reading list", onTheBar: true },
+      { href: "/pile", label: "The Pile", onTheBar: true },
       { href: "/stories", label: "Stories" },
       { href: "/paths", label: "Paths" },
     ],
@@ -88,7 +102,8 @@ export const NAVIGATION: readonly Section[] = [
  *
  * Why it is not in the map: the three sections are the three questions the owner asks at
  * three different moments, and *find* is not a fourth question — it is how they get to the
- * answer to any of them. Put under *Reading* it would be a lie about what it is for; given a
+ * answer to any of them. Put under *Reading and playing* it would be a lie about what it is
+ * for; given a
  * section of its own it would make the sidebar claim four questions where there are three.
  *
  * What replaces the line, and why the rule is not weakened: the shell puts the way into it

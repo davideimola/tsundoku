@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ReadingListEntry, ReadingListReason } from "@/core/queries/reading-list";
+import type { PileEntry, PileReason } from "@/core/queries/pile";
 
 import {
   entryDetail,
@@ -26,12 +26,12 @@ import {
 // shelf for something they meant to read.
 
 /** A reason with everything absent, which the four sources fill differently. */
-function reason(said: Partial<ReadingListReason> = {}): ReadingListReason {
+function reason(said: Partial<PileReason> = {}): PileReason {
   return { because: "path", want: null, path: null, run: null, series: null, ...said };
 }
 
 /** An entry with everything absent. A real one always carries at least one reason. */
-function entry(said: Partial<ReadingListEntry> = {}): ReadingListEntry {
+function entry(said: Partial<PileEntry> = {}): PileEntry {
   return {
     subject: { kind: "story", id: "a-story" },
     reasons: [],
@@ -46,7 +46,7 @@ function entry(said: Partial<ReadingListEntry> = {}): ReadingListEntry {
 }
 
 /** An object the library knows, placed in a line or not. */
-function object(said: Partial<NonNullable<ReadingListEntry["object"]>> = {}) {
+function object(said: Partial<NonNullable<PileEntry["object"]>> = {}) {
   return {
     id: "an-object",
     title: "Vagabond 1",
@@ -75,7 +75,7 @@ const A_LINE = {
 const A_ROUTE = { id: "a-path", name: "Angolo Giappone", intent: null, place: 1 };
 
 /** The shape a Series entry has: a position of a line, and no narrative at all. */
-function seriesEntry(said: Partial<ReadingListEntry> = {}): ReadingListEntry {
+function seriesEntry(said: Partial<PileEntry> = {}): PileEntry {
   return entry({
     subject: { kind: "series", id: A_LINE.id, position: A_LINE.position },
     reasons: [reason({ because: "series", series: A_LINE })],
@@ -84,7 +84,7 @@ function seriesEntry(said: Partial<ReadingListEntry> = {}): ReadingListEntry {
 }
 
 /** The shape a narrative entry has: a Story, and one route or Want that named it. */
-function storyEntry(said: Partial<ReadingListEntry> = {}): ReadingListEntry {
+function storyEntry(said: Partial<PileEntry> = {}): PileEntry {
   return entry({
     story: A_STORY,
     reasons: [reason({ because: "path", path: A_ROUTE })],
@@ -111,7 +111,7 @@ describe("what an entry is called", () => {
 describe("why a row is on the list", () => {
   it("says the Want in the owner's own words, naming nothing to open", () => {
     expect(reasonSaid(reason({ because: "want", want: { id: "a-want", openedAt: "" } }))).toEqual({
-      said: "I said I want to read it",
+      said: "I said I want to take it on",
       names: null,
     });
   });
@@ -136,7 +136,7 @@ describe("why a row is on the list", () => {
           run: { howFarItGot: { atInstalment: 7, instalments: 20 }, nextInstalment: 8 },
         })
       )
-    ).toEqual({ said: "7 of 20 read — carry on at 8", names: null });
+    ).toEqual({ said: "7 of 20 — carry on at 8", names: null });
   });
 
   it("says a run nothing has been read of yet as a start rather than a continuation", () => {
@@ -149,7 +149,7 @@ describe("why a row is on the list", () => {
           run: { howFarItGot: { atInstalment: 0, instalments: 20 }, nextInstalment: 1 },
         })
       ).said
-    ).toBe("0 of 20 read — start at 1");
+    ).toBe("0 of 20 — start at 1");
   });
 
   it("counts a Series position against what the publisher has printed", () => {

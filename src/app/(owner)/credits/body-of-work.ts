@@ -33,7 +33,7 @@ export type BandOfWork = {
   /** Everything they are credited on in that role, by title. */
   stories: CreditedStory[];
   /**
-   * How many of them went through a Reading, abandoned included.
+   * How many of them went through a Pass, abandoned included.
    *
    * The same reading of the word the Credits list counts by — it is `readingCount` and never
    * the derived state, because *read* here means opened at all and the state says which of

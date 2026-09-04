@@ -449,7 +449,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
                 is ten navigations to fix somebody else's minute of work.
 
                 It is safe over a list because of what the list *is*: nothing in the house is
-                here. The verb refuses the rest — a Reading through it, an Edition note, a
+                here. The verb refuses the rest — a Pass through it, an Edition note, a
                 Wish — and refuses the whole selection rather than part of it, naming the one
                 that stands.
 
@@ -479,7 +479,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </Drawer>
       ) : null}
 
-      {/* **THE GAP, SHOWN** (#51). An object carrying no narrative stands in no Reading list
+      {/* **THE GAP, SHOWN** (#51). An object carrying no narrative stands on no Pile
           and takes no judgement, so until somebody looks at it there is no screen it appears
           on — and two ordinary paths produce one: an approval from the Inbox, which may name
           Stories only by an id the assistant found (ADR-0019), and an object catalogued in a
@@ -508,8 +508,8 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             catalogued before anybody named what is inside — approved from the Inbox, where an
             assistant may link the Stories an object holds and never invent one, or catalogued from
             a photograph in a shop. Nothing refuses such an object and nothing is wrong with it: it
-            simply stands in no Reading list and takes no judgement until it carries something. Open
-            one and name what it holds, in the field under its contents.
+            simply stands on no Pile and takes no judgement until it carries something. Open one and
+            name what it holds, in the field under its contents.
           </p>
 
           {/* The *elsewhere* list's register — rows and a dashed frame, an outline of the

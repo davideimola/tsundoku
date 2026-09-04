@@ -215,7 +215,7 @@ export async function strikeStory(volumeId: string, storyId: string): Promise<vo
  * **It lives here rather than on the Collection since that screen became a wall** (#23): a
  * tile carries no controls, and the act that stops the house claiming an object belongs on
  * the page that is a record of the object. Nothing undoes it, so it costs a deliberate
- * second tap — and it erases nothing, because the Readings made through this object and
+ * second tap — and it erases nothing, because the Passes made through this object and
  * what the owner thought of it are still true afterwards (ADR-0007).
  */
 export async function release(form: FormData): Promise<void> {

@@ -3,17 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
-import {
-  type PinnedSubject,
-  pinToReadingList,
-  unpinFromReadingList,
-} from "@/core/verbs/reading-list";
+import { type PinnedSubject, pinToPile, unpinFromPile } from "@/core/verbs/pile";
 import { strikeWant } from "@/core/verbs/want";
 import { openWish } from "@/core/verbs/wish";
 import { requireOwner } from "@/lib/auth/owner";
 import { THE_ROUTE, theRoutesAskedFor } from "./behind";
 
-// The write side of the Reading list, and a thin adapter like the page beside it
+// The write side of the Pile, and a thin adapter like the page beside it
 // (ADR-0002): each function reads a form, calls one verb, and carries back what the verb
 // said.
 //
@@ -26,7 +22,7 @@ import { THE_ROUTE, theRoutesAskedFor } from "./behind";
 //
 // The fourth is `unwant`, and it is a *strike* rather than a close (`core/verbs/want.ts`). A
 // Want the owner has not acted on is still true and nothing here retires it — it falls quiet
-// on its own once a Reading begins after it. This is the row that was a slip, taken back.
+// on its own once a Pass begins after it. This is the row that was a slip, taken back.
 //
 // The answer travels back in the URL rather than in React state, like every screen here: a
 // plain form and a redirect work with no JavaScript running at all.
@@ -66,7 +62,7 @@ function subject(form: FormData): PinnedSubject {
  *
  * They travel as hidden fields rather than as an address to return to, which is the reason
  * this is a rebuild and not a `back` parameter: a form that carried its own redirect target
- * would be an open redirect wearing a Reading list's clothes. Reading them is `./behind.ts`'s,
+ * would be an open redirect wearing the Pile's clothes. Reading them is `./behind.ts`'s,
  * because the page reads the same thing off the URL and two copies of that walk is how the two
  * come to disagree.
  */
@@ -77,7 +73,7 @@ function where(form: FormData): URLSearchParams {
 }
 
 /**
- * Run one verb and land back on the Reading list, looking at what it was pressed from.
+ * Run one verb and land back on the Pile, looking at what it was pressed from.
  *
  * **Only a refusal is said in words.** Everything that worked is already on the page that
  * comes back — the entry has moved, the pin is gone — and a banner announcing what the
@@ -104,24 +100,24 @@ async function saying(
     answer.set("refused", error.message);
   }
 
-  revalidatePath("/reading-list");
+  revalidatePath("/pile");
 
   const address = answer.toString();
-  redirect(address === "" ? "/reading-list" : `/reading-list?${address}`);
+  redirect(address === "" ? "/pile" : `/pile?${address}`);
 }
 
 /** Pin an entry: this is what I read next, and it leads the list until I unpin it. */
 export async function pin(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(() => pinToReadingList(subject(form)), where(form));
+  await saying(() => pinToPile(subject(form)), where(form));
 }
 
 /** Unpin it: the entry leaves the head and goes back to where the list composed it. */
 export async function unpin(form: FormData): Promise<void> {
   await requireOwner();
 
-  await saying(() => unpinFromReadingList(subject(form)), where(form));
+  await saying(() => unpinFromPile(subject(form)), where(form));
 }
 
 /**
@@ -153,9 +149,9 @@ export async function wishFor(form: FormData): Promise<void> {
  * Strike a Want: the owner did not mean to say it, and the row goes.
  *
  * **Not a way to tick one off**, which is why the press does not read like one. A Want ends by
- * itself when a Reading begins after it, so the only thing left for a button to do about one is
+ * itself when a Pass begins after it, so the only thing left for a button to do about one is
  * take back a sentence that was a slip — the wrong Story picked out of a list. The Story, its
- * Readings and its Rating are untouched by it.
+ * Passes and its Rating are untouched by it.
  */
 export async function unwant(form: FormData): Promise<void> {
   await requireOwner();

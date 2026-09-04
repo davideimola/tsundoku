@@ -54,8 +54,8 @@ describe("what a strike takes with a Story", () => {
     expect(said).toBe(
       "2 Credits go with it, and the people stay. 1 object the house does not hold carries it."
     );
-    // A Reading, a score or a Path stop would have refused the strike, so the row never
+    // A Pass, a score or a Path stop would have refused the strike, so the row never
     // mentions one — this is the sentence's silence being deliberate rather than an omission.
-    expect(said).not.toMatch(/Reading|score|Path/);
+    expect(said).not.toMatch(/Pass|score|Path/);
   });
 });

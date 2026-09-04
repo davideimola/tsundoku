@@ -10,7 +10,7 @@ import { rolesSaid } from "../roles";
 // ONE PERSON, and **everything the library credits them with, in the role they held on it**
 // (#31). That is the screen: a body of work, reachable, split the way a colophon splits it.
 //
-// **The split is the role now, and it used to be the Reading.** Read against unread was the
+// **The split is the role now, and it used to be the Pass.** Read against unread was the
 // right answer to *what have I read by Jeph Loeb before I commit to the omnibus*, and it is
 // still the answer the core hands over and the MCP door reads (`read` and `notRead` in
 // `@/core/queries/credit`) — but it is a question about the owner, and this screen is about
@@ -73,7 +73,7 @@ export default async function CreditPage({ params }: { params: Promise<{ id: str
       )}
 
       <p className="mt-12 max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
-        Read means it went through a Reading, abandoned included — not that the Story is in the
+        Read means it went through a Pass, abandoned included — not that the Story is in the
         library. The score is the most recent judgement of the Story, which is where every judgement
         here hangs: what the owner thinks of an <em>object</em> is an Edition note, and it is on the
         Volume.

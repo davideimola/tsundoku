@@ -1,5 +1,5 @@
-import type { ReadingListEntry, ReadingListRoute } from "@/core/queries/reading-list";
-import { theKeyOf } from "@/core/queries/reading-list";
+import type { PileEntry, PileRoute } from "@/core/queries/pile";
+import { theKeyOf } from "@/core/queries/pile";
 
 // **What stands behind a route's first stop**, and how the reserve is shaped around it. It is
 // a screen's own derivation for the reason `./entry.ts` is one: a judgement about *reading* a
@@ -26,7 +26,7 @@ import { theKeyOf } from "@/core/queries/reading-list";
 // survives the write, the refresh and the back button, and it costs no script at all.
 //
 // The word this file does not use is **queue**, which the glossary bans on this screen
-// (CONTEXT.md, *Reading list*) — and which #40 had to take back out of the core for the same
+// (CONTEXT.md, *The Pile*) — and which #40 had to take back out of the core for the same
 // reason. What a route has is *stops*, and what is not the first of them stands *behind* it.
 
 /** The parameter naming a route whose stops are shown. Three files read it. */
@@ -34,7 +34,7 @@ export const THE_ROUTE = "route";
 
 /** One stop standing behind the row that leads its route. */
 export type StopBehind = {
-  entry: ReadingListEntry;
+  entry: PileEntry;
   /** Where it stands among what is still to read on that route, counted from one. */
   place: number;
 };
@@ -47,7 +47,7 @@ export type StopBehind = {
  * has already pinned what was in front.
  */
 export type WhatStandsBehind = {
-  route: ReadingListRoute;
+  route: PileRoute;
   /** In the route's own order, which is the only order a route has. Never empty. */
   stops: StopBehind[];
   /** Whether the owner asked to see them. Read off the URL against the routes actually here. */
@@ -56,7 +56,7 @@ export type WhatStandsBehind = {
 
 /** One row of the reserve: an entry, and what stands behind it on the routes it leads. */
 export type ReserveRow = {
-  entry: ReadingListEntry;
+  entry: PileEntry;
   /**
    * The routes this row leads, in the order its own reasons name them. Empty on almost every
    * row — a Want, a Series position, and any route with nothing behind its first stop.
@@ -109,7 +109,7 @@ export function theRoutesAskedFor(said: unknown): string[] {
  * looks for something they have not decided about yet, and a silent loss here would be
  * invisible by construction.
  */
-export function theReserveAsRows(reserve: ReadingListEntry[], shown: string[]): ReserveRow[] {
+export function theReserveAsRows(reserve: PileEntry[], shown: string[]): ReserveRow[] {
   // The rows that stand on their own, before any route has claimed one. Everything the reserve
   // holds is one of these unless standing behind a first stop is all it is.
   const leads = new Set(reserve.filter((entry) => !onlyBehind(entry)).map(keyOf));
@@ -144,7 +144,7 @@ export function theReserveAsRows(reserve: ReadingListEntry[], shown: string[]): 
   }
 
   /** What stands behind one leading row, in the order its own reasons name the routes. */
-  const behindThe = (entry: ReadingListEntry): WhatStandsBehind[] =>
+  const behindThe = (entry: PileEntry): WhatStandsBehind[] =>
     entry.reasons.flatMap((reason) => {
       const route = reason.path;
       if (!route || leaders.get(route.id) !== keyOf(entry)) return [];
@@ -173,13 +173,13 @@ export function theReserveAsRows(reserve: ReadingListEntry[], shown: string[]): 
  * `reasons` is never empty — the core composes a row *from* a reason — so this is a real
  * question about every entry and not a vacuous truth about an empty one.
  */
-function onlyBehind(entry: ReadingListEntry): boolean {
+function onlyBehind(entry: PileEntry): boolean {
   const only = entry.reasons.length === 1 ? entry.reasons[0].path : null;
   return only !== null && only.place > 1;
 }
 
 /** An entry's identity, which is the core's encoding and never a second one of this file's. */
-function keyOf(entry: ReadingListEntry): string {
+function keyOf(entry: PileEntry): string {
   return theKeyOf(entry.subject);
 }
 
@@ -203,7 +203,7 @@ export function theReserveIsSaid(tonight: number, behind: number): string {
 }
 
 /**
- * The Reading list's address with one route's stops shown or put away, and every other route
+ * The Pile's address with one route's stops shown or put away, and every other route
  * left as it was.
  *
  * The screen's other parameters are deliberately **not** carried through, which is the
@@ -218,5 +218,5 @@ export function theAddressWith(shown: string[], asked: { show?: string; hide?: s
   if (asked.show) routes.add(asked.show);
 
   const said = new URLSearchParams([...routes].map((id) => [THE_ROUTE, id])).toString();
-  return said === "" ? "/reading-list" : `/reading-list?${said}`;
+  return said === "" ? "/pile" : `/pile?${said}`;
 }

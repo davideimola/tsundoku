@@ -23,9 +23,9 @@ import type { StoryNothingHasHappenedTo } from "@/core/queries/story";
 /**
  * What follows one of these out of the library, said in the row it is about.
  *
- * A Story in this list has nothing of the owner's on it by construction — no Reading, no
+ * A Story in this list has nothing of the owner's on it by construction — no Pass, no
  * score, no Path, nothing in the house carrying it (`listStoriesNothingHasHappenedTo`) — so
- * this never has to say *and your Readings*: that Story is not here to be ticked.
+ * this never has to say *and your Passes*: that Story is not here to be ticked.
  *
  * **Nothing at all is an answer and gets a sentence**, rather than an empty line where the
  * other rows have prose: a blank there reads as a row that failed to load its own detail, and

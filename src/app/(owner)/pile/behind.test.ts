@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ReadingListEntry, ReadingListReason } from "@/core/queries/reading-list";
+import type { PileEntry, PileReason } from "@/core/queries/pile";
 
 import { theAddressWith, theReserveAsRows, theReserveIsSaid, theRoutesAskedFor } from "./behind";
 
@@ -17,22 +17,22 @@ import { theAddressWith, theReserveAsRows, theReserveIsSaid, theRoutesAskedFor }
 // drawn under two routes, which is the duplication the whole model refuses.
 
 /** A reason with everything absent, which the four sources fill differently. */
-function reason(said: Partial<ReadingListReason> = {}): ReadingListReason {
+function reason(said: Partial<PileReason> = {}): PileReason {
   return { because: "path", want: null, path: null, run: null, series: null, ...said };
 }
 
 /** A stop of a route, as a reason. */
-function onRoute(id: string, name: string, place: number): ReadingListReason {
+function onRoute(id: string, name: string, place: number): PileReason {
   return reason({ because: "path", path: { id, name, intent: null, place } });
 }
 
 /** The owner having said they want to read it. */
-function wanted(): ReadingListReason {
+function wanted(): PileReason {
   return reason({ because: "want", want: { id: "a-want", openedAt: "2026-09-01T00:00:00Z" } });
 }
 
 /** A narrative entry: a Story, and the reasons that put it on the list. */
-function story(id: string, ...reasons: ReadingListReason[]): ReadingListEntry {
+function story(id: string, ...reasons: PileReason[]): PileEntry {
   return {
     subject: { kind: "story", id },
     reasons,
@@ -46,7 +46,7 @@ function story(id: string, ...reasons: ReadingListReason[]): ReadingListEntry {
 }
 
 /** A position of a line: the shopping half, which names an object and no narrative. */
-function position(id: string, at: number): ReadingListEntry {
+function position(id: string, at: number): PileEntry {
   return {
     subject: { kind: "series", id, position: at },
     reasons: [
@@ -248,18 +248,18 @@ describe("what the reserve's heading says", () => {
 
 describe("the address one route's stops are shown at", () => {
   it("shows a route and keeps the ones already shown", () => {
-    expect(theAddressWith(["dc"], { show: "marvel" })).toBe("/reading-list?route=dc&route=marvel");
+    expect(theAddressWith(["dc"], { show: "marvel" })).toBe("/pile?route=dc&route=marvel");
   });
 
   it("puts one route away and leaves the rest standing", () => {
-    expect(theAddressWith(["dc", "marvel"], { hide: "dc" })).toBe("/reading-list?route=marvel");
+    expect(theAddressWith(["dc", "marvel"], { hide: "dc" })).toBe("/pile?route=marvel");
   });
 
   it("goes back to the plain address when the last one is put away", () => {
-    expect(theAddressWith(["dc"], { hide: "dc" })).toBe("/reading-list");
+    expect(theAddressWith(["dc"], { hide: "dc" })).toBe("/pile");
   });
 
   it("shows a route that is already shown exactly once", () => {
-    expect(theAddressWith(["dc"], { show: "dc" })).toBe("/reading-list?route=dc");
+    expect(theAddressWith(["dc"], { show: "dc" })).toBe("/pile?route=dc");
   });
 });

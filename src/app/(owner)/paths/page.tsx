@@ -124,8 +124,8 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
           </h2>
           {active.length === 0 ? (
             <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-              Every route is put aside. The Reading list composes itself from the active ones, so it
-              has nothing to compose from — take one up again below.
+              Every route is put aside. The Pile composes itself from the active ones, so it has
+              nothing to compose from — take one up again below.
             </p>
           ) : (
             <ul className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -143,7 +143,7 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
             Put aside
           </h2>
           <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-            Not composed into the Reading list. The order in them is kept.
+            Not composed into the Pile. The order in them is kept.
           </p>
           <ul className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {aside.map((path) => (

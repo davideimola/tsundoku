@@ -63,7 +63,7 @@ export default async function CreditsPage() {
       )}
 
       <p className="mt-10 max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
-        Read means it went through a Reading, abandoned included — not that the Story is in the
+        Read means it went through a Pass, abandoned included — not that the Story is in the
         library. Open a name for the whole body of work, split by the role they held on each thing.
       </p>
     </main>

@@ -20,7 +20,7 @@ import { Picker } from "./fields";
 // in their hands; that held while the four sentences stood together and the object half was
 // where paper lived, and it stopped holding the moment this half became a door of its own
 // (ADR-0019) — a paperback off somebody else's shelf comes through here. What is *not* asked is
-// which Volume the pass went through: `CONTEXT.md` says a Reading knows the object «if there was
+// which Volume the pass went through: `CONTEXT.md` says a Pass knows the object «if there was
 // one», and that clause is the permission not to ask. A picker over the catalogue here would
 // rebuild the object-to-narrative round trip inside the door built to end it, and it would ask
 // it of the owner least likely to have an answer — the one saying they read something they do
@@ -62,7 +62,7 @@ export function TheNarrative({
       </Picker>
 
       {/* **Only the sentence that records a pass**, which is the model's own word rather than a
-          flag on the sentence: a Want carries an intended medium of its own, on the Reading
+          flag on the sentence: a Want carries an intended medium of its own, on the Pile
           list, and nothing was read yet — so asking it here would be this panel answering a
           question the list asks later, and answering it wrong. */}
       {said === "read" ? <TheMedium carried={typed.medium} /> : null}

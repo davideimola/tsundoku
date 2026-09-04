@@ -3,11 +3,11 @@ import { Cover } from "@/components/cover";
 import { Pile } from "@/components/pile";
 import { countWaitingInboxEntries } from "@/core/queries/inbox";
 import { type Covered, libraryInFigures, thePile, unrecorded, whole } from "@/core/queries/library";
-import { composeReadingList, type ReadingListEntry, theKeyOf } from "@/core/queries/reading-list";
+import { composePile, type PileEntry, theKeyOf } from "@/core/queries/pile";
 import { listStoryWall } from "@/core/queries/story";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { entryStanding, entryTitle } from "./reading-list/entry";
+import { entryStanding, entryTitle } from "./pile/entry";
 import { storyDetail } from "./stories/story-state";
 
 // THE DASHBOARD. For eleven slices this page listed the five Types, which is what a walking
@@ -34,7 +34,7 @@ import { storyDetail } from "./stories/story-state";
 //      library is the other case and gets its zero, because nothing bought is a measurement
 //      rather than a gap — `figureOf` is where that line is drawn, once.
 //   4. **An empty band is an invitation.** Every block here says what is missing and offers
-//      the thing that fills it, because with every Reading finished *reading now* is zero and
+//      the thing that fills it, because with every Pass finished *under way* is zero and
 //      an empty box is the least useful true statement a screen can make.
 //
 // A thin adapter over five queries, like every page here (ADR-0002): no SQL, no domain logic,
@@ -42,7 +42,7 @@ import { storyDetail } from "./stories/story-state";
 export const dynamic = "force-dynamic";
 
 /**
- * How much of the Reading list the dashboard shows.
+ * How much of the Pile the dashboard shows.
  *
  * Three, because this band answers *what is next* and not *what is the list* — the list has
  * its own screen, linked from the heading. A fourth row would start to be the list.
@@ -59,17 +59,17 @@ const IN_PROSE =
 export default async function Home() {
   await requireOwner();
 
-  const [reading, entries, waiting, figures, pile] = await Promise.all([
+  const [underWay, entries, waiting, figures, pile] = await Promise.all([
     // Narrowed in the core rather than here, like every wall in this app: the band shows
-    // what is being read, so it reads what is being read.
+    // what is open, so it reads what is open.
     listStoryWall({ state: "reading" }),
-    composeReadingList(),
+    composePile(),
     countWaitingInboxEntries(),
     libraryInFigures(),
     thePile(),
   ]);
 
-  // **Sliced here, and this is not the narrowing the walls forbid.** The Reading list has no
+  // **Sliced here, and this is not the narrowing the walls forbid.** The Pile has no
   // rows to read: it is composed, and its *order* is the answer it gives — the head the owner
   // pinned, in pin order, and then the reserve, which is in no order at all — so which three
   // come first is not knowable until the whole thing has been composed. The band prints the
@@ -93,22 +93,22 @@ export default async function Home() {
       </header>
 
       <div className="mt-8 space-y-9">
-        <Block label="Reading now" count={reading.length}>
-          {reading.length === 0 ? (
+        <Block label="Under way" count={underWay.length}>
+          {underWay.length === 0 ? (
             <Invitation>
-              No Reading is open.{" "}
+              No Pass is open.{" "}
               <Link href="/stories?state=to-read" className={IN_PROSE}>
-                Pick one out of the pile
+                Pick something nobody has started
               </Link>{" "}
-              and say you have started it — a Reading is recorded from the assistant, and the pile
-              is drawn at the foot of this page.
+              and say you have begun it — a Pass is recorded from the assistant too, and the spines
+              at the foot of this page are the library itself.
             </Invitation>
           ) : (
             /* The wall's own grid and the wall's own tile, at the width a title is legible
                across, so a Story in hand looks here exactly as it looks on the Stories
                screen. */
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 sm:gap-4">
-              {reading.map((story) => (
+              {underWay.map((story) => (
                 <li key={story.id}>
                   <Cover
                     href={`/stories/${story.id}`}
@@ -134,13 +134,9 @@ export default async function Home() {
 
         <div className="grid gap-9 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <Block
-            label="What to read next"
+            label="The Pile"
             count={composed.length}
-            more={
-              composed.length > next.length
-                ? { href: "/reading-list", word: "All of it" }
-                : undefined
-            }
+            more={composed.length > next.length ? { href: "/pile", word: "All of it" } : undefined}
           >
             {composed.length === 0 ? (
               <Invitation>
@@ -453,11 +449,11 @@ function Invitation({ children }: { children: React.ReactNode }) {
   return <p className="max-w-prose text-pretty text-sm text-muted-foreground">{children}</p>;
 }
 
-/** One row of the Reading list, as the dashboard shows it: the order, the title, the standing. */
-function NextEntry({ entry, place }: { entry: ReadingListEntry; place: number }) {
+/** One row of the Pile, as the dashboard shows it: the order, the title, the standing. */
+function NextEntry({ entry, place }: { entry: PileEntry; place: number }) {
   return (
     <li className="flex gap-3 border-t border-border py-2.5 first:border-t-0 first:pt-0">
-      {/* The ordinal, because the order *is* the answer the Reading list gives. */}
+      {/* The ordinal, because the order *is* the answer the Pile gives. */}
       <span
         aria-hidden="true"
         className="w-5 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-muted-foreground"

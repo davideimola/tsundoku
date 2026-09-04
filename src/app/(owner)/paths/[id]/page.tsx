@@ -363,14 +363,14 @@ export default async function PathPage({
               </Button>
             </form>
             <p className="mt-1 text-pretty text-xs text-muted-foreground">
-              The Reading list composes itself from the active routes only. A route put aside keeps
-              its order, so taking it up again costs nothing.
+              The Pile composes itself from the active routes only. A route put aside keeps its
+              order, so taking it up again costs nothing.
             </p>
 
             {/* **The two acts stand together because the difference between them is the thing
                 the owner has to read.** Putting a route aside is *not now* and keeps the order;
                 striking it is *this was never a route* and keeps nothing — and a route minted
-                only to get something into the Reading list is the second, not the first. Set one
+                only to get something onto the Pile is the second, not the first. Set one
                 under the other, a hairline apart, the pair says that without a paragraph
                 explaining it.
 
@@ -462,7 +462,7 @@ export default async function PathPage({
       {panel === STRIKING_A_ROUTE ? (
         <Drawer
           title="Strike this route"
-          description="For a route that was never one — a name minted to get a title into the Reading list. Not for a route you have walked or paused: putting it aside keeps the order for when you come back."
+          description="For a route that was never one — a name minted to get a title onto the Pile. Not for a route you have walked or paused: putting it aside keeps the order for when you come back."
           refused={refused}
           closesTo={back}
         >
@@ -487,12 +487,12 @@ export default async function PathPage({
                 </>
               ) : null}
               . Those are the route's own records, and they say nothing once the route is gone — a
-              Reading list pin on this route goes with them.
+              Pile pin on this route goes with them.
             </p>
 
             <p className="text-pretty text-sm text-muted-foreground">
-              Every Story it named stays where it was, and so does every Reading, every score and
-              every object in your catalogue. Withdrawing an order destroys no history.
+              Every Story it named stays where it was, and so does every Pass, every score and every
+              object in your catalogue. Withdrawing an order destroys no history.
             </p>
 
             <div>

@@ -1,12 +1,7 @@
-import type {
-  ReadingListEntry,
-  ReadingListLine,
-  ReadingListReason,
-  ReadingListRoute,
-} from "@/core/queries/reading-list";
-import { howFarItGot } from "../stories/readings";
+import type { PileEntry, PileLine, PileReason, PileRoute } from "@/core/queries/pile";
+import { howFarItGot } from "../stories/passes";
 
-// How an entry of the Reading list is **said**, in one place, because two screens say it
+// How an entry of the Pile is **said**, in one place, because two screens say it
 // now: the list itself, and the dashboard's *what to read next* (#24).
 //
 // It is a module of its own for the reason `../stories/story-state.tsx` is one. An entry has
@@ -25,12 +20,12 @@ import { howFarItGot } from "../stories/readings";
 // screens, asking the same way.
 
 /** The Want that put this entry here, where one did. */
-export function theWantOn(entry: ReadingListEntry): { id: string; openedAt: string } | null {
+export function theWantOn(entry: PileEntry): { id: string; openedAt: string } | null {
   return entry.reasons.find((reason) => reason.want)?.want ?? null;
 }
 
 /** Every route this entry stands on, in the order the list composed them. */
-export function theRoutesOf(entry: ReadingListEntry): ReadingListRoute[] {
+export function theRoutesOf(entry: PileEntry): PileRoute[] {
   return entry.reasons.flatMap((reason) => (reason.path ? [reason.path] : []));
 }
 
@@ -40,7 +35,7 @@ export function theRoutesOf(entry: ReadingListEntry): ReadingListRoute[] {
  * A row is one or the other and never both: a Series names an object and a Want or a route
  * names a narrative (ADR-0001), so the two never merge into one entry.
  */
-export function theSeriesOf(entry: ReadingListEntry): ReadingListLine | null {
+export function theSeriesOf(entry: PileEntry): PileLine | null {
   return entry.reasons.find((reason) => reason.series)?.series ?? null;
 }
 
@@ -53,18 +48,18 @@ export function theSeriesOf(entry: ReadingListEntry): ReadingListLine | null {
  * is the Series and the number, which is also exactly what the owner would look for in a
  * shop.
  */
-export function entryTitle(entry: ReadingListEntry): string {
+export function entryTitle(entry: PileEntry): string {
   if (entry.story) return entry.story.title;
   if (entry.object) return entry.object.title;
 
   const series = theSeriesOf(entry);
-  if (!series) return "Something to read";
+  if (!series) return "Something to take on";
 
   return [series.name, series.editionLine, series.position].filter(Boolean).join(" ");
 }
 
 /** The one line that decides whether the entry is actionable tonight. */
-export function entryStanding(entry: ReadingListEntry): string {
+export function entryStanding(entry: PileEntry): string {
   if (entry.medium === "digital") return "digital · tonight";
   if (entry.atHand) return "paper · on the shelf";
   return entry.wishAlreadyOpen ? "paper · already on the shopping list" : "paper · buy it first";
@@ -78,8 +73,8 @@ export function entryStanding(entry: ReadingListEntry): string {
  * *next* is the one the route is offering, and anything further back is what stands behind it,
  * which the owner can pin out of order — the whole of *three Marvel stories and then a DC one*.
  */
-export function reasonSaid(reason: ReadingListReason): ReasonSaid {
-  if (reason.want) return { said: "I said I want to read it", names: null };
+export function reasonSaid(reason: PileReason): ReasonSaid {
+  if (reason.want) return { said: "I said I want to take it on", names: null };
 
   if (reason.path) {
     return {
@@ -93,14 +88,19 @@ export function reasonSaid(reason: ReadingListReason): ReasonSaid {
     // `howFarItGot` is the one wording of *seven of twenty* in this application (#37), spent
     // here rather than written again, so a row and the page it opens cannot say two numbers.
     //
-    // The verb is the judgement. Nothing read is *0 of 20* — a work owned whole and never
-    // opened, or a pass that has finished none of it — and what it asks for is **starting**;
-    // anything above nought asks for **carrying on**. One word, and it is the difference
-    // between the list describing the shelf and the list telling the owner what to do next.
+    // The verb is the judgement. Nothing gone through is *0 of 20* — a work owned whole and
+    // never opened, or a pass that has finished none of it — and what it asks for is
+    // **starting**; anything above nought asks for **carrying on**. One word, and it is the
+    // difference between the list describing the shelf and the list telling the owner what
+    // to do next.
+    //
+    // The fraction stands on its own, without a verb after it: *7 of 20 read* was true of
+    // every row while every row was printed, and the same sentence about a game would be
+    // saying the wrong thing about the one fact the number is (#58).
     const { howFarItGot: far, nextInstalment } = reason.run;
 
     return {
-      said: `${howFarItGot(far)} read — ${far.atInstalment === 0 ? "start" : "carry on"} at ${nextInstalment}`,
+      said: `${howFarItGot(far)} — ${far.atInstalment === 0 ? "start" : "carry on"} at ${nextInstalment}`,
       // It names no record, because a run is not one: it is the open pass, read as a
       // fraction, and the Story the tile already leads to is where it is kept.
       names: null,
@@ -155,7 +155,7 @@ function ordinal(place: number): string {
 }
 
 // **What identifies a row is not here, and that is deliberate**: it is `theKeyOf` in
-// `@/core/queries/reading-list`, because the same value is what a pin names. A screen keying
+// `@/core/queries/pile`, because the same value is what a pin names. A screen keying
 // its rows one way while the verb it posts to names them another is how a press comes to pin
 // the row above, so the encoding is the core's and both doors spend it.
 
@@ -169,7 +169,7 @@ function ordinal(place: number): string {
  * the screen that says what is missing, and the honest destination for a position nobody has
  * catalogued.
  */
-export function entryLeadsTo(entry: ReadingListEntry): string | undefined {
+export function entryLeadsTo(entry: PileEntry): string | undefined {
   if (entry.story) return `/stories/${entry.story.id}`;
   if (entry.object) return `/collection/${entry.object.id}`;
 
@@ -186,7 +186,7 @@ export function entryLeadsTo(entry: ReadingListEntry): string | undefined {
  * object carrying it, exactly as the Story wall borrows one. An entry with neither is drawn
  * on the palette's own paper, which is the ordinary case for something read digitally.
  */
-export function entryLine(entry: ReadingListEntry): string | null {
+export function entryLine(entry: PileEntry): string | null {
   return theSeriesOf(entry)?.id ?? entry.object?.seriesId ?? null;
 }
 
@@ -198,7 +198,7 @@ export function entryLine(entry: ReadingListEntry): string | null {
  * `storyDetail` is beside the Story wall's own words: a tile the pointer describes one way
  * and the row beside it another would be two answers about one entry.
  */
-export function entryDetail(entry: ReadingListEntry): string {
+export function entryDetail(entry: PileEntry): string {
   return `${entryTitle(entry)} — ${entryStanding(entry)}`;
 }
 
@@ -211,7 +211,7 @@ export function entryDetail(entry: ReadingListEntry): string {
  * is no number to print and the Type is what is left worth saying, which is the same fallback
  * an object's own page makes.
  */
-export function entryFoot(entry: ReadingListEntry): string | number {
+export function entryFoot(entry: PileEntry): string | number {
   return (
     theSeriesOf(entry)?.position ??
     entry.object?.seriesNumber ??
@@ -220,6 +220,6 @@ export function entryFoot(entry: ReadingListEntry): string | number {
     // a Series, which names a position — and answered rather than thrown, because a tile is
     // never the place to raise. The same posture the Story wall takes over an impossible
     // empty band.
-    "to read"
+    "to take on"
   );
 }

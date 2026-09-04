@@ -4,15 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { FIRST_HAND } from "@/core/queries/provenance";
 import { isRefusal } from "@/core/refusal";
-import { setRating, strikeRating } from "@/core/verbs/rating";
 import {
-  abandonReading,
-  finishReading,
+  abandonPass,
+  finishPass,
   type Medium,
   recordInstalmentReached,
-  recordReading,
-  strikeReading,
-} from "@/core/verbs/reading";
+  recordPass,
+  strikePass,
+} from "@/core/verbs/pass";
+import { setRating, strikeRating } from "@/core/verbs/rating";
 import { mergeSeriesIntoOneStory } from "@/core/verbs/series";
 import { amendStory, declareInstalments, strikeStories } from "@/core/verbs/story";
 import { recordVolumeCarriesStory } from "@/core/verbs/story-to-volume";
@@ -24,27 +24,27 @@ import {
   RENAME,
   SERIALIZE,
   STRIKE,
+  STRIKE_PASS,
   STRIKE_RATING,
-  STRIKE_READING,
 } from "../panels";
 
 // The writes on a Story's page, and **#29 is where the web stopped being a read-only view of
 // the thing it exists to record**. The assistant could already say *I've started the Batman
-// omnibus* over MCP and the owner could not say it from their own screen: `recordReading`,
-// `finishReading`, `abandonReading` and `setRating` were four verbs with one door.
+// omnibus* over MCP and the owner could not say it from their own screen: `recordPass`,
+// `finishPass`, `abandonPass` and `setRating` were four verbs with one door.
 //
 // Four acts, and the shape of them is the model's rather than a form's:
 //
-//   - **Opening a Reading is one act and closing it is another.** A Reading that has started
-//     and not ended is what *reading now* is — it is why the dashboard has a top band — so
+//   - **Opening a Pass is one act and closing it is another.** A Pass that has started
+//     and not ended is what *under way* is — it is why the dashboard has a top band — so
 //     the owner says *I have started this* and says *I finished it* later, and neither
 //     pretends to be an edit of the other.
-//   - **Nothing is ever overwritten.** Reading it again is a new Reading, which is what keeps
-//     last time's judgement beside this one's. `finishReading` refuses a Reading that has
+//   - **Nothing is ever overwritten.** Going through it again is a new Pass, which is what
+//     keeps last time's judgement beside this one's. `finishPass` refuses a Pass that has
 //     already ended, in its own prose, and this door does not soften that.
-//   - **A Rating belongs to an act of reading.** It is posted with the Reading it came out of,
+//   - **A Rating belongs to one Pass.** It is posted with the Pass it came out of,
 //     so a reread's score sits beside the first one instead of over it. Saying it again about
-//     the *same* Reading is an edit of that one judgement — the only write on this page that
+//     the *same* Pass is an edit of that one judgement — the only write on this page that
 //     replaces something the owner wrote, which is why the form arrives filled in with what
 //     it is about to replace.
 //   - **The Provenance is the core's**, and it is `FIRST_HAND`: the owner typing it here is
@@ -57,12 +57,12 @@ import {
 
 /**
  * Where a refused write comes back to: the drawer it was typed in, and — for the acts that
- * are about one act of reading rather than about the Story — which Reading that is.
+ * are about one Pass rather than about the Story — which Pass that is.
  *
  * The pair travels together because the address is one thing, which is the shape the
  * Volume's own page already gives it (`collection/[id]/actions.ts` calls it `reopens` too).
  */
-type Reopens = { panel: string; reading?: string; rating?: string };
+type Reopens = { panel: string; pass?: string; rating?: string };
 
 /** What a form's field held, or nothing where it was left empty. */
 function text(form: FormData, field: string): string | null {
@@ -76,7 +76,7 @@ function text(form: FormData, field: string): string | null {
  * Run one verb and land back on the Story, with the drawer that posted it closed.
  *
  * **Only a refusal is said in words**, as on every screen here: what worked is already on the
- * page that comes back — the Reading is in the stack, the score is under it — and a banner
+ * page that comes back — the Pass is in the stack, the score is under it — and a banner
  * announcing it would be the screen talking about itself. Closing the drawer is what the
  * plain address does, since a drawer's open state is the URL (`@/components/drawer`).
  *
@@ -101,7 +101,7 @@ async function saying(
     // about a field — they are read on the page, where the record is.
     if (reopens) {
       said.set("panel", reopens.panel);
-      if (reopens.reading) said.set("reading", reopens.reading);
+      if (reopens.pass) said.set("pass", reopens.pass);
       if (reopens.rating) said.set("rating", reopens.rating);
     }
   }
@@ -111,25 +111,25 @@ async function saying(
 }
 
 /**
- * **Start reading it, and do not say how it ends** — the act #29 exists for.
+ * **Start a Pass, and do not say how it ends** — the act #29 exists for.
  *
- * No outcome, so the Story reads `reading` from this moment: the state is derived from the
- * Readings on every request and stored nowhere, so nothing else has to be told. The day is
+ * No outcome, so the Story is under way from this moment: the state is derived from the
+ * Passes on every request and stored nowhere, so nothing else has to be told. The day is
  * optional the way *came home* is on the Collection, because the fact does not depend on it.
  */
-export async function startReading(form: FormData): Promise<void> {
+export async function startPass(form: FormData): Promise<void> {
   await requireOwner();
 
   const storyId = text(form, "storyId") ?? "";
 
   await saying(storyId, () =>
-    recordReading({
+    recordPass({
       storyId,
       // The verb refuses a medium that is not one of its two, in prose the owner reads, so
       // nothing here filters the vocabulary — that would be a second place the model lives.
       medium: (text(form, "medium") ?? "") as Medium,
       // Absent is ordinary and required on digital: an owned ebook is not a thing this model
-      // has, so a digital Reading went through no object.
+      // has, so a digital Pass went through no object.
       volumeId: text(form, "volumeId"),
       startedOn: text(form, "startedOn"),
       provenanceId: FIRST_HAND,
@@ -137,13 +137,13 @@ export async function startReading(form: FormData): Promise<void> {
   );
 }
 
-/** The owner finished it. Refused on a Reading that has already ended — that is a reread. */
+/** The owner finished it. Refused on a Pass that has already ended — that is a second pass. */
 export async function finishIt(form: FormData): Promise<void> {
   await requireOwner();
 
   const storyId = text(form, "storyId") ?? "";
 
-  await saying(storyId, () => finishReading(text(form, "readingId") ?? "", text(form, "endedOn")));
+  await saying(storyId, () => finishPass(text(form, "passId") ?? "", text(form, "endedOn")));
 }
 
 /**
@@ -157,11 +157,11 @@ export async function giveUp(form: FormData): Promise<void> {
 
   const storyId = text(form, "storyId") ?? "";
 
-  await saying(storyId, () => abandonReading(text(form, "readingId") ?? "", text(form, "endedOn")));
+  await saying(storyId, () => abandonPass(text(form, "passId") ?? "", text(form, "endedOn")));
 }
 
 /**
- * What the owner thought of it, attached to the act of reading it came out of.
+ * What the owner thought of it, attached to the Pass it came out of.
  *
  * The score arrives from a picker of the nineteen half points rather than from a number
  * field: the owner's keyboard offers a comma where this scale wants a dot, and a score is the
@@ -178,7 +178,9 @@ export async function rate(form: FormData): Promise<void> {
   await saying(storyId, () =>
     setRating({
       storyId,
-      readingId: text(form, "readingId"),
+      // The core still spells this field `readingId`, and #60 sweeps it (#57 left the
+      // object fields deliberately). The form the screen posts says `passId`.
+      readingId: text(form, "passId"),
       score: Number(text(form, "score") ?? Number.NaN),
       prose: text(form, "prose"),
       provenanceId: FIRST_HAND,
@@ -218,7 +220,7 @@ export async function serialize(form: FormData): Promise<void> {
 }
 
 /**
- * **Say where this pass got to.** It is written on the Reading and never on the Story: how
+ * **Say where this pass got to.** It is written on the Pass and never on the Story: how
  * far you are is a fact about an act, so a reread starts again at nothing and the pass before
  * it keeps the number it ended on.
  */
@@ -226,11 +228,11 @@ export async function sayWhereIGotTo(form: FormData): Promise<void> {
   await requireOwner();
 
   const storyId = text(form, "storyId") ?? "";
-  const readingId = text(form, "readingId") ?? "";
+  const passId = text(form, "passId") ?? "";
 
-  await saying(storyId, () => recordInstalmentReached(readingId, counted(form, "atInstalment")), {
+  await saying(storyId, () => recordInstalmentReached(passId, counted(form, "atInstalment")), {
     panel: REACHED,
-    reading: readingId,
+    pass: passId,
   });
 }
 
@@ -261,7 +263,7 @@ export async function carryFromStory(form: FormData): Promise<void> {
  * It is the same verb the wall's drawer presses, over a selection of one, and this door exists
  * for what the wall's cannot show. That list holds only Stories nothing has happened to, so no
  * refusal is ever reachable from it — **here is the only place the four are said**: an object
- * in the house carrying it, a Reading through it, a score on it, a Path naming it. The owner is
+ * in the house carrying it, a Pass through it, a score on it, a Path naming it. The owner is
  * standing on the record they believe is a mistake, and the answer is either that it is gone or
  * a sentence about what they have lived with.
  *
@@ -302,7 +304,7 @@ export async function strikeIt(form: FormData): Promise<void> {
  * undefined, for something that was never a route.
  *
  * There is no press that undoes it by *closing* it. A Want falls quiet by itself once a
- * Reading begins after it was opened, which is what makes a planned reread ordinary.
+ * Pass begins after it was opened, which is what makes a planned second pass ordinary.
  */
 export async function wantIt(form: FormData): Promise<void> {
   await requireOwner();
@@ -316,7 +318,7 @@ export async function wantIt(form: FormData): Promise<void> {
  * Take a Want back: it was a slip, and the row goes.
  *
  * A **strike** rather than a close (`core/verbs/want.ts`), and the label says so. The Story,
- * its Readings and its Rating are untouched.
+ * its Passes and its Rating are untouched.
  */
 export async function unwant(form: FormData): Promise<void> {
   await requireOwner();
@@ -330,7 +332,7 @@ export async function unwant(form: FormData): Promise<void> {
  * The arrow, set from the end the work is managed from (#34, user stories 35 and 36). Its
  * consequence is the whole gesture and not a flag: every Volume of the line comes to carry this
  * Story, the per-volume narratives the default minted collapse onto it, and any Rating,
- * Reading, Credit, Path stop, Want or pin on them is carried across or repointed. Nothing the
+ * Pass, Credit, Path stop, Want or pin on them is carried across or repointed. Nothing the
  * owner holds moves — the Volumes, the acquisitions and the completeness ledger are exactly as
  * they were.
  *
@@ -383,30 +385,30 @@ export async function rename(form: FormData): Promise<void> {
 }
 
 /**
- * **Strike one act of reading**, which is the door ADR-0018 opens.
+ * **Strike one Pass**, which is the door ADR-0018 opens.
  *
- * The state on the way out needs telling nothing: it is derived from the Readings that are
+ * The state on the way out needs telling nothing: it is derived from the Passes that are
  * left on the next request, so a Story whose only pass this was reads `to read` again with no
  * field anywhere put back.
  *
  * Refused on a pass the owner judged, and the sentence comes back **into this panel** rather
  * than onto the page behind — it is about the row the owner pressed, and the drawer is
- * standing over it. The reading travels with it so the panel reopens over the same row and
+ * standing over it. The pass travels with it so the panel reopens over the same row and
  * not over the newest one.
  *
  * The verb answers with the Story rather than this door reading it off the form, and the form
  * field is still sent: it is what the redirect and the revalidation need when the write is
  * *refused*, since there is no answer to read a Story off then.
  */
-export async function strikeThisReading(form: FormData): Promise<void> {
+export async function strikeThisPass(form: FormData): Promise<void> {
   await requireOwner();
 
   const storyId = text(form, "storyId") ?? "";
-  const readingId = text(form, "readingId") ?? "";
+  const passId = text(form, "passId") ?? "";
 
-  await saying(storyId, () => strikeReading(readingId), {
-    panel: STRIKE_READING,
-    reading: readingId,
+  await saying(storyId, () => strikePass(passId), {
+    panel: STRIKE_PASS,
+    pass: passId,
   });
 }
 

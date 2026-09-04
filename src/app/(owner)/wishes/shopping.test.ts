@@ -80,7 +80,7 @@ describe("the three steps a shopping list is bought in", () => {
     expect(theShoppingList([])).toEqual([]);
   });
 
-  // The picker on the Reading list offers the same three words, which is the whole reason
+  // The picker on the Pile offers the same three words, which is the whole reason
   // they are written down once.
   it("names a priority where the vocabulary has a word for it", () => {
     expect(priorityNamed(1)).toBe("Next");

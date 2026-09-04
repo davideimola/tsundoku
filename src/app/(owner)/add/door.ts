@@ -1,5 +1,5 @@
 import type { WhatIsOnThisIsbn } from "@/core/queries/isbn";
-import type { Medium } from "@/core/verbs/reading";
+import type { Medium } from "@/core/verbs/pass";
 import type { WhatWasSaid } from "@/core/verbs/what-happened";
 import { ASKED } from "./panels";
 
@@ -255,7 +255,7 @@ export const THE_SENTENCES = [
     records:
       "The object joins the catalogue without joining the house, and a Wish for it joins the shopping list.",
     atLength:
-      "The object is recorded and the shopping list gains it — catalogued is not owned, so nothing here says it came home and there is nothing to undo when you decide against it. What is inside it is named here exactly as it is when you buy it, and a line that names a work stands that work in the list rather than minting a second one; which position it is waits until it is on the shelf. Nothing about reading follows either — wanting the object and wanting to read the work are two sentences, and this is the one about the object.",
+      "The object is recorded and the shopping list gains it — catalogued is not owned, so nothing here says it came home and there is nothing to undo when you decide against it. What is inside it is named here exactly as it is when you buy it, and a line that names a work stands that work in the list rather than minting a second one; which position it is waits until it is on the shelf. Nothing about going through it follows either — wanting the object and wanting to take on the work are two sentences, and this is the one about the object.",
   },
   {
     said: "read",
@@ -273,9 +273,9 @@ export const THE_SENTENCES = [
     said: "wanted",
     about: "a-narrative",
     sentence: "I want to read it.",
-    records: "A Want, which joins the Reading list and falls quiet by itself once you have.",
+    records: "A Want, which joins the Pile and falls quiet by itself once you have.",
     atLength:
-      "It joins the Reading list and nothing else follows: no Path, no order, no Wish. Nobody closes a Want — it falls quiet by itself once a Reading has begun since.",
+      "It joins the Pile and nothing else follows: no Path, no order, no Wish. Nobody closes a Want — it falls quiet by itself once a Pass has begun since.",
   },
 ] as const satisfies readonly Sentence[];
 
@@ -302,7 +302,7 @@ export type AnObjectsSentence = Extract<
  * It is here because that half now has a form of its own (`./the-narrative.tsx`, #50) rather
  * than a lone picker inline in the page, and a component drawing one half of a door has to be
  * unable to be handed the other half's sentence: *I bought it* reaching the panel that asks
- * the medium would be a Reading offered for an object nobody said they had read.
+ * the medium would be a Pass offered for an object nobody said they had gone through.
  */
 export type ANarrativesSentence = Extract<
   (typeof THE_SENTENCES)[number],
@@ -313,7 +313,7 @@ export type ANarrativesSentence = Extract<
  * **The two media, as the narrative half offers them** (#50), where the Type picker beside them
  * reads its vocabulary from the database.
  *
- * A medium is a check constraint rather than a vocabulary that grows — `@/core/verbs/reading`
+ * A medium is a check constraint rather than a vocabulary that grows — `@/core/verbs/pass`
  * says so at the type and the migration says so in SQL — so a third value would be a change to
  * the model rather than an insert, and `Medium` here is what makes it one: a fourth word in this
  * list is a type error rather than a press that posts something the verb refuses.

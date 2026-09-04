@@ -34,7 +34,7 @@ export const NOTHING_ON_IT = "nothing-on-it";
 export const STRIKE = "strike";
 
 /**
- * **Striking one act of reading, and striking one judgement** (ADR-0018) — the two doors that
+ * **Striking one Pass, and striking one judgement** (ADR-0018) — the two doors that
  * make a mis-tap survivable.
  *
  * Here for `STRIKE`'s reason and more sharply than any of the others: both acts are refusable
@@ -47,7 +47,7 @@ export const STRIKE = "strike";
  * whatever this is about* would be one URL away from unmaking the judgement when the owner
  * meant the pass.
  */
-export const STRIKE_READING = "strike-reading";
+export const STRIKE_PASS = "strike-pass";
 export const STRIKE_RATING = "strike-rating";
 
 /**

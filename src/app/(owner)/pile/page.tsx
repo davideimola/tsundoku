@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
 import { Button } from "@/components/ui/button";
-import { composeReadingList, type ReadingListEntry, theKeyOf } from "@/core/queries/reading-list";
-import type { PinnedSubject } from "@/core/verbs/reading-list";
+import { composePile, type PileEntry, theKeyOf } from "@/core/queries/pile";
+import type { PinnedSubject } from "@/core/verbs/pile";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 // The three steps a shopping list is read in, from the screen that bands by them: this
@@ -30,9 +30,16 @@ import {
   theWantOn,
 } from "./entry";
 
-// THE READING LIST. The screen the owner opens most, and the one the whole application is
+// THE PILE. The screen the owner opens most, and the one the whole application is
 // for: the spreadsheet's `Prossimo` column, recomputed by hand for every route, plus three
 // dashboard tiles reading `#ERROR!` (#1).
+//
+// **It is called the Pile, which is the thing the application is named after** (#58,
+// ADR-0021). It was the *Reading list* until a videogame could stand on it, and half of what
+// composes here is not read: a Story is what you would give a score to, and a game passes
+// that test the way a manga does. So the screen, the route and the line in the navigation
+// say one word, and the copy on every row says what is true of both halves of the library —
+// *take on* rather than *read*, and a fraction with no verb after it.
 //
 // **The screen is two halves now** (#40), and the difference between them is the one idea in
 // its layout. The **head** is what the owner pinned: it is short, every row in it is a
@@ -83,11 +90,11 @@ function asked(params: Asked, name: string): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }
 
-export default async function ReadingListPage({ searchParams }: { searchParams: Promise<Asked> }) {
+export default async function PilePage({ searchParams }: { searchParams: Promise<Asked> }) {
   await requireOwner();
 
   const params = await searchParams;
-  const { head, reserve } = await composeReadingList();
+  const { head, reserve } = await composePile();
 
   const refused = asked(params, "refused");
   const wished = asked(params, "wished");
@@ -104,12 +111,12 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
   return (
     <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <h1 className="font-heading text-2xl sm:text-3xl">What to read next</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl">The Pile</h1>
         <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          Two halves. What I pinned leads, in the order I pinned it — that half is mine to keep
-          short. Everything under it composes itself from what I said I want to read, the routes I
-          am walking and the Series I am completing, and it is in no order at all. When the order
-          starts to matter, I pin it.
+          What to take on next — read or play. Two halves: what I pinned leads, in the order I
+          pinned it, and that half is mine to keep short. Everything under it composes itself from
+          what I said I want, the routes I am walking, the runs I am in the middle of and the Series
+          I am completing, and it is in no order at all. When the order starts to matter, I pin it.
         </p>
       </header>
 
@@ -134,20 +141,20 @@ export default async function ReadingListPage({ searchParams }: { searchParams: 
       {composed === 0 ? (
         <div className="mt-10 max-w-prose">
           <p className="text-pretty text-sm text-muted-foreground">
-            Nothing composed. Either I want to read nothing in particular, every route is walked to
-            the end and every Series I am collecting is complete — which is a real answer — or there
-            is nothing to compose from yet.
+            Nothing composed. Either I want to take on nothing in particular, every route is walked
+            to the end and every Series I am collecting is complete — which is a real answer — or
+            there is nothing to compose from yet.
           </p>
           <p className="mt-4 text-sm">
             Open a{" "}
             <Link href="/stories" className="underline underline-offset-4">
               Story
             </Link>{" "}
-            and say I want to read it — that costs nothing else. Or{" "}
+            and say I want to take it on — that costs nothing else. Or{" "}
             <Link href="/paths" className="underline underline-offset-4">
               define a Path
             </Link>{" "}
-            and put Stories on it in the order I mean to read them, or{" "}
+            and put Stories on it in the order I mean to take them on, or{" "}
             <Link href="/series" className="underline underline-offset-4">
               decide to collect a Series
             </Link>
@@ -258,7 +265,7 @@ function Entry({
   shown,
   behind = [],
 }: {
-  entry: ReadingListEntry;
+  entry: PileEntry;
   place?: number;
   pinned: boolean;
   /** The routes being looked behind, carried through every form so a write does not close one. */
@@ -376,7 +383,7 @@ function Entry({
             </form>
 
             {/* Taking a Want back is a *strike* and reads like one: a Want the owner has not
-                acted on is still true, and nothing on this screen ticks one off — a Reading is
+                acted on is still true, and nothing on this screen ticks one off — a Pass is
                 what answers it. */}
             {want ? (
               <form action={unwant}>

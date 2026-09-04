@@ -50,7 +50,7 @@ import { OPENING_A_WISH, PRIORITIES, theShoppingList, wishDetail } from "./shopp
 //      costs no script, `?panel=open` is a bookmark for *want something*, and the back
 //      button closes it.
 //
-// The banding is the screen's and it is `./shopping`, which the Reading list's picker reads
+// The banding is the screen's and it is `./shopping`, which the Pile's picker reads
 // too. Everything else is the house style: plain forms, `POST`s to server actions, and
 // nothing running in the browser.
 export const dynamic = "force-dynamic";

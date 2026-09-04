@@ -84,9 +84,9 @@ describe("a person's body of work", () => {
     ]);
   });
 
-  // Read means it went through a Reading, abandoned included — the same reading of the word
+  // Read means it went through a Pass, abandoned included — the same reading of the word
   // the Credits list is counted by, and the reason it is `readingCount` and never the state.
-  it("counts what of a band went through a Reading", () => {
+  it("counts what of a band went through a Pass", () => {
     const [band] = bodyOfWork(
       person({
         roles: [WRITER],

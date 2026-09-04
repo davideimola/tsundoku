@@ -5,7 +5,7 @@ import { SRC, sourceFiles } from "@/test/source-files";
 // "No page containing collection data renders for an unauthenticated visitor" is the
 // criterion this slice exists for, and it is not a property of any one page: it is a
 // property of **where pages are put**. Eleven slices after this one add screens over
-// the Collection, the Stories, the Readings and the Reading list, and none of them is
+// the Collection, the Stories, the Passes and the Pile, and none of them is
 // going to read this file first.
 //
 // So the placement is a test rather than a paragraph. A page added outside the gated

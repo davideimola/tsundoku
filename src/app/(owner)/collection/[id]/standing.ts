@@ -58,7 +58,7 @@ export function whatTheHouseSays(volume: RecordedVolume): string {
   }
 
   if (volume.releasedOn) {
-    return `Left the house on ${volume.releasedOn}. Its record is kept: the Readings made through it and the Edition note are still true.`;
+    return `Left the house on ${volume.releasedOn}. Its record is kept: the Passes made through it and the Edition note are still true.`;
   }
 
   return "Catalogued, and not in the house. The library knows this object; the Collection does not claim it.";

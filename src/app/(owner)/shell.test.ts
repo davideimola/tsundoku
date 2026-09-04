@@ -100,8 +100,18 @@ describe("the map and the routes agree", () => {
 
   // Three, because the owner asks three different questions at three different moments.
   // Adding a fourth is a decision about the application, not a line in a list.
+  //
+  // The **words** are pinned as well as the count, and that is #58's half: the first
+  // question was *Reading* while every Story in the library was printed, and a videogame is
+  // a Story by the same test a manga is (ADR-0021). A section named for half of what it
+  // groups is the failure this line catches, and it catches it at both widths at once
+  // because the desk and the phone render this one map.
   it("groups them into the three questions", () => {
-    expect(NAVIGATION.map((section) => section.title)).toEqual(["Reading", "Owning", "Repairing"]);
+    expect(NAVIGATION.map((section) => section.title)).toEqual([
+      "Reading and playing",
+      "Owning",
+      "Repairing",
+    ]);
   });
 });
 
@@ -220,7 +230,7 @@ describe("where the owner is", () => {
     ["/", "/"],
     ["/series", "/series"],
     ["/series/12", "/series"],
-    ["/reading-list", "/reading-list"],
+    ["/pile", "/pile"],
     ["/collection/9f2c", "/collection"],
     ["/stories/1/", "/stories"],
   ])("reads %s as %s", (pathname, expected) => {

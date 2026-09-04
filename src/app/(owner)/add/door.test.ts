@@ -195,7 +195,7 @@ describe("the two halves the sentences stand in", () => {
     for (const half of THE_HALVES) {
       expect(half.says).not.toBe("");
 
-      for (const word of ["Volume", "Story", "Wish", "Want", "Reading", "Acquisition"]) {
+      for (const word of ["Volume", "Story", "Wish", "Want", "Pass", "Acquisition"]) {
         expect(`${half.heading} ${half.says}`).not.toContain(word);
       }
     }

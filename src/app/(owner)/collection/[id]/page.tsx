@@ -22,8 +22,8 @@ import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 // The words a covered range is said in, spent from the Story's own derivation rather than
 // written again here: the object says the same thing whichever end the owner is standing at,
-// and the Reading list's picker borrows the Wishes' three words for the same reason.
-import { howTheRangeIsKept, whatThisObjectHolds } from "../../stories/readings";
+// and the Pile's picker borrows the Wishes' three words for the same reason.
+import { howTheRangeIsKept, whatThisObjectHolds } from "../../stories/passes";
 import {
   acquire,
   carryStories,
@@ -482,8 +482,8 @@ export default async function VolumePage({
             </Button>
             <p className="max-w-prose text-xs text-muted-foreground">
               Nothing is erased: this page stays, the acquisition becomes a record of having had it,
-              and so do the Edition note and the Readings made through it. Buying it again is a
-              second acquisition of the same object, not a second object.
+              and so do the Edition note and the Passes made through it. Buying it again is a second
+              acquisition of the same object, not a second object.
             </p>
           </form>
         </Drawer>

@@ -163,7 +163,7 @@
   /*
    * The smallest type in the application, and the one the shell is built out of: a
    * section's name over a list of destinations, a destination's name under its rule in the
-   * phone's bottom bar. It wraps — *Reading list* does not fit a fifth of a phone on one
+   * phone's bottom bar. It wraps — *Collection* barely fits a fifth of a phone on one
    * line — so it carries a line height tight enough for two lines to read as one label.
    *
    * The tracking is beside it rather than in it: an eyebrow is letterspaced because it is

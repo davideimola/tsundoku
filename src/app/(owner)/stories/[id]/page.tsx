@@ -10,7 +10,7 @@ import { type CollectionVolume, searchCollection } from "@/core/queries/collecti
 import { type CreditRole, listCreditRoles } from "@/core/queries/credit";
 import type { SeriesLedger, SeriesPublishingNothing } from "@/core/queries/series";
 import { listSeriesPublishingNothing, listSeriesPublishingStory } from "@/core/queries/series";
-import type { FoundStory, StoryCredit, StoryRating, StoryReading } from "@/core/queries/story";
+import type { FoundStory, StoryCredit, StoryPass, StoryRating } from "@/core/queries/story";
 import { findStory } from "@/core/queries/story";
 import { type CarryingVolume, listVolumesCarryingStory } from "@/core/queries/story-to-volume";
 import { theWantOnTheStory } from "@/core/queries/want";
@@ -28,20 +28,20 @@ import {
   RENAME,
   SERIALIZE,
   STRIKE,
+  STRIKE_PASS,
   STRIKE_RATING,
-  STRIKE_READING,
 } from "../panels";
 import {
   howFarItGot,
   howItWent,
-  readingNow,
+  passNow,
   SCORES,
   stillOpen,
   theCountItDeclares,
-  theOpenReading,
+  theOpenPass,
   whatItCovers,
   whenItHappened,
-} from "../readings";
+} from "../passes";
 import { StoryScore, StoryStateLabel, storyDetail } from "../story-state";
 import {
   carryFromStory,
@@ -52,10 +52,10 @@ import {
   sayWhereIGotTo,
   sayWhichSeriesPublishesIt,
   serialize,
-  startReading,
+  startPass,
   strikeIt,
+  strikeThisPass,
   strikeThisRating,
-  strikeThisReading,
   unwant,
   wantIt,
 } from "./actions";
@@ -64,8 +64,8 @@ export const dynamic = "force-dynamic";
 
 // THE STORY, and **the screen where the web caught up with the assistant** (#29).
 //
-// Its one argument is made by the layout: the Readings are a **stack, newest first, each
-// carrying its own Rating**. A reread is visibly a second Reading with a second opinion
+// Its one argument is made by the layout: the Passes are a **stack, newest first, each
+// carrying its own Rating**. A second pass is visibly a second Pass with a second opinion
 // beside the first, which is precisely what the spreadsheet could not hold — one cell for
 // `Voto`, overwritten. The stack is the column that gets the width at a desk; the objects and
 // the people move beside it, because they are what the Story *is* rather than what happened
@@ -73,9 +73,9 @@ export const dynamic = "force-dynamic";
 //
 // Three things are decided here:
 //
-//   1. **A Reading that has started and not ended can be said from this screen.** It is what
-//      *reading now* is, it is why the dashboard has a top band, and until this ticket only
-//      an assistant could record one: `recordReading` had one door. Starting and closing are
+//   1. **A Pass that has started and not ended can be said from this screen.** It is what
+//      *under way* is, it is why the dashboard has a top band, and until this ticket only
+//      an assistant could record one: `recordPass` had one door. Starting and closing are
 //      two acts, so they are two presses — and closing offers *finished* and *gave up*
 //      against one date, because abandoning is as much a fact as finishing.
 //   2. **The owner's own prose is set in the serif**, in the box it is typed into as much as
@@ -126,7 +126,7 @@ const PANELS = [
   REACHED,
   RENAME,
   STRIKE,
-  STRIKE_READING,
+  STRIKE_PASS,
   STRIKE_RATING,
   PUBLISHES,
 ] as const;
@@ -136,8 +136,8 @@ const PANELS = [
  *
  * There are no filters to carry through — a Story is one record and this page narrows
  * nothing — so what a drawer's address holds is the panel and, for the judgement, **which
- * act of reading it is about**: a Story has as many Ratings as it has Readings, so that one
- * needs saying and the closes do not. There is at most one Reading open, and which one it is
+ * Pass it is about**: a Story has as many Ratings as it has Passes, so that one
+ * needs saying and the closes do not. There is at most one Pass open, and which one it is
  * is derived rather than carried.
  *
  * What it deliberately drops is the answer to the last write: a refusal is about the press
@@ -147,10 +147,10 @@ const PANELS = [
 function panelled(
   storyId: string,
   panel: string,
-  about?: { reading?: string; rating?: string }
+  about?: { pass?: string; rating?: string }
 ): string {
   const asking = new URLSearchParams({ panel });
-  if (about?.reading) asking.set("reading", about.reading);
+  if (about?.pass) asking.set("pass", about.pass);
   if (about?.rating) asking.set("rating", about.rating);
   return `/stories/${storyId}?${asking}`;
 }
@@ -212,7 +212,7 @@ function Judgement({ rating, storyId }: { rating: StoryRating; storyId: string }
         <p className="mt-1 max-w-prose text-pretty font-serif text-prose">{rating.prose}</p>
       ) : null}
       {/* **Unmaking it, from wherever it is drawn** (ADR-0018). It is here rather than beside
-          the Reading because a score is struck by its own id: the same control serves a
+          the Pass because a score is struck by its own id: the same control serves a
           judgement under the pass it came out of and one in the card of scores that point at
           no pass, and neither place has to know about the other. Quiet, and beside the
           Provenance rather than under the prose — it is a correction, and a destructive
@@ -266,21 +266,21 @@ export default async function StoryPage({
   const credited = said(asked, "credited");
   const uncredited = said(asked, "uncredited");
 
-  // The Reading the owner is in the middle of, which is what decides whether this page offers
-  // *start* or *close*. It is `../readings`' answer and not a comparison written here.
-  const open = theOpenReading(story.readings);
+  // The Pass the owner is in the middle of, which is what decides whether this page offers
+  // *start* or *close*. It is `../passes`' answer and not a comparison written here.
+  const open = theOpenPass(story.readings);
 
   const panel = PANELS.find((one) => one === said(asked, "panel"));
-  // **Which act of reading a panel is about**, read against the stack rather than trusted: a
-  // hand-edited `?reading=` naming nothing opens no panel, exactly as `?panel=banana` does.
+  // **Which Pass a panel is about**, read against the stack rather than trusted: a
+  // hand-edited `?pass=` naming nothing opens no panel, exactly as `?panel=banana` does.
   // Four panels are about one pass rather than about the Story — the judgement, where it got
   // to, and now the strike (ADR-0018) — so it is one derivation and not one per drawer.
-  const onePass = story.readings.find((reading) => reading.id === said(asked, "reading"));
+  const onePass = story.readings.find((pass) => pass.id === said(asked, "pass"));
   // And which judgement, read the same way over both places a Rating is drawn: under the pass
   // it came out of, and in the card for the scores that point at no pass at all. One lookup,
   // because a score is struck by its own id and the tile it was drawn in is not the act.
   const oneJudgement = [
-    ...story.readings.map((reading) => reading.rating),
+    ...story.readings.map((pass) => pass.rating),
     ...story.standaloneRatings,
   ].find((rating) => rating !== null && rating.id === said(asked, "rating"));
   const closesTo = `/stories/${id}`;
@@ -296,7 +296,8 @@ export default async function StoryPage({
           the wall laid this Story out as opens the page instead, in the same colour and with
           the same score at its foot — so arriving from the wall is arriving at the thing that
           was tapped. It carries no href, because this is the page it would lead to. */}
-      {/* **The record's own act stands apart from the reading ones**, which is the shape the
+      {/* **The record's own act stands apart from the acts of going through it**, which is the
+          shape the
           Path's page already gives this (`../../paths/[id]/page.tsx`): what the hero *says*
           is corrected from the hero, and the presses about tonight keep the column beside
           the cover to themselves. On a phone the cluster wraps under the whole block rather
@@ -348,7 +349,7 @@ export default async function StoryPage({
             ) : null}
 
             {/* **The act this screen is opened to perform**, and which one it is follows from
-              the Readings rather than from a choice: a Story with something open is one the
+              the Passes rather than from a choice: a Story with something open is one the
               owner is holding, and the only thing to say about it is how it ended. */}
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {open ? (
@@ -358,16 +359,16 @@ export default async function StoryPage({
                   </OpensDrawer>
                   <OpensDrawer href={panelled(id, GAVE_UP)}>I gave up on it</OpensDrawer>
                   {story.instalments === null ? null : (
-                    <OpensDrawer href={panelled(id, REACHED, { reading: open.id })}>
+                    <OpensDrawer href={panelled(id, REACHED, { pass: open.id })}>
                       Where I am in it
                     </OpensDrawer>
                   )}
-                  <span className="text-sm text-muted-foreground">{readingNow(open)}</span>
+                  <span className="text-sm text-muted-foreground">{passNow(open)}</span>
                 </>
               ) : (
                 <>
                   <OpensDrawer href={panelled(id, START)} emphasis="loud">
-                    Start reading it
+                    Start it
                   </OpensDrawer>
                   {story.readings.length > 0 ? (
                     <span className="text-sm text-muted-foreground">
@@ -384,14 +385,14 @@ export default async function StoryPage({
               the press. A press that asks for nothing is a plain form and not a panel.
 
               What it says back is the whole of what a Want is. There is no *unwant*: a Want
-              falls quiet on its own once a Reading begins after it was opened, so a quiet one
-              says which side of the Reading it stands on, and the only press against either is
+              falls quiet on its own once a Pass begins after it was opened, so a quiet one
+              says which side of the Pass it stands on, and the only press against either is
               taking back a sentence that was a slip. */}
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
               {want ? (
                 <>
                   <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-                    {want.quiet ? "Wanted, and read since" : "On the Reading list"}
+                    {want.quiet ? "Wanted, and taken on since" : "On the Pile"}
                   </span>
                   <form action={unwant}>
                     <input type="hidden" name="storyId" value={id} />
@@ -455,16 +456,15 @@ export default async function StoryPage({
           one and the order is the same. */}
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
         <div className="grid gap-6">
-          <Readings story={story} />
+          <Passes story={story} />
 
           {story.standaloneRatings.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Ratings with no Reading</CardTitle>
+                <CardTitle>Ratings with no Pass</CardTitle>
                 <CardDescription className="text-pretty">
-                  A judgement of this Story that points at no particular act of reading — a score
-                  that arrived from a sheet, most often. The Provenance says how far it can be
-                  trusted.
+                  A judgement of this Story that points at no particular Pass — a score that arrived
+                  from a sheet, most often. The Provenance says how far it can be trusted.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -565,7 +565,7 @@ export default async function StoryPage({
           Everything above is what happened to this narrative; this is the statement that none
           of it did — that the row itself was a mistake, a duplicate an assistant proposed and
           a bulk approval let through. So it is the last thing on the page, quiet, one press
-          away from a drawer rather than a button beside *Start reading it*.
+          away from a drawer rather than a button beside *Start it*.
 
           **It is offered whatever stands on the Story, and that is deliberate.** The four
           refusals are the verb's (`@/core/verbs/story`), and a screen that re-derived them to
@@ -585,29 +585,29 @@ export default async function StoryPage({
         </div>
       </div>
 
-      {/* **Opening a Reading, and saying nothing about how it ends.** That absence is the
-          record: a Reading with no outcome is what makes this Story read *reading*, here and
+      {/* **Opening a Pass, and saying nothing about how it ends.** That absence is the
+          record: a Pass with no outcome is what makes this Story read *under way*, here and
           on the dashboard, until the owner comes back and closes it. */}
       {panel === START ? (
         <Drawer
-          title="Start reading it"
-          description="No outcome, so this Story reads as reading from now. Close it when it is over — or do not, and it stays open, which is also the truth."
+          title="Start it"
+          description="No outcome, so this Story is under way from now — read or played. Close it when it is over, or do not, and it stays open, which is also the truth."
           closesTo={closesTo}
         >
-          <form action={startReading} className="grid gap-4">
+          <form action={startPass} className="grid gap-4">
             <input type="hidden" name="storyId" value={story.id} />
 
             <div className="grid gap-1.5">
-              <Label htmlFor="reading-medium" className="text-xs text-muted-foreground">
+              <Label htmlFor="pass-medium" className="text-xs text-muted-foreground">
                 On paper or digital
               </Label>
               {/* Two options written out, where the Type and the Binding pickers read theirs
                   from the database: a medium is a check constraint and not a vocabulary that
-                  grows (`core/verbs/reading.ts` says so at the type), so a third value would
+                  grows (`core/verbs/pass.ts` says so at the type), so a third value would
                   be a change to the model rather than an insert. The verb still refuses
                   anything else in its own prose — this list is not what enforces it. */}
               <select
-                id="reading-medium"
+                id="pass-medium"
                 name="medium"
                 required
                 defaultValue="paper"
@@ -619,10 +619,10 @@ export default async function StoryPage({
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="reading-volume" className="text-xs text-muted-foreground">
+              <Label htmlFor="pass-volume" className="text-xs text-muted-foreground">
                 Through which object
               </Label>
-              <select id="reading-volume" name="volumeId" defaultValue="" className={PICKER}>
+              <select id="pass-volume" name="volumeId" defaultValue="" className={PICKER}>
                 <option value="">No object — digital, borrowed, or not recorded</option>
                 {carriedBy.map((volume) => (
                   <option key={volume.id} value={volume.id}>
@@ -632,23 +632,23 @@ export default async function StoryPage({
               </select>
               <p className="text-xs text-muted-foreground">
                 Only the objects carrying this Story are offered, and none is the ordinary answer. A
-                digital Reading went through no object at all: an owned ebook is not a thing this
+                digital Pass went through no object at all: an owned ebook is not a thing this
                 library has.
               </p>
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="reading-started" className="text-xs text-muted-foreground">
+              <Label htmlFor="pass-started" className="text-xs text-muted-foreground">
                 Started on
               </Label>
-              <input id="reading-started" name="startedOn" type="date" className={PICKER} />
+              <input id="pass-started" name="startedOn" type="date" className={PICKER} />
               <p className="text-xs text-muted-foreground">
                 Leave it empty where the day does not matter — that it is open is the fact.
               </p>
             </div>
 
             <Button type="submit" className="h-11 w-full sm:h-10">
-              Start reading it
+              Start it
             </Button>
           </form>
         </Drawer>
@@ -658,9 +658,9 @@ export default async function StoryPage({
           rather than a failure to finish — it is evidence about taste, and a recommender
           should weigh it — so it is offered beside finishing and not hidden behind it. */}
       {panel === FINISHED && open ? (
-        <CloseTheReading
+        <ClosePass
           storyId={story.id}
-          reading={open}
+          pass={open}
           closesTo={closesTo}
           act={finishIt}
           title="I finished it"
@@ -668,9 +668,9 @@ export default async function StoryPage({
         />
       ) : null}
       {panel === GAVE_UP && open ? (
-        <CloseTheReading
+        <ClosePass
           storyId={story.id}
-          reading={open}
+          pass={open}
           closesTo={closesTo}
           act={giveUp}
           title="I gave up on it"
@@ -678,22 +678,22 @@ export default async function StoryPage({
         />
       ) : null}
 
-      {/* **The judgement, attached to the act of reading it came out of.** That attachment is
-          the whole of why a reread does not overwrite anything: two Readings carry two
+      {/* **The judgement, attached to the Pass it came out of.** That attachment is
+          the whole of why a second pass does not overwrite anything: two Passes carry two
           Ratings, and both are on the page. */}
       {panel === RATE && onePass ? (
         <Drawer
           title={onePass.rating ? "Say it again" : "What I thought of it"}
           description={
             onePass.rating
-              ? "One Rating per act of reading, so this replaces what is written under that Reading. A second opinion belongs to a second Reading."
+              ? "One Rating per Pass, so this replaces what is written under that Pass. A second opinion belongs to a second Pass."
               : "Of the Story and never of the object — it was the story that was good or bad. The prose is the point: a score alone cannot tell liked it from liked it for the art."
           }
           closesTo={closesTo}
         >
           <form action={rate} className="grid gap-4">
             <input type="hidden" name="storyId" value={story.id} />
-            <input type="hidden" name="readingId" value={onePass.id} />
+            <input type="hidden" name="passId" value={onePass.id} />
 
             <p className="text-pretty text-sm text-muted-foreground">
               {howItWent(onePass)} · {whenItHappened(onePass)}
@@ -841,29 +841,29 @@ export default async function StoryPage({
       ) : null}
 
       {/* **Where a pass got to, on the pass and never on the Story.** How far you are is a
-          fact about an act of reading, which is what makes a reread start again at nothing
+          fact about one Pass, which is what makes a second pass start again at nothing
           without this one forgetting where it reached. */}
       {panel === REACHED && onePass && story.instalments !== null ? (
         <Drawer
           title="Where I got to"
-          description="The last Instalment this pass finished. Reading it again later starts again at nothing, and this pass keeps the number it ended on."
+          description="The last Instalment this pass finished. Going through it again later starts again at nothing, and this pass keeps the number it ended on."
           refused={refused}
           closesTo={closesTo}
         >
           <form action={sayWhereIGotTo} className="grid gap-4">
             <input type="hidden" name="storyId" value={story.id} />
-            <input type="hidden" name="readingId" value={onePass.id} />
+            <input type="hidden" name="passId" value={onePass.id} />
 
             <p className="text-pretty text-sm text-muted-foreground">
               {howItWent(onePass)} · {whenItHappened(onePass)}
             </p>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="reading-at" className="text-xs text-muted-foreground">
+              <Label htmlFor="pass-at" className="text-xs text-muted-foreground">
                 Last Instalment finished, out of {story.instalments}
               </Label>
               <input
-                id="reading-at"
+                id="pass-at"
                 name="atInstalment"
                 type="number"
                 min={1}
@@ -941,7 +941,7 @@ export default async function StoryPage({
               <div className="grid gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
                 <p className="max-w-prose text-pretty">
                   Every object of that line carries <em>{story.title}</em> afterwards, and the
-                  narratives they stood for collapse onto it — any Rating, every Reading and every
+                  narratives they stood for collapse onto it — any Rating, every Pass and every
                   Credit come with them, and a route or a Want naming one of them comes to name this
                   Story instead.
                 </p>
@@ -985,7 +985,7 @@ export default async function StoryPage({
                 whatever stands on the Story, and the sentence the verb answers with names
                 which one it was. */}
             <p className="text-pretty text-sm text-muted-foreground">
-              It is refused, and nothing happens, if an object in the house carries it, if a Reading
+              It is refused, and nothing happens, if an object in the house carries it, if a Pass
               went through it, if you scored it, or if a Path names it as a stop. Those are your own
               records, and a mistaken row has none of them.
             </p>
@@ -1003,25 +1003,25 @@ export default async function StoryPage({
       ) : null}
 
       {/* **THE TWO DOORS THAT MAKE A MIS-TAP SURVIVABLE** (ADR-0018), and the pair the page
-          went three releases without. Pressing *Start reading it* on the wrong tile in a shop
-          put a Story in `reading` for ever: the only exits were *Finished* and *Gave up*,
+          went three releases without. Pressing *Start it* on the wrong tile in a shop
+          put a Story under way for ever: the only exits were *Finished* and *Gave up*,
           which are false statements about a book nobody opened, and striking the Story is
-          refused the moment a Reading exists. A record of an event that did not happen is
+          refused the moment a Pass exists. A record of an event that did not happen is
           ADR-0014's own case, and this is where it is unmade.
 
           Fields: none, like the Story's own strike, and for its reason — the whole of the act
           is the press, and the panel is what makes it two deliberate taps over the row the
           owner is looking at. */}
-      {panel === STRIKE_READING && onePass ? (
+      {panel === STRIKE_PASS && onePass ? (
         <Drawer
-          title="Strike this Reading"
+          title="Strike this Pass"
           description="For a pass that never happened — the wrong tile pressed in a shop. Not for one that went badly: giving up is a fact worth keeping, and it is the other button."
           refused={refused}
           closesTo={closesTo}
         >
-          <form action={strikeThisReading} className="grid gap-4">
+          <form action={strikeThisPass} className="grid gap-4">
             <input type="hidden" name="storyId" value={story.id} />
-            <input type="hidden" name="readingId" value={onePass.id} />
+            <input type="hidden" name="passId" value={onePass.id} />
 
             {/* Which pass, in the words the row says it in: the stack can hold several, and a
                 destructive press has to name the one it is about. */}
@@ -1031,7 +1031,7 @@ export default async function StoryPage({
 
             <p className="text-pretty text-sm text-muted-foreground">
               The library stops knowing you ever opened <em>{story.title}</em> on this pass. Where
-              this Story stands follows from whatever Readings are left, because that is derived on
+              this Story stands follows from whatever Passes are left, because that is derived on
               every request and stored nowhere — so a Story whose only pass was this one goes back
               to the pile.
             </p>
@@ -1040,14 +1040,14 @@ export default async function StoryPage({
                 of it in prose: the page draws the press whatever hangs off the pass, and the
                 sentence the verb answers with is the one that names it. */}
             <p className="text-pretty text-sm text-muted-foreground">
-              It is refused, and nothing happens, if you judged this reading. Strike the score first
-              — a judgement of a pass is not a judgement of the narrative, and this is the one act
+              It is refused, and nothing happens, if you judged this pass. Strike the score first —
+              a judgement of a pass is not a judgement of the narrative, and this is the one act
               that could quietly make it one.
             </p>
 
             <div>
               <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
-                Strike this Reading
+                Strike this Pass
               </Button>
               <p className="mt-2 text-pretty text-xs text-muted-foreground">
                 There is no undo. You land back on the Story.
@@ -1103,27 +1103,27 @@ export default async function StoryPage({
 }
 
 /**
- * The stack: one act of reading each, newest first, with the Rating it carried.
+ * The stack: one Pass each, newest first, with the Rating it carried.
  *
  * **Nothing here is ever overwritten**, which is the argument the whole page is built to
- * make. Reading it again adds a Reading, and the opinion from last time stays beside the new
+ * make. Going through it again adds a Pass, and the opinion from last time stays beside the new
  * one — the `Voto` cell held one number and this holds every judgement the owner ever gave.
  */
-function Readings({ story }: { story: FoundStory }) {
+function Passes({ story }: { story: FoundStory }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Readings</CardTitle>
+        <CardTitle>Passes</CardTitle>
         <CardDescription className="text-pretty">
-          One act of reading each, newest first, with the Rating it carried. Nothing here is ever
-          overwritten: reading it again adds a Reading, and the opinion from last time stays beside
-          the new one.
+          One Pass each, newest first, with the Rating it carried. Nothing here is ever overwritten:
+          going through it again adds a Pass, and the opinion from last time stays beside the new
+          one.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {story.readings.length === 0 ? (
           <p className="text-pretty text-sm text-muted-foreground">
-            No Reading yet, which is the whole of why this Story reads{" "}
+            No Pass yet, which is the whole of why this Story reads{" "}
             <span className="font-mono text-xs uppercase tracking-eyebrow">to read</span>. Starting
             one is the button at the top, and it needs no ending.
           </p>
@@ -1155,25 +1155,25 @@ function Readings({ story }: { story: FoundStory }) {
                 {record.rating ? (
                   <Judgement rating={record.rating} storyId={story.id} />
                 ) : (
-                  <p className="mt-2 text-sm text-muted-foreground">No Rating on this Reading.</p>
+                  <p className="mt-2 text-sm text-muted-foreground">No Rating on this Pass.</p>
                 )}
 
-                {/* The judgement is opened from the Reading it will belong to, because that
-                    attachment is what a reread's second opinion is made of. An open Reading
+                {/* The judgement is opened from the Pass it will belong to, because that
+                    attachment is what a second pass's opinion is made of. An open Pass
                     can be rated too: the owner is two hundred pages in and knows. */}
                 <p className="mt-2">
                   <Link
-                    href={panelled(story.id, RATE, { reading: record.id })}
+                    href={panelled(story.id, RATE, { pass: record.id })}
                     className="font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {record.rating ? "Say it again" : "Rate it"}
                   </Link>
                   {/* Where this pass got, said from the pass it is about — the same shape the
                       judgement is opened in, and for the same reason: both belong to one act
-                      of reading rather than to the Story. */}
+                      of going through it rather than to the Story. */}
                   {story.instalments === null ? null : (
                     <Link
-                      href={panelled(story.id, REACHED, { reading: record.id })}
+                      href={panelled(story.id, REACHED, { pass: record.id })}
                       className="ml-3 font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {record.atInstalment === null ? "Say where I got to" : "Move it on"}
@@ -1181,13 +1181,13 @@ function Readings({ story }: { story: FoundStory }) {
                   )}
                   {/* **And unmaking the pass itself**, which is the door this row was missing
                       (ADR-0018). It sits last among the acts because it is the one that is
-                      about the row rather than about the reading: rate it, say where it got
+                      about the row rather than about the pass: rate it, say where it got
                       to — and, if it never happened, take it off. */}
                   <Link
-                    href={panelled(story.id, STRIKE_READING, { reading: record.id })}
+                    href={panelled(story.id, STRIKE_PASS, { pass: record.id })}
                     className="ml-3 font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    Strike this Reading
+                    Strike this Pass
                   </Link>
                   {stillOpen(record) ? (
                     <span className="ml-3 text-xs text-muted-foreground">Still open.</span>
@@ -1311,7 +1311,7 @@ function whatItWouldCollapse(line: SeriesPublishingNothing): string {
 /**
  * The nib on *Correct the title*: **the one act in this hero that is about the record rather
  * than about tonight**, and the glyph is what keeps it from reading as a third press in the
- * same breath as *Start reading it*.
+ * same breath as *Start it*.
  *
  * Stroked, at the magnifier's weight (`../../finder.tsx`), because that is what a glyph drawn
  * on paper is in this application; the door's plus is filled because it is knocked out of an
@@ -1495,7 +1495,7 @@ function Carriers({
           </Button>
           <p className="text-xs text-muted-foreground">
             Only Volumes in the house are offered. Record the object in the Collection first if it
-            is not there — buying and reading are separate facts.
+            is not there — buying and going through it are separate facts.
           </p>
         </form>
       </CardContent>
@@ -1504,23 +1504,23 @@ function Carriers({
 }
 
 /**
- * The end of a Reading, in whichever of the two ways it ended.
+ * The end of a Pass, in whichever of the two ways it ended.
  *
  * One component and two panels: the day and the sentence are the same, and only the verb and
  * the word differ. Written once because *finished* and *gave up* are the same act with
  * different evidence in it — and rendered as two addresses because each carries its own plain
  * form, which is what makes both work with nothing running in the browser.
  */
-function CloseTheReading({
+function ClosePass({
   storyId,
-  reading,
+  pass,
   closesTo,
   act,
   title,
   label,
 }: {
   storyId: string;
-  reading: StoryReading;
+  pass: StoryPass;
   closesTo: string;
   act: (form: FormData) => Promise<void>;
   title: string;
@@ -1529,25 +1529,25 @@ function CloseTheReading({
   return (
     <Drawer
       title={title}
-      description="Reading it again later is a new Reading, never an edit of this one — which is what keeps this time's judgement beside the next one's."
+      description="Going through it again later is a new Pass, never an edit of this one — which is what keeps this time's judgement beside the next one's."
       closesTo={closesTo}
     >
       <form action={act} className="grid gap-4">
         <input type="hidden" name="storyId" value={storyId} />
-        <input type="hidden" name="readingId" value={reading.id} />
+        <input type="hidden" name="passId" value={pass.id} />
 
         <p className="text-pretty text-sm text-muted-foreground">
-          {howItWent(reading)} · {whenItHappened(reading)}
+          {howItWent(pass)} · {whenItHappened(pass)}
         </p>
 
         <div className="grid gap-1.5">
-          <Label htmlFor="reading-ended" className="text-xs text-muted-foreground">
+          <Label htmlFor="pass-ended" className="text-xs text-muted-foreground">
             Ended on
           </Label>
-          <input id="reading-ended" name="endedOn" type="date" className={PICKER} />
+          <input id="pass-ended" name="endedOn" type="date" className={PICKER} />
           <p className="text-xs text-muted-foreground">
-            Leave it empty where the day is gone. A Reading that started on a recorded day and ended
-            on none keeps the half it has.
+            Leave it empty where the day is gone. A Pass that started on a recorded day and ended on
+            none keeps the half it has.
           </p>
         </div>
 
