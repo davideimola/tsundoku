@@ -71,9 +71,33 @@ const TYPES: Record<string, string> = {
   saggistica: "non-fiction",
   "non fiction": "non-fiction",
   manualistica: "non-fiction",
+  // The books sheet's own word for a book bought to be consulted: a manual, a textbook,
+  // an engineering-management book. It is the `Categoria` cell and not a tag, so it is a
+  // Type, and non-fiction is the Type it is.
+  tecnico: "non-fiction",
+  tecnica: "non-fiction",
+  // A script, which is neither a novel nor non-fiction (migration 0013). One row of the
+  // owner's sheet says it and that is reason enough: `Teatro` sits in the column every
+  // other row uses for `Romanzo`.
+  teatro: "play",
+  play: "play",
+  copione: "play",
 };
 
-/** `Tipo` as a Type id. */
+/**
+ * `Tipo` — `Categoria` in the reworked books sheet — as a Type id.
+ *
+ * **`Romanzo/Saggistica` is deliberately not in the table above**, and it is the one value
+ * the owner's export has that this refuses. It is not a spelling of a Type: it is two
+ * Types with a slash between them, left over from a column that once meant *is this
+ * fiction or is it not, roughly*. Twenty-eight rows say it, and which of the two each row
+ * is cannot be read off the cell — only off the book.
+ *
+ * So it stops the import, by the same rule every other unknown value stops it: a
+ * spreadsheet's vocabulary does not get to become the schema's, and a coin flip over
+ * twenty-eight rows would be exactly that. The fix is in the sheet, one cell at a time,
+ * which is where a fact about a book belongs.
+ */
 export function typeOf(said: string): string {
   return translate("Tipo", said, TYPES);
 }
@@ -181,6 +205,14 @@ const READING_STATES: Record<string, ReadingState> = {
   iniziato: { read: true, outcome: null },
   abbandonato: { read: true, outcome: "abandoned" },
   droppato: { read: true, outcome: "abandoned" },
+  // **Not abandoned.** The owner's own note on both rows that say this reads "lettura
+  // iniziata e poi fermata; non necessariamente abbandonata", and the model has a word for
+  // a pass that has not concluded: an outcome of `null`. Reading it as `abandoned` would
+  // put a decision in the library that the owner wrote down as not taken.
+  interrotto: { read: true, outcome: null },
+  interrotta: { read: true, outcome: null },
+  fermato: { read: true, outcome: null },
+  sospeso: { read: true, outcome: null },
   "da leggere": { read: false, outcome: null },
   "non letto": { read: false, outcome: null },
   arretrato: { read: false, outcome: null },
@@ -254,6 +286,35 @@ export function wishStateOf(said: string): WishState {
   return translate("Stato (Wishlist)", said, WISH_STATES);
 }
 
+// ── `Posseduto` ────────────────────────────────────────────────────────────
+// The column the reworked books sheet grew, and the reason there is a second import at
+// all: the old sheet could say *I read this* and had no way at all to say *and it is on
+// the shelf*. It is a spreadsheet checkbox, so its two values are Google's own.
+const OWNED: Record<string, boolean> = {
+  true: true,
+  vero: true,
+  si: true,
+  x: true,
+  false: false,
+  falso: false,
+  no: false,
+};
+
+/**
+ * `Posseduto` as the one fact it holds: whether the object is in the house.
+ *
+ * A value neither table knows stops the import, and here that refusal earns its keep
+ * twice over. A cell of this column holding `Cartaceo` or a sentence about a reading is
+ * not a checkbox somebody mistyped — it is a **row whose columns have slipped**, which is
+ * what a CSV exported from a sheet with a ragged row looks like from in here. Four rows of
+ * the owner's first export were exactly that, and every one of them was caught by a
+ * vocabulary refusing a word rather than by anything looking for the damage.
+ */
+export function ownedOf(said: string | null): boolean {
+  if (said === null) return false;
+  return translate("Posseduto", said, OWNED);
+}
+
 // ── Provenance ─────────────────────────────────────────────────────────────
 // Origin only, and never how coarse a score is (ADR-0008). Ids from the `provenance`
 // table, which no longer holds `converted-from-a-coarser-scale`.
@@ -264,6 +325,20 @@ const PROVENANCES: Record<string, string> = {
   "censimento fotografico": "photo-census",
   foto: "photo-census",
   "photo census": "photo-census",
+  // ── The reworked books sheet says two origins in one cell ──────────────────
+  // A Provenance is one origin, and these cells name two. What the column has to answer
+  // is *where the fact came from*, and the fact on one of these rows is a **Reading** —
+  // so the photograph is not the origin of it. A photograph proves an object is on a
+  // shelf; it cannot testify that anybody read the thing. Whatever else the cell lists,
+  // the reading half is what names the Provenance.
+  "foto goodreads": "goodreads-history",
+  // The photograph is the origin, and the ISBN and the publisher check are how much of the
+  // *detail* was confirmed. That is what `photo-census` already says about itself: the
+  // object is certain and the detail is not.
+  "foto isbn verifica editore": "photo-census",
+  // The owner said so, in as many words, while the sheet was being put together. That is
+  // `remembered` and it is the most reliable thing in here.
+  "foto utente": "remembered",
   scaffale: "typed-from-the-shelf",
   "dallo scaffale": "typed-from-the-shelf",
   ricordo: "remembered",
@@ -416,6 +491,15 @@ export function dayOf(said: string | null): string | null {
   if (said === null) return null;
   const iso = said.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  // The fourth way, and the one the reworked books sheet writes: `2020/03/22`, which is
+  // what Google Sheets exports a date column as when the locale puts the year first. It is
+  // unambiguous — a four-digit year cannot be a day — and it was worth finding, because
+  // reading it as "not a day" lost every reading date the owner had recorded and said
+  // nothing about it.
+  const yearFirst = said.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (yearFirst) {
+    return `${yearFirst[1]}-${yearFirst[2].padStart(2, "0")}-${yearFirst[3].padStart(2, "0")}`;
+  }
   const written = said.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
   if (written) {
     const day = written[1].padStart(2, "0");

@@ -341,6 +341,12 @@ _Avoid_: edit, update, correction, patch — and **suggestion**, which promises 
 owner may leave lying around; an amendment waits for a decision exactly as a creation does.
 
 **Type**:
-Manga, Comic, Graphic Novel, Novel, Non-fiction. An **attribute** of a story, not a kind
-of thing: the model is one model, and a novel and a tankōbon differ in their attributes,
-never in their shape.
+Manga, Comic, Graphic Novel, Novel, Non-fiction, Play. An **attribute** of a story, not a
+kind of thing: the model is one model, and a novel and a tankōbon differ in their
+attributes, never in their shape.
+It is **data rather than an enum** (ADR-0006), so meeting one this list does not have is an
+insert — which is how **Play** arrived, with the books half: *Harry Potter e la maledizione
+dell'erede* is a script, the owner's own sheet says so in the column every other row uses
+for *Romanzo*, and calling it a novel to avoid an insert would put a wrong fact in the
+library. The same sentence let *spillato* into the Bindings, and it decides both the same
+way.

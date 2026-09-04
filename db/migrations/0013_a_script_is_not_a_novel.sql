@@ -1,0 +1,21 @@
+-- A sixth Type, because the books half of the library holds a script.
+--
+-- `Harry Potter e la maledizione dell'erede` is a play: two acts, stage directions, and
+-- three names on the cover where the novels have one. The owner's sheet says `Teatro` in
+-- the column every other row uses for `Romanzo` or `Tecnico`, so it is a Type and not a
+-- note — an attribute of the Story, exactly as ADR-0006 has it.
+--
+-- It is an insert and not a schema change for the reason `0001` gave when `stapled`
+-- arrived with #17: a vocabulary grows, each growth is its own file, and **calling it a
+-- novel to avoid an insert would put a wrong fact in the library**. That sentence was
+-- written about a binding and it decides this the same way.
+--
+-- Hand-written. `drizzle-kit generate` diffs a schema and emits DDL; rows are not schema
+-- and it will never write them (ADR-0009), so this file carries its own journal entry and
+-- a snapshot identical to `0012`'s.
+-- The table's own comment is left alone deliberately: it says a Type is an attribute and
+-- that a new one is an insert rather than a deployment, and it names no values. A comment
+-- that listed the five would be a list to forget to update, which is this insert's whole
+-- argument turned around.
+insert into type (id, name, display_order) values
+  ('play', 'Play', 6);
