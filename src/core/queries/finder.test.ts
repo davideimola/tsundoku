@@ -216,6 +216,17 @@ describe("what a finding is qualified by", () => {
     expect((await findInTheLibrary({ term: "sapiens" }))[0]?.qualifier).toBe("Non-fiction");
   });
 
+  // A game owns no object, which is the ordinary shape of a Story here (ADR-0001) — so the
+  // one field over the whole library reaches it on exactly the terms it reaches a novel, and
+  // the row says *Videogame* where another says *Manga* (#64).
+  it("says it of a Story no object carries, which is what a videogame is", async () => {
+    await createStory({ title: "Hades", typeId: "videogame" });
+
+    expect(await findInTheLibrary({ term: "hades" })).toEqual([
+      { kind: "story", id: expect.any(String), name: "Hades", qualifier: "Videogame" },
+    ]);
+  });
+
   it("tells two editions of one Volume apart by their Binding", async () => {
     await volumeInTheHouse({
       title: "Batman: Il lungo Halloween",

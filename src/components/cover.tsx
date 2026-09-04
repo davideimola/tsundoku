@@ -48,6 +48,17 @@ import { PILE } from "./mark";
 //      number would answer it on some tiles and not others. So the number sits on a strip of
 //      the page's own ground over the jacket — tokens, not a colour of this file's.
 
+// **And then a Story turned out to own no object at all** (#64, ADR-0021). A videogame is a
+// Story by the same test a manga is — *a Story is what you would give a score to* — and it
+// carries no Volume, so there is no ISBN to look a jacket up by and never will be: the only
+// picture it can ever wear is one the owner hosts themselves (#65). That is not a new case for
+// this component and it is deliberately not given one. A Story nothing carries has no line
+// either, so it is drawn the way every unlined Story has always been drawn — the palette's own
+// paper under the title, which `@/lib/tint` states is an answer rather than a gap — and the
+// drawn tile stays what it has been since #22: **the cover, and not a placeholder for one**.
+// The wall is one wall, and a game standing on it looks like a book standing on it because it
+// is the same kind of record.
+//
 // **And a Story turned out to be a run** (#34). The jacket is still borrowed off the first
 // Volume carrying the narrative (`THE_COVER_IT_IS_FACED_OUT_WITH` in `@/core/queries/story`)
 // and that has not changed: volume one's cover is how the owner recognises *Slam Dunk*, and a

@@ -943,3 +943,53 @@ describe("a run with somewhere left to go", () => {
     ]);
   });
 });
+
+// **A STORY CARRYING NO OBJECT AT ALL**, which is the ordinary case and not a gap (ADR-0001),
+// and which every videogame is (#64, ADR-0021). What the wall hands the tile for one is four
+// absences, and each of them is an *answer*: no line to take a colour from, no jacket to wear,
+// no run to be faced out of, and no jacket shared with a work beside it. The tile drawn from
+// them is the cover rather than a placeholder for one (`@/components/cover`), so what has to
+// hold is that the wall says *nothing* four times and never says it two different ways.
+describe("a Story no object carries", () => {
+  it("stands on the wall with nothing to draw and nothing missing", async () => {
+    await createStory({ title: "Hades", typeId: "videogame" });
+
+    expect(await listStoryWall()).toEqual([
+      {
+        id: expect.any(String),
+        title: "Hades",
+        type: { id: "videogame", name: "Videogame" },
+        state: "to-read",
+        latestScore: null,
+        // No object, so no line: the tile falls back to the palette's own paper, which
+        // `@/lib/tint` states is an answer rather than a gap.
+        series: null,
+        // No ISBN and no object to hang one on, so nothing was ever looked up and nothing
+        // can be: a game's picture can only ever be one the owner hosts (ADR-0013, #65).
+        cover: null,
+        // Nought objects and one is the same tile — there is no run to say anything about —
+        // and they stay two different facts, which is why this is a count.
+        carriedBy: 0,
+        wornBy: 0,
+      },
+    ]);
+  });
+
+  it("stands among the Stories under its Type, beside the ones objects carry", async () => {
+    await createStory({ title: "Hades", typeId: "videogame" });
+    const carried = await createStory({ title: "Vagabond", typeId: "manga" });
+    const volumeId = await volumeInTheHouse({
+      title: "Vagabond 1",
+      publisher: "Planet Manga",
+      binding: "tankobon",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(volumeId, carried);
+
+    // One wall, and the narrowing tells them apart rather than a second screen.
+    expect((await listStoryWall()).map((story) => story.title)).toEqual(["Hades", "Vagabond"]);
+    expect((await listStoryWall({ typeId: "videogame" })).map((story) => story.title)).toEqual([
+      "Hades",
+    ]);
+  });
+});
