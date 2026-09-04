@@ -223,6 +223,21 @@ Then ask for `pile_next`. If the assistant still offers `reading_list_next`, it 
 an old list and nothing else — and the way to tell that apart from a bad deploy is the curl
 under **Trying it**, which asks the door rather than the client's memory.
 
+**`pass_media` is a sixth change to that list, and it takes this same runbook** (#62). It is
+an addition rather than a rename, so nothing already working breaks without it — but an
+assistant holding the old photograph cannot ask what the media are, and `pass_record`'s
+sentence now sends it to a tool its list does not have.
+
+It exists because **the medium stopped being a pair**. `pass_record` used to say *"paper" or
+"digital", and nothing else*, which was true while those were the only two rows; the consoles
+are rows too now
+([ADR-0022](../../../docs/adr/0022-the-medium-is-a-vocabulary-and-only-paper-goes-through-an-object.md)),
+and a door naming a vocabulary's values is the place they go stale — the next console would be
+an insert *and* an edit to that sentence, which is the coupling that ADR moved to a row to
+kill. So the medium is handed over the way the Provenance, the Binding, the Type and the
+credit role already are: as data, with `goesThroughAnObject` on each row, so the rule behind
+the refusal is readable and not only enforceable.
+
 **Re-adding the connector is not the whole of it.** The two project documents in
 `docs/assistant-projects/` are handed to the same assistant before it ever reads a tool
 description, and they name these tools by hand. They say the new names (#60), so an assistant

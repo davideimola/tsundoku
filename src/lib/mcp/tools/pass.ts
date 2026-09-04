@@ -1,3 +1,4 @@
+import { listMedia } from "@/core/queries/medium";
 import { FIRST_HAND, listProvenances } from "@/core/queries/provenance";
 import { abandonPass, finishPass, type Medium, type Outcome, recordPass } from "@/core/verbs/pass";
 import { type McpTool, stringArgument } from "../tool.ts";
@@ -36,21 +37,23 @@ const DAY = "A day, written 2024-03-11. Leave it out where the owner did not say
 const record: McpTool = {
   name: "pass_record",
   title: "Record a Pass through a Story",
-  description: `Record that the owner went through — or is going through — a **Story**: when, on paper
-or digitally, through which Volume if there was one, and whether they finished it or gave up.
+  description: `Record that the owner went through — or is going through — a **Story**: when, by what
+medium, through which Volume if there was one, and whether they finished it or gave up.
 
-This is the tool for *"I finished Slam Dunk"* and *"I've started the Batman omnibus"*. Give
-\`outcome\` when it is over and leave it out while they are still at it: a Pass with no outcome is
-what makes the Story read as *reading*, and \`pass_finish\` closes it later.
+This is the tool for *"I finished Slam Dunk"*, *"I've started the Batman omnibus"* and *"I finished
+Expedition 33 on the PS5"*. Give \`outcome\` when it is over and leave it out while they are still
+at it: a Pass with no outcome is what makes the Story read as *reading*, and \`pass_finish\` closes
+it later.
 
 **It never overwrites and never replaces.** Going through a thing again is ordinary here, so a
 second Pass through the same Story is a second row and the Rating the first carried survives beside
 it. If the owner is correcting a Pass they just described, that is still a Pass — say so rather than
 expecting an edit.
 
-A Pass needs no Volume, and on \`digital\` it must not have one: an owned ebook is not something this
-model has, so a digital Pass went through no object. On paper, name the Volume from
-\`collection_search\` when the owner named the object; leave it out when they named the story.
+A Pass needs no Volume, and **only \`paper\` may have one**: an owned ebook is not something this
+model has, and neither is a disc on a shelf, so every other medium went through no object. On
+paper, name the Volume from \`collection_search\` when the owner named the object; leave it out
+when they named the story.
 
 Returns the Pass's id. Give it to \`rating_set\` as \`pass\` when the owner scores it in the same
 breath — that is what ties the judgement to this one pass rather than to the Story in general, and
@@ -65,8 +68,10 @@ be read into existence — propose it with \`inbox_propose_story\` and wait for 
       },
       medium: {
         type: "string",
-        description: `"paper" or "digital", and nothing else. Digital covers an ebook, a reader app
-and a scan; it is the only case where there is no object.`,
+        description: `A medium id from \`pass_media\` — what they went through it by. Paper,
+digital, or the console they played it on. **Read that list rather than guessing**: it is a
+vocabulary the owner grows, so the console bought last month is on it and a name invented here
+is refused.`,
       },
       outcome: {
         type: "string",
@@ -81,7 +86,7 @@ is as much a fact as finishing, and neither is a failure to record.`,
       volume: {
         type: "string",
         description: `The Volume's id, from \`collection_search\`, where the owner read a particular
-object. Absent is ordinary, and required on digital.`,
+object. Absent is ordinary, and the only possibility on any medium but \`paper\`.`,
       },
       provenance: PROVENANCE,
     },
@@ -179,4 +184,27 @@ own \`scale\`.`,
   },
 };
 
-export default [record, finish, abandon, provenances];
+// **The other vocabulary a Pass carries**, beside the Provenance above and for its reason: it
+// grows, and a door that named its values would be the place they went stale. That was true
+// the day the medium became a table (#61, ADR-0022) and it *bites* the day the consoles are on
+// it (#62) — `paper` and `digital` could be written into a sentence because they were the
+// only two there would ever be, and `playstation-5` cannot, because the next console is an
+// insert and a sentence naming three is a second place the list is written down (ADR-0002).
+const media: McpTool = {
+  name: "pass_media",
+  title: "The medium vocabulary",
+  description: `Every medium a Pass can have gone by, with the id a Pass carries and whether a pass
+by it went through an object.
+
+Read it rather than assuming: it holds paper, digital and the consoles the owner plays on, and it
+grows when they buy hardware. \`goesThroughAnObject\` is the rule behind the refusal you will meet
+if you name a Volume anyway — it is true of \`paper\` alone, because an owned ebook is not something
+this model has and neither is a disc on a shelf.`,
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  readOnly: true,
+  async run() {
+    return { media: await listMedia() };
+  },
+};
+
+export default [record, finish, abandon, provenances, media];

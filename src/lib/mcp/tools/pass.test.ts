@@ -60,6 +60,11 @@ describe("the door's areas", () => {
 });
 
 describe("the five tools named for the old vocabulary", () => {
+  // The first four are the renamed ones this describe is about. `pass_media` is not one of
+  // them — it is a vocabulary listing added beside `pass_provenances` on the day the media
+  // stopped being a pair (#62) — but it is named here rather than filtered out, because what
+  // an assistant depends on is *the whole area*, and a tool arriving in it unnoticed is how
+  // this list quietly stops being what the connector was added against.
   it("are the Pass area, under the new names", async () => {
     const pass = (await import("./pass.ts")).default;
     expect(pass.map((tool) => tool.name)).toEqual([
@@ -67,6 +72,7 @@ describe("the five tools named for the old vocabulary", () => {
       "pass_finish",
       "pass_abandon",
       "pass_provenances",
+      "pass_media",
     ]);
   });
 

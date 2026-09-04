@@ -301,6 +301,14 @@ reconnected by hand: **restart the tunnel client, then remove and re-add the con
 the whole table of old name against new, the arguments that moved with them, and how to
 tell an old list apart from a deploy that never landed.
 
+**`pass_media` is a sixth change to that list and takes the same runbook.** It lists the
+media the way `pass_provenances` lists the Provenances, and it exists because the medium
+stopped being a pair the day the consoles arrived: `pass_record` used to name *paper or
+digital* in its own sentence, and a door naming a vocabulary's values is where they go
+stale — the next console would be an insert *and* an edit to that sentence, which is the
+coupling [ADR-0022](docs/adr/0022-the-medium-is-a-vocabulary-and-only-paper-goes-through-an-object.md)
+moved to a row to kill.
+
 The gate is `MCP_BEARER_TOKEN` and it **fails closed**: unset or blank, every request is
 refused. Unlike the owner gate there is no development opt-in beside it, because this is a
 string you pick rather than a Google client somebody has to create.
@@ -402,11 +410,25 @@ which is the reason to do the spreadsheet import last and deliberately.
 
 ### Type is a data row
 
-Manga, Comic, Graphic Novel, Novel, Non-fiction are **rows in the `type` table, never
-an enum in code**
+Manga, Comic, Graphic Novel, Novel, Non-fiction, Videogame are **rows in the `type`
+table, never an enum in code**
 ([ADR-0006](docs/adr/0006-one-model-for-reading-and-other-collections-are-a-second-context.md)).
-A sixth Type is an insert, not a release. Nothing in TypeScript enumerates the five,
-and nothing should.
+Nothing in TypeScript enumerates them, and nothing should.
+
+**Videogame is the proof rather than the exception.** It arrived as one `insert` in
+`0015` and no release
+([ADR-0021](docs/adr/0021-the-boundary-is-the-narrative-you-pass-through-and-videogames-are-inside-it.md)),
+because a Story owing no object to anybody is the case this model has held since
+ADR-0001. The medium is the same posture, one table further on: paper, digital and
+the consoles the owner plays on are rows too, each declaring whether it can go
+through an object
+([ADR-0022](docs/adr/0022-the-medium-is-a-vocabulary-and-only-paper-goes-through-an-object.md)),
+so the next console is another insert. **Which media a Type *offers* is a screen's
+question and is not yet asked** — the two pickers on `/add` and on a Story's page
+still write `paper` and `digital` out by hand, so until they read the vocabulary a
+console can be pressed on neither, and a pass through one is recorded over the MCP
+door. Nothing in the database refuses either picker's absent value: a vocabulary
+says what is offered and never what is allowed.
 
 ### A cover is hotlinked, and only the owner's own images are hosted
 
