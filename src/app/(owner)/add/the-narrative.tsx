@@ -136,9 +136,17 @@ export function TheNarrative({
  * width of the longest console name and then shares out whatever is left, so the printed pair
  * still stands side by side and the consoles fall into rows that fill.
  *
- * The inputs are real radios, hidden and styled through the label beside them, so the group is
- * one tab stop, the arrow keys move within it, the focus ring is the same one every control on
- * this screen draws, and the whole thing posts as a field of a plain form.
+ * The inputs are real radios, invisible and styled through the label beside them, so the group
+ * is one tab stop, the arrow keys move within it, the focus ring is the same one every control
+ * on this screen draws, and the whole thing posts as a field of a plain form.
+ *
+ * **The radio is laid over its label rather than hidden beside it**, which is the one detail
+ * worth knowing here. The group is `required` now that it can open on nothing at all, and a
+ * browser refusing a press points its own sentence at the control that is empty — so that
+ * control has to be a box the size of the thing the owner is looking at, and a screen-reader-only
+ * radio is one pixel in the corner with nothing beside it to read. `required` bites only where a
+ * script is running: with nothing running the whole vocabulary is offered and one of it is
+ * always pressed, so the press goes through as it did before (ADR-0010).
  */
 function TheMedium({
   offered,
@@ -163,15 +171,16 @@ function TheMedium({
           const id = `say-medium-${medium.id}`;
 
           return (
-            <div key={medium.id} className="flex-1 basis-32">
+            <div key={medium.id} className="relative flex-1 basis-32">
               <input
                 type="radio"
                 id={id}
                 name="medium"
                 value={medium.id}
+                required
                 checked={pressed === medium.id}
                 onChange={() => onPress(medium.id)}
-                className="peer sr-only"
+                className="peer absolute inset-0 m-0 h-full w-full cursor-pointer appearance-none rounded-lg opacity-0"
               />
               {/* Ink on paper for the answer that stands, a hairline for the ones that do not:
                   the strongest inversion this palette has, spent on the one thing this panel

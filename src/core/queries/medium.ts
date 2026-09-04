@@ -68,9 +68,17 @@ export async function listMedia(): Promise<Medium[]> {
 // one screen it is about, since a console released next year would then be an insert *and* a
 // release. Two inserts and no deployment is the point of the vocabulary being data.
 
-/** One medium as a picker reads it, shaped in the statement so both halves say it once. */
-const OFFERED = `jsonb_build_object(
-  'id', m.id, 'name', m.name, 'goesThroughAnObject', m.goes_through_an_object
+/**
+ * The media of whatever `m` the surrounding clause has selected, as a picker reads them and in
+ * the order they are offered in.
+ *
+ * A fragment because the statement below says it twice — once for the mapping and once for the
+ * fallback beside it — and two aggregates that came to shape a medium differently would be one
+ * picker answering in two shapes.
+ */
+const OFFERED = `jsonb_agg(
+  jsonb_build_object('id', m.id, 'name', m.name, 'goesThroughAnObject', m.goes_through_an_object)
+  order by m.display_order
 )`;
 
 /**
@@ -83,8 +91,11 @@ const OFFERED = `jsonb_build_object(
  * reason, and it is what the door stands on with no script running (ADR-0010).
  */
 export async function theMediaToOffer(typeId: string | null): Promise<Medium[]> {
+  // The batch below answers for every id it is asked about, so there is exactly one key to
+  // read and no second fallback to write here: whichever Type this is, offered or unheard of,
+  // the answer came back under its own name.
   const offers = await theMediaEachTypeOffers(typeId === null ? [] : [typeId]);
-  return offers[typeId ?? ""] ?? [];
+  return offers[typeId ?? ""];
 }
 
 /**
@@ -111,11 +122,11 @@ export async function theMediaEachTypeOffers(
   const rows = await query<{ typeId: string; media: Medium[] }>(
     `select asked.id as "typeId",
             coalesce(
-              (select jsonb_agg(${OFFERED} order by m.display_order)
+              (select ${OFFERED}
                  from type_medium tm
                  join medium m on m.id = tm.medium_id
                 where tm.type_id = asked.id),
-              (select jsonb_agg(${OFFERED} order by m.display_order) from medium m)
+              (select ${OFFERED} from medium m)
             ) as media
        from (select distinct unnest($1::text[] || array['']) as id) as asked`,
     [typeIds]
