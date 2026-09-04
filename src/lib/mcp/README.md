@@ -55,7 +55,7 @@ prose of its own, because the schema is what the assistant fills in.
 Five rules, and they are all the review surface there is:
 
 1. **One file per area, named for the area** in the vocabulary of `CONTEXT.md` —
-   `series.ts`, `path.ts`, `reading-list.ts`, `wish.ts`, `inbox.ts` — never for a layer.
+   `series.ts`, `path.ts`, `pile.ts`, `wish.ts`, `inbox.ts` — never for a layer.
    Several tools in one file is normal; the same area in two files is not. A file whose
    name has a second dot is not mounted, so a test may sit beside an area.
 2. **The tool calls a query or a verb and returns what it got.** No SQL, no `if` about the
@@ -85,7 +85,7 @@ Five rules, and they are all the review surface there is:
 This door writes, and **where it may write is not a matter of taste** (ADR-0005). Two rules,
 and they are the whole of it:
 
-- **A verb on an entity that already exists is called directly.** Record a Reading, set a
+- **A verb on an entity that already exists is called directly.** Record a Pass, set a
   Rating, acquire a Volume, release a Volume, open a Wish, close a Wish. They are narrow,
   reversible and wrong in an obvious way, and keeping them fluid is the point — *"I finished
   volume 23, I'd give it an 8"*, said out loud, is the flow this whole app was built for.
@@ -166,6 +166,9 @@ door with no stream, so there is no channel to push `notifications/tools/list_ch
 and declaring one would be a lie. The consequence is that **a client that photographs the
 list has no signal to take another photograph**, ever. It refetches when it is made to.
 
+A **renamed** tool is the same failure wearing a worse face — the old name does not merely
+stay unlisted, it stops answering — which is why the rename below has a section of its own.
+
 So, after deploying a new tool, in this order:
 
 1. **restart the tunnel client** — `kubectl -n tunnel-client rollout restart
@@ -182,6 +185,49 @@ The symptom lies convincingly, which is the reason this section exists: an assis
 writes fine while missing a *write* tool looks exactly like a client filtering on
 `readOnlyHint`, or like a deploy that never landed. Ask it whether it can see a **read-only**
 tool you shipped at the same time. If that is missing too, it is an old list and nothing else.
+
+### The tool list changed, and the connector has to be re-added
+
+**Five tools were renamed and the old names are gone** (#59,
+[ADR-0021](../../../docs/adr/0021-the-boundary-is-the-narrative-you-pass-through-and-videogames-are-inside-it.md)).
+A **Reading** was *one act of reading a Story*, which a videogame is not; the **Reading
+list** was *what to read next*, and half of what stands on it is not read. The model says
+**Pass** and **the Pile**, so this door says them too:
+
+| was | is |
+| --- | --- |
+| `reading_record` | `pass_record` |
+| `reading_finish` | `pass_finish` |
+| `reading_abandon` | `pass_abandon` |
+| `reading_provenances` | `pass_provenances` |
+| `reading_list_next` | `pile_next` |
+
+Three arguments moved with them, because an argument is part of what the assistant reads:
+`pass_finish` and `pass_abandon` take `pass` where they took `reading`, and `rating_set`
+takes `pass` for the act the judgement came out of. `pass_record` answers `{ pass }` where
+it answered `{ reading }`.
+
+**This breaks a connected assistant, on purpose and once.** The section above is why: a
+client that photographed the list has no signal to take another photograph, so ChatGPT goes
+on calling `reading_record` and is told there is no such tool — the failure that reads
+exactly like a deploy that never landed. The rename was kept to a single ticket so the owner
+pays for it once rather than five times.
+
+So, after this deploys:
+
+1. **restart the tunnel client** — `kubectl -n tunnel-client rollout restart
+   deploy/tunnel-client` on the cloud Cluster;
+2. **remove and re-add the connector** in ChatGPT. "Refresh" does not refetch.
+
+Then ask for `pile_next`. If the assistant still offers `reading_list_next`, it is holding
+an old list and nothing else — and the way to tell that apart from a bad deploy is the curl
+under **Trying it**, which asks the door rather than the client's memory.
+
+**Re-adding the connector is not the whole of it.** The two project documents in
+`docs/assistant-projects/` are handed to the same assistant before it ever reads a tool
+description, and they name these tools by hand. They still carry the old names — the sweep
+that reaches them is the rest of the rename — so an assistant re-added against a document
+that says `reading_list_next` will go on asking for a tool this door no longer has.
 
 ## The gate
 

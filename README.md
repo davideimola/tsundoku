@@ -272,7 +272,7 @@ adding the query underneath it.
 
 ### It writes, and where it may write is decided
 
-An assistant **runs verbs directly on entities that already exist** — record a Reading, set
+An assistant **runs verbs directly on entities that already exist** — record a Pass, set
 a Rating, acquire a Volume, open a Wish — because those are narrow, reversible and wrong in
 an obvious way, and because *"I finished volume 23, I'd give it an 8"*, said out loud,
 landing in the database is the flow the whole app was built for.
@@ -283,6 +283,23 @@ The risk is not in the verbs, it is in entity creation, where a hallucinated tit
 permanent duplicate. The attempt lands as an **Inbox** entry instead, and **approving it is
 the act that creates the entity** — `/inbox` is that screen. A rejected entry leaves nothing
 behind, because the entry was the only trace the proposal ever had.
+
+### Five tools were renamed, and a connected assistant has to be re-added
+
+`reading_record`, `reading_finish`, `reading_abandon`, `reading_provenances` and
+`reading_list_next` are now `pass_record`, `pass_finish`, `pass_abandon`,
+`pass_provenances` and `pile_next`. A **Reading** was *one act of reading a Story*, which a
+videogame is not, and the **Reading list** was *what to read next*, which half of what
+stands on it is not
+([ADR-0021](docs/adr/0021-the-boundary-is-the-narrative-you-pass-through-and-videogames-are-inside-it.md)).
+
+**The old names are gone, and this breaks a connected assistant once.** ChatGPT caches the
+tool list it first saw and there is no channel to tell it otherwise, so after this deploys:
+**restart the tunnel client** (`kubectl -n tunnel-client rollout restart
+deploy/tunnel-client`), then **remove and re-add the connector** — "refresh" does not
+refetch. Inverting the two hides which one worked.
+[`src/lib/mcp/README.md`](src/lib/mcp/README.md) has the whole table, the arguments that
+moved with the names, and how to tell an old list apart from a deploy that never landed.
 
 The gate is `MCP_BEARER_TOKEN` and it **fails closed**: unset or blank, every request is
 refused. Unlike the owner gate there is no development opt-in beside it, because this is a
@@ -308,7 +325,7 @@ claude mcp add --transport http tsundoku http://localhost:3000/mcp \
 Then `/mcp` in Claude Code lists the tools, and *"what have I read?"* calls
 `stories_read`. The two sentences that exercise the write boundary are:
 
-> *"I finished volume 23 of Slam Dunk, I'd give it an 8"* — a Reading and a Rating,
+> *"I finished volume 23 of Slam Dunk, I'd give it an 8"* — a Pass and a Rating,
 > recorded directly.
 >
 > *"I bought Ultimate Spider-Man Omnibus 1"* — an object the library has not
