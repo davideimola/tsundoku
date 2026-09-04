@@ -111,6 +111,16 @@ import { defineConfig } from "vitest/config";
 // directions, because a refused press reads back what the action wrote. What it writes is
 // `sayWhatHappened`, which is Seam 1.
 //
+// **The fifth carries no write at all**, and it is the same file's neighbour:
+// `src/app/(owner)/add/the-narrative.tsx` (#63). The Type decides which media are offered —
+// paper and digital for what is printed, the consoles for what is played — so the two controls
+// answer each other and one has to hear the other, which is a browser's job. The form around
+// them is still the server's and still posts to a Server Function, so nothing here is a write.
+// What it *derives* is `theMediumPressed` in `src/app/(owner)/add/door.ts`, which reads what a
+// refused press carried against what the chosen Type offers and is tested beside itself; which
+// media that is is a core query and Seam 1. What is left in the component is two controls and
+// the state that lets one of them hear the other.
+//
 // **That file is where this rule was nearly broken, and it is worth naming as such**: all four
 // acts began inside the component as closures over its own state, and each of them is a list
 // becoming another list — data in, data out, and a function this application would still have

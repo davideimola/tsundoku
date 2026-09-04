@@ -4,7 +4,6 @@ import {
   THE_FIELDS_A_REFUSAL_CARRIES,
   THE_HALVES,
   THE_SENTENCES,
-  THE_TWO_MEDIA,
   theMediumPressed,
   theSentence,
   whatFilledItIn,
@@ -211,32 +210,66 @@ describe("the two halves the sentences stand in", () => {
   });
 });
 
-// WHICH MEDIUM THE PANEL OPENS ON (#50). The narrative half's one field, and the one place a
-// default still stands on this screen — so it is here rather than inside the control, where
-// nothing could read it back. What is asserted is the default itself, because *defaulting to
-// digital* is a line of the ticket rather than a detail of a radio.
+// WHICH MEDIUM THE PANEL OPENS ON (#50, and which media stand there at all since #63). The
+// narrative half's one field, and the one place a default still stands on this screen — so it
+// is here rather than inside the control, where nothing could read it back. What is asserted is
+// the default itself, because *defaulting to digital* is a line of a ticket rather than a detail
+// of a radio, and so is the third answer #63 added: **nothing pressed**, where the Type in front
+// of the owner offers neither of the printed pair.
+//
+// The media are handed in rather than read here, because which of them a Type offers is a core
+// query against a real Postgres (`@/core/queries/medium`) and this file is data in, data out.
+const PRINTED = [
+  { id: "paper", name: "Paper", goesThroughAnObject: true },
+  { id: "digital", name: "Digital", goesThroughAnObject: false },
+];
+const PLAYED = [
+  { id: "playstation-5", name: "PlayStation 5", goesThroughAnObject: false },
+  { id: "nintendo-switch", name: "Nintendo Switch", goesThroughAnObject: false },
+];
+
 describe("which medium a pass is offered as", () => {
   it("opens on digital where the owner has pressed nothing", () => {
-    expect(theMediumPressed(undefined)).toBe("digital");
+    expect(theMediumPressed(undefined, PRINTED)).toBe("digital");
   });
 
   it("opens on what a refused press carried back", () => {
-    expect(theMediumPressed("paper")).toBe("paper");
-    expect(theMediumPressed("digital")).toBe("digital");
+    expect(theMediumPressed("paper", PRINTED)).toBe("paper");
+    expect(theMediumPressed("digital", PRINTED)).toBe("digital");
   });
 
-  // Read against the two rather than trusted, which is what `theSentence` does with `?panel=`.
-  // It cannot come off the form — it comes off a hand-edited address — and an unreadable answer
-  // is no answer rather than a third medium posted at the verb.
-  it("reads an address naming neither as no answer at all", () => {
-    expect(theMediumPressed("audiobook")).toBe("digital");
-    expect(theMediumPressed("")).toBe("digital");
+  // Read against what stands there rather than trusted, which is what `theSentence` does with
+  // `?panel=`. It cannot come off the form — it comes off a hand-edited address — and an
+  // unreadable answer is no answer rather than a third medium posted at the verb.
+  it("reads an address naming none of them as no answer at all", () => {
+    expect(theMediumPressed("audiobook", PRINTED)).toBe("digital");
+    expect(theMediumPressed("", PRINTED)).toBe("digital");
   });
 
-  it("offers both, in the order the two presses stand in", () => {
-    expect(THE_TWO_MEDIA.map((medium) => medium.value)).toEqual(["paper", "digital"]);
+  // **The third answer.** Digital is a printed library's default and no console is a better
+  // guess than another: a radio arriving on *PlayStation 5* would record *Hades on Switch* as a
+  // PS5 for anyone reading quickly, which is the failure a shown default exists to prevent. The
+  // field posts nothing and the Pass verb refuses it in its own words.
+  it("opens on nothing where what is offered holds no default", () => {
+    expect(theMediumPressed(undefined, PLAYED)).toBeNull();
+    expect(theMediumPressed("", PLAYED)).toBeNull();
+    expect(theMediumPressed("paper", PLAYED)).toBeNull();
+  });
 
-    for (const medium of THE_TWO_MEDIA) expect(medium.label).not.toBe("");
+  it("keeps a console the owner pressed, which is the whole reason it reads what is offered", () => {
+    expect(theMediumPressed("nintendo-switch", PLAYED)).toBe("nintendo-switch");
+  });
+
+  // The moment the two controls answer each other: the Type turns and the answer under it is
+  // reconciled against the new list rather than left standing. A manga read on paper, corrected
+  // to a Videogame, cannot go on saying paper.
+  it("drops an answer the Type turned away from", () => {
+    expect(theMediumPressed(theMediumPressed("paper", PRINTED) ?? undefined, PLAYED)).toBeNull();
+    expect(theMediumPressed("nintendo-switch", PRINTED)).toBe("digital");
+  });
+
+  it("presses nothing where nothing is offered at all", () => {
+    expect(theMediumPressed("paper", [])).toBeNull();
   });
 });
 

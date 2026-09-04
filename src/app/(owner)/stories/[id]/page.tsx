@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { type CollectionVolume, searchCollection } from "@/core/queries/collection";
 import { type CreditRole, listCreditRoles } from "@/core/queries/credit";
+import { theMediaToOffer } from "@/core/queries/medium";
 import type { SeriesLedger, SeriesPublishingNothing } from "@/core/queries/series";
 import { listSeriesPublishingNothing, listSeriesPublishingStory } from "@/core/queries/series";
 import type { FoundStory, StoryCredit, StoryPass, StoryRating } from "@/core/queries/story";
@@ -289,6 +290,10 @@ export default async function StoryPage({
   // placeable Volumes: the lines that name no Story are not on this page otherwise, and a
   // page reading rows it will not show is what the filter rule in `AGENTS.md` is about.
   const linesToChooseFrom = panel === PUBLISHES ? await listSeriesPublishingNothing() : [];
+  // The media this Story's Type offers, read the same way and only where the panel that asks
+  // for one is open (#63). Here the Type is already known — it is the record on screen — so
+  // the one-Type question is enough and the door's whole-table shape is not needed.
+  const mediaToOffer = panel === START ? await theMediaToOffer(story.type.id) : [];
 
   return (
     <main className="px-5 py-8 sm:px-8 sm:py-12">
@@ -598,23 +603,37 @@ export default async function StoryPage({
 
             <div className="grid gap-1.5">
               <Label htmlFor="pass-medium" className="text-xs text-muted-foreground">
-                On paper or digital
+                How you went through it
               </Label>
-              {/* Two options written out, where the Type and the Binding pickers read theirs
-                  from the database. A medium is a vocabulary that grows now (#61, ADR-0022),
-                  so these two are what this panel offers and not what the model allows: a
-                  console is an insert, and reading the list off the table is #63's. The verb
-                  refuses a medium nobody declared in its own prose either way — this list is
-                  not what enforces it. */}
+              {/* **Read off the vocabulary, and narrowed to what this Story's Type offers**
+                  (#63): paper and digital for what is printed, the consoles for what is
+                  played. It is the other side of the door's picker and needs none of its
+                  machinery — the Type is a fact about the record on screen rather than a
+                  choice being made in this form, so the list is settled before the panel is
+                  drawn and there is nothing here for a browser to do.
+
+                  Offered is not allowed. A Pass by a medium this Type does not offer is
+                  recorded exactly as it always was; what refuses one nobody declared is
+                  Postgres, in the verb's own prose, and never this list. */}
               <select
                 id="pass-medium"
                 name="medium"
                 required
-                defaultValue="paper"
+                defaultValue={mediaToOffer.some((one) => one.id === "paper") ? "paper" : ""}
                 className={PICKER}
               >
-                <option value="paper">Paper</option>
-                <option value="digital">Digital</option>
+                {/* Where paper is not on offer nothing stands pressed, because no console is a
+                    better guess than another and a panel opening on *PlayStation 5* is how a
+                    game played on a Switch gets recorded wrong. The picker is required, so the
+                    press waits for an answer. */}
+                <option value="" disabled>
+                  Which one?
+                </option>
+                {mediaToOffer.map((one) => (
+                  <option key={one.id} value={one.id}>
+                    {one.name}
+                  </option>
+                ))}
               </select>
             </div>
 

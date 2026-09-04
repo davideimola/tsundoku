@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { listBindings } from "@/core/queries/binding";
 import { type Finding, findInTheLibrary } from "@/core/queries/finder";
+import { theMediaEachTypeOffers } from "@/core/queries/medium";
 import { listSeries } from "@/core/queries/series";
 import { listTypes, theTypeEachBindingOffers } from "@/core/queries/type";
 import type { WhatWasSaid } from "@/core/verbs/what-happened";
@@ -36,8 +37,11 @@ import { TheObject } from "./the-object";
 // object now name what is inside it, in a list that arrives with that same default standing in
 // it, and the owner corrects the one case it was always wrong in. The object half is
 // `./the-object.tsx` and runs in the browser (ADR-0020); the narrative half is
-// `./the-narrative.tsx`, runs on the server, and still needs no object at all — what it gained
-// in #50 is the medium of the pass, which was the other thing being written silently.
+// `./the-narrative.tsx`, which still needs no object at all — what it gained in #50 is the
+// medium of the pass, which was the other thing being written silently, and what it gained in
+// #63 is the medium's list following the Type chosen beside it, which is what put it in the
+// browser too. Both halves are handed a whole table for that reason: the picker they read it
+// off is standing in the same form.
 //
 // **What this screen replaced.** Recording an object was a drawer on the Collection, recording
 // its narrative was a drawer on the Stories wall, and joining the two was a picker on a third
@@ -180,7 +184,15 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
   // Which Type a new narrative arrives as, for each Binding and for none at all. The whole
   // table, because the Binding it depends on is a picker in the panel below rather than a fact
   // about an object that already exists (`theTypeEachBindingOffers`, #48).
-  const typeEachBindingOffers = await theTypeEachBindingOffers(bindings.map((one) => one.id));
+  // And which media each of those Types offers, for the same reason one turn further on: the
+  // Type is a picker in the panel below too, so the narrative half cannot ask which one the
+  // owner is about to choose and reads off the whole table as it turns
+  // (`theMediaEachTypeOffers`, #63). Both wait on the vocabularies above them, so they are one
+  // round of two rather than two rounds of one.
+  const [typeEachBindingOffers, mediaEachTypeOffers] = await Promise.all([
+    theTypeEachBindingOffers(bindings.map((one) => one.id)),
+    theMediaEachTypeOffers(types.map((one) => one.id)),
+  ]);
 
   const title = asked(params, "title");
   const isbn = asked(params, "isbn");
@@ -281,7 +293,12 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
                 find={suggestStories}
               />
             ) : (
-              <TheNarrative said={saying.said} types={types} typed={whatWasTypedBefore(params)} />
+              <TheNarrative
+                said={saying.said}
+                types={types}
+                mediaEachTypeOffers={mediaEachTypeOffers}
+                typed={whatWasTypedBefore(params)}
+              />
             )}
 
             <div>

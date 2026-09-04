@@ -1,5 +1,8 @@
 import type { WhatIsOnThisIsbn } from "@/core/queries/isbn";
-import type { Medium } from "@/core/verbs/pass";
+// The vocabulary row rather than the slug a Pass carries (`@/core/verbs/pass`): what this
+// screen reasons about is which media stand in front of the owner, and each of them arrives
+// with the name it is offered under.
+import type { Medium } from "@/core/queries/medium";
 import type { WhatWasSaid } from "@/core/verbs/what-happened";
 import { ASKED } from "./panels";
 
@@ -310,25 +313,6 @@ export type ANarrativesSentence = Extract<
 >["said"];
 
 /**
- * **The two media, as the narrative half offers them** (#50), where the Type picker beside them
- * reads its vocabulary from the database.
- *
- * **A medium is a vocabulary and it grows** (#61, ADR-0022): it is a table beside Type and
- * Binding, `Medium` is a slug rather than a union of two literals, and a console released next
- * year is an insert. So these two are what this half *offers* today and never what the model
- * allows — Postgres is what refuses a medium nobody declared, and the verb says so in its own
- * prose. Which media a Type offers is #63's, and it is what replaces this list.
- *
- * The order is the order the two presses stand in, and it is the fact before the intention the
- * way the sentences above are: paper is the object in the owner's hands, digital is the one that
- * needs nothing.
- */
-export const THE_TWO_MEDIA: readonly { value: Medium; label: string }[] = [
-  { value: "paper", label: "Paper" },
-  { value: "digital", label: "Digital" },
-];
-
-/**
  * **What a pass arrives as where the owner presses nothing**: digital.
  *
  * The default is the *screen's* and never the verb's, which is the whole shape of #50 — the
@@ -340,17 +324,33 @@ export const THE_TWO_MEDIA: readonly { value: Medium; label: string }[] = [
  * is where the object is *absent*. The sentence that reached the object half already said the
  * thing is in the house.
  */
-const UNLESS_SAID_OTHERWISE: Medium = "digital";
+const UNLESS_SAID_OTHERWISE = "digital";
 
 /**
- * Which medium the panel opens on: the one a refused press carried back, or the default.
+ * Which medium the panel opens on: the one a refused press carried back, or the default, or
+ * **nothing at all** where the Type in front of the owner offers neither.
  *
- * Read against the two rather than trusted, exactly as `theSentence` reads `?panel=`: a value
- * naming neither cannot come off the form — it comes off a hand-edited address — and no answer
- * is the default rather than a third medium posted at the verb.
+ * `offered` is what the Type currently chosen offers (`theMediaEachTypeOffers`, #63), and the
+ * answer is read against it rather than trusted — exactly as `theSentence` reads `?panel=`. A
+ * carried value naming no offered medium does not come off this form; it comes off a
+ * hand-edited address, or off a Type turned since the press was refused.
+ *
+ * **Nothing pressed is a real third answer, and it is what a videogame gets.** The default is
+ * a printed library's — digital is the thing that needs no object — and no console is a better
+ * guess than any other console: a radio arriving on *PlayStation 5* would record *Hades on
+ * Switch* as a PS5 for anyone who read the screen quickly, which is the failure a shown default
+ * is supposed to prevent rather than cause. Left unpressed, the field posts nothing and the
+ * Pass verb refuses it in its own words — the same sentence a hand-made POST meets, and one
+ * that arrives with nothing running in the browser.
  */
-export function theMediumPressed(carried: string | undefined): Medium {
-  return THE_TWO_MEDIA.find((medium) => medium.value === carried)?.value ?? UNLESS_SAID_OTHERWISE;
+export function theMediumPressed(
+  carried: string | undefined,
+  offered: readonly Medium[]
+): string | null {
+  const stands = (id: string) => offered.some((medium) => medium.id === id);
+
+  if (carried !== undefined && stands(carried)) return carried;
+  return stands(UNLESS_SAID_OTHERWISE) ? UNLESS_SAID_OTHERWISE : null;
 }
 
 /** The sentence a `?panel=…` names, or nothing where it names none. */

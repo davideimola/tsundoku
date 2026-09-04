@@ -423,12 +423,18 @@ ADR-0001. The medium is the same posture, one table further on: paper, digital a
 the consoles the owner plays on are rows too, each declaring whether it can go
 through an object
 ([ADR-0022](docs/adr/0022-the-medium-is-a-vocabulary-and-only-paper-goes-through-an-object.md)),
-so the next console is another insert. **Which media a Type *offers* is a screen's
-question and is not yet asked** — the two pickers on `/add` and on a Story's page
-still write `paper` and `digital` out by hand, so until they read the vocabulary a
-console can be pressed on neither, and a pass through one is recorded over the MCP
-door. Nothing in the database refuses either picker's absent value: a vocabulary
-says what is offered and never what is allowed.
+so the next console is another insert. **Which media a Type offers is a third row of
+data** (`type_medium`, `0016`): paper and digital for what is printed, the consoles
+for what is played, which is the one thing `CONTEXT.md` says a Type decides. Both
+pickers that ask the medium read it — the narrative half of `/add` and the *Start it*
+panel on a Story's page — so a console bought next year reaches them by two inserts
+and no release. A Type with no row there is answered with the whole vocabulary rather
+than with an empty picker.
+
+**Offered is not allowed.** Nothing in the database refuses a manga read on a PS5:
+there is no foreign key from `pass` to that mapping and no trigger over it, because a
+vocabulary says what is offered and the owner is the one holding the record. It
+decides what stands in front of them, and no more than that.
 
 ### A cover is hotlinked, and only the owner's own images are hosted
 
