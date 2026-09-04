@@ -17,7 +17,7 @@
 //
 // That costs less than it looks like, and the reason is this repo's posture: **invariants
 // live in Postgres.** Every rule the verbs lean on refuses these inserts too — the score in
-// half points, one open acquisition per Volume, one open Wish per Volume, a digital Reading
+// half points, one open acquisition per Volume, one open Wish per Volume, a digital Pass
 // through no Volume, the Series position trigger. What the import does *not* get for free is
 // the handful of rules that live in TypeScript above them, and exactly one of those matters
 // here: `placeVolumeInSeries` refuses a Volume the house does not hold. This import honours
@@ -44,7 +44,7 @@ const WRITTEN_TABLES = [
   "series",
   "path",
   "person",
-  "reading",
+  "pass",
   "rating",
   "wish",
   "acquisition",
@@ -259,26 +259,26 @@ export async function writeImport(
       );
     }
 
-    for (const reading of plan.readings) {
+    for (const pass of plan.passes) {
       await run(
-        reading.key,
+        pass.key,
         `insert into pass (story_id, medium, outcome, started_on, ended_on, provenance_id, volume_id)
          values ($1, $2, $3, $4, $5, $6, $7)`,
         [
-          storyIds.get(reading.storyKey),
-          reading.medium,
-          reading.outcome,
-          reading.startedOn,
-          reading.endedOn,
-          reading.provenanceId,
-          reading.volumeKey === null ? null : volumeIds.get(reading.volumeKey),
+          storyIds.get(pass.storyKey),
+          pass.medium,
+          pass.outcome,
+          pass.startedOn,
+          pass.endedOn,
+          pass.provenanceId,
+          pass.volumeKey === null ? null : volumeIds.get(pass.volumeKey),
         ]
       );
     }
 
-    // The Rating names the Story and no Reading. The sheets put `Voto` on a row, and a row
-    // is an object or a line of history — neither of them says *which act of reading* was
-    // being judged, and a Reading picked to carry it would be a fact nobody wrote down.
+    // The Rating names the Story and no Pass. The sheets put `Voto` on a row, and a row
+    // is an object or a line of history — neither of them says *which pass* was being
+    // judged, and a Pass picked to carry it would be a fact nobody wrote down.
     // Both axes are stated: the Provenance says where the judgement came from, the scale
     // says what grain it was given in (ADR-0008).
     for (const rating of plan.ratings) {

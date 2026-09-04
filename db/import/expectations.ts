@@ -132,7 +132,7 @@ export function expectationsOf(counts: Counts, tally: Tally): readonly Expectati
         `${read(TALLY.titleSaidAgain)} row(s) naming a title another row already named`,
     },
     {
-      what: "Readings",
+      what: "Passes",
       sql: "select count(*) from pass",
       expected: read(TALLY.readOnTheShelf) + read(TALLY.readInTheBooks),
       from:
@@ -140,21 +140,21 @@ export function expectationsOf(counts: Counts, tally: Tally): readonly Expectati
         `${read(TALLY.readInTheBooks)} Biblioteca row(s) that do`,
     },
     {
-      what: "Readings through no Volume",
+      what: "Passes through no Volume",
       sql: "select count(*) from pass where volume_id is null",
       expected: read(TALLY.readInTheBooks),
       from:
         `every Biblioteca row that was read: ${read(TALLY.readInTheBooks)} — a book read is ` +
-        "a Reading, and the shelf is another question",
+        "a Pass, and the shelf is another question",
     },
     {
-      what: "Goodreads Readings passing through a Volume",
+      what: "Goodreads Passes passing through a Volume",
       sql:
         "select count(*) from pass " +
         "where provenance_id = 'goodreads-history' and volume_id is not null",
       expected: 0,
       from:
-        `the ${read(TALLY.fromGoodreads)} Goodreads row(s) land as a Story and a Reading, ` +
+        `the ${read(TALLY.fromGoodreads)} Goodreads row(s) land as a Story and a Pass, ` +
         "with no Volume",
     },
     {

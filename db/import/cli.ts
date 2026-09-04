@@ -68,10 +68,10 @@ function reportSource(
 
 function reportTranslation(plan: Plan): void {
   heading("the three confusions, split");
-  out("  Formato          two columns of one name: a Binding in Collezione, a reading medium");
+  out("  Formato          two columns of one name: a Binding in Collezione, a Medium");
   out(
     `                   in Biblioteca. ${plan.volumes.length} Volume(s) took a Binding; ` +
-      `${plan.readings.filter((r) => r.volumeKey === null).length} Reading(s) took a medium.`
+      `${plan.passes.filter((r) => r.volumeKey === null).length} Pass(es) took a medium.`
   );
   out("  Serie / Universo taken apart into a Series, a universe and a Path:");
   out(
@@ -118,7 +118,7 @@ function reportPlan(plan: Plan): void {
     ["of which in the house", plan.acquisitions.length],
     ["Volumes carrying a Story", plan.volumeStories.length],
     ["Edition notes", plan.editionNotes.length],
-    ["Readings", plan.readings.length],
+    ["Passes", plan.passes.length],
     ["of which through no Volume", read(plan, TALLY.readInTheBooks)],
     ["Ratings", plan.ratings.length],
     ["of which coarse", plan.ratings.filter((r) => r.scale === "coarse").length],

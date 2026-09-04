@@ -10,11 +10,11 @@
 // Three confusions in particular do not survive, and each has its own function below.
 //
 //   1. `Formato` means a **Binding** in `Collezione Fumetti e Manga` (Tankobon, Omnibus,
-//      Must Have) and a **reading medium** in `Biblioteca e Letture` (Cartaceo, Ebook).
+//      Must Have) and a **Medium** in `Biblioteca e Letture` (Cartaceo, Ebook).
 //      One word, two questions, and it served neither — which is why `CONTEXT.md` bans
 //      the word `format` outright. There are two tables here and they never meet:
 //      `bindingOf` for the comics sheet, `mediumOf` for the books sheet.
-//   2. `Serie / Universo` carries a **Series**, a **universe** and a reading **Path** in
+//   2. `Serie / Universo` carries a **Series**, a **universe** and a **Path** in
 //      one cell. `splitSeriesUniversePath` takes it apart. The Series becomes a Series
 //      and the Path becomes a Path; the universe becomes a **finding**, because the model
 //      has no universe and a column is not a reason to give it one.
@@ -146,15 +146,15 @@ const BINDINGS: Record<string, string> = {
  * `Formato`, read as the comics sheet means it: a Binding.
  *
  * Never as a medium. A Volume has no medium at all — digital ownership is deliberately
- * not modelled — so the two readings of this column are not two spellings of one
+ * not modelled — so the two passes of this column are not two spellings of one
  * question, and nothing here falls back to the other table.
  */
 export function bindingOf(said: string): string {
   return translate("Formato (Collezione)", said, BINDINGS);
 }
 
-// ── `Formato`, second meaning: the reading medium ───────────────────────────
-// How the owner read it, in the books sheet. Paper or digital, which is the whole of what
+// ── `Formato`, second meaning: the Medium ──────────────────────────────────
+// What the pass went by, in the books sheet. Paper or digital, which is the whole of what
 // these two sheets can say: the medium is a vocabulary the library grows a console at a time
 // (ADR-0022), and a spreadsheet of printed things reaches neither of them.
 const MEDIA: Record<string, "paper" | "digital"> = {
@@ -170,7 +170,7 @@ const MEDIA: Record<string, "paper" | "digital"> = {
   digital: "digital",
 };
 
-/** `Formato`, read as the books sheet means it: the medium one act of reading used. */
+/** `Formato`, read as the books sheet means it: the medium one pass went by. */
 export function mediumOf(said: string): "paper" | "digital" {
   return translate("Formato (Biblioteca)", said, MEDIA);
 }
@@ -188,16 +188,16 @@ export function wishedBindingOf(said: string): string | null {
 }
 
 // ── `Stato lettura` ────────────────────────────────────────────────────────
-// A Story's state is derived from its Readings and never stored (user story 13), so this
-// column does not become a field: it becomes a Reading, or nothing at all.
-export type ReadingState = {
-  /** Whether the row says an act of reading happened. */
+// A Story's state is derived from its Passes and never stored (user story 13), so this
+// column does not become a field: it becomes a Pass, or nothing at all.
+export type PassState = {
+  /** Whether the row says a pass happened. */
   readonly read: boolean;
-  /** How it ended, where it has. `null` is a Reading still open. */
+  /** How it ended, where it has. `null` is a Pass still open. */
   readonly outcome: "finished" | "abandoned" | null;
 };
 
-const READING_STATES: Record<string, ReadingState> = {
+const PASS_STATES: Record<string, PassState> = {
   letto: { read: true, outcome: "finished" },
   letta: { read: true, outcome: "finished" },
   completato: { read: true, outcome: "finished" },
@@ -241,9 +241,9 @@ export function judgementIn(said: string | null): string | null {
   return prose === "" ? null : prose;
 }
 
-/** `Stato lettura` as the act of reading it stands for, if there was one. */
-export function readingStateOf(said: string): ReadingState {
-  return translate("Stato lettura", said, READING_STATES);
+/** `Stato lettura` as the pass it stands for, if there was one. */
+export function passStateOf(said: string): PassState {
+  return translate("Stato lettura", said, PASS_STATES);
 }
 
 // ── `Stato` on a wishlist row ──────────────────────────────────────────────

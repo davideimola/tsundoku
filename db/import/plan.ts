@@ -43,8 +43,8 @@ import {
   languageOf,
   mediumOf,
   nameKey,
+  passStateOf,
   provenanceOf,
-  readingStateOf,
   splitSeriesUniversePath,
   typeOf,
   Untranslatable,
@@ -99,7 +99,7 @@ export type AcquisitionPlan = {
   readonly pricePaid: string | null;
 };
 
-export type ReadingPlan = {
+export type PassPlan = {
   readonly key: string;
   readonly storyKey: string;
   readonly medium: "paper" | "digital";
@@ -145,7 +145,7 @@ export type Plan = {
   readonly acquisitions: readonly AcquisitionPlan[];
   readonly volumeStories: readonly { readonly volumeKey: string; readonly storyKey: string }[];
   readonly editionNotes: readonly { readonly volumeKey: string; readonly note: string }[];
-  readonly readings: readonly ReadingPlan[];
+  readonly passes: readonly PassPlan[];
   readonly ratings: readonly RatingPlan[];
   readonly wishes: readonly WishPlan[];
   readonly pathItems: readonly {
@@ -255,7 +255,7 @@ class Planner {
   readonly acquisitions: AcquisitionPlan[] = [];
   readonly volumeStories: { volumeKey: string; storyKey: string }[] = [];
   readonly editionNotes: { volumeKey: string; note: string }[] = [];
-  readonly readings: ReadingPlan[] = [];
+  readonly passes: PassPlan[] = [];
   readonly ratings = new Map<string, RatingPlan>();
   readonly wishes: WishPlan[] = [];
   readonly pathItems = new Map<string, { pathKey: string; storyKey: string; position: number }>();
@@ -501,7 +501,7 @@ export function planImport(sheets: Sheets): Plan {
     acquisitions: planner.acquisitions,
     volumeStories: planner.volumeStories,
     editionNotes: planner.editionNotes,
-    readings: planner.readings,
+    passes: planner.passes,
     ratings: [...planner.ratings.values()],
     wishes: planner.wishes,
     pathItems: [...planner.pathItems.values()],
@@ -585,7 +585,7 @@ function planBooksPaths(planner: Planner, tab: Tab): void {
       planner.notes(
         tab.name,
         row.line,
-        `${route}: the "Prossimo" cell is dropped — what comes next is the Reading list ` +
+        `${route}: the "Prossimo" cell is dropped — what comes next is the Pile ` +
           "composing itself, which is the column the owner stops maintaining by hand."
       );
     }
@@ -712,18 +712,18 @@ function planCollezione(planner: Planner, tab: Tab, declared: Declared): void {
     );
     if (provenanceId === undefined) continue;
 
-    let readingKey: string | null = null;
+    let passKey: string | null = null;
     const saidState = row.value("Stato lettura", "Stato");
     if (saidState !== null) {
-      const state = planner.translating(tab.name, row.line, () => readingStateOf(saidState));
+      const state = planner.translating(tab.name, row.line, () => passStateOf(saidState));
       if (state === undefined) continue;
       if (state.read) {
         planner.count(TALLY.readOnTheShelf);
-        readingKey = `reading:${tab.name}:${row.line}`;
-        planner.readings.push({
-          key: readingKey,
+        passKey = `pass:${tab.name}:${row.line}`;
+        planner.passes.push({
+          key: passKey,
           storyKey,
-          // Every Reading off this sheet is paper: the sheet is a shelf, and an owned
+          // Every Pass off this sheet is paper: the sheet is a shelf, and an owned
           // ebook is not a thing the model has (`CONTEXT.md`).
           medium: "paper",
           outcome: state.outcome,
@@ -929,7 +929,7 @@ function planBooksWishlist(planner: Planner, tab: Tab, declared: Declared): void
         tab.name,
         row.line,
         `"${title}" is wanted as a file, and a Wish names a Volume. Digital ownership is ` +
-          "deliberately not modelled, so this row is not imported: an ebook is a Reading " +
+          "deliberately not modelled, so this row is not imported: an ebook is a Pass " +
           "with a digital medium, recorded when it is read."
       );
       continue;
@@ -1002,18 +1002,18 @@ function planBiblioteca(planner: Planner, tab: Tab): void {
     const state =
       saidState === null
         ? { read: true, outcome: "finished" as const }
-        : planner.translating(tab.name, row.line, () => readingStateOf(saidState));
+        : planner.translating(tab.name, row.line, () => passStateOf(saidState));
     if (state === undefined) continue;
 
-    // **Every row of this sheet is a Reading with no Volume**, which is the whole reason
-    // the model separates the two: being read and being owned are unrelated facts
-    // (ADR-0001), and Goodreads history is testimony about reading and says nothing about
-    // a shelf. A row that was not read at all is a Story with no Reading rather than an
+    // **Every row of this sheet is a Pass with no Volume**, which is the whole reason
+    // the model separates the two: going through a thing and owning it are unrelated facts
+    // (ADR-0001), and Goodreads history is testimony about going through and says nothing
+    // about a shelf. A row that was not read at all is a Story with no Pass rather than an
     // invented one.
     if (state.read) {
       planner.count(TALLY.readInTheBooks);
-      planner.readings.push({
-        key: `reading:${tab.name}:${row.line}`,
+      planner.passes.push({
+        key: `pass:${tab.name}:${row.line}`,
         storyKey,
         medium,
         outcome: state.outcome,
@@ -1030,7 +1030,7 @@ function planBiblioteca(planner: Planner, tab: Tab): void {
         tab.name,
         row.line,
         `"${title}" is on the books sheet and not read yet, so it is a Story with no ` +
-          "Reading. Nothing is invented to stand for an act that has not happened."
+          "Pass. Nothing is invented to stand for an act that has not happened."
       );
     }
 
@@ -1146,7 +1146,7 @@ function checkLists(planner: Planner, sheets: Sheets): void {
   const columns: readonly [readonly string[], (said: string) => unknown][] = [
     [["Tipo"], typeOf],
     [["Formato"], bindingOf],
-    [["Stato lettura"], readingStateOf],
+    [["Stato lettura"], passStateOf],
     [["Stato wishlist", "Stato"], wishStateOf],
     [["Lingua"], languageOf],
     [["Provenienza"], (said: string) => provenanceOf(said)],

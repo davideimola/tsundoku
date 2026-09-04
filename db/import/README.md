@@ -116,7 +116,7 @@ fabricated data about real books; nothing in it is the owner's library.
 ## The three confusions, and where each one went
 
 **`Formato`** means a **Binding** in the comics sheet (Tankobon, Omnibus, Must Have) and a
-**reading medium** in the books sheet (Cartaceo, Ebook). Two tables in
+**Medium** in the books sheet (Cartaceo, Ebook). Two tables in
 `db/import/vocabulary.ts` that never meet: `bindingOf` and `mediumOf`. The word `format`
 appears nowhere in this repo, which is what `CONTEXT.md` bans it for.
 
@@ -141,7 +141,7 @@ in — it is open until a deliberate act closes it, and reading this row is that
   Whether the ledger should let a wanted object be pinned to a position is a decision
   nobody has taken, and #14 is the ticket that would have reopened it.
 - **Import a wanted ebook.** A Wish names a Volume and digital ownership is deliberately
-  not modelled, so there is nothing for the Wish to name. An ebook becomes a Reading with a
+  not modelled, so there is nothing for the Wish to name. An ebook becomes a Pass with a
   digital medium, when it is read.
 - **Invent a Series or a Path from a cell.** Both are deliberate declarations. A name typed
   on a row and declared nowhere is reported, and the object is catalogued outside any ledger.
@@ -161,12 +161,12 @@ They are here to be overturned, not to be inherited quietly.
    report. The reverse case — one volume holding three stories, as *L'uomo che ride* does —
    is **not in the sheets at all**, which is one of the complaints that started this
    project. It is post-import work through `recordVolumeCarriesStory`.
-2. **A Rating names the Story and no Reading.** `Voto` sits on a row, and a row is an object
-   or a line of history: neither says which act of reading was being judged. Both of
+2. **A Rating names the Story and no Pass.** `Voto` sits on a row, and a row is an object
+   or a line of history: neither says which pass was being judged. Both of
    ADR-0008's axes are still stated — Provenance for where it came from, scale for the grain.
-3. **A `Stato lettura` that says the volume was read becomes a paper Reading through that
-   volume**, and one that says it was not becomes no Reading at all. The state column does
-   not survive as a field: a Story's state is derived from its Readings.
+3. **A `Stato lettura` that says the volume was read becomes a paper Pass through that
+   volume**, and one that says it was not becomes no Pass at all. The state column does
+   not survive as a field: a Story's state is derived from its Passes.
 4. **A Wish that ended closes on the day the object came home**, or on the day of the
    import when the sheet does not say. The sheets never recorded when a wish opened, so an
    ended Wish opens and closes on the same day.
@@ -188,7 +188,7 @@ does is not negotiable, so the import writes SQL.
 
 It costs less than it looks like, because **invariants live in Postgres** here. Every rule
 the verbs lean on refuses these inserts too: the score in half points, one open acquisition
-per Volume, one open Wish per Volume, a digital Reading through no Volume, the trigger that
+per Volume, one open Wish per Volume, a digital Pass through no Volume, the trigger that
 keeps one owned object per position of a Series. What is *not* free is the handful of rules
 that live in TypeScript above them, and exactly one of those matters here —
 `placeVolumeInSeries` refuses a Volume the house does not hold. The import honours it by

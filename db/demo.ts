@@ -15,11 +15,11 @@ import { requireDatabaseUrl } from "./env.ts";
 // what a refreshable fixture needs to be.
 //
 // Everything else this library is short of is **the owner's own judgement** — 0 people and 0
-// Credits, ten Readings all finished, nine Ratings — and this script deliberately does not
+// Credits, ten Passes all finished, nine Ratings — and this script deliberately does not
 // invent any of it. A fabricated Rating is not test data: it is an opinion Davide never held,
 // in a library kept for years, feeding a recommender he actually asks over MCP (ADR-0002).
-// An empty *Reading now* band is the honest state of the library and the state the dashboard
-// was designed against; the way to get a Reading is to record one on the Story screen, which
+// An empty *Under way* band is the honest state of the library and the state the dashboard
+// was designed against; the way to get a Pass is to record one on the Story screen, which
 // takes one click and is true afterwards.
 //
 //   pnpm db:demo           refresh: drop what this file wrote before, write it again

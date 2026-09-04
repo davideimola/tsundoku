@@ -10,7 +10,7 @@
 // ## Why this is a script and not a migration
 //
 // **Because the gesture already exists, and it is TypeScript.** `mergeSeriesIntoOneStory`
-// (#41) is seven refusals, a Rating carried, the Readings and the Credits moved, the Path stops
+// (#41) is seven refusals, a Rating carried, the Passes and the Credits moved, the Path stops
 // and the Wants and the pins repointed, and the arrow set — and a migration is SQL. Writing it
 // again in a `0014_` file would be a second copy of the most careful verb in this repository,
 // diverging from the first the day either is touched. So this presses the verb, five times,
@@ -37,13 +37,13 @@
 //
 // ## The guard
 //
-// It refuses the whole conversion while **any** narrative it would collapse carries a Reading
+// It refuses the whole conversion while **any** narrative it would collapse carries a Pass
 // or a Rating — and it reads all five lines before touching the first. On the live library
 // today that count is zero, which is what makes the conversion lossless; the guard is here so
 // it stays true whenever the command is actually taken, which may be a year from now with
-// fifteen more Readings in the library.
+// fifteen more Passes in the library.
 //
-// The merge itself carries a Reading and a Rating across quite deliberately, and is right to:
+// The merge itself carries a Pass and a Rating across quite deliberately, and is right to:
 // a pass through volume seven was a pass through the work. What is different here is that
 // nobody is watching. Fifty-one collapses in one press, each moving a fact about what the
 // owner read onto a narrative that did not exist a second earlier, is exactly the operation
@@ -242,7 +242,7 @@ export async function planTheConversion(): Promise<Plan> {
  * the writes. Given nothing, it plans for itself.
  *
  * **The guard refuses whole rather than in part**: if any narrative it would collapse carries a
- * Reading or a Rating, nothing at all is written and every reason is named — a conversion is a
+ * Pass or a Rating, nothing at all is written and every reason is named — a conversion is a
  * decision about fifty-one rows taken in one press, so the useful failure is the list and not
  * the first line of it.
  *
@@ -279,7 +279,7 @@ export async function convertTheRuns(read?: Plan): Promise<Converted> {
   }
 
   // Last, and after the merges: the route's four stops are one stop on the work by now, so
-  // what goes with the Path is a route the owner never walked and nothing else. A Reading, a
+  // what goes with the Path is a route the owner never walked and nothing else. A Pass, a
   // Rating and a Story do not reference a route at all (ADR-0016).
   const pathStruck = plan.path ? await strikePath(plan.path.id) : null;
 
