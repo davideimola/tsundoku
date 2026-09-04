@@ -80,6 +80,24 @@ export function entryStanding(entry: PileEntry): string {
 }
 
 /**
+ * **What a row is under its title**: what it is, and the one thing that decides whether it can
+ * be started tonight.
+ *
+ * The Type belongs to the row and not to each reason — three reasons saying *Manga* three
+ * times is the same fact three times — and it stands here rather than being composed by each
+ * screen, because two places print it now: the row, and the stop standing behind a route's
+ * first stop. It is what the medium used to be doing in front of the
+ * standing and doing badly (#64): *Videogame* is the fact that told the owner what kind of
+ * evening this row is, and *digital* was a guess at it.
+ *
+ * A Series entry names an object and therefore no Type (ADR-0001), so it is the standing
+ * alone — which is the whole sentence for it, since *buy it first* is about the object it is.
+ */
+export function entrySaid(entry: PileEntry): string {
+  return [entry.story?.type.name, entryStanding(entry)].filter(Boolean).join(" · ");
+}
+
+/**
  * **Why this row is here, said once per reason** — and a row says all of them, because it is
  * one row for all of them.
  *

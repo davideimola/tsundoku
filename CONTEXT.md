@@ -321,12 +321,21 @@ the route or the line, and a route contributes one stop.
 **One Story is one row however many reasons it has to be there** — on two Paths and wanted
 besides is one row that says all three, because the same answer written three times is not
 three answers.
-Every row carries an **intended medium**, and it is there for one question — what it takes to
-start tonight: paper means it must be bought first, digital means it can be started now, a
-console means it can be started if that console is in the house.
+A row carries an **intended medium** where an object carries it, and it is there for one
+question — what it takes to start tonight: an object means it must be on the shelf or bought
+first, and anything that goes through none can be started now.
+Where **no object carries it**, the row names no medium at all, and that is an answer rather
+than a gap: a medium is a fact about a **Pass** and nobody has passed through this yet, so
+there is nothing to go on and the list does not guess. It read *digital* until a videogame
+could stand here, and nothing is played on paper or on `digital` either. It costs the row
+nothing, because what the medium is there to answer — *can I start this tonight* — is the same
+answer either way: nothing has to be got first.
 **One pile holds both**, and the row says which by its Type rather than by standing in a
 different list: the whole reason an external reader can weigh *three manga against twelve
-games* is that it is looking at one arrears and not at two. For a Story with no objects behind
+games* is that it is looking at one arrears and not at two. It can be **narrowed** to one Type
+where the owner has already decided what kind of evening it is, and that is a way of *reading*
+the one list rather than a second list: what an external reader is handed crosses every Type in
+one call, and the narrowing changes what is shown and never the order. For a Story with no objects behind
 it — every videogame — two of the four sources are silent, since neither names a Volume, and
 what speaks is the **Want** and the **Path**.
 _Avoid_: readlist, to-read, backlog, queue — and **reading list**, which named half of what

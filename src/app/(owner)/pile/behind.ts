@@ -1,5 +1,6 @@
 import type { PileEntry, PileRoute } from "@/core/queries/pile";
 import { theKeyOf } from "@/core/queries/pile";
+import type { StoryType } from "@/core/queries/story";
 
 // **What stands behind a route's first stop**, and how the reserve is shaped around it. It is
 // a screen's own derivation for the reason `./entry.ts` is one: a judgement about *reading* a
@@ -111,13 +112,7 @@ export type ReserveRow = {
  * route by that name.
  */
 export function theRoutesAskedFor(said: unknown): string[] {
-  const values = Array.isArray(said) ? said : [said];
-
-  return values.flatMap((value) => {
-    if (typeof value !== "string") return [];
-    const trimmed = value.trim();
-    return trimmed === "" ? [] : [trimmed];
-  });
+  return theValuesIn(said);
 }
 
 /**
@@ -133,7 +128,50 @@ export function theRoutesAskedFor(said: unknown): string[] {
  * rule every wall in this application is read by.
  */
 export function theTypeAskedFor(said: unknown): string | undefined {
-  return theRoutesAskedFor(said).at(-1);
+  return theValuesIn(said).at(-1);
+}
+
+/**
+ * What a parameter was given as, whether it arrived once, several times or not at all: every
+ * non-blank string in it, in the order they came.
+ *
+ * The walk both readers above spend, and neither of them owns it — a `searchParams` entry is a
+ * string, an array of them or nothing, and a `FormData` field is a list; writing that out
+ * twice is how a blank one comes to mean two different things on the two doors of one screen.
+ */
+function theValuesIn(said: unknown): string[] {
+  const values = Array.isArray(said) ? said : [said];
+
+  return values.flatMap((value) => {
+    if (typeof value !== "string") return [];
+    const trimmed = value.trim();
+    return trimmed === "" ? [] : [trimmed];
+  });
+}
+
+/**
+ * **The Types the narrowing offers**: what the list can be narrowed to, and whichever one the
+ * owner is standing on.
+ *
+ * The first half is the rule every wall here is held to — a control offers only what the wall
+ * can be narrowed to (AGENTS.md), and a chip naming a Type nothing is composed under is a
+ * control whose every use empties the screen. The Pile answers with them, read off the whole
+ * list rather than the narrowed one, so choosing *Videogame* does not take the others off on
+ * the way in.
+ *
+ * The second half is the case that half creates, and it is not hypothetical: the owner narrows
+ * to *Videogame*, plays the last game on the list, and the Type they are standing on stops
+ * being one the list holds. Dropping its chip then would leave a filter that is on with no
+ * control marking it and no way back off it, so it is kept — at the end, because it is the one
+ * value that is there for where the owner is rather than for what the list holds.
+ */
+export function theTypesOffered(
+  onThePile: StoryType[],
+  narrowedTo: StoryType | undefined
+): StoryType[] {
+  if (!narrowedTo || onThePile.some((type) => type.id === narrowedTo.id)) return onThePile;
+
+  return [...onThePile, narrowedTo];
 }
 
 /**

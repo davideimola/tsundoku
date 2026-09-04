@@ -478,16 +478,26 @@ export async function composePile(narrowing: PileFilter = {}): Promise<Pile> {
         ? carriers.get(draft.subject.id)
         : positions.get(at(draft.subject.id, draft.subject.position));
 
-    const medium =
-      draft.subject.kind === "story"
-        ? mediumOf(carrier, theMediumAnObjectMeans)
-        : theMediumAnObjectMeans;
+    // **A row an object carries is intended in the medium an object means, and one nothing
+    // carries names none.** Both halves are written here rather than behind a helper, because
+    // the difference between them is the whole judgement: a Series row names that medium
+    // *regardless* of whether anything is catalogued, since a Series is a publisher's line of
+    // objects and its next position is a thing to buy.
+    const medium = draft.subject.kind === "story" && !carrier ? null : theMediumAnObjectMeans;
+
+    // **A Series entry needs an object whatever the vocabulary says**, and it is the one row
+    // that does not read the flag: it *is* the next position of a publisher's line, so there
+    // is an object to get and the only question is whether the house has it. Reading the flag
+    // here would make a library whose vocabulary held no object medium at all answer that
+    // every uncatalogued volume can be started tonight, which is the opposite of the
+    // conservative direction the unknown-slug case takes below.
+    const needsAnObject = draft.subject.kind === "series" ? true : goesThroughAnObject(medium);
 
     entries.set(theKeyOf(draft.subject), {
       subject: draft.subject,
       reasons: draft.reasons,
       story: draft.story,
-      ...through(carrier, medium, goesThroughAnObject(medium)),
+      ...through(carrier, medium, needsAnObject),
     });
   }
 
@@ -563,21 +573,6 @@ type Carrier = { object: PileObject; wishAlreadyOpen: boolean };
 // one. The first was not a lie but was still a value written here, where the vocabulary
 // already carries the fact underneath it: only paper goes through an object. So both are read
 // off the rows now, and the fourth console changes neither.
-
-/**
- * The medium an entry going through this object — or **none at all** through none.
- *
- * **Both call sites say the medium out loud** rather than letting this be a default, because
- * the two halves answer it differently on purpose and a default would hide the one that
- * overrides: a Series entry names the object's medium even where nothing is catalogued, since
- * a Series is a publisher's line of objects.
- */
-function mediumOf(
-  carrier: Carrier | undefined,
-  theMediumAnObjectMeans: PileMedium | null
-): PileMedium | null {
-  return carrier ? theMediumAnObjectMeans : null;
-}
 
 /**
  * What a proposal suggests for *how soon*: **2, which is "soon"**.

@@ -8,6 +8,7 @@ import {
   theReserveAsRows,
   theReserveIsSaid,
   theRoutesAskedFor,
+  theTypesOffered,
 } from "./behind";
 
 // A screen's own derivation, tested beside itself under the licence `vitest.config.ts`
@@ -280,6 +281,29 @@ describe("the address one route's stops are shown at", () => {
     expect(theAddressWith({ typeId: "videogame", shown: ["dc"] }, { hide: "dc" })).toBe(
       "/pile?type=videogame"
     );
+  });
+});
+
+describe("the Types the narrowing offers", () => {
+  const MANGA = { id: "manga", name: "Manga" };
+  const VIDEOGAME = { id: "videogame", name: "Videogame" };
+
+  it("is what the list can be narrowed to, and nothing the list does not hold", () => {
+    expect(theTypesOffered([MANGA, VIDEOGAME], undefined)).toEqual([MANGA, VIDEOGAME]);
+  });
+
+  it("says nothing where nothing stands on the list", () => {
+    expect(theTypesOffered([], undefined)).toEqual([]);
+  });
+
+  it("keeps the one the owner is standing on when the list stops holding it", () => {
+    // The case: narrowed to the games, the last game played, and the filter still on. Without
+    // this the chip marking it would go and there would be no control to press to get back.
+    expect(theTypesOffered([MANGA], VIDEOGAME)).toEqual([MANGA, VIDEOGAME]);
+  });
+
+  it("does not offer the one they are standing on twice", () => {
+    expect(theTypesOffered([MANGA, VIDEOGAME], VIDEOGAME)).toEqual([MANGA, VIDEOGAME]);
   });
 });
 

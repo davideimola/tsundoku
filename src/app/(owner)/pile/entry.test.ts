@@ -7,6 +7,7 @@ import {
   entryFoot,
   entryLeadsTo,
   entryLine,
+  entrySaid,
   entryStanding,
   entryTitle,
   reasonSaid,
@@ -189,6 +190,19 @@ describe("the line that decides whether it can be started tonight", () => {
     // something true about the evening (#64). The Type is beside this line on the screen, and
     // it is the fact the medium had been standing in for.
     expect(entryStanding(entry({ medium: null, atHand: true }))).toBe("tonight");
+  });
+});
+
+describe("what a row says under its title", () => {
+  it("is what it is and whether it can be started tonight", () => {
+    expect(entrySaid(storyEntry({ medium: null }))).toBe("Manga · tonight");
+    expect(entrySaid(storyEntry({ atHand: false }))).toBe("Manga · buy it first");
+  });
+
+  // A Series entry names an object and therefore no Type (ADR-0001), so the standing is the
+  // whole sentence — and it is about the object, which is what *buy it first* is.
+  it("is the standing alone where the row names an object rather than a narrative", () => {
+    expect(entrySaid(seriesEntry({ atHand: false }))).toBe("buy it first");
   });
 });
 

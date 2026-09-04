@@ -23,6 +23,7 @@ import {
   theReserveIsSaid,
   theRoutesAskedFor,
   theTypeAskedFor,
+  theTypesOffered,
   type WhatStandsBehind,
 } from "./behind";
 import {
@@ -30,7 +31,7 @@ import {
   entryFoot,
   entryLeadsTo,
   entryLine,
-  entryStanding,
+  entrySaid,
   entryTitle,
   reasonSaid,
   theWantOn,
@@ -124,13 +125,9 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
   const composed = head.length + reserve.length;
   const tonight = [...head, ...reserve].filter((entry) => entry.atHand).length;
 
-  // **The chips offer what the list can be narrowed to and nothing else** — the Types standing
-  // on the whole Pile, which the query answers with. A Type nothing is composed under is a
-  // control whose every use empties the screen. The one the owner is standing on is kept
-  // whatever happens, because a filter that is on and has no chip is a state with no way out
-  // of it, and it is where a game goes the moment the last one is played.
-  const offered =
-    narrowedTo && !types.some((type) => type.id === narrowedTo.id) ? [...types, narrowedTo] : types;
+  // What the chips offer, which is a rule with a case behind it and therefore lives in
+  // `./behind` where it can be tested beside itself.
+  const offered = theTypesOffered(types, narrowedTo);
 
   return (
     <main className="px-5 pb-16 sm:px-8">
@@ -156,10 +153,11 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
           about is that three unread manga and twelve unplayed games can be weighed against
           each other in a single answer (ADR-0021).
 
-          Absent where the list holds one Type or none: every value of it would show the same
-          rows, and a control that cannot change anything is a control the owner presses once
-          and stops trusting. */}
-      {offered.length > 1 ? (
+          Offered wherever the list holds anything, exactly as the Story wall's are: the rail
+          is where the owner reads what the list is made of as much as it is where they narrow
+          it, and a control that appears only once the library is mixed enough is one they
+          have to discover twice. */}
+      {offered.length > 0 ? (
         <nav aria-label="Narrow the Pile" className="mt-6 border-y border-border py-3">
           <Axis label="Type">
             <Chip href={thePileAt({ shown })} on={narrowedTo === undefined}>
@@ -391,11 +389,10 @@ function Entry({
           <div className="min-w-0 lg:flex-1">
             <h3 className="font-heading text-lg text-balance">{entryTitle(entry)}</h3>
 
-            {/* The Type belongs to the row and not to each reason: three reasons saying
-             *Manga* three times is the same fact three times. */}
-            <p className={`mt-1 ${EYEBROW}`}>
-              {[entry.story?.type.name, entryStanding(entry)].filter(Boolean).join(" · ")}
-            </p>
+            {/* What it is, and whether it can be started tonight — `./entry`'s wording,
+                because the stop standing behind a route says the same thing under its own
+                title and two copies of it is how the two come to say it differently. */}
+            <p className={`mt-1 ${EYEBROW}`}>{entrySaid(entry)}</p>
 
             {/* **Every reason it is here, and one row says all of them.** Wanted, and on two
                 routes, is three sentences under one title rather than the same book three
@@ -601,7 +598,9 @@ function Stop({ stop, at }: { stop: StopBehind; at: PileAddress }) {
         ) : (
           title
         )}
-        <span className={`mt-0.5 block ${EYEBROW}`}>{entryStanding(stop.entry)}</span>
+        {/* The same sentence the leading row carries: a stop read *on the shelf* with
+            nothing to say what it was, and a game read *tonight* the same way. */}
+        <span className={`mt-0.5 block ${EYEBROW}`}>{entrySaid(stop.entry)}</span>
       </span>
 
       <form action={pin} className="shrink-0">
