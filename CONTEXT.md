@@ -2,15 +2,18 @@
 
 A single-owner library, named for the pile of unread books that keeps growing: what the
 owner has read, what they thought of it, and what stands on the shelf at home — kept in one place so that an **external** reader (ChatGPT,
-Claude, over MCP) can answer *"what should I read next"* without the owner maintaining a
+Claude, over MCP) can answer *"what should I read or play next"* without the owner maintaining a
 spreadsheet by hand.
 
 ## Language
 
 **Story**:
-The narrative unit the owner reads and forms an opinion about, and there is **one test for
-what counts as one**: *a Story is what you would give a score to.* It is not decided case by
-case — that was the sentence that quietly made this word mean two things — and at the moment
+The unit the owner goes through and forms an opinion about, and there is **one test for
+what counts as one**: *a Story is what you would give a score to.* The test is the definition
+and **narrative is only what most of them happen to be**: a videogame is a Story by the same
+test a manga is, and one holding no story at all — *Tetris* — is still the thing a score would
+be given to. It is not decided case by case — that was the sentence that quietly made this
+word mean two things — and at the moment
 of cataloguing the owner is **not asked to decide it: they are shown the answer already
 written**. The default is still **one Volume, one Story**, and it still costs nothing, but it
 arrives as a line standing in front of them — the volume's title, or the Story the **Series**
@@ -19,24 +22,29 @@ a default that can be corrected in the one case it was always wrong: *Batman: L'
 holds **three** Stories in one object, because the three tales are judged apart. *Slam Dunk*
 is **one** Story across twenty tankōbon, because volume 7 is not a thing that gets a score.
 A story needs **no volume at all** — read digitally, borrowed, read on someone else's shelf,
-or recorded only as Goodreads history — because being read and being owned are two unrelated
-facts.
-It is the **spine**: a Volume is an object that attaches to it, a Reading an act, a Rating a
+played on a console, or recorded only as Goodreads history — because going through a thing and
+owning it are two unrelated facts.
+It is the **spine**: a Volume is an object that attaches to it, a Pass an act, a Rating a
 judgement. Only the spine is always there, which is why nobody creates one on purpose — a
 Story appears because the owner said something about a title. The two things they can say are
 the two halves of the door: **an object they have or want**, which is a Volume and names the
-Stories it carries, or **a narrative they read or mean to read**, which is a Story and owes no
-object to anybody. That is the **Wish/Want** distinction standing where the owner first meets
+Stories it carries, or **a narrative they went through or mean to**, which is a Story and owes
+no object to anybody. That is the **Wish/Want** distinction standing where the owner first meets
 it, and it is why a Story with nothing said about it has no way in.
 _Avoid_: work, title, entry, arc, and **book** unqualified — book names the object, not
 the narrative.
 
-**Reading**:
-One act of reading a Story: when it happened, by what **medium** (paper or digital),
-through which Volume if there was one, and whether it was finished or abandoned. There
-may be **several for the same story**, because rereading is a real intention the owner
-has already recorded — so a reading is never overwritten, and the rating it carried
-survives beside the next one.
+**Pass**:
+One pass through a Story: when it happened, by what **medium**, through which Volume if there
+was one, and whether it was finished or abandoned. There may be **several for the same
+story**, because going through a thing again is a real intention the owner has already
+recorded — so a pass is never overwritten, and the rating it carried survives beside the next
+one.
+A pass that has **not ended** is one still under way: no outcome, and therefore no end date.
+That is the whole of what *I am in the middle of this* means here, and it is why **suspended
+is not a third outcome** — a game put down in March and a game played last night are the same
+record, and what separates them is how long ago it started, which the pass already says.
+_Suspended_ may be a word the walls use; it is not a word the model has.
 A pass through a long run **knows how far it got**: the last Volume it finished, and therefore
 *ten out of twenty*. That is why the warning below still stands rather than being bent — how
 far you are is a fact about **the pass**, which is an event, and never a field on the Story.
@@ -45,8 +53,27 @@ permanent, and a second one is what says it went differently; a row recording a 
 **never happened at all** — the wrong tile pressed in a shop — is struck, because the state is
 derived from these events and there is no field to correct. That door is refused on the one
 thing that can hang off a pass, a Rating, since deleting a rated one would quietly turn *what I
-thought of that reading* into *what I think of the narrative*.
-_Avoid_: reading status, progress — those name a field, and this is an event.
+thought of that pass* into *what I think of the narrative*.
+_Avoid_: reading status, progress, session — the first two name a field and this is an event,
+and the third names one sitting where this names the whole run at a thing. Also **reading**
+for the record itself, which named only half of what it holds (ADR-0021).
+
+**Medium**:
+What a **Pass** went through the Story by: paper, digital, or the console it was played on. It
+is a fact about **the pass and never about the work** — *Hades* on Switch and *Hades* on PC are
+one Story gone through twice, the way a novel read once on paper and once as an ebook is.
+It exists to answer one practical question, which the **Pile** asks of every row it draws:
+**what does it take to start this tonight?** Paper means the object has to be bought first,
+digital means it can be started now, a console means it can be started if that console is in the
+house. That question is why a console belongs on this axis rather than beside it: it does the
+work the medium was already doing, and a videogame carrying `digital` next to a console would
+be saying nothing twice.
+It is a **vocabulary and therefore data**, not a shape written into a constraint — the list
+grows when a console is released, and that is an insert (ADR-0022). Each value says whether it
+can go through an object, and **only paper can**.
+_Avoid_: platform and format — *platform* names only the half of this list that is hardware,
+and *format* is the word the old spreadsheets used for the binding in one place and for this in
+another.
 
 **Volume**:
 One object as the library catalogues it: a manga tankōbon, an omnibus, a novel. It carries
@@ -59,11 +86,15 @@ Volume the owner has never had is an ordinary Volume, and one sold and bought ag
 object acquired twice rather than two objects.
 **A Volume carrying no Story is possible and is a gap rather than a state**: nothing refuses
 it — an object proposed from outside arrives with none, and one catalogued from a photograph
-may wait for its contents — but it stands in no Reading list and takes no judgement, so the
+may wait for its contents — but it stands on no Pile and takes no judgement, so the
 library shows it until it carries something.
-**Digital ownership is deliberately not modelled**: an ebook is a Reading with a digital
+**Digital ownership is deliberately not modelled**: an ebook is a Pass with a digital
 medium and no Volume. The owner's reason is that a file is not something they collect
 and not something they forget they have.
+**A videogame owns no object here either**, and for a different reason: a disc on the shelf is
+a fact the owner has weighed and found says almost nothing worth recording. The door is not
+closed — a boxed game is an ordinary Volume with a Binding of its own and no ISBN, which is
+what every Bonelli monthly already is — it is simply not walked through (ADR-0021).
 _Avoid_: book unqualified, item, copy, and **edition** — edition is the publisher's line
 (*Ultimate Deluxe Edition*), a property of the volume rather than a synonym for it.
 
@@ -106,14 +137,14 @@ releasing says the object left the house and keeps every record of it, where str
 there was no object. So it is refused on anything the owner has lived with, and what it takes
 with it is only what was as fictional as the record.
 
-A **Volume** is struck from the **catalogue**: refused on one in the house, one a **Reading**
+A **Volume** is struck from the **catalogue**: refused on one in the house, one a **Pass**
 went through, one carrying an **Edition note**, one a **Wish** names — and the acquisitions that
 ended go with it (ADR-0014). A **Story** is struck from the library: refused on one an object in
-the house **carries**, one a **Reading** went through, one carrying a **Rating**, one a **Path**
+the house **carries**, one a **Pass** went through, one carrying a **Rating**, one a **Path**
 names as a stop — and the **Credits** go with it while the **people** they name stay (ADR-0015).
 A **Path** is struck from the library too, and **nothing refuses it** — a route asserts nothing
 about the world, it is only an order the owner decided (ADR-0016). Its stops and the **Declared
-constraints** on it go with it; every **Story**, **Reading** and **Rating** it named stays.
+constraints** on it go with it; every **Story**, **Pass** and **Rating** it named stays.
 Striking a route is not putting one aside: aside says *not now* and keeps the order, striking
 says *this was never a route*.
 
@@ -165,7 +196,7 @@ twenty-first narrative. It states **what the line prints** and never whether it 
 so the ledger stays a ledger.
 _Avoid_: collection — that word is taken, and means the shelf. Also: line, saga — and **run**
 *for the ledger itself*: a run is the serialized **Story** a line prints, which is the word the
-Reading list uses for one that still has somewhere to go (#43). *The twenty tankōbon* are the
+Pile uses for one that still has somewhere to go (#43). *The twenty tankōbon* are the
 Series; *Slam Dunk* is the run.
 
 **Instalment**:
@@ -197,10 +228,16 @@ _Avoid_: chapter and issue — each names one medium's unit and this model holds
 about the printing and the opposite of this.
 
 **Credit**:
-A person's contribution to a **Story** in a named role — writer, artist. One person may
-hold both roles on the same story, and the two are routinely different people:
+A person's contribution to a **Story** in a named role — writer, artist, director, composer.
+One person may hold two roles on the same story, and they are routinely different people:
 *One-Punch Man* is written by ONE and drawn by Yusuke Murata.
-_Avoid_: author — it presumes a single role and silently drops the artist.
+The roles are a **vocabulary and grow by an insert**, but they grow for one reason only: a
+Credit is indexed by person because the question it answers is **what else did this one do**.
+*Director* and *composer* earn their place by that test — what else Kojima directed, what else
+Mitsuda wrote — and a **studio** and a **publisher** do not enter here at all, because neither
+is a person.
+_Avoid_: author — it presumes a single role and silently drops the artist. Also studio and
+developer, which name companies.
 
 **Rating**:
 The owner's judgement of a **Story**: a score from 1 to 10 in half points and, where they
@@ -224,30 +261,32 @@ is the collecting decision on a Series, and the missing volumes follow from it a
 query rather than as rows typed by hand.
 
 **Want**:
-An open intention to **read a Story**, standing on its own and belonging to no **Path**. It
-is the fact the library was missing: it could already say *I read this* (a Reading), *I want
+An open intention to **take on a Story** — to read it, or to play it — standing on its own and
+belonging to no **Path**. It
+is the fact the library was missing: it could already say *I read this* (a Pass), *I want
 to own this object* (a Wish), *I mean to complete this line* (a Series being collected) and
 *I mean to read these in this order* (a Path) — and had no way at all to say *I want to read
-this*. So the only door into the **Reading list** was minting a Path, a named and ordered
+this*. So the only door into the **Pile** was minting a Path, a named and ordered
 route that **cannot be undefined**, for something that was never a route; and a Series wholly
 on the shelf and wholly unread stood nowhere at all, because the Series source names the
 Volumes that are **missing** and there were none.
 It pairs with the **Wish**, and the pair is the whole distinction: **a Wish names a Volume and
-is about owning; a Want names a Story and is about reading.** Neither implies the other — the
+is about owning; a Want names a Story and is about going through it.** Neither implies the other — the
 owner wants to read what they will borrow, and buys what they will not open for years.
 It **ends by itself and never by a deliberate act**, which is exactly where it parts from the
-Wish: nobody closes a Want, and there is no second truth to keep in step with the Readings. It
-falls quiet when a **Reading began after the Want was opened** — a comparison of dates rather
+Wish: nobody closes a Want, and there is no second truth to keep in step with the Passes. It
+falls quiet when a **Pass began after the Want was opened** — a comparison of dates rather
 than a state, which is what makes **rereading ordinary instead of a special case**: a Want
-opened today on a Story read in 2019 finds no Reading later than itself and stands on the list
+opened today on a Story read in 2019 finds no Pass later than itself and stands on the list
 until the owner actually rereads it. Nothing anywhere says *this one is a reread*; it is one
-because the reading is older than the wish to read it again.
+because the pass is older than the wish to go through it again.
 _Avoid_: wish — that word is taken and means the object. Also to-read, plan, backlog, which
-the Reading list's own list already refuses, and **shelf** — a Want is one sentence about one
+the Pile's own avoid-list already refuses, and **shelf** — a Want is one sentence about one
 Story, not a place things are put.
 
-**Reading list**:
-What to read next, and it is **two halves rather than one list**.
+**The Pile**:
+What to take on next — read or play — and it is **two halves rather than one list**. It is what
+the application is named after: the pile that keeps growing.
 The **head** is what the owner has pinned, in the order they pinned it. It is short because
 every row in it is a decision, and it is the only place an order means anything.
 The **reserve** is everything else, and it **composes itself** from four sources — every
@@ -268,7 +307,7 @@ owner owns a corner of and has said nothing about, and it waits until they own i
 it. Nothing else is asked for — no flag to fill in, and whether the owner means to complete the
 line says nothing about whether tonight's reading is in the house. *All on the shelf* is read
 against the line's own count published, so a ledger nobody has filled in cannot claim it. It
-leaves the list by itself, the way a Want falls quiet: a **Reading** that finished
+leaves the list by itself, the way a Want falls quiet: a **Pass** that finished
 it or that the owner abandoned takes it off, and so does a pass that has reached the last part.
 It is
 **deliberately unordered**, sorted by a rule nobody maintains (the newest Want first, then the
@@ -282,9 +321,16 @@ the route or the line, and a route contributes one stop.
 **One Story is one row however many reasons it has to be there** — on two Paths and wanted
 besides is one row that says all three, because the same answer written three times is not
 three answers.
-Every row carries an **intended medium**: paper means it must be bought first, digital means
-it can be started tonight.
-_Avoid_: readlist, to-read, backlog, queue.
+Every row carries an **intended medium**, and it is there for one question — what it takes to
+start tonight: paper means it must be bought first, digital means it can be started now, a
+console means it can be started if that console is in the house.
+**One pile holds both**, and the row says which by its Type rather than by standing in a
+different list: the whole reason an external reader can weigh *three manga against twelve
+games* is that it is looking at one arrears and not at two. For a Story with no objects behind
+it — every videogame — two of the four sources are silent, since neither names a Volume, and
+what speaks is the **Want** and the **Path**.
+_Avoid_: readlist, to-read, backlog, queue — and **reading list**, which named half of what
+it holds from the day a videogame could stand in it.
 
 **Provenance**:
 How a record came to be known — Goodreads history, the photo census, typed from the
@@ -299,6 +345,11 @@ _Avoid_: source, origin.
 An ordered route through stories that the **owner** defines, crossing types, publishers
 and series freely: *Recupero Batman*, *Angolo Giappone*, *Technical Leadership*. Its
 order is a judgement, never a publication sequence.
+It is also **how a saga is held together**, and the only way: *the three Dark Souls* is a Path
+the owner writes, not a fact the library keeps. A **Series** cannot do it — a Series is a
+ledger over Volumes, and a saga of videogames has none — and a grouping of its own would answer
+the same question twice. A Path set **not active** groups without putting anything on the
+**Pile**, which is what makes it usable for a saga the owner is not playing through now.
 _Avoid_: filone, percorso, list, collection.
 
 **Declared constraint**:
@@ -312,7 +363,7 @@ _Avoid_: rule, preference, setting — all three promise something the app obeys
 
 **Inbox**:
 What an external assistant asked for and the owner has not decided yet. It exists because
-the two kinds of writing are not the same risk: a Reading, a Rating, an acquisition or a
+the two kinds of writing are not the same risk: a Pass, a Rating, an acquisition or a
 Wish is narrow, reversible and wrong in an obvious way, so an assistant records those
 directly, while a **Story, a Volume or a Series it creates is a permanent fact** — a
 hallucinated title or a fabricated edition the owner carries for years. So creating one from
@@ -331,7 +382,7 @@ A proposal to complete or correct a **record that already exists** — the ISBN 
 catalogued without, the publisher left blank, the count a Series has fallen behind on —
 waiting in the **Inbox** the way a creation does. It is not written directly because the risk
 it carries is the Inbox's risk and not the verbs': an invented ISBN is a permanent fact,
-silent, and wrong in a way the owner will never notice, where a Reading recorded on the wrong
+silent, and wrong in a way the owner will never notice, where a Pass recorded on the wrong
 day is obvious the moment it is read back. It amends **one record**, so what it proposes is
 legible beside what stands there today, and approving it is the act that changes the record.
 It amends the record's **fields**, and a **Credit** is not one of them: a person in a role on
@@ -341,12 +392,17 @@ _Avoid_: edit, update, correction, patch — and **suggestion**, which promises 
 owner may leave lying around; an amendment waits for a decision exactly as a creation does.
 
 **Type**:
-Manga, Comic, Graphic Novel, Novel, Non-fiction, Play. An **attribute** of a story, not a
-kind of thing: the model is one model, and a novel and a tankōbon differ in their
-attributes, never in their shape.
+Manga, Comic, Graphic Novel, Novel, Non-fiction, Play, Videogame. An **attribute** of a story,
+not a kind of thing: the model is one model, and a novel and a tankōbon differ in their
+attributes, never in their shape. A **Videogame** differs by carrying no object at all, which is
+not a second shape — a Story owing no Volume to anybody is the ordinary case the model already
+holds, and it is what an ebook has always been.
 It is **data rather than an enum** (ADR-0006), so meeting one this list does not have is an
 insert — which is how **Play** arrived, with the books half: *Harry Potter e la maledizione
 dell'erede* is a script, the owner's own sheet says so in the column every other row uses
 for *Romanzo*, and calling it a novel to avoid an insert would put a wrong fact in the
 library. The same sentence let *spillato* into the Bindings, and it decides both the same
 way.
+It decides which **media** are offered and nothing else, which is why the Type is chosen before
+the medium wherever both are asked for: paper and digital for what is printed, the consoles for
+what is played (ADR-0021).
