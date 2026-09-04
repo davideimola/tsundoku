@@ -92,6 +92,13 @@
       "when": 1788909200000,
       "tag": "0015_the_medium_is_a_vocabulary",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788995600000,
+      "tag": "0016_a_videogame_is_a_type_and_the_consoles_are_media",
+      "breakpoints": true
     }
   ]
 }

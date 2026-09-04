@@ -3,14 +3,14 @@ import { query } from "../db.ts";
 import { createStory } from "../verbs/story.ts";
 import { listTypes, theTypeEachBindingOffers, theTypeToOffer } from "./type.ts";
 
-// The six are ADR-0006's, read off `CONTEXT.md` rather than off the migration: if
-// this test and the schema ever disagree, the glossary is the one that is right.
-//
-// There were five until the books half arrived and one row of it was a script. A Type is
-// data and a new one is an insert (migration 0013), so this list grows — and it grows here
-// only after the glossary says it has, which is the direction the comment above fixes.
+// They are ADR-0006's, read off `CONTEXT.md` rather than off the migration: if this test and
+// the schema ever disagree, the glossary is the one that is right. The list grows by an
+// insert, which is the whole of what ADR-0006 promised a new Type would cost: **Play** arrived
+// with the books half because one row of it was a script (migration 0013), and **Videogame**
+// right after it (#62, ADR-0021). A Story owing no object to anybody is the ordinary case this
+// model has held since ADR-0001, so nothing about the shape moved to make room for either.
 describe("the Types", () => {
-  it("are the six the model recognises, in the order they are offered in", async () => {
+  it("are the ones the model recognises, in the order they are offered in", async () => {
     expect(await listTypes()).toEqual([
       { id: "manga", name: "Manga" },
       { id: "comic", name: "Comic" },
@@ -18,6 +18,7 @@ describe("the Types", () => {
       { id: "novel", name: "Novel" },
       { id: "non-fiction", name: "Non-fiction" },
       { id: "play", name: "Play" },
+      { id: "videogame", name: "Videogame" },
     ]);
   });
 });

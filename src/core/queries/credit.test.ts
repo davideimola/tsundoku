@@ -19,11 +19,27 @@ beforeEach(async () => {
 });
 
 describe("the roles a Credit can be held in", () => {
+  // Read off `CONTEXT.md`'s Credit entry rather than off the migration: if this test and the
+  // schema disagree, the glossary is the one that is right. The two a videogame is credited
+  // in stand at the end, because the order is what a picker offers and not a ranking.
   it("are data rows, offered in the order a comic is credited in", async () => {
     expect(await listCreditRoles()).toEqual([
       { id: "writer", name: "Writer" },
       { id: "artist", name: "Artist" },
+      { id: "director", name: "Director" },
+      { id: "composer", name: "Composer" },
     ]);
+  });
+
+  // **A studio and a publisher are not people**, and a Credit is indexed by person because
+  // the question it answers is *what else did this one do* (`CONTEXT.md`, ADR-0021). The
+  // absence is named here because it is a decision rather than an oversight: a vocabulary
+  // grows by an insert, so the row nobody wrote is the whole of what keeps them out.
+  it("holds no studio and no publisher, because neither is a person", async () => {
+    const roles = (await listCreditRoles()).map((role) => role.id);
+
+    expect(roles).not.toContain("studio");
+    expect(roles).not.toContain("publisher");
   });
 });
 
