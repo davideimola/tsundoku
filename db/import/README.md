@@ -2,6 +2,14 @@
 
 The two Google Sheets, read once, deliberately.
 
+> **The books half has moved.** This importer refuses a database that already holds
+> imported data, and once the comics half is in production that refusal covers the books
+> too — so the reworked `Biblioteca` tab, the one with `Posseduto` on it, is read by
+> `db/import/books/` instead. It is the incremental one: it matches on a title, refuses a
+> run whose titles are already there, and writes the Volume the old tab had no column for.
+> Everything below still describes this import, and `biblioteca-biblioteca.csv` is still
+> one of its ten tabs on a database with nothing in it.
+
 ```sh
 pnpm import:sheets db/import/fixtures    # the rehearsal, against committed fixtures
 pnpm import:sheets                       # the real thing, against db/import/sheets/
