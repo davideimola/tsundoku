@@ -14,11 +14,15 @@ import { Refusal, refusing } from "../refusal.ts";
 /**
  * The grain a score was given in — its own axis, and not a Provenance (ADR-0008).
  *
- * A literal union rather than a data row, for the reason a Pass's medium is a check
- * constraint and `credit_role` is a table: these two are not a vocabulary that grows, they
- * are the model's own shape. `half-points` is the owner's scale; `coarse` is a score given
- * out of 5 and doubled onto it, which the books sheet is full of. A third grain would be a
- * change to the model.
+ * A literal union rather than a data row, where `credit_role` is a table: this one is not a
+ * vocabulary that grows, it is the model's own shape. `half-points` is the owner's scale;
+ * `coarse` is a score given out of 5 and doubled onto it, which the books sheet is full of. A
+ * third grain would be a change to the model.
+ *
+ * **It is the half of ADR-0008 that stands.** A Pass's medium was the other example that ADR
+ * gave of the same rule and it was the wrong side of it, because a console is a medium and
+ * the list grows with the hardware industry; so the medium is a vocabulary now (ADR-0022) and
+ * this is not. What changed is which of the two examples belonged where, never the rule.
  */
 export type RatingScale = "coarse" | "half-points";
 

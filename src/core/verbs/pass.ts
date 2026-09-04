@@ -19,8 +19,16 @@ import type { Executor } from "../transaction.ts";
 //   - **It writes no state onto the Story.** To read / reading / read / abandoned is
 //     derived from these rows by `queries/story.ts` and stored nowhere.
 
-/** Paper or digital. Not a vocabulary that grows — see the migration for why. */
-export type Medium = "paper" | "digital";
+/**
+ * A medium's slug: what a pass went through the Story by — `paper`, `digital`, or the console
+ * it was played on.
+ *
+ * **No union of string literals**, for the reason `Type` and `Binding` have none (ADR-0006,
+ * ADR-0022): a medium is a data row, so a console released next year is an insert and a type
+ * that enumerated today's two would quietly make it a release. What the library knows is
+ * `listMedia` in `../queries/medium.ts`, and what refuses one it does not is Postgres.
+ */
+export type Medium = string;
 
 /** How a Pass ended. `null` while it is still under way. */
 export type Outcome = "finished" | "abandoned";
@@ -39,8 +47,10 @@ export type NewPass = {
   outcome?: Outcome | null;
   /**
    * The Volume this pass went through, where there was one. Absent is the ordinary
-   * case, and it is the only possibility on digital: an owned ebook is not a thing this
-   * model has, so a digital Pass went through no object (`CONTEXT.md`).
+   * case, and it is refused outright by every medium that does not go through an object:
+   * an owned ebook is not a thing this model has, and a console is not an object the library
+   * catalogues either, so only a medium carrying `goesThroughAnObject` may name a Volume
+   * (`CONTEXT.md`, ADR-0022).
    */
   volumeId?: string | null;
   /**
@@ -56,8 +66,7 @@ export type NewPass = {
 };
 
 function passProse(constraint: string | undefined): string {
-  if (constraint === "pass_medium_is_paper_or_digital")
-    return "A Pass is on paper or digital, and nothing else.";
+  if (constraint === "pass_medium_exists") return "That is not a medium this library knows.";
   if (constraint === "pass_story_exists") return "That Story is not in the library yet.";
   if (constraint === "pass_provenance_exists")
     return "That is not a Provenance this library knows.";
@@ -68,8 +77,11 @@ function passProse(constraint: string | undefined): string {
   if (constraint === "pass_outcome_is_finished_or_abandoned")
     return "A Pass ends finished or abandoned.";
   if (constraint === "pass_volume_exists") return "That Volume is not in the library.";
-  if (constraint === "pass_digital_went_through_no_volume")
-    return "A Pass on digital went through no Volume: an owned ebook is not a thing here.";
+  // **Which fact is in the way**, and it is a fact about the medium rather than about
+  // paper: the flag on the vocabulary row is what refused, so that is what the sentence
+  // names (ADR-0022). It reads the same for a console as it does for digital.
+  if (constraint === "pass_through_an_object_went_by_a_medium_that_can")
+    return "That medium does not go through an object, so a Pass by it went through no Volume.";
   if (constraint === "pass_at_instalment_is_positive") return NOT_AN_INSTALMENT;
   // The two the migration's trigger raises. A check constraint cannot read the Story, and
   // whether a pass may stand at instalment seven is a fact about the *work*.

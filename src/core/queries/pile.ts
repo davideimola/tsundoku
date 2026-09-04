@@ -5,6 +5,7 @@ import type { PinnedSubject } from "../verbs/pile.ts";
 import type { ProposedWish } from "../verbs/wish.ts";
 import { IN_THE_HOUSE } from "./collection.ts";
 import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
+import { listMedia } from "./medium.ts";
 import { type PathStop, stillAheadOnActivePaths } from "./path.ts";
 import { listMissingVolumes, type SeriesLedger } from "./series.ts";
 import { type HowFarItGot, listRunsInProgress, type StoryType } from "./story.ts";
@@ -62,15 +63,16 @@ import { listOpenWants } from "./want.ts";
 // tonight, and what it would take to buy.
 
 /**
- * Paper or digital, and here it is **derived rather than recorded**.
+ * The medium an entry is intended in, as a slug of the vocabulary, and here it is **derived
+ * rather than recorded**.
  *
- * The same two values a Pass carries (`verbs/pass.ts`), reused deliberately: a
- * medium is a check constraint and not a vocabulary that grows (#3), so a third value
- * would be a change to the derivation below rather than an insert. Nothing writes this
- * one — a Pass's medium is a fact about an act that happened, and this is an intention
- * about one that has not.
+ * The same slugs a Pass carries (`verbs/pass.ts`), and **no union of string literals**, for
+ * the reason `Type` and `Binding` have none (ADR-0006, ADR-0022): a medium is a data row, so
+ * a console is an insert and a type naming today's two would make it a release. Nothing
+ * writes this one — a Pass's medium is a fact about an act that happened, and this is an
+ * intention about one that has not.
  */
-export type PileMedium = "paper" | "digital";
+export type PileMedium = string;
 
 /** The object an entry goes through, where the library knows of one. */
 export type PileObject = {
@@ -215,8 +217,12 @@ export type PileEntry = {
    */
   medium: PileMedium;
   /**
-   * Whether the owner can start it tonight: digital, or paper with the object already on
-   * the shelf. False is the entry that has to be bought first.
+   * Whether the owner can start it tonight: **this medium needs no object, or the object is
+   * in the house**. False is the entry that has to be bought first.
+   *
+   * The medium's own `goesThroughAnObject` is what answers the first half (ADR-0022), so the
+   * sentence holds for a console the same way it holds for a file: paper needs the object,
+   * and nothing else does.
    */
   atHand: boolean;
   /**
@@ -282,12 +288,13 @@ export async function composePile(): Promise<Pile> {
   // derivations already exist, tested, in `queries/want.ts`, `queries/path.ts`,
   // `queries/story.ts` and `queries/series.ts` (#35, #9, #43, #7), and re-deriving any of them
   // here to save a round trip would be keeping a second answer to a question that has one.
-  const [wanted, routes, runs, incomplete, pins] = await Promise.all([
+  const [wanted, routes, runs, incomplete, pins, media] = await Promise.all([
     listOpenWants(),
     stillAheadOnActivePaths(),
     listRunsInProgress(),
     listMissingVolumes(),
     pinnedSubjects(),
+    listMedia(),
   ]);
 
   // **One row per thing to read, and the order they arrive in is the reserve's order.** A
@@ -365,6 +372,15 @@ export async function composePile(): Promise<Pile> {
     objectsAtPositions(incomplete),
   ]);
 
+  // **Whether a medium goes through an object is the vocabulary's answer**, not this file's
+  // (ADR-0022). It is what *can I start this tonight* is composed from below, and the one
+  // rule it states — paper needs the object, digital and every console need nothing — is a
+  // column rather than a value named here. A slug the vocabulary does not have is read as
+  // needing an object, which is the conservative direction: an entry the library cannot
+  // account for is not claimed to be startable tonight.
+  const throughAnObject = new Map(media.map((known) => [known.id, known.goesThroughAnObject]));
+  const goesThroughAnObject = (id: PileMedium): boolean => throughAnObject.get(id) ?? true;
+
   const entries = new Map<string, PileEntry>();
   for (const draft of drafts) {
     // **The medium follows the object** on a narrative row: paper where one carries the
@@ -378,11 +394,13 @@ export async function composePile(): Promise<Pile> {
         ? carriers.get(draft.subject.id)
         : positions.get(at(draft.subject.id, draft.subject.position));
 
+    const medium = draft.subject.kind === "story" ? mediumOf(carrier) : THE_MEDIUM_AN_OBJECT_MEANS;
+
     entries.set(theKeyOf(draft.subject), {
       subject: draft.subject,
       reasons: draft.reasons,
       story: draft.story,
-      ...through(carrier, draft.subject.kind === "story" ? mediumOf(carrier) : "paper"),
+      ...through(carrier, medium, goesThroughAnObject(medium)),
     });
   }
 
@@ -450,16 +468,25 @@ export function theKeyOf(subject: PinnedSubject): string {
 /** An object the library knows about, and whether the owner already means to buy it. */
 type Carrier = { object: PileObject; wishAlreadyOpen: boolean };
 
+// **The two media the composition can name**, and they are named because this derivation is
+// about *objects* rather than about the vocabulary. An entry is an intention nobody has
+// recorded a medium for, so all the library has to go on is whether an object carries it: one
+// that does is paper, and one that does not is a file. Which media a Story could be gone
+// through by is the Type's business and not this list's, and nothing here refuses a
+// vocabulary that has grown — the flag on the row is what every judgement below reads.
+const THE_MEDIUM_AN_OBJECT_MEANS: PileMedium = "paper";
+const THE_MEDIUM_NO_OBJECT_MEANS: PileMedium = "digital";
+
 /**
  * The medium an entry going through this object — or through none — is intended in.
  *
  * **Both call sites say the medium out loud** rather than letting this be a default, because
  * the two halves answer it differently on purpose and a default would hide the one that
- * overrides: a Series entry is `paper` even where nothing is catalogued, since a Series is a
+ * overrides: a Series entry is paper even where nothing is catalogued, since a Series is a
  * publisher's line of objects.
  */
 function mediumOf(carrier: Carrier | undefined): PileMedium {
-  return carrier ? "paper" : "digital";
+  return carrier ? THE_MEDIUM_AN_OBJECT_MEANS : THE_MEDIUM_NO_OBJECT_MEANS;
 }
 
 /**
@@ -484,15 +511,18 @@ const PROPOSED_PRIORITY = 2;
  */
 function through(
   carrier: Carrier | undefined,
-  medium: PileMedium
+  medium: PileMedium,
+  goesThroughAnObject: boolean
 ): Pick<PileEntry, "medium" | "atHand" | "object" | "proposedWish" | "wishAlreadyOpen"> {
   const inTheHouse = carrier?.object.inTheHouse ?? false;
   const wishAlreadyOpen = carrier?.wishAlreadyOpen ?? false;
 
   return {
     medium,
-    // Digital needs nothing, and paper needs the object to be on the shelf.
-    atHand: medium === "digital" || inTheHouse,
+    // **A medium that needs no object needs nothing, and one that does needs the object on
+    // the shelf.** It named `digital` by hand until the list of media grew (ADR-0022); the
+    // flag says the same thing about digital and about every console at once.
+    atHand: !goesThroughAnObject || inTheHouse,
     object: carrier?.object ?? null,
     // **Proposed, never opened.** Only where there is an object to name, the house does
     // not hold it, and the owner is not already meaning to buy it — a second open Wish on

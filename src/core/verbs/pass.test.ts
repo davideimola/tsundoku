@@ -66,11 +66,14 @@ describe("recording a Pass", () => {
     });
   });
 
-  it("refuses a medium the model does not have, because digital ownership is not modelled", async () => {
+  // The medium is a vocabulary now (ADR-0022), so what refuses one the library does not have
+  // is the foreign key rather than a check constraint over two values — the same refusal a
+  // Provenance nobody declared gets, and for the same reason. `audiobook` is not a medium
+  // here today; the day it is, it is an insert and this test names something else.
+  it("refuses a medium the library does not know, because the vocabulary is what says which exist", async () => {
     const storyId = await createStory({ title: "Akira", typeId: "manga" });
 
     const attempt = recordPass({
-      // @ts-expect-error the type says paper or digital; the database says so too
       medium: "audiobook",
       storyId,
       provenanceId: "remembered",
@@ -78,8 +81,8 @@ describe("recording a Pass", () => {
 
     await expect(attempt).rejects.toMatchObject({
       name: "Refusal",
-      code: "invalid",
-      message: "A Pass is on paper or digital, and nothing else.",
+      code: "not-found",
+      message: "That is not a medium this library knows.",
     });
   });
 

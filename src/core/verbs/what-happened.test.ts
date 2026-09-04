@@ -428,19 +428,20 @@ describe("I read it", () => {
     expect(await query("select id from volume")).toEqual([]);
   });
 
-  // The medium is the Pass's own check constraint and the prose is `recordPass`'s: this
-  // door has no copy of it to keep true, and the sentence the owner reads is the verb's.
-  it("refuses a medium that is neither, in the Pass's own words", async () => {
+  // The medium is the Pass's own foreign key onto the vocabulary and the prose is
+  // `recordPass`'s: this door has no copy of it to keep true, and the sentence the owner
+  // reads is the verb's.
+  it("refuses a medium the library does not know, in the Pass's own words", async () => {
     await expect(
       sayWhatHappened({
         title: "Il nome della rosa",
         typeId: "novel",
         said: "read",
-        medium: "audiobook" as never,
+        medium: "audiobook",
       })
     ).rejects.toMatchObject({
       name: "Refusal",
-      message: "A Pass is on paper or digital, and nothing else.",
+      message: "That is not a medium this library knows.",
     });
 
     // The whole sentence is one transaction, so a medium that is not one leaves no narrative

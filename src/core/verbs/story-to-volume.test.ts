@@ -151,7 +151,9 @@ describe("the Volume a Pass went through", () => {
   });
 
   // Digital ownership is not modelled, so there is no object a digital Pass could have
-  // gone through: an ebook is a Pass with a digital medium and no Volume.
+  // gone through: an ebook is a Pass with a digital medium and no Volume. It is the
+  // vocabulary that says so now — `digital` does not go through an object — and the refusal
+  // names that fact rather than naming paper (ADR-0022).
   it("cannot be a digital Pass's, because there is no digital object", async () => {
     const volumeId = await aVolume("L'uomo che ride");
     const storyId = await createStory({ title: "Gotham Noir", typeId: "comic" });
@@ -161,7 +163,7 @@ describe("the Volume a Pass went through", () => {
     ).rejects.toMatchObject({
       name: "Refusal",
       code: "invalid",
-      message: "A Pass on digital went through no Volume: an owned ebook is not a thing here.",
+      message: "That medium does not go through an object, so a Pass by it went through no Volume.",
     });
   });
 
