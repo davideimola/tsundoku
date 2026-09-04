@@ -27,13 +27,16 @@ export const pass = pgTable("pass", {
 			name: "pass_provenance_exists"
 		}),
 	foreignKey({
+			columns: [table.medium],
+			foreignColumns: [medium.id],
+			name: "pass_medium_exists"
+		}),
+	foreignKey({
 			columns: [table.volumeId],
 			foreignColumns: [volume.id],
 			name: "pass_volume_exists"
 		}).onDelete("set null"),
 	unique("pass_id_and_story").on(table.id, table.storyId),
-	check("pass_digital_went_through_no_volume", sql`(volume_id IS NULL) OR (medium = 'paper'::text)`),
-	check("pass_medium_is_paper_or_digital", sql`medium = ANY (ARRAY['paper'::text, 'digital'::text])`),
 	check("pass_outcome_is_finished_or_abandoned", sql`(outcome IS NULL) OR (outcome = ANY (ARRAY['finished'::text, 'abandoned'::text]))`),
 	check("pass_unconcluded_has_not_ended", sql`(outcome IS NOT NULL) OR (ended_on IS NULL)`),
 	check("pass_did_not_end_before_it_started", sql`(started_on IS NULL) OR (ended_on IS NULL) OR (ended_on >= started_on)`),
@@ -85,6 +88,19 @@ export const provenance = pgTable("provenance", {
 	check("provenance_name_is_not_blank", sql`(name = btrim(name)) AND (name <> ''::text)`),
 	check("provenance_description_is_not_blank", sql`(description = btrim(description)) AND (description <> ''::text)`),
 	check("provenance_display_order_is_positive", sql`display_order > 0`),
+]);
+
+export const medium = pgTable("medium", {
+	id: text().primaryKey().notNull(),
+	name: text().notNull(),
+	displayOrder: integer("display_order").notNull(),
+	goesThroughAnObject: boolean("goes_through_an_object").notNull(),
+}, (table) => [
+	unique("medium_name_key").on(table.name),
+	unique("medium_display_order_key").on(table.displayOrder),
+	check("medium_id_is_a_slug", sql`id ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text`),
+	check("medium_name_is_not_blank", sql`(name = btrim(name)) AND (name <> ''::text)`),
+	check("medium_display_order_is_positive", sql`display_order > 0`),
 ]);
 
 export const binding = pgTable("binding", {

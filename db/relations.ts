@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { story, pass, provenance, volume, type, rating, editionNote, binding, series, credit, person, creditRole, path, declaredConstraint, wish, pilePin, acquisition, volumeStory, pathItem } from "./schema";
+import { story, pass, provenance, medium, volume, type, rating, editionNote, binding, series, credit, person, creditRole, path, declaredConstraint, wish, pilePin, acquisition, volumeStory, pathItem } from "./schema";
 
 export const passRelations = relations(pass, ({one, many}) => ({
 	story: one(story, {
@@ -9,6 +9,10 @@ export const passRelations = relations(pass, ({one, many}) => ({
 	provenance: one(provenance, {
 		fields: [pass.provenanceId],
 		references: [provenance.id]
+	}),
+	medium: one(medium, {
+		fields: [pass.medium],
+		references: [medium.id]
 	}),
 	volume: one(volume, {
 		fields: [pass.volumeId],
@@ -34,6 +38,10 @@ export const storyRelations = relations(story, ({one, many}) => ({
 export const provenanceRelations = relations(provenance, ({many}) => ({
 	passes: many(pass),
 	ratings: many(rating),
+}));
+
+export const mediumRelations = relations(medium, ({many}) => ({
+	passes: many(pass),
 }));
 
 export const volumeRelations = relations(volume, ({one, many}) => ({

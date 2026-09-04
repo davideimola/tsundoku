@@ -154,8 +154,9 @@ export function bindingOf(said: string): string {
 }
 
 // ── `Formato`, second meaning: the reading medium ───────────────────────────
-// How the owner read it, in the books sheet. Paper or digital, and that is the whole
-// vocabulary — a Reading's medium is the model's own shape rather than a data row.
+// How the owner read it, in the books sheet. Paper or digital, which is the whole of what
+// these two sheets can say: the medium is a vocabulary the library grows a console at a time
+// (ADR-0022), and a spreadsheet of printed things reaches neither of them.
 const MEDIA: Record<string, "paper" | "digital"> = {
   cartaceo: "paper",
   carta: "paper",
