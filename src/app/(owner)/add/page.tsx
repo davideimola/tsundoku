@@ -8,16 +8,18 @@ import { listBindings } from "@/core/queries/binding";
 import { type Finding, findInTheLibrary } from "@/core/queries/finder";
 import { theMediaEachTypeOffers } from "@/core/queries/medium";
 import { listSeries } from "@/core/queries/series";
-import { listTypes, theTypeEachBindingOffers } from "@/core/queries/type";
+import { listTypes, type Type, theTypeEachBindingOffers } from "@/core/queries/type";
 import type { WhatWasSaid } from "@/core/verbs/what-happened";
 import { requireOwner } from "@/lib/auth/owner";
 import { bought, identify, read, suggestStories, wanted, wished } from "./actions";
 import {
   aboutAnObject,
+  asGoneThroughBy,
+  aTypeCarriesAnObject,
   type CarriedField,
   type Half,
   THE_FIELDS_A_REFUSAL_CARRIES,
-  THE_HALVES,
+  theHalvesFor,
   theSentence,
   whatFilledItIn,
 } from "./door";
@@ -141,7 +143,11 @@ function theDoorHeard(params: Asked, title?: string): URLSearchParams {
   const asking = new URLSearchParams();
   if (title) asking.set("title", title);
 
-  for (const carried of ["isbn", "from", "publishedBy"]) {
+  // **The Type is in this list and it is the newest of them** (#65). It is heard on this step
+  // rather than looked up, so every address composed here has to carry it: a sentence pressed,
+  // a panel closed and a press refused all land back on a screen that would otherwise be asking
+  // *what kind of thing is it* about a title it had already been told.
+  for (const carried of ["isbn", "from", "publishedBy", "type"]) {
     const value = asked(params, carried);
     if (value) asking.set(carried, value);
   }
@@ -198,8 +204,26 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
   const isbn = asked(params, "isbn");
   const filledIn = whatFilledItIn(asked(params, "from"));
   const refused = asked(params, "refused");
+
+  // **What kind of thing the door has been told this is** (#65), read against the vocabulary
+  // rather than trusted, exactly as `?panel=` is: `?type=banana` is a Type nobody chose.
+  const chosen = types.find((one) => one.id === asked(params, "type"));
+  // What that Type offers, or the whole vocabulary where none was chosen — the core's own
+  // fallback (`theMediaEachTypeOffers`), which is why nothing is answered for twice here.
+  const offered = mediaEachTypeOffers[chosen?.id ?? ""];
+  const carriesAnObject = aTypeCarriesAnObject(offered);
+
   // Read against the three the model has rather than trusted: `?panel=banana` opens nothing.
-  const saying = title ? theSentence(asked(params, "panel")) : undefined;
+  // **And an object's sentence about a thing that has no object opens nothing either**, which
+  // is the same guard one turn further on: the two presses are off the screen below, so an
+  // address still holding `?panel=bought&type=videogame` — a Type turned after a sentence was
+  // pressed, or a link kept — leads back to the sentences rather than into a panel that would
+  // catalogue a Volume for a game.
+  const said = title ? theSentence(asked(params, "panel")) : undefined;
+  const saying =
+    said && (carriesAnObject || said.about === "a-narrative")
+      ? asGoneThroughBy(said, chosen)
+      : undefined;
 
   // What the library already holds under that name — the finder's own question, asked in the
   // core (`AGENTS.md`) rather than by a pass over a wall this screen has no business reading.
@@ -228,6 +252,9 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
           isbn={isbn}
           filledIn={filledIn}
           known={known}
+          types={types}
+          chosen={chosen}
+          halves={theHalvesFor(chosen, carriesAnObject)}
           heard={theDoorHeard(params, title)}
         />
       ) : (
@@ -413,12 +440,25 @@ function TheSentences({
   isbn,
   filledIn,
   known,
+  types,
+  chosen,
+  halves,
   heard,
 }: {
   title: string;
   isbn: string | undefined;
   filledIn: string | null;
   known: Finding[];
+  /** The Types, read from the library rather than enumerated (ADR-0006). */
+  types: readonly Type[];
+  /** The one the door has been told this is, where it has been told (#65). */
+  chosen: Type | undefined;
+  /**
+   * The halves as that Type says them: its verb in the sentences, and the object half gone
+   * where the Type carries no object. Derived in `./door.ts` and handed down rendered, because
+   * a wall does not derive (`vitest.config.ts`).
+   */
+  halves: readonly Half[];
   /** Everything the door has heard so far, carried into every address on this step. */
   heard: URLSearchParams;
 }) {
@@ -464,18 +504,92 @@ function TheSentences({
         </div>
       ) : null}
 
+      <TheKindOfThing types={types} chosen={chosen} title={title} heard={heard} />
+
       {/* **Two named halves and not one undivided set** (#49). Same four sentences, same one
           press each: what was missing was the grouping. A fork above them — object or
           narrative, and then the sentences — was considered and refused, because after
           choosing the owner would still have to say bought-or-wished or read-or-wanted, which
-          is a screen for nothing. So nothing stands between the title and the presses, and the
-          division is a heading rather than a step. */}
+          is a screen for nothing, and the division is a heading rather than a step.
+
+          **What stands above them now is not that fork** (#65). It is one field, on this same
+          screen, and it is the question the panels already asked one press too late: what kind
+          of thing this is. It leads nowhere — the four sentences are still what the owner
+          presses, and pressing none of them is still an answer this screen takes. */}
       <div className="mt-8 grid gap-9 sm:gap-10">
-        {THE_HALVES.map((half) => (
+        {halves.map((half) => (
           <TheHalf key={half.about} half={half} heard={heard} />
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * **What kind of thing it is, asked above the sentences and not inside them** (#65).
+ *
+ * **It is one question moved, not one added.** The Type was always asked — it stood in every
+ * panel, after the press — and standing there it could not do the one thing it is for: the
+ * owner said *I read it* about a videogame and told the screen what it was afterwards. Asked
+ * here it gives the sentences below their verb, and takes the object half off a screen about a
+ * thing this library holds no object for.
+ *
+ * **Links and not a picker**, so the answer is a place rather than a state: it survives the
+ * press, the panel, the refusal and the back button, it is one tap on a phone rather than a
+ * menu to open, and it needs nothing running (ADR-0010) — which matters more here than
+ * anywhere else on this screen, because everything under it is read off this answer.
+ *
+ * **Nothing is pressed until the owner presses it, and that is deliberate.** Elsewhere this
+ * library shows the answer already written (`CONTEXT.md`) and a Type has two good guesses —
+ * the Binding, and the last one used. Neither is available *here*: the Binding is chosen two
+ * steps later, inside the panel, and a shown default carried by the last thing recorded would
+ * quietly make an evening of six manga into *Videogame* for the seventh title typed. So the
+ * row opens blank, the sentences stand in the printed library's words until it is answered,
+ * and the panel goes on asking the Type for anyone who walks past this row — which is exactly
+ * what it did before.
+ */
+function TheKindOfThing({
+  types,
+  chosen,
+  title,
+  heard,
+}: {
+  types: readonly Type[];
+  chosen: Type | undefined;
+  title: string;
+  heard: URLSearchParams;
+}) {
+  return (
+    <section aria-labelledby="the-kind-of-thing" className="mt-7">
+      <h2 id="the-kind-of-thing" className="text-sm text-muted-foreground">
+        What kind of thing is it?
+      </h2>
+
+      <ul className="mt-2.5 flex flex-wrap gap-2">
+        {types.map((one) => {
+          const isChosen = one.id === chosen?.id;
+
+          return (
+            <li key={one.id}>
+              {/* Pressing the one already pressed takes it off, because a row of links has no
+                  other way back to *not said yet* — and the owner who pressed Novel by mistake
+                  on a screen whose panel still asks the Type has to be able to unsay it. */}
+              <Link
+                href={`/add?${asking(heard, { title, type: isChosen ? null : one.id, panel: null })}`}
+                aria-current={isChosen ? "true" : undefined}
+                className={`flex min-h-9 items-center rounded-lg border px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                  isChosen
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-input hover:border-foreground/40"
+                }`}
+              >
+                {one.name}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

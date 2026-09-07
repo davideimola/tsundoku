@@ -1,6 +1,6 @@
 {
-  "id": "4b355aac-ebb1-48f5-836f-81a2e121655a",
-  "prevId": "6a1f8d20-0013-4000-8000-000000000013",
+  "id": "e6b72752-6ae4-4799-95aa-5fdbf92b1c75",
+  "prevId": "0425ce49-3d70-445d-96f0-9c06e61860d9",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -611,6 +611,71 @@
       },
       "isRLSEnabled": false
     },
+    "public.medium": {
+      "name": "medium",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_order": {
+          "name": "display_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "goes_through_an_object": {
+          "name": "goes_through_an_object",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "medium_name_key": {
+          "name": "medium_name_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        },
+        "medium_display_order_key": {
+          "name": "medium_display_order_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "display_order"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "medium_id_is_a_slug": {
+          "name": "medium_id_is_a_slug",
+          "value": "id ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text"
+        },
+        "medium_name_is_not_blank": {
+          "name": "medium_name_is_not_blank",
+          "value": "(name = btrim(name)) AND (name <> ''::text)"
+        },
+        "medium_display_order_is_positive": {
+          "name": "medium_display_order_is_positive",
+          "value": "display_order > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.pass": {
       "name": "pass",
       "schema": "",
@@ -728,6 +793,19 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
+        "pass_medium_exists": {
+          "name": "pass_medium_exists",
+          "tableFrom": "pass",
+          "tableTo": "medium",
+          "columnsFrom": [
+            "medium"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "pass_volume_exists": {
           "name": "pass_volume_exists",
           "tableFrom": "pass",
@@ -755,14 +833,6 @@
       },
       "policies": {},
       "checkConstraints": {
-        "pass_digital_went_through_no_volume": {
-          "name": "pass_digital_went_through_no_volume",
-          "value": "(volume_id IS NULL) OR (medium = 'paper'::text)"
-        },
-        "pass_medium_is_paper_or_digital": {
-          "name": "pass_medium_is_paper_or_digital",
-          "value": "medium = ANY (ARRAY['paper'::text, 'digital'::text])"
-        },
         "pass_outcome_is_finished_or_abandoned": {
           "name": "pass_outcome_is_finished_or_abandoned",
           "value": "(outcome IS NULL) OR (outcome = ANY (ARRAY['finished'::text, 'abandoned'::text]))"
@@ -1526,6 +1596,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "own_image_url": {
+          "name": "own_image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1583,6 +1659,10 @@
         "story_the_lines_count_is_a_number": {
           "name": "story_the_lines_count_is_a_number",
           "value": "(instalments_said_by IS DISTINCT FROM 'line'::text) OR (instalments IS NOT NULL)"
+        },
+        "story_own_image_is_the_owners_own": {
+          "name": "story_own_image_is_the_owners_own",
+          "value": "(own_image_url IS NULL) OR ((own_image_url ~ '^https://[^ ]+$'::text) AND (own_image_url !~ '^https://((bks[0-9]+\\.)?books\\.google\\.com|covers\\.openlibrary\\.org)/'::text))"
         }
       },
       "isRLSEnabled": false
@@ -1608,6 +1688,20 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "verb_past": {
+          "name": "verb_past",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'read'"
+        },
+        "verb_base": {
+          "name": "verb_base",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'read'"
         }
       },
       "indexes": {},
@@ -1642,8 +1736,76 @@
         "type_display_order_is_positive": {
           "name": "type_display_order_is_positive",
           "value": "display_order > 0"
+        },
+        "type_verb_past_is_a_word": {
+          "name": "type_verb_past_is_a_word",
+          "value": "verb_past ~ '^[a-z]+$'::text"
+        },
+        "type_verb_base_is_a_word": {
+          "name": "type_verb_base_is_a_word",
+          "value": "verb_base ~ '^[a-z]+$'::text"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.type_medium": {
+      "name": "type_medium",
+      "schema": "",
+      "columns": {
+        "type_id": {
+          "name": "type_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "medium_id": {
+          "name": "medium_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "type_medium_type_exists": {
+          "name": "type_medium_type_exists",
+          "tableFrom": "type_medium",
+          "tableTo": "type",
+          "columnsFrom": [
+            "type_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "type_medium_medium_exists": {
+          "name": "type_medium_medium_exists",
+          "tableFrom": "type_medium",
+          "tableTo": "medium",
+          "columnsFrom": [
+            "medium_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "type_medium_is_offered_once": {
+          "name": "type_medium_is_offered_once",
+          "columns": [
+            "type_id",
+            "medium_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.volume": {

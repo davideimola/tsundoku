@@ -47,12 +47,16 @@ export const type = pgTable("type", {
 	id: text().primaryKey().notNull(),
 	name: text().notNull(),
 	displayOrder: integer("display_order").notNull(),
+	verbPast: text("verb_past").default('read').notNull(),
+	verbBase: text("verb_base").default('read').notNull(),
 }, (table) => [
 	unique("type_name_key").on(table.name),
 	unique("type_display_order_key").on(table.displayOrder),
 	check("type_id_is_a_slug", sql`id ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text`),
 	check("type_name_is_not_blank", sql`(name = btrim(name)) AND (name <> ''::text)`),
 	check("type_display_order_is_positive", sql`display_order > 0`),
+	check("type_verb_past_is_a_word", sql`verb_past ~ '^[a-z]+$'::text`),
+	check("type_verb_base_is_a_word", sql`verb_base ~ '^[a-z]+$'::text`),
 ]);
 
 export const story = pgTable("story", {

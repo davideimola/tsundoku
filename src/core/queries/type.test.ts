@@ -12,14 +12,41 @@ import { listTypes, theTypeEachBindingOffers, theTypeToOffer } from "./type.ts";
 describe("the Types", () => {
   it("are the ones the model recognises, in the order they are offered in", async () => {
     expect(await listTypes()).toEqual([
-      { id: "manga", name: "Manga" },
-      { id: "comic", name: "Comic" },
-      { id: "graphic-novel", name: "Graphic Novel" },
-      { id: "novel", name: "Novel" },
-      { id: "non-fiction", name: "Non-fiction" },
-      { id: "play", name: "Play" },
-      { id: "videogame", name: "Videogame" },
+      { id: "manga", name: "Manga", verbPast: "read", verbBase: "read" },
+      { id: "comic", name: "Comic", verbPast: "read", verbBase: "read" },
+      { id: "graphic-novel", name: "Graphic Novel", verbPast: "read", verbBase: "read" },
+      { id: "novel", name: "Novel", verbPast: "read", verbBase: "read" },
+      { id: "non-fiction", name: "Non-fiction", verbPast: "read", verbBase: "read" },
+      { id: "play", name: "Play", verbPast: "read", verbBase: "read" },
+      { id: "videogame", name: "Videogame", verbPast: "played", verbBase: "play" },
     ]);
+  });
+
+  // **The verb is the whole of #65 and the door is downstream of it.** A Type that is not read
+  // is the one that has to say so (migration 0019), which is what keeps a new kind of thing at
+  // one insert: the six printed ones take the default, and the seventh carries the two words
+  // the sentences on the door are built from. A Play is read — it is a script, printed and
+  // bound (migration 0013) — and putting it beside the videogame here is what says the split
+  // is *read or not*, and never *printed or not*.
+  it("says what going through one is called, and only the videogame is not read", async () => {
+    const types = await listTypes();
+    const notRead = types.filter((one) => one.verbPast !== "read");
+
+    expect(notRead).toEqual([
+      { id: "videogame", name: "Videogame", verbPast: "played", verbBase: "play" },
+    ]);
+  });
+
+  // Two words rather than one, for the reason English has them: *read* is its own past and
+  // *play* is not, so one column would spell *I want to played it* on the one Type this exists
+  // for. Asserted as a shape rather than on the videogame alone, so an eighth Type arriving
+  // with one word filled in and the other left at the default is a failure here rather than a
+  // sentence on a wall.
+  it("carries both forms of that verb, as words", async () => {
+    for (const one of await listTypes()) {
+      expect(one.verbPast).toMatch(/^[a-z]+$/);
+      expect(one.verbBase).toMatch(/^[a-z]+$/);
+    }
   });
 });
 

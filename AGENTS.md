@@ -126,6 +126,21 @@ and the placement waits for it to come home. Because the placement is what write
 link, taking that row off is what takes the link back off with it — otherwise the row the owner
 was shown would be one they could not correct.
 
+**What kind of thing it is is asked above the four, and the sentences are said in its verb**
+(#65, migration 0019). The Type was always asked and it stood *inside* each panel, after the
+press — which is how the owner came to say *I read it* about a videogame and correct it
+afterwards. It is pressed on the same screen as the sentences now, as links rather than as a
+control, and three things read off that one answer: the verb the two narrative sentences take
+(`verb_past`, `verb_base` on `type` — *read*, *played*), the line under the narrative half's
+heading, and whether the object half stands on the screen at all. The last is not a check
+against `videogame`: a half that catalogues an object is offered where the Type offers a medium
+that goes through one (`aTypeCarriesAnObject`, ADR-0022), so an eighth kind of thing decides it
+by the rows it arrives with. **This is not the fork ADR-0019 refused** — that one asked *object
+or narrative* before the sentences and would have left the owner still saying bought-or-wished;
+this is one field the panels already asked for, moved to where the sentences can follow it. All
+of it lives in `src/app/(owner)/add/door.ts` and is tested beside itself; no Type is a state the
+screen answers for, in the printed library's words.
+
 The verb is a file named after the sentence rather than after an area, for `queries/finder.ts`'s
 reason: it reaches the Collection, the Story and the Want at once, and it composes those areas'
 verbs rather than writing their SQL again, so every refusal reaches the owner in the words the

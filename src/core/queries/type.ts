@@ -6,7 +6,7 @@ import { type as typeTable } from "../../../db/schema.ts";
 import { db, query } from "../db.ts";
 
 /**
- * A Type: Manga, Comic, Graphic Novel, Novel, Non-fiction.
+ * A Type: Manga, Comic, Graphic Novel, Novel, Non-fiction, Play, Videogame.
  *
  * There is no union of string literals here on purpose. Type is a data row, never an
  * enum in code (ADR-0006) — a sixth Type is an insert, and a type that enumerated the
@@ -15,12 +15,30 @@ import { db, query } from "../db.ts";
 export type Type = {
   id: string;
   name: string;
+  /**
+   * **What going through one of these is called** (0019, #65): `read`, `played`.
+   *
+   * It is the word alone and never the sentence around it — what the door says is the door's
+   * own copy — and it is two words rather than one because *read* is its own past and *play*
+   * is not. `verbPast` finishes a pass that happened, `verbBase` an intention to have one.
+   *
+   * It is on the Type for the reason the media a Type offers are: a videogame is a Story by
+   * the same test a manga is (ADR-0021), so what separates them is vocabulary, and vocabulary
+   * is data.
+   */
+  verbPast: string;
+  verbBase: string;
 };
 
 /** Every Type, in the order they are offered in. */
 export async function listTypes(): Promise<Type[]> {
   return db()
-    .select({ id: typeTable.id, name: typeTable.name })
+    .select({
+      id: typeTable.id,
+      name: typeTable.name,
+      verbPast: typeTable.verbPast,
+      verbBase: typeTable.verbBase,
+    })
     .from(typeTable)
     .orderBy(asc(typeTable.displayOrder));
 }

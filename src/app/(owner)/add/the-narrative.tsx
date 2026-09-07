@@ -76,6 +76,11 @@ export function TheNarrative({
   typed: Record<CarriedField, string | undefined>;
 }) {
   const [typeId, setTypeId] = useState(typed.type ?? "");
+  // **Whether the door already heard it** (#65). It is read off the value rather than passed as
+  // a second prop saying the same thing: the Type arrives here in one field whether the owner
+  // pressed it above the sentences or a refused press carried it back, and those are the same
+  // answer to the same question.
+  const askedAlready = (typed.type ?? "") !== "";
   const offered = mediaEachTypeOffers[typeId] ?? [];
   // **What the owner has pressed, reconciled every time the Type turns.** Not stored raw: a
   // manga read on paper, corrected to a Videogame, cannot go on saying paper — and a game on a
@@ -85,30 +90,36 @@ export function TheNarrative({
 
   return (
     <>
-      {/* Asked here and not up in the page, because the two sentences about an object ask it
-          once for the whole object beside the field that names what is inside it (ADR-0019).
-          It is watched for the reason the object half watches the Binding: it decides
-          something the moment it is turned rather than at submit. */}
-      <Picker
-        id="say-type"
-        name="type"
-        label="Type"
-        chosen={typeId}
-        onChoose={(chosen) => {
-          setTypeId(chosen);
-          setPressed((was) =>
-            theMediumPressed(was ?? undefined, mediaEachTypeOffers[chosen] ?? [])
-          );
-        }}
-        required
-        any="Which kind?"
-      >
-        {types.map((one) => (
-          <option key={one.id} value={one.id}>
-            {one.name}
-          </option>
-        ))}
-      </Picker>
+      {/* **Asked here only where it was not asked already** (#65). It stood in this panel
+          because it stood in both, and in this half that made the sentence above it wrong: the
+          owner pressed *I read it* and then said Videogame. It is pressed above the sentences
+          now, which is what gives them their verb — and where the owner walked past that row,
+          this is still the field that asks, unchanged and for the same reason it always was.
+          Watched for the reason the object half watches the Binding: it decides the media
+          below the moment it is turned rather than at submit. */}
+      {askedAlready ? <input type="hidden" name="type" value={typeId} /> : null}
+      {askedAlready ? null : (
+        <Picker
+          id="say-type"
+          name="type"
+          label="Type"
+          chosen={typeId}
+          onChoose={(chosen) => {
+            setTypeId(chosen);
+            setPressed((was) =>
+              theMediumPressed(was ?? undefined, mediaEachTypeOffers[chosen] ?? [])
+            );
+          }}
+          required
+          any="Which kind?"
+        >
+          {types.map((one) => (
+            <option key={one.id} value={one.id}>
+              {one.name}
+            </option>
+          ))}
+        </Picker>
+      )}
 
       {/* **Only the sentence that records a pass**, which is the model's own word rather than a
           flag on the sentence: a Want carries an intended medium of its own, on the Pile

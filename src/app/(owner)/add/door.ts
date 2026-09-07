@@ -3,6 +3,7 @@ import type { WhatIsOnThisIsbn } from "@/core/queries/isbn";
 // screen reasons about is which media stand in front of the owner, and each of them arrives
 // with the name it is offered under.
 import type { Medium } from "@/core/queries/medium";
+import type { Type } from "@/core/queries/type";
 import type { WhatWasSaid } from "@/core/verbs/what-happened";
 import { ASKED } from "./panels";
 
@@ -263,14 +264,22 @@ export const THE_SENTENCES = [
   {
     said: "read",
     about: "a-narrative",
+    // **The verb is the Type's** (#65, 0019), and what stands here is the printed library's
+    // answer — the one six of the seven Types give and the one the screen shows before a Type
+    // has been chosen. `asGoneThroughBy` below is what turns it into the seventh's.
     sentence: "I read it.",
     // **Neither length promises the digital case any more** (#50). Both used to: the panel
     // recorded a file whatever the owner had in their hands, and the copy said so honestly.
     // Now the panel asks, so what these two say is that no object is recorded — which is the
     // half's own fact and stays true on paper.
-    records: "A pass through it, on paper or digital, and no object at all.",
+    //
+    // **And neither names a medium any more.** *On paper or digital* was true of a printed
+    // library and went stale the day the consoles arrived, which is the coupling ADR-0022
+    // moved to a row: a door naming a vocabulary's values makes the next console an insert
+    // *and* an edit to a sentence.
+    records: "A pass through it, by whichever medium you say, and no object at all.",
     atLength:
-      "A finished pass, first-hand, by whichever medium you say — a file, or somebody else's paperback. No object is recorded either way, and you are not asked which one it went through: a pass knows the object only if there was one, and naming it here would send you back round the shelf to say you read something.",
+      "A finished pass, first-hand, by whichever medium you say. No object is recorded either way, and you are not asked which one it went through: a pass knows the object only if there was one, and naming it here would send you back round the shelf to say you read something.",
   },
   {
     said: "wanted",
@@ -411,6 +420,120 @@ export const THE_HALVES: readonly Half[] = WHAT_EACH_HALF_IS.map((half) => ({
   ...half,
   sentences: THE_SENTENCES.filter((one) => one.about === half.about),
 }));
+
+// **WHAT KIND OF THING IT IS, ASKED BEFORE THE SENTENCES** (#65). Everything from here down
+// is the door reading one answer — the Type — and following it.
+//
+// **The Type was always asked; what changed is when.** It stood inside each panel, *after* the
+// press, and that is the whole reason the sentences could not follow it: the owner said *I read
+// it* about Hades and then told the screen it was a videogame. Asked above the four, one answer
+// does three things no panel could — it gives the sentence its verb, it takes the object half
+// off the screen where an object is impossible, and it lets the medium be asked as a plain list
+// rather than as a whole table read in the browser.
+//
+// **It is not a fork over the door and this is the distinction worth keeping.** ADR-0019 refused
+// a screen that asks *object or narrative* first, and that refusal stands: after choosing, the
+// owner would still have to say bought-or-wished or read-or-wanted, which is a screen for
+// nothing. This is not that. It is one field on the screen the sentences are already on, and it
+// is the field the model already has — a Type is a row (ADR-0006), so a seventh kind of thing
+// stays an insert rather than becoming a branch on a wall.
+
+/**
+ * **Whether a Type is a thing you can hold**, read off the media it offers rather than off its
+ * name.
+ *
+ * A videogame owns no Volume here — the owner weighed a disc on the shelf and found it says
+ * almost nothing worth recording (`CONTEXT.md`, ADR-0021) — and the database already says so
+ * in the one place it can be said without naming a value: no medium a videogame offers goes
+ * through an object (ADR-0022). So the object half is not hidden by a check against
+ * `videogame`; it is hidden because there is no way to have gone through one of these by
+ * holding it, which is the same sentence and survives the eighth Type.
+ *
+ * **Offered is still not allowed.** Nothing here refuses a record — the core takes a Volume
+ * carrying any Story it is given, and a boxed game stays an ordinary Volume the day the owner
+ * wants one (ADR-0021). What this decides is only which sentences stand in front of them.
+ */
+export function aTypeCarriesAnObject(offered: readonly Medium[]): boolean {
+  return offered.some((medium) => medium.goesThroughAnObject);
+}
+
+/** The two words a Type lends the door: what a pass through it is called, and the intention. */
+type TheVerb = Pick<Type, "verbPast" | "verbBase">;
+
+/**
+ * **The narrative half's copy, in the Type's own verb.**
+ *
+ * A table keyed by the sentence rather than a search-and-replace over the strings above: the
+ * word *read* appears in this file inside `already read`, `read against` and `read off`, and a
+ * substitution would eventually reach one of them and put *played off the sentence's own about*
+ * on a wall. Here every sentence that bends says so by being in this table, and one that does
+ * not is untouched by construction.
+ *
+ * The two sentences about an **object** are not here and never will be. What is asked there is
+ * a thing — a publisher, a binding, an ISBN — and *I bought it* is the same act whatever is
+ * printed inside; the verb belongs to the pass, which is the other half.
+ */
+const AS_GONE_THROUGH_BY: Partial<
+  Record<WhatWasSaid, (verb: TheVerb) => Pick<Sentence, "sentence" | "records" | "atLength">>
+> = {
+  read: ({ verbPast }) => ({
+    sentence: `I ${verbPast} it.`,
+    records: "A pass through it, by whichever medium you say, and no object at all.",
+    atLength: `A finished pass, first-hand, by whichever medium you say. No object is recorded either way, and you are not asked which one it went through: a pass knows the object only if there was one, and naming it here would send you back round the shelf to say you ${verbPast} something.`,
+  }),
+  wanted: ({ verbBase }) => ({
+    sentence: `I want to ${verbBase} it.`,
+    records: "A Want, which joins the Pile and falls quiet by itself once you have.",
+    atLength:
+      "It joins the Pile and nothing else follows: no Path, no order, no Wish. Nobody closes a Want — it falls quiet by itself once a Pass has begun since.",
+  }),
+};
+
+/**
+ * One sentence as the chosen Type says it, or exactly as it stands where no Type has been
+ * chosen.
+ *
+ * **No Type is a real state and it is the one the door opens in**, so this answers for it
+ * rather than refusing: the four sentences stand in the printed library's words, which is what
+ * they said before this existed. Nothing is written from those words — the press carries the
+ * Type as a field — so the worst an unchosen Type costs is a wall saying *read* about a game
+ * for as long as it takes to press the picker.
+ */
+export function asGoneThroughBy(one: Sentence, type: Type | undefined): Sentence {
+  const bends = AS_GONE_THROUGH_BY[one.said];
+  if (type === undefined || bends === undefined) return one;
+
+  return { ...one, ...bends(type) };
+}
+
+/**
+ * **The halves the door offers for a Type**: the same two, in the same order, with the
+ * narrative half speaking the Type's verb — and the object half gone where the Type cannot be
+ * held.
+ *
+ * The heading's own line bends too. *Something you read or mean to read* is the sentence under
+ * a heading, read at the same glance as the two presses below it, and one that went on saying
+ * *read* over *I played it* would be the same wrongness one line higher.
+ *
+ * **The object half is dropped rather than reworded**, which is the one hard edge here. Two
+ * sentences offering to catalogue an object for a thing this library holds no object for are
+ * not a bad label — they are two presses that lead somewhere the owner cannot finish, and a
+ * screen that offers a dead end honestly is still offering it.
+ */
+export function theHalvesFor(type: Type | undefined, carriesAnObject: boolean): readonly Half[] {
+  return THE_HALVES.filter((half) => carriesAnObject || half.about === "a-narrative").map(
+    (half) => ({
+      ...half,
+      says: half.about === "a-narrative" && type ? theNarrativeHalfSays(type) : half.says,
+      sentences: half.sentences.map((one) => asGoneThroughBy(one, type)),
+    })
+  );
+}
+
+/** The narrative half's one line, in the Type's verb. */
+function theNarrativeHalfSays({ verbPast, verbBase }: TheVerb): string {
+  return `Something you ${verbPast} or mean to ${verbBase}, owned or not.`;
+}
 
 /**
  * Whether a sentence is about an object, and therefore whether its panel asks what the object

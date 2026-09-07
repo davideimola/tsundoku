@@ -1211,16 +1211,13 @@ describe("narrowing the Pile by Type", () => {
 
     // In the vocabulary's order and not in the order they composed, because the picker that
     // reads this is offered beside the Story wall's own Type chips.
-    expect((await composePile()).types).toEqual([
-      { id: "manga", name: "Manga" },
-      { id: "videogame", name: "Videogame" },
-    ]);
+    expect((await composePile()).types.map((one) => one.id)).toEqual(["manga", "videogame"]);
 
     // Read off the whole list, so choosing one Type does not take the others off the picker
     // on the way in and leave no way back.
-    expect((await composePile({ typeId: "videogame" })).types).toEqual([
-      { id: "manga", name: "Manga" },
-      { id: "videogame", name: "Videogame" },
+    expect((await composePile({ typeId: "videogame" })).types.map((one) => one.id)).toEqual([
+      "manga",
+      "videogame",
     ]);
   });
 

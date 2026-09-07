@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   aboutAnObject,
+  asGoneThroughBy,
+  aTypeCarriesAnObject,
   THE_FIELDS_A_REFUSAL_CARRIES,
   THE_HALVES,
   THE_SENTENCES,
+  theHalvesFor,
   theMediumPressed,
   theSentence,
   whatFilledItIn,
@@ -146,12 +149,16 @@ describe("the sentences", () => {
   // promising the digital case at both lengths. What is asserted is the promise rather than
   // the wording — a sentence saying *this is what a digital read is* under a form offering
   // paper is one act described two ways.
-  it("promises no medium in the sentence that asks for one", () => {
-    const read = theSentence("read");
-
-    expect(`${read?.records} ${read?.atLength}`).toMatch(/paper/i);
-    expect(read?.records).not.toMatch(/the digital case needs nothing more/i);
-    expect(read?.atLength).not.toMatch(/which is what a digital read is/i);
+  //
+  // #65 took the last two values out of it. *On paper or digital* was a door naming a
+  // vocabulary's members, which is the coupling ADR-0022 moved to a row to kill: it was true
+  // of a printed library and went stale the day a console could answer the same question. So
+  // what is asserted now is that no member is named at all, by any of the four — the next
+  // console is an insert, and this copy is not an edit that has to go with it.
+  it("names no medium in either length of any sentence", () => {
+    for (const one of THE_SENTENCES) {
+      expect(`${one.records} ${one.atLength}`).not.toMatch(/\b(paper|digital|console)\b/i);
+    }
   });
 
   // And it still promises no object, because that is the half's own fact and the one thing
@@ -294,5 +301,118 @@ describe("what a refused press carries back", () => {
     for (const carried of ["title", "from", "publishedBy", "panel", "refused"]) {
       expect(THE_FIELDS_A_REFUSAL_CARRIES).not.toContain(carried);
     }
+  });
+});
+
+// **WHAT KIND OF THING IT IS, AND WHAT FOLLOWS FROM IT** (#65). The Type is pressed above the
+// sentences now, and three things read off that one answer: the verb the two narrative
+// sentences are said in, the line under the half's heading, and whether the object half stands
+// on the screen at all.
+
+/**
+ * One of the four, as a value rather than as a maybe.
+ *
+ * `theSentence` answers a `?panel=` that may name nothing, which is right where it is read;
+ * here the name is a literal in this file and a sentence that cannot be found is the list
+ * having changed under the test, which is worth a throw rather than a `?.`.
+ */
+function saying(name: string) {
+  const one = THE_SENTENCES.find((sentence) => sentence.said === name);
+  if (!one) throw new Error(`no sentence called ${name}`);
+  return one;
+}
+
+/** The two Types the split is about, as `listTypes` hands them over. */
+const MANGA = { id: "manga", name: "Manga", verbPast: "read", verbBase: "read" };
+const VIDEOGAME = { id: "videogame", name: "Videogame", verbPast: "played", verbBase: "play" };
+
+describe("whether a Type is a thing you can hold", () => {
+  // Read off the media rather than off the name, which is what makes it survive the eighth
+  // Type: no medium a videogame offers goes through an object (ADR-0022), and that is the same
+  // sentence `CONTEXT.md` says about a game owning no Volume, said where a check can reach it.
+  it("holds where a medium of it goes through an object", () => {
+    expect(aTypeCarriesAnObject(PRINTED)).toBe(true);
+    expect(aTypeCarriesAnObject(PLAYED)).toBe(false);
+  });
+
+  // The state the door opens in: no Type pressed, so the core answered with the whole
+  // vocabulary — which holds paper, so both halves stand. The screen the owner has always seen.
+  it("holds where no Type has been chosen, because the whole vocabulary is offered", () => {
+    expect(aTypeCarriesAnObject([...PRINTED, ...PLAYED])).toBe(true);
+  });
+
+  it("holds nothing where nothing is offered at all", () => {
+    expect(aTypeCarriesAnObject([])).toBe(false);
+  });
+});
+
+describe("a sentence as the Type says it", () => {
+  it("gives the two narrative sentences the Type's own verb", () => {
+    expect(asGoneThroughBy(saying("read"), VIDEOGAME).sentence).toBe("I played it.");
+    expect(asGoneThroughBy(saying("wanted"), VIDEOGAME).sentence).toBe("I want to play it.");
+  });
+
+  // Both forms and not one, which is why the column is two: *I want to played it* is what one
+  // word would have written on the one Type this whole change is for.
+  it("finishes a pass in the past and an intention in the plain form", () => {
+    expect(asGoneThroughBy(saying("read"), MANGA).sentence).toBe("I read it.");
+    expect(asGoneThroughBy(saying("wanted"), MANGA).sentence).toBe("I want to read it.");
+  });
+
+  // The verb reaches what is read under the press too, and not only the press: one act is one
+  // vocabulary, which is the rule `THE_SENTENCES` is written under.
+  it("carries the verb into the long words read under the press", () => {
+    expect(asGoneThroughBy(saying("read"), VIDEOGAME).atLength).toMatch(/played something/);
+  });
+
+  // The verb belongs to the pass and the object half records none: *I bought it* is the same
+  // act whatever is printed inside, so nothing there bends.
+  it("leaves the two sentences about an object exactly as they stand", () => {
+    for (const said of ["bought", "wished"]) {
+      expect(asGoneThroughBy(saying(said), VIDEOGAME)).toEqual(saying(said));
+    }
+  });
+
+  // No Type is the state the door opens in, and it is answered rather than refused: the four
+  // stand in the printed library's words, which is what they said before any of this existed.
+  it("says a sentence exactly as it stands where no Type has been chosen", () => {
+    for (const one of THE_SENTENCES) {
+      expect(asGoneThroughBy(one, undefined)).toEqual(one);
+    }
+  });
+});
+
+describe("the halves a Type is offered", () => {
+  it("offers both, in the door's own order, for a thing that can be held", () => {
+    expect(theHalvesFor(MANGA, true).map((half) => half.about)).toEqual([
+      "an-object",
+      "a-narrative",
+    ]);
+  });
+
+  // The hard edge of #65: two presses offering to catalogue an object for a thing this library
+  // holds no object for are not a bad label, they are a dead end offered honestly.
+  it("takes the object half off the screen where the Type carries no object", () => {
+    const halves = theHalvesFor(VIDEOGAME, false);
+
+    expect(halves.map((half) => half.about)).toEqual(["a-narrative"]);
+    expect(halves[0].sentences.map((one) => one.sentence)).toEqual([
+      "I played it.",
+      "I want to play it.",
+    ]);
+  });
+
+  // The line under the heading is read at the same glance as the two presses below it, so it
+  // bends with them: one saying *something you read* over *I played it* is the same wrongness
+  // one line higher.
+  it("bends the line under the narrative half's heading too", () => {
+    const [narrative] = theHalvesFor(VIDEOGAME, false);
+
+    expect(narrative.says).toBe("Something you played or mean to play, owned or not.");
+    expect(narrative.says).not.toMatch(/\bread\b/);
+  });
+
+  it("stands exactly as THE_HALVES does where no Type has been chosen", () => {
+    expect(theHalvesFor(undefined, true)).toEqual(THE_HALVES);
   });
 });
