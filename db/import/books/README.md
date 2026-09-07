@@ -28,13 +28,13 @@ whose titles are already in the library stops with them listed, and nothing is w
 
 The other difference is what a row means. The old `Biblioteca` tab could say *I read this*
 and had no way at all to say *and it is on the shelf*, so the parent import writes every
-books row as a Reading with no Volume. The reworked tab grew `Posseduto`, and a row now
+books row as a Pass with no Volume. The reworked tab grew `Posseduto`, and a row now
 says up to three unrelated things:
 
 | the row says             | what lands                                                     |
 | ------------------------ | -------------------------------------------------------------- |
 | a title and a `Categoria`| a **Story**, always                                            |
-| `Stato` names an act     | a **Reading**, through the owner's own object where there is one |
+| `Stato` names an act     | a **Pass**, through the owner's own object where there is one |
 | `Posseduto`              | a **Volume**, an open **acquisition**, and the `volume_story` row |
 
 Being read and being owned stay unrelated, which is the model's first ADR working: of the
@@ -61,7 +61,7 @@ below. `Formato posseduto` is read by nothing on purpose: it says `Cartaceo`, wh
 They are here to be overturned, not inherited quietly.
 
 1. **An empty `Stato` is not a reading.** The parent import reads an absent state as *read
-   and finished*; here an empty cell is a Story with no Reading. Every row of the owner's
+   and finished*; here an empty cell is a Story with no Pass. Every row of the owner's
    export that leaves it empty is a manual on a shelf and five of them carry no score
    either, so inventing a finished pass for them would put nine acts of reading in the
    library that never happened.
@@ -71,7 +71,7 @@ They are here to be overturned, not inherited quietly.
 3. **A paper pass through an object the house holds went through that object.** A digital
    one goes through nothing — Postgres refuses it, and an ebook is deliberately not an
    object.
-4. **A Rating names the Story and no Reading**, as in the parent import: `Voto` sits on a
+4. **A Rating names the Story and no Pass**, as in the parent import: `Voto` sits on a
    row, and a row is an object or a line of history — neither says which act of reading was
    being judged. The 1-5 doubles onto the owner's scale and the doubling is recorded as the
    score's grain (ADR-0008).

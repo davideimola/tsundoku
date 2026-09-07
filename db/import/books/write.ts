@@ -12,7 +12,7 @@
 // are TypeScript over a pool and **one verb is one transaction** by design, so an import
 // made of verb calls would be two hundred transactions and could not roll back. The
 // invariants are not lost by going around them, because they live in Postgres — the score
-// in half points, one open acquisition per Volume, a digital Reading through no Volume, a
+// in half points, one open acquisition per Volume, a digital Pass through no Volume, a
 // person named once. The one rule that lives in TypeScript and matters here is
 // `creditStory`'s select-or-insert of a person, and that is honoured by construction below
 // and then asserted as a count.
@@ -178,24 +178,24 @@ export async function writeBooks(
       );
     }
 
-    for (const reading of plan.readings) {
+    for (const pass of plan.passes) {
       await run(
-        reading.key,
-        `insert into reading (story_id, medium, outcome, started_on, ended_on, provenance_id, volume_id)
+        pass.key,
+        `insert into pass (story_id, medium, outcome, started_on, ended_on, provenance_id, volume_id)
          values ($1, $2, $3, $4, $5, $6, $7)`,
         [
-          storyIds.get(reading.storyKey),
-          reading.medium,
-          reading.outcome,
-          reading.startedOn,
-          reading.endedOn,
-          reading.provenanceId,
-          reading.volumeKey === null ? null : volumeIds.get(reading.volumeKey),
+          storyIds.get(pass.storyKey),
+          pass.medium,
+          pass.outcome,
+          pass.startedOn,
+          pass.endedOn,
+          pass.provenanceId,
+          pass.volumeKey === null ? null : volumeIds.get(pass.volumeKey),
         ]
       );
     }
 
-    // The Rating names the Story and no Reading, which is the parent import's choice and
+    // The Rating names the Story and no Pass, which is the parent import's choice and
     // holds for the same reason: `Voto` sits on a row, and a row is an object or a line of
     // history — neither says *which act of reading* was being judged. Both of ADR-0008's
     // axes are still stated, the Provenance for where it came from and the scale for the
@@ -203,7 +203,7 @@ export async function writeBooks(
     for (const rating of plan.ratings) {
       await run(
         `rating of ${rating.storyKey}`,
-        `insert into rating (story_id, reading_id, score, prose, provenance_id, scale)
+        `insert into rating (story_id, pass_id, score, prose, provenance_id, scale)
          values ($1, null, $2, null, $3, $4)`,
         [storyIds.get(rating.storyKey), rating.score, rating.provenanceId, rating.scale]
       );

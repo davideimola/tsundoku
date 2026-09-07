@@ -60,10 +60,10 @@ export type Before = {
   readonly volume: number;
   readonly acquisition: number;
   readonly volumeStory: number;
-  readonly reading: number;
+  readonly pass: number;
   readonly rating: number;
   readonly credit: number;
-  readonly readingsThroughAVolume: number;
+  readonly passesThroughAVolume: number;
   readonly plays: number;
   readonly volumesWithNoOpenAcquisition: number;
 };
@@ -74,10 +74,10 @@ export const BEFORE: Readonly<Record<keyof Before, string>> = {
   volume: "select count(*) from volume",
   acquisition: "select count(*) from acquisition",
   volumeStory: "select count(*) from volume_story",
-  reading: "select count(*) from reading",
+  pass: "select count(*) from pass",
   rating: "select count(*) from rating",
   credit: "select count(*) from credit",
-  readingsThroughAVolume: "select count(*) from reading where volume_id is not null",
+  passesThroughAVolume: "select count(*) from pass where volume_id is not null",
   plays: "select count(*) from story where type_id = 'play'",
   volumesWithNoOpenAcquisition:
     "select count(*) from volume v where not exists (" +
@@ -129,10 +129,10 @@ export function expectationsFor(
       from: `${before.volumeStory} already said + ${counted.describable} objects, one Story each`,
     },
     {
-      what: "one Reading per row whose Stato says an act of reading happened",
-      sql: BEFORE.reading,
-      expected: before.reading + counted.read,
-      from: `${before.reading} already recorded + ${counted.read} rows saying the book was read`,
+      what: "one Pass per row whose Stato says an act of reading happened",
+      sql: BEFORE.pass,
+      expected: before.pass + counted.read,
+      from: `${before.pass} already recorded + ${counted.read} rows saying the book was read`,
     },
     {
       what: "one Rating per row carrying a Voto",
@@ -150,10 +150,10 @@ export function expectationsFor(
     },
     {
       what: "a paper pass through an object the house holds went through that object",
-      sql: BEFORE.readingsThroughAVolume,
-      expected: before.readingsThroughAVolume + counted.readThroughOwn,
+      sql: BEFORE.passesThroughAVolume,
+      expected: before.passesThroughAVolume + counted.readThroughOwn,
       from:
-        `${before.readingsThroughAVolume} already through a Volume + ${counted.readThroughOwn} ` +
+        `${before.passesThroughAVolume} already through a Volume + ${counted.readThroughOwn} ` +
         "rows both owned, read and on paper",
     },
     {
@@ -178,7 +178,7 @@ export function expectationsFor(
     },
     {
       what: "no digital pass went through an object",
-      sql: "select count(*) from reading where volume_id is not null and medium <> 'paper'",
+      sql: "select count(*) from pass where volume_id is not null and medium <> 'paper'",
       expected: 0,
       from: "digital ownership is deliberately not modelled, and Postgres refuses this row too",
     },

@@ -63,9 +63,9 @@ function reportPlan(plan: Plan): void {
     `  ${String(plan.volumes.length).padStart(3)} acquisition(s) open, with no day and no price: the sheet says neither`
   );
   out(
-    `  ${String(plan.readings.length).padStart(3)} Reading(s)    ` +
+    `  ${String(plan.passes.length).padStart(3)} Pass(es)      ` +
       `${counted.readThroughOwn} through an object the house holds, ` +
-      `${plan.readings.length - counted.readThroughOwn} through none`
+      `${plan.passes.length - counted.readThroughOwn} through none`
   );
   out(
     `  ${String(plan.ratings.length).padStart(3)} Rating(s)     out of 5, doubled onto the owner's scale, grain recorded as coarse`

@@ -11,12 +11,12 @@
 // ## What a row of this tab is
 //
 // The old `Biblioteca` tab could say *I read this* and had no way at all to say *and it is
-// on the shelf*, so `plan.ts` in the parent directory writes every books row as a Reading
+// on the shelf*, so `plan.ts` in the parent directory writes every books row as a Pass
 // with no Volume. The reworked tab grew two columns — `Posseduto` and `Formato posseduto`
 // — and they are the reason this file exists. A row now says up to three unrelated things:
 //
 //   - a **Story**, always: a title and a `Categoria` that is a Type;
-//   - a **Reading**, when `Stato` says an act of reading happened;
+//   - a **Pass**, when `Stato` says an act of reading happened;
 //   - a **Volume** in the house, when `Posseduto` is true — plus the open **acquisition**
 //     that is what being in the house means (ADR-0007), and the `volume_story` row that
 //     says which narrative the object carries.
@@ -51,8 +51,8 @@ import {
   languageOf,
   mediumOf,
   ownedOf,
+  passStateOf,
   provenanceOf,
-  readingStateOf,
   typeOf,
   Untranslatable,
 } from "../vocabulary.ts";
@@ -77,7 +77,7 @@ export type PlannedVolume = {
   readonly storyKey: string;
 };
 
-export type PlannedReading = {
+export type PlannedPass = {
   readonly key: string;
   readonly storyKey: string;
   readonly medium: "paper" | "digital";
@@ -112,7 +112,7 @@ export type Plan = {
   readonly tab: string;
   readonly stories: readonly PlannedStory[];
   readonly volumes: readonly PlannedVolume[];
-  readonly readings: readonly PlannedReading[];
+  readonly passes: readonly PlannedPass[];
   readonly ratings: readonly PlannedRating[];
   readonly credits: readonly PlannedCredit[];
   /**
@@ -172,7 +172,7 @@ export function planBooks(file: string): Plan {
   const findings: Finding[] = [];
   const stories: PlannedStory[] = [];
   const volumes: PlannedVolume[] = [];
-  const readings: PlannedReading[] = [];
+  const passes: PlannedPass[] = [];
   const ratings: PlannedRating[] = [];
   const credits: PlannedCredit[] = [];
   const peopleSeen = new Map<string, string>();
@@ -184,7 +184,7 @@ export function planBooks(file: string): Plan {
       findings,
       stories,
       volumes,
-      readings,
+      passes,
       ratings,
       credits,
       peopleSeen,
@@ -203,7 +203,7 @@ export function planBooks(file: string): Plan {
     tab: tab.name,
     stories,
     volumes,
-    readings,
+    passes,
     ratings,
     credits,
     people: [...peopleSeen.values()],
@@ -229,7 +229,7 @@ type Building = {
   findings: Finding[];
   stories: PlannedStory[];
   volumes: PlannedVolume[];
-  readings: PlannedReading[];
+  passes: PlannedPass[];
   ratings: PlannedRating[];
   credits: PlannedCredit[];
   peopleSeen: Map<string, string>;
@@ -276,12 +276,12 @@ function planRow(row: TabRow, into: Building): void {
   // parent import's books tab (there an absent column means the row was read). Six rows of
   // the owner's export leave it empty and every one of them is a manual on a shelf: five
   // carry no score either. Inventing a finished pass for them would put six acts of
-  // reading in the library that never happened, and a Story with no Reading is an ordinary
+  // reading in the library that never happened, and a Story with no Pass is an ordinary
   // Story — the shape the model already has for a book nobody has opened.
   const state =
     saidState === null
       ? { read: false, outcome: null }
-      : translated(row.line, () => readingStateOf(saidState));
+      : translated(row.line, () => passStateOf(saidState));
 
   if (state.read) {
     into.counted.read += 1;
@@ -291,8 +291,8 @@ function planRow(row: TabRow, into: Building): void {
     const through = medium === "paper" ? volumeKey : null;
     if (through !== null) into.counted.readThroughOwn += 1;
     const day = dayOf(row.value("Data lettura", "Data fine", "Letto il", "Data"));
-    into.readings.push({
-      key: `reading:${row.line}`,
+    into.passes.push({
+      key: `pass:${row.line}`,
       storyKey,
       medium,
       outcome: state.outcome,
@@ -307,7 +307,7 @@ function planRow(row: TabRow, into: Building): void {
   } else {
     into.findings.push({
       line: row.line,
-      said: `"${title}" is not read yet, so it is a Story with no Reading.`,
+      said: `"${title}" is not read yet, so it is a Story with no Pass.`,
     });
   }
 
@@ -356,7 +356,7 @@ function planRow(row: TabRow, into: Building): void {
  * confusion `CONTEXT.md` bans the word `format` for.
  *
  * So a row the sheet cannot describe an object from is **reported and gets no Volume**,
- * while its Story and its Reading land as they would anyway. It is the parent import's own
+ * while its Story and its Pass land as they would anyway. It is the parent import's own
  * answer to the same shape of gap — a wishlist row naming a Series position is reported
  * with its row number and the position is not written — and it is the honest one: a
  * publisher this import guessed at is a permanent fact, silent, and wrong in a way the

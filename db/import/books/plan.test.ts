@@ -42,10 +42,10 @@ describe("the books tab, translated", () => {
   });
 
   it("keeps being owned and being read unrelated", () => {
-    // On the shelf and never opened: a Story, an object, and no Reading invented for it.
-    expect(plan.readings.some((reading) => reading.storyKey === "story:4")).toBe(false);
-    // Read and not owned: a Reading through nothing at all.
-    const zeno = plan.readings.find((reading) => reading.storyKey === "story:7");
+    // On the shelf and never opened: a Story, an object, and no Pass invented for it.
+    expect(plan.passes.some((pass) => pass.storyKey === "story:4")).toBe(false);
+    // Read and not owned: a Pass through nothing at all.
+    const zeno = plan.passes.find((pass) => pass.storyKey === "story:7");
     expect(zeno?.medium).toBe("digital");
     expect(zeno?.volumeKey).toBeNull();
   });
@@ -53,14 +53,14 @@ describe("the books tab, translated", () => {
   it("sends a paper pass through the object the house holds", () => {
     expect(plan.counted.read).toBe(5);
     expect(plan.counted.readThroughOwn).toBe(3);
-    const rosa = plan.readings.find((reading) => reading.storyKey === "story:2");
+    const rosa = plan.passes.find((pass) => pass.storyKey === "story:2");
     expect(rosa?.volumeKey).toBe("volume:2");
     expect(rosa?.outcome).toBe("finished");
     expect(rosa?.endedOn).toBe("2018-04-02");
   });
 
   it("reads an interrupted pass as one that has not concluded, never as abandoned", () => {
-    const sofia = plan.readings.find((reading) => reading.storyKey === "story:8");
+    const sofia = plan.passes.find((pass) => pass.storyKey === "story:8");
     expect(sofia?.outcome).toBeNull();
     expect(sofia?.endedOn).toBeNull();
   });
@@ -108,11 +108,11 @@ describe("the books tab, translated", () => {
   it("takes the provenance from the half of the cell that testifies to the reading", () => {
     // `Foto + Goodreads`: a photograph proves an object is on a shelf and cannot say
     // anybody read it, so the reading half names the origin.
-    expect(plan.readings.find((reading) => reading.storyKey === "story:2")?.provenanceId).toBe(
+    expect(plan.passes.find((pass) => pass.storyKey === "story:2")?.provenanceId).toBe(
       "goodreads-history"
     );
     // `Foto + utente`: the owner said so themselves.
-    expect(plan.readings.find((reading) => reading.storyKey === "story:6")?.provenanceId).toBe(
+    expect(plan.passes.find((pass) => pass.storyKey === "story:6")?.provenanceId).toBe(
       "remembered"
     );
   });
