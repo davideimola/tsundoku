@@ -385,6 +385,20 @@ The generator names the file something random. **Rename it for what it does** an
 the `tag` in `db/migrations/meta/_journal.json` to match — the name is how the next
 reader finds it, and nothing has been applied yet.
 
+**Do not touch the `when` beside it.** Drizzle's migrator does not keep a set of files a
+database has seen: it reads the newest `created_at` in `drizzle.__drizzle_migrations` — each
+row holding a file's `when` — and applies everything whose `when` is *greater* than that one
+number. It is a watermark. So a `when` written by hand, or one that sorts behind a file
+already applied, is a migration that **will never run anywhere**, and nothing says so:
+`pnpm db:migrate` reports success, a fresh database is built correctly from an empty table,
+and the only surface that finds out is production, where the column is missing and the page is
+a 500. It happened — entries 12 to 18 carry timestamps hand-written a day apart into the
+future, and 0019, 0020 and 0021 arrived from the real clock behind them, so two deploys
+shipped code for a schema the database was never going to be given.
+[`db/migrations/journal.test.ts`](db/migrations/journal.test.ts) is the wall now: the journal
+has to climb. Where one has to be moved anyway, move it **past the largest `when` already
+applied**, never below it.
+
 Then finish it by hand, because **three things Drizzle does not write are the schema's**:
 
 - every `comment on`, which is where this schema documents itself. A generated
