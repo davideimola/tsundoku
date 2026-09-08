@@ -3,7 +3,7 @@
 import { useId, useMemo, useRef, useState } from "react";
 import { type HeldStory, TheStoriesItHolds } from "@/components/stories-it-holds";
 import type { Band } from "@/components/stories-on-offer";
-import { PRIORITIES } from "../wishes/shopping";
+import type { PeriodOnOffer } from "../wishes/shopping";
 import type { AnObjectsSentence, CarriedField } from "./door";
 import { Field, Picker } from "./fields";
 import {
@@ -75,6 +75,7 @@ export function TheObject({
   isbn,
   typed,
   publishedBy,
+  periods,
   find,
 }: {
   said: AnObjectsSentence;
@@ -103,6 +104,15 @@ export function TheObject({
    */
   typed: Record<CarriedField, string | undefined>;
   publishedBy: string | undefined;
+  /**
+   * The months *I want to buy it* can be planned into, and *Someday* under them — the shopping
+   * list's own answer (`../wishes/shopping`), computed where the clock is.
+   *
+   * It arrives as a list rather than being worked out here for the reason `typed` is a table:
+   * this component runs in the browser, and a month read off the visitor's clock is a month
+   * that can disagree with the one the server rendered. The first of them is the default.
+   */
+  periods: readonly PeriodOnOffer[];
   /**
    * What the catalogue holds under what has been typed, banded by line — a Server Function.
    *
@@ -328,7 +338,7 @@ export function TheObject({
         </div>
       ) : (
         <div className="grid gap-4 border-t border-border pt-4">
-          <TheIntentionToBuy typed={typed} />
+          <TheIntentionToBuy typed={typed} periods={periods} />
         </div>
       )}
     </>
@@ -434,26 +444,38 @@ function TheNarrativesInside({
 }
 
 /**
- * The end of *I want to buy it*: how soon, what it should cost, and what it costs where the
+ * The end of *I want to buy it*: which month, what it should cost, and what it costs where the
  * owner is standing.
  *
- * **The three labels are the shopping list's own** (`../wishes/shopping`), read rather than
- * written down again, for the reason every vocabulary on this screen is read (ADR-0006): a
- * priority called *Next* here and *Buying this* on the list it lands on would be one intention
- * with two names. The default is *Soon*, which is the shopping list's default and the honest
- * answer for an object the owner is looking at and has not picked up.
+ * **The months are the shopping list's own** (`../wishes/shopping`), read rather than worked
+ * out again, for the reason every vocabulary on this screen is read (ADR-0006): a period
+ * called one thing here and another on the list it lands on would be one intention with two
+ * names. The default is the month the owner is standing in, which is the honest answer for an
+ * object they are looking at — and *Someday* is the last of them, because it is an answer and
+ * not an empty field (ADR-0023).
  *
  * Two prices and not one, because a shop is two numbers — what it should cost, decided at a
- * desk, and what it costs on the shelf — and the list bands on the first while the owner acts
- * on the second.
+ * desk, and what it costs on the shelf — and the list adds up the second while the owner
+ * decides on the first.
  */
-function TheIntentionToBuy({ typed }: { typed: Record<CarriedField, string | undefined> }) {
+function TheIntentionToBuy({
+  typed,
+  periods,
+}: {
+  typed: Record<CarriedField, string | undefined>;
+  periods: readonly PeriodOnOffer[];
+}) {
   return (
     <>
-      <Picker id="say-priority" name="priority" label="Priority" chosen={typed.priority ?? "2"}>
-        {PRIORITIES.map((priority) => (
-          <option key={priority.value} value={priority.value}>
-            {priority.name} — {priority.hint}
+      <Picker
+        id="say-period"
+        name="period"
+        label="Period"
+        chosen={typed.period ?? periods[0]?.value ?? ""}
+      >
+        {periods.map((period) => (
+          <option key={period.value} value={period.value}>
+            {period.hint ? `${period.name} — ${period.hint}` : period.name}
           </option>
         ))}
       </Picker>

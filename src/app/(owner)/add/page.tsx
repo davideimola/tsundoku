@@ -11,6 +11,7 @@ import { listSeries } from "@/core/queries/series";
 import { listTypes, type Type, theTypeEachBindingOffers } from "@/core/queries/type";
 import type { WhatWasSaid } from "@/core/verbs/what-happened";
 import { requireOwner } from "@/lib/auth/owner";
+import { thePeriodsOnOffer } from "../wishes/shopping";
 import { bought, identify, read, suggestStories, wanted, wished } from "./actions";
 import {
   aboutAnObject,
@@ -317,6 +318,7 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
                 isbn={isbn}
                 typed={whatWasTypedBefore(params)}
                 publishedBy={asked(params, "publishedBy")}
+                periods={thePeriodsOnOffer(new Date())}
                 find={suggestStories}
               />
             ) : (

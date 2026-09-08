@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { unrecorded, whole } from "@/core/queries/library";
 import {
   listOpenWishes,
   listVolumesToWishFor,
@@ -13,28 +14,61 @@ import {
 } from "@/core/queries/wish";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { close, open } from "./actions";
-import { OPENING_A_WISH, PRIORITIES, theShoppingList, wishDetail } from "./shopping";
+import { bought, close, open, replan } from "./actions";
+import {
+  BUYING_WHAT_WAS_WISHED,
+  OPENING_A_WISH,
+  REPLANNING_A_WISH,
+  type ShoppingBand,
+  THE_WISH_A_PANEL_IS_ABOUT,
+  theMonthOf,
+  thePanelStanding,
+  thePeriodsOnOffer,
+  theShoppingList,
+  wishDetail,
+} from "./shopping";
 
 // THE SHOPPING LIST. A Wish is an open intention to acquire a named Volume, and this
 // screen is that intention read in the one place it matters: **standing in a shop, on the
 // shop's signal, about to spend money.** So the phone is the target and the desk is the
 // same screen with more air.
 //
-// Three things this screen deliberately does not do, and each is the model rather than an
+// **It bands on months, and the months are the whole design** (ADR-0023). A priority — next,
+// soon, someday — said where a Wish stood relative to the others and never said when, so
+// everything the owner still meant to buy drifted into *next* and the list went back to being
+// a spreadsheet. A period answers absolutely: *this month I take these two, next month that
+// one*. Three things follow, and they are the three complaints this screen had.
+//
+//   1. **The order inside a band stopped mattering**, because inside one month the owner buys
+//      all of them. There is no rank to drag a row up, and there will not be one: a route is
+//      an order and a shopping list is a month and a wallet.
+//   2. **A band can be added up.** *What does this month come to?* is the question a shopping
+//      list is for and could not be asked of *soon* — it is the price found where there is
+//      one, the target where there is not, with the coverage every partial figure in this
+//      application arrives with.
+//   3. **A Wish is replanned rather than replaced.** *Replan* rewrites the month, the money
+//      and the shop on the record, because closing one and opening another lost the day it was
+//      opened — which is the fact the list orders by and the one that says *you have been
+//      meaning to buy this since March*.
+//
+// **A month that has gone by is not a state.** It keeps its own band, gets the words *still
+// waiting*, and nothing else: no colour, no warning, nothing moved on the owner's behalf. A
+// period is a plan they wrote down, and this application does not enforce the owner's plans.
+//
+// Two things this screen deliberately does not do, and each is the model rather than an
 // omission:
 //
-// - **Nothing here closes a Wish except closing it.** There is no "bought it" button that
-//   also touches the Collection, and no state to move a Wish through. A Wish ends by a
-//   deliberate act and nothing else, so the only end on this page is `Close it`.
-// - **There is no `Acquistato`.** A Wish that ended is off the list; the model cannot say
-//   whether it ended because the book was bought, and does not pretend to.
+// - **There is no `Acquistato`.** *Bought it* writes an acquisition and closes the Wish — one
+//   verb over two areas, one transaction — and what is left afterwards is an acquisition and a
+//   Wish that ended, exactly what the two verbs write on their own. The model still cannot say
+//   *why* a Wish ended, and does not pretend to: an object that comes home some other way
+//   leaves the intention standing, because only a deliberate act ends one.
 // - **"Complete this series" is not here, and cannot be typed in.** A Wish names one
 //   catalogued Volume — the picker offers objects and nothing else — because completing a
 //   Series is the collecting decision on the Series and its missing Volumes are a query
 //   rather than rows somebody keeps by hand.
 //
-// **In the shell now** (#31), which changed three things and no more.
+// **In the shell** (#31), which changed three things and no more.
 //
 //   1. **The object is looked at rather than read.** Every Wish carries the tile the walls
 //      are laid out as, in the Series' own tint and wearing the jacket where a lookup found
@@ -45,32 +79,40 @@ import { OPENING_A_WISH, PRIORITIES, theShoppingList, wishDetail } from "./shopp
 //      dozen is one screen instead of a scroll — and the numbers that decide a purchase are
 //      on the card rather than behind the disclosure they used to be folded into. A tap in a
 //      shop to find out what a book should cost is a tap too many.
-//   3. **Opening one is a panel off the hero** (`@/components/drawer`), the shape the
-//      Collection wall and the Series ledger already have: the open state is the URL, so it
-//      costs no script, `?panel=open` is a bookmark for *want something*, and the back
-//      button closes it.
+//   3. **Every act that needs a field is a panel** (`@/components/drawer`): opening a Wish off
+//      the hero, and buying or replanning one off its own card. The open state is the URL, so
+//      it costs no script, `?panel=open` is a bookmark for *want something*, and the back
+//      button closes it. *Close it* asks for nothing and stays a plain form, because a drawer
+//      in front of it would be a door in front of a door.
 //
-// The banding is the screen's and it is `./shopping`, which the Pile's picker reads
-// too. Everything else is the house style: plain forms, `POST`s to server actions, and
-// nothing running in the browser.
+// The banding is the screen's and it is `./shopping`, which the Pile's picker and the one
+// door's read too. Everything else is the house style: plain forms, `POST`s to server
+// actions, and nothing running in the browser.
 export const dynamic = "force-dynamic";
 
-// A native select rather than a scripted one, twice in the panel: on a phone it opens the
-// platform picker, and it submits with the form whether JavaScript ran or not. The look is
-// shadcn's input, borrowed by hand because shadcn's own select is a scripted component and
-// this screen runs nothing in the browser.
+// A native select rather than a scripted one: on a phone it opens the platform picker, and it
+// submits with the form whether JavaScript ran or not. The look is shadcn's input, borrowed by
+// hand because shadcn's own select is a scripted component and this screen runs nothing in the
+// browser.
 const PICKER =
   "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30";
 
-// The one panel this screen has, read against the act it belongs to rather than trusted:
-// `?panel=banana` opens nothing, which is the honesty every filter on every wall is held to.
-// The name is `./shopping`'s: the Server Function behind the form has to send a refusal back
-// into this same panel, so one spelling serves both.
+// The panels, read against the acts this screen has rather than trusted: `?panel=banana` opens
+// nothing, and neither does a *Bought it* panel naming a Wish that is not on the list
+// (`thePanelStanding`). The names are `./shopping`'s, because the Server Functions behind the
+// forms have to send a refusal back into the same panel and one spelling has to serve both.
 //
-// This screen narrows nothing, so a panel's address carries the panel and nothing else — and
-// deliberately not the answer to the last write, which is about the press that produced it.
-const OPENS_AT = `/wishes?panel=${OPENING_A_WISH}`;
+// This screen narrows nothing, so a panel's address carries the panel, the Wish it is about,
+// and nothing else — and deliberately not the answer to the last write, which is about the
+// press that produced it.
 const CLOSES_TO = "/wishes";
+
+/** Where a panel stands: an act, and the Wish it is about where it is about one. */
+function panelledAt(act: string, wishId?: string): string {
+  const asked = new URLSearchParams({ panel: act });
+  if (wishId) asked.set(THE_WISH_A_PANEL_IS_ABOUT, wishId);
+  return `${CLOSES_TO}?${asked}`;
+}
 
 type Asked = Record<string, string | string[] | undefined>;
 
@@ -89,8 +131,19 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
   const refused = asked(params, "refused");
   const opened = asked(params, "opened");
   const closed = asked(params, "closed");
-  const panel = asked(params, "panel") === OPENING_A_WISH ? OPENING_A_WISH : undefined;
-  const bands = theShoppingList(wishes);
+  const replanned = asked(params, "replanned");
+  const boughtIt = asked(params, "bought");
+
+  // The day the screen is being read, which is what makes *this month* and *still waiting*
+  // sayable at all. It is read once and handed down, so every band and every picker on the
+  // page agrees about which month it is.
+  const today = new Date();
+  const panel = thePanelStanding(
+    asked(params, "panel"),
+    asked(params, THE_WISH_A_PANEL_IS_ABOUT),
+    wishes
+  );
+  const bands = theShoppingList(wishes, today);
 
   return (
     <main className="px-5 pb-16 sm:px-8">
@@ -98,18 +151,19 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
         <div className="min-w-0">
           <h1 className="font-heading text-2xl sm:text-3xl">Wishes</h1>
           <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-            What to buy, and what it should cost. A Wish names one Volume and ends only when you end
-            it — nothing here disappears on its own.
+            What to buy, which month you mean to buy it in, and what it should cost. A Wish names
+            one Volume and ends only when you end it — nothing here disappears on its own, and a
+            month that has gone by keeps its place.
           </p>
         </div>
 
-        <OpensDrawer href={OPENS_AT} emphasis="loud">
+        <OpensDrawer href={panelledAt(OPENING_A_WISH)} emphasis="loud">
           Open a Wish
         </OpensDrawer>
       </header>
 
-      {/* On the page only where the panel is not standing over it: a refused Wish comes back
-          with its five fields open, and the sentence is printed in there beside them. */}
+      {/* On the page only where no panel is standing over it: a refused write comes back with
+          its own fields open, and the sentence is printed in there beside them. */}
       {refused && !panel ? (
         <p
           role="alert"
@@ -121,6 +175,17 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
       {opened ? (
         <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
           The Wish is open, and on the list below.
+        </p>
+      ) : null}
+      {replanned ? (
+        <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
+          {replanned} is replanned. Same Wish, wanted since the same day.
+        </p>
+      ) : null}
+      {boughtIt ? (
+        <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
+          {boughtIt} is in the house, and the Wish ended. The acquisition is on the object's own
+          page.
         </p>
       ) : null}
       {closed ? (
@@ -136,24 +201,25 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
       {wishes.length === 0 ? (
         <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
           Nothing wanted right now. <em>Open a Wish</em> is at the top of the screen: name a Volume
-          the library knows, say how soon, and it will be waiting here the next time you are in a
-          shop.
+          the library knows, say which month you mean to buy it in, and it will be waiting here the
+          next time you are in a shop.
         </p>
       ) : (
         <div className="mt-4 space-y-10">
           {bands.map((band) => (
-            <section key={band.priority} aria-labelledby={`band-${band.priority}`}>
+            <section
+              key={band.period ?? "someday"}
+              aria-labelledby={`band-${band.period ?? "someday"}`}
+            >
               <h2
-                id={`band-${band.priority}`}
-                className="flex items-baseline gap-3 border-b border-border pb-1.5"
+                id={`band-${band.period ?? "someday"}`}
+                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border pb-1.5"
               >
                 <span className="font-heading text-lg">{band.name}</span>
                 {band.hint ? (
                   <span className="text-xs text-muted-foreground">— {band.hint}</span>
                 ) : null}
-                <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
-                  {band.wishes.length}
-                </span>
+                <ComesTo band={band} />
               </h2>
 
               {/* Two and three abreast at a desk, one under the other on a phone: a dozen
@@ -169,10 +235,10 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
         </div>
       )}
 
-      {panel === OPENING_A_WISH ? (
+      {panel?.act === OPENING_A_WISH ? (
         <Drawer
           title="Open a Wish"
-          description="One Volume the library already knows, and how soon you want it. Completing a Series is not a Wish: that is the collecting decision on the Series, and what it is missing is a query."
+          description="One Volume the library already knows, and which month you mean to buy it in. Completing a Series is not a Wish: that is the collecting decision on the Series, and what it is missing is a query."
           refused={refused}
           closesTo={CLOSES_TO}
         >
@@ -211,18 +277,7 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
                 </select>
               </div>
 
-              <div className="grid gap-1.5">
-                <Label htmlFor="wish-priority" className="text-xs text-muted-foreground">
-                  Priority
-                </Label>
-                <select id="wish-priority" name="priority" defaultValue="2" className={PICKER}>
-                  {PRIORITIES.map((priority) => (
-                    <option key={priority.value} value={priority.value}>
-                      {priority.name} — {priority.hint}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Period today={today} chosen={theMonthOf(today)} />
 
               <Field name="shop" label="Shop" placeholder="Star Shop" />
               <Field
@@ -249,8 +304,94 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
           )}
         </Drawer>
       ) : null}
+
+      {panel?.act === REPLANNING_A_WISH ? (
+        <Drawer
+          title={`Replan ${panel.wish.volume.title}`}
+          description="A different month, or different money. It stays the same Wish, wanted since the day you opened it — and an empty box is an answer: no month is someday, and no price is no price."
+          refused={refused}
+          closesTo={CLOSES_TO}
+        >
+          <form action={replan} className="grid gap-4">
+            <input type="hidden" name="wishId" value={panel.wish.id} />
+            <input type="hidden" name="title" value={panel.wish.volume.title} />
+
+            <Period today={today} chosen={panel.wish.period} />
+
+            <Field
+              name="shop"
+              label="Shop"
+              placeholder="Star Shop"
+              defaultValue={panel.wish.shop ?? ""}
+            />
+            <Field
+              name="targetPrice"
+              label="Target price"
+              placeholder="15.00"
+              inputMode="decimal"
+              defaultValue={panel.wish.targetPrice ?? ""}
+            />
+            <Field
+              name="priceFound"
+              label="Price found"
+              placeholder="12.90"
+              inputMode="decimal"
+              defaultValue={panel.wish.priceFound ?? ""}
+            />
+
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Replan it
+            </Button>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {panel?.act === BUYING_WHAT_WAS_WISHED ? (
+        <Drawer
+          title={`Bought ${panel.wish.volume.title}`}
+          description="The object is in the house and the Wish ends, in one press. The Volume joins the Collection from the day you say, at what you actually paid."
+          refused={refused}
+          closesTo={CLOSES_TO}
+        >
+          <form action={bought} className="grid gap-4">
+            <input type="hidden" name="wishId" value={panel.wish.id} />
+            <input type="hidden" name="title" value={panel.wish.volume.title} />
+
+            {/* Prefilled with the price the Wish found, and editable: *what it cost where I
+                saw it* and *what I paid* are two numbers that are usually equal and sometimes
+                not, and nothing writes one as the other on the owner's behalf. */}
+            <Field
+              name="pricePaid"
+              label="Price paid"
+              placeholder="12.90"
+              inputMode="decimal"
+              defaultValue={panel.wish.priceFound ?? ""}
+            />
+            <Field
+              name="acquiredOn"
+              label="The day it came home"
+              type="date"
+              defaultValue={theDayOf(today)}
+            />
+
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Bought it
+            </Button>
+            <p className="max-w-prose text-xs text-muted-foreground">
+              Leave the price empty if the receipt is gone — the object is in the house either way.
+              What ended the Wish is this press, and nothing records <em>why</em> it ended: the
+              acquisition beside it is what says it was bought.
+            </p>
+          </form>
+        </Drawer>
+      ) : null}
     </main>
   );
+}
+
+/** Today, as a date field takes it. */
+function theDayOf(day: Date): string {
+  return `${theMonthOf(day)}-${String(day.getDate()).padStart(2, "0")}`;
 }
 
 /**
@@ -270,12 +411,71 @@ function named(volume: VolumeToWishFor): string {
 }
 
 /**
- * One Wish: the object to recognise it by, the money to decide by, and the one act that
- * ends it.
+ * **What a band comes to**, and it is the one figure a month made askable.
+ *
+ * It follows the application's rule about figures rather than inventing one for a heading
+ * (`@/core/queries/library`): the coverage is printed only where it is short, because a
+ * sentence on every band is noise the owner learns to skip and then skips on the one that
+ * matters — and a band whose Wishes carry **no** price reads as an absence in words rather
+ * than as `€ 0.00`, which would be a claim about the owner's money.
+ */
+function ComesTo({ band }: { band: ShoppingBand }) {
+  return (
+    <span className="ml-auto flex items-baseline gap-2">
+      {unrecorded(band.comesTo) ? (
+        <span className="text-xs text-muted-foreground">no prices yet</span>
+      ) : (
+        <>
+          <span className="font-mono text-xs tabular-nums">€ {band.comesTo.figure}</span>
+          {whole(band.comesTo) ? null : (
+            <span className="text-xs text-muted-foreground">
+              from {band.comesTo.from} of {band.comesTo.of} priced
+            </span>
+          )}
+        </>
+      )}
+      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        {band.wishes.length}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * The months a Wish can be planned into, and *Someday* under them.
+ *
+ * `chosen` is what the Wish already says, so a period further out than the six the picker
+ * offers is put back in front of the owner rather than quietly re-planned on the way into a
+ * form (`thePeriodsOnOffer`). *Someday* submits an empty value, which every door reads as the
+ * absence of a plan rather than as a field nobody filled.
+ */
+function Period({ today, chosen }: { today: Date; chosen?: string | null }) {
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor="wish-period" className="text-xs text-muted-foreground">
+        Period
+      </Label>
+      <select id="wish-period" name="period" defaultValue={chosen ?? ""} className={PICKER}>
+        {thePeriodsOnOffer(today, chosen).map((period) => (
+          <option key={period.value} value={period.value}>
+            {period.hint ? `${period.name} — ${period.hint}` : period.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/**
+ * One Wish: the object to recognise it by, the money to decide by, and the three acts on it.
  *
  * **Nothing is folded away.** This card used to be a disclosure with the four numbers
  * behind it, and the tap that opened it was a tap taken standing in a shop with a book in
  * the other hand. Everything that decides a purchase is on it.
+ *
+ * The acts are in the order they happen: the object comes home, or the plan changes, or the
+ * owner stops wanting it. The first two ask for a field and are panels; the last asks for
+ * nothing and is a plain form, which is where the line between the two is drawn.
  */
 function WishCard({ wish }: { wish: OpenWish }) {
   const under = [wish.volume.publisher, wish.volume.editionLine].filter(Boolean).join(" · ");
@@ -316,23 +516,30 @@ function WishCard({ wish }: { wish: OpenWish }) {
             than resolved by the app. */}
         {wish.inCollection ? (
           <p className="mt-3 text-pretty text-xs text-muted-foreground">
-            The Collection already claims this Volume. The Wish stays open until you close it.
+            The Collection already claims this Volume. The Wish stays open until you close it, and{" "}
+            <em>Bought it</em> would be a second acquisition of one object.
           </p>
         ) : null}
 
-        {/* **A press that asks for nothing is a plain form and not a panel**, and this one
-            asks for nothing: closing a Wish takes no field, and a drawer in front of it
-            would be a door in front of a door. */}
-        <form action={close} className="mt-3">
-          <input type="hidden" name="wishId" value={wish.id} />
-          <input type="hidden" name="title" value={wish.volume.title} />
-          <Button type="submit" variant="secondary" size="sm" className="h-11 sm:h-9">
-            Close it
-          </Button>
-          <span className="ml-3 text-xs text-muted-foreground">
-            Bought it, or stopped wanting it.
-          </span>
-        </form>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <OpensDrawer href={panelledAt(BUYING_WHAT_WAS_WISHED, wish.id)}>Bought it</OpensDrawer>
+          <OpensDrawer href={panelledAt(REPLANNING_A_WISH, wish.id)}>Replan</OpensDrawer>
+
+          {/* **A press that asks for nothing is a plain form and not a panel**, and this one
+              asks for nothing: closing a Wish takes no field. */}
+          <form action={close}>
+            <input type="hidden" name="wishId" value={wish.id} />
+            <input type="hidden" name="title" value={wish.volume.title} />
+            <Button type="submit" variant="secondary" size="sm" className="h-11 sm:h-10">
+              Close it
+            </Button>
+          </form>
+        </div>
+        <p className="mt-2 text-pretty text-xs text-muted-foreground">
+          <em>Bought it</em> puts the object in the Collection and ends the Wish. <em>Close it</em>{" "}
+          only ends the Wish — stopped wanting it, or bought it somewhere this library will not hear
+          about.
+        </p>
       </div>
     </li>
   );

@@ -74,7 +74,8 @@ games are one arrears, which is the whole reason weighing them against each othe
 (ADR-0021) — so this is what the list *holds*, never a narrowing you have to undo.
 
 \`proposedWish\` is **a proposal and not a Wish**. Where an entry needs an object the owner does not
-have, this is what a Wish on it would say — the Volume's id and a priority — and nothing has been
+have, this is what a Wish on it would say — the Volume's id, and **nothing about when**: which month
+the owner means to buy it in is a plan this list has never had — and nothing has been
 written: reading this list never adds to the shopping list. Turning one into a Wish is a separate,
 deliberate act, and it is the owner's call rather than yours to make quietly.
 \`wishAlreadyOpen: true\` means they already mean to buy it, so there is nothing to propose and

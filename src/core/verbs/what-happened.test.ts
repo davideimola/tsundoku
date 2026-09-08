@@ -64,9 +64,12 @@ async function wants(): Promise<{ story_id: string }[]> {
 
 /** Every open intention to buy, as the shopping list reads it. */
 async function wishes(): Promise<
-  { volume_id: string; priority: number; price_found: string | null; shop: string | null }[]
+  { volume_id: string; period: string | null; price_found: string | null; shop: string | null }[]
 > {
-  return query("select volume_id, priority, price_found, shop from wish where closed_on is null");
+  return query(
+    `select volume_id, to_char(period, 'YYYY-MM') as period, price_found, shop
+       from wish where closed_on is null`
+  );
 }
 
 /** What one object is recorded as carrying, by title, in the order the library reads it back. */
@@ -519,7 +522,7 @@ describe("I want to buy it", () => {
       said: "wished",
       object: {
         ...TANKOBON,
-        priority: 1,
+        period: "2026-09",
         targetPrice: "15,00",
         priceFound: "12,90",
         shop: "Star Shop",
@@ -534,7 +537,7 @@ describe("I want to buy it", () => {
     expect(said.volumeId).toBe(object.id);
 
     expect(await wishes()).toEqual([
-      { volume_id: object.id, priority: 1, price_found: "12.90", shop: "Star Shop" },
+      { volume_id: object.id, period: "2026-09", price_found: "12.90", shop: "Star Shop" },
     ]);
 
     expect(await stories()).toEqual([{ id: said.storyIds[0], title: "Vinland Saga 1" }]);
@@ -547,7 +550,7 @@ describe("I want to buy it", () => {
       title: "Vinland Saga 1",
       typeId: "manga",
       said: "wished",
-      object: { ...TANKOBON, priority: 2, holds: [{ title: "Vinland Saga 1" }] },
+      object: { ...TANKOBON, period: "2026-09", holds: [{ title: "Vinland Saga 1" }] },
     });
 
     expect(await wants()).toEqual([]);
@@ -565,7 +568,7 @@ describe("I want to buy it", () => {
       title: "Slam Dunk 21",
       typeId: "manga",
       said: "wished",
-      object: { ...TANKOBON, priority: 3, holds: [{ storyId }] },
+      object: { ...TANKOBON, holds: [{ storyId }] },
     });
 
     expect(await stories()).toEqual([{ id: storyId, title: "Slam Dunk" }]);
@@ -584,7 +587,7 @@ describe("I want to buy it", () => {
         title: "Vinland Saga 1",
         typeId: "manga",
         said: "wished",
-        object: { ...TANKOBON, priority: 2, holds: [] },
+        object: { ...TANKOBON, period: "2026-09", holds: [] },
       })
     ).rejects.toMatchObject({ name: "Refusal", code: "invalid" });
 
@@ -600,11 +603,11 @@ describe("I want to buy it", () => {
         title: "Vinland Saga 1",
         typeId: "manga",
         said: "wished",
-        object: { ...TANKOBON, priority: 9, holds: [{ title: "Vinland Saga 1" }] },
+        object: { ...TANKOBON, period: "settembre", holds: [{ title: "Vinland Saga 1" }] },
       })
     ).rejects.toMatchObject({
       name: "Refusal",
-      message: "A priority is 1 (next), 2 (soon) or 3 (someday).",
+      message: "A period is a month, written 2026-09. Leave it empty for someday.",
     });
 
     expect(await theObject("Vinland Saga 1")).toEqual([]);

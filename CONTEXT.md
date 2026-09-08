@@ -132,7 +132,10 @@ business knowing.
 The fact that a **Volume** is in the house, from a day and at a price, and until when. It
 is what the **Collection** is a query over, and it is recorded deliberately rather than
 implied by anything else: cataloguing an object does not begin one, and ending one does not
-end a **Wish**. An open acquisition is the shelf; one that ended is a record of having had
+end a **Wish**. One press writes an acquisition *and* ends a Wish — *Bought it*, on the
+shopping list — and it is the exception that proves the rule: the two facts are written
+together because the owner said one sentence about one event, and neither is derived from the
+other. An open acquisition is the shelf; one that ended is a record of having had
 the object, which is why selling a volume and buying it again is one object acquired twice
 rather than two objects. A Volume can have none at all, and that is an ordinary Volume.
 _Avoid_: purchase — a gift and a book owned since before any of this was written down are
@@ -170,6 +173,26 @@ asks while standing in a shop. Being read is no part of it, and neither is wanti
 is in the collection because it is on the shelf, and it leaves the collection without
 leaving the catalogue.
 _Avoid_: library, shelf, inventory.
+
+**Type**:
+What kind of thing a **Story** is: Manga, Comic, Graphic Novel, Novel, Non-fiction, Play,
+Videogame. It is a fact about the **narrative** and never about the object that carries it —
+*Manga* is what a work is and not how it was bound — which is why one is asked once for
+whatever a Volume holds and none is ever written on the Volume itself.
+It is **data and not a shape** (ADR-0006): a seventh kind of thing is an insert, which is what
+*Play* was when the books half turned out to hold a script, and *Videogame* right after it.
+A Type carries the two things that follow from what kind of thing it is, and both are rows
+rather than rules written somewhere in code: **which media it offers** — paper and digital for
+what is printed, the consoles for what is played — and **what going through it is called**,
+which is *read* for six of the seven and *played* for the one that is not. The second is why a
+videogame can be recorded in the owner's own words rather than in a printed library's: the
+door asks the Type before it asks what happened, and the sentences it offers are said in that
+verb. A Type that is not read is the one that has to say so.
+Whether a thing of this kind can be **held** is not a fact of its own either. It follows from
+the media: only paper goes through an object (ADR-0022), so a Type offering none is a Type
+this library holds no object for, and the door stops offering to catalogue one.
+_Avoid_: category, genre and **kind** unqualified — genre is what a work is *about*, which
+this library deliberately does not record, and category names nothing in particular.
 
 **Binding**:
 How a Volume is bound: tankōbon, omnibus, deluxe, Must Have, hardcover, paperback, spillato.
@@ -264,10 +287,37 @@ the omnibus. It decides what to buy. It is **not** a rating and never feeds
 recommendation.
 
 **Wish**:
-An open intention to acquire a **named Volume**: priority, target price, price found,
-shop. It ends only by a deliberate act. *"Complete this series"* is **not** a wish — it
-is the collecting decision on a Series, and the missing volumes follow from it as a
-query rather than as rows typed by hand.
+An open intention to acquire a **named Volume**: the **Period** it is planned into, target
+price, price found, shop. It ends only by a deliberate act. *"Complete this series"* is
+**not** a wish — it is the collecting decision on a Series, and the missing volumes follow
+from it as a query rather than as rows typed by hand.
+It is **replanned rather than replaced**: the period, the two prices and the shop are
+rewritten on the record, because ending an intention in order to reschedule it would lose the
+day it was opened — which is the fact that says *you have been meaning to buy this since
+March* — and would be the one thing this list refuses to do, which is lose a row quietly.
+The deliberate act that ends one **may be the press that says why**: *Bought it* records the
+acquisition and closes the Wish in one breath, and it is still the two facts it always was —
+an acquisition, and a Wish that ended. Nothing else ends one, so an object that comes home
+another way leaves the intention standing.
+_Avoid_: priority — the word named a ranking of these against each other, which is the
+question the owner never had; and **wishlist**, which names a place things are put rather
+than one sentence about one object.
+
+**Period**:
+The month a **Wish** is planned into, and therefore the band it stands in on the shopping
+list: *this month I take this one, next month that one.* It is an **absolute** answer where a
+priority was a relative one — *next* says only *before the others*, and everything the owner
+still means to buy drifts into it — which is why the order **inside** a month does not matter:
+inside one, they buy all of them.
+A Wish with **no** period is *someday*, and that is the absence of a plan rather than a third
+word for one. **A month that has gone by is not a state**: nothing says late, overdue or
+expired, nothing warns and nothing moves a Wish on its own — a period is a plan the owner
+wrote down, and this application does not enforce the owner's plans. It is what makes one
+number worth printing, which no priority could be asked for: **what this month comes to**, out
+of the prices the Wishes in it carry.
+_Avoid_: deadline, due date and sprint — all three promise something the app obeys — and
+**quarter**, which is a span the owner may say in words and never a value this holds: three
+months are three periods.
 
 **Want**:
 An open intention to **take on a Story** — to read it, or to play it — standing on its own and

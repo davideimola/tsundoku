@@ -299,16 +299,11 @@ export async function writeImport(
     for (const wish of plan.wishes) {
       await run(
         `wish on ${wish.volumeKey}`,
-        `insert into wish (volume_id, priority, target_price, price_found, shop, opened_on, closed_on)
-         values ($1, $2, $3, $4, $5, coalesce($6::date, current_date), $6)`,
-        [
-          volumeIds.get(wish.volumeKey),
-          wish.priority,
-          wish.targetPrice,
-          wish.priceFound,
-          wish.shop,
-          wish.closedOn,
-        ]
+        // No period: a spreadsheet never said which month, and *someday* is the honest
+        // reading of that (ADR-0023).
+        `insert into wish (volume_id, target_price, price_found, shop, opened_on, closed_on)
+         values ($1, $2, $3, $4, coalesce($5::date, current_date), $5)`,
+        [volumeIds.get(wish.volumeKey), wish.targetPrice, wish.priceFound, wish.shop, wish.closedOn]
       );
     }
 

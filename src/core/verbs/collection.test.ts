@@ -362,7 +362,7 @@ describe("striking a Volume from the catalogue", () => {
 
   it("refuses one a Wish names, and says to close the Wish first", async () => {
     const wanted = await aCatalogued();
-    await openWish({ volumeId: wanted, priority: 1 });
+    await openWish({ volumeId: wanted, period: "2026-09" });
 
     await expect(strikeVolumes([wanted])).rejects.toSatisfy(
       (error: unknown) => isRefusal(error) && error.message.includes("Wish")

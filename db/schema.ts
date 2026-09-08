@@ -312,7 +312,7 @@ export const declaredConstraint = pgTable("declared_constraint", {
 export const wish = pgTable("wish", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	volumeId: uuid("volume_id").notNull(),
-	priority: integer().notNull(),
+	period: date(),
 	targetPrice: numeric("target_price", { precision: 10, scale:  2 }),
 	priceFound: numeric("price_found", { precision: 10, scale:  2 }),
 	shop: text(),
@@ -325,7 +325,7 @@ export const wish = pgTable("wish", {
 			foreignColumns: [volume.id],
 			name: "wish_volume_id_fkey"
 		}),
-	check("wish_priority_is_one_to_three", sql`(priority >= 1) AND (priority <= 3)`),
+	check("wish_period_is_a_month", sql`(period IS NULL) OR (date_part('day'::text, (period)::timestamp without time zone) = (1)::double precision)`),
 	check("wish_target_price_is_not_negative", sql`(target_price IS NULL) OR (target_price >= (0)::numeric)`),
 	check("wish_price_found_is_not_negative", sql`(price_found IS NULL) OR (price_found >= (0)::numeric)`),
 	check("wish_shop_is_not_blank", sql`(shop IS NULL) OR ((shop = btrim(shop)) AND (shop <> ''::text))`),

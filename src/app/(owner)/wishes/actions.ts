@@ -3,19 +3,32 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRefusal } from "@/core/refusal";
-import { closeWish, openWish } from "@/core/verbs/wish";
+import { boughtWhatWasWished } from "@/core/verbs/bought-what-was-wished";
+import { amendWish, closeWish, openWish } from "@/core/verbs/wish";
 import { requireOwner } from "@/lib/auth/owner";
-import { OPENING_A_WISH } from "./shopping";
+import {
+  BUYING_WHAT_WAS_WISHED,
+  OPENING_A_WISH,
+  REPLANNING_A_WISH,
+  THE_WISH_A_PANEL_IS_ABOUT,
+} from "./shopping";
 
 // The write side of the shopping list, and a thin adapter like the page beside it
 // (ADR-0002): it reads a form, calls one verb, and says what the verb said. No SQL, no
 // rule about what a Wish may be, and no SQLSTATE and no constraint name — `refusing` in
 // the core already turned the database's no into prose the verb wrote.
 //
-// Two verbs and nothing else, which is the slice's rule made visible: a Wish is opened
-// deliberately and closed deliberately, and there is no third thing this screen can do to
-// one. Nothing here reaches for the Collection, because acquiring a Volume is not an event
-// in a Wish's life.
+// Four verbs now, and the two that arrived are the two the screen was missing (ADR-0023).
+// **Replanning is not a delete**: a Wish's month, prices and shop are rewritten on the record,
+// because closing one and opening another would lose the day it was opened — the fact the list
+// orders by. And **one press says why a Wish ended**: *Bought it* is `boughtWhatWasWished`, one
+// verb over two areas, which records the acquisition and closes the Wish in one transaction.
+//
+// That last one is the only thing here that reaches the Collection, and it reaches it through
+// a verb rather than by calling two: composing them in this file would invent a transaction
+// that does not exist (`@/core/verbs/README.md`), and half of it landing is a Wish still on the
+// list for a book already on the shelf. Acquiring a Volume from the Collection still ends
+// nothing.
 //
 // The answer travels back in the URL, like the Collection's: a plain form and a redirect
 // work with no JavaScript running at all, which is what a screen used in a shop on the
@@ -43,10 +56,9 @@ export async function open(form: FormData): Promise<void> {
   try {
     await openWish({
       volumeId: text(form, "volumeId") ?? "",
-      // A picker offers three values, so anything else is not a priority the owner chose;
-      // `NaN` is not an integer and the verb refuses it with the prose the picker's labels
-      // use.
-      priority: Number(text(form, "priority")),
+      // The picker submits a month or nothing at all, and nothing at all is *someday* rather
+      // than a missing answer — which is why an empty box is not a refusal here.
+      period: text(form, "period"),
       targetPrice: text(form, "targetPrice"),
       priceFound: text(form, "priceFound"),
       shop: text(form, "shop"),
@@ -80,6 +92,73 @@ export async function close(form: FormData): Promise<void> {
   } catch (error) {
     if (!isRefusal(error)) throw error;
     said = new URLSearchParams({ refused: error.message });
+  }
+
+  revalidatePath("/wishes");
+  redirect(`/wishes?${said}`);
+}
+
+/**
+ * Replan an open Wish: a different month, different money, a different shop.
+ *
+ * **Every box is written, including the empty ones**, which is what `amendWish` reads a
+ * present-and-empty field as: clearing the period is how a Wish moves to *someday*, and a
+ * price that is no longer on the shelf is a number to take off. That is the whole difference
+ * between this door and an Amendment an assistant proposes (ADR-0023).
+ */
+export async function replan(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const wishId = text(form, "wishId") ?? "";
+  let said: URLSearchParams;
+
+  try {
+    await amendWish(wishId, {
+      period: text(form, "period"),
+      targetPrice: text(form, "targetPrice"),
+      priceFound: text(form, "priceFound"),
+      shop: text(form, "shop"),
+    });
+    said = new URLSearchParams({ replanned: text(form, "title") ?? "" });
+  } catch (error) {
+    if (!isRefusal(error)) throw error;
+    said = new URLSearchParams({
+      panel: REPLANNING_A_WISH,
+      [THE_WISH_A_PANEL_IS_ABOUT]: wishId,
+      refused: error.message,
+    });
+  }
+
+  revalidatePath("/wishes");
+  redirect(`/wishes?${said}`);
+}
+
+/**
+ * The object came home: record the acquisition and end the Wish, in one press.
+ *
+ * The price is the owner's rather than the Wish's — the panel prefills it with the price the
+ * Wish found, and what they press through is what is written, because *what it cost where I
+ * saw it* and *what I paid* are two numbers that are usually equal and sometimes not.
+ */
+export async function bought(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const wishId = text(form, "wishId") ?? "";
+  let said: URLSearchParams;
+
+  try {
+    await boughtWhatWasWished(wishId, {
+      acquiredOn: text(form, "acquiredOn"),
+      pricePaid: text(form, "pricePaid"),
+    });
+    said = new URLSearchParams({ bought: text(form, "title") ?? "" });
+  } catch (error) {
+    if (!isRefusal(error)) throw error;
+    said = new URLSearchParams({
+      panel: BUYING_WHAT_WAS_WISHED,
+      [THE_WISH_A_PANEL_IS_ABOUT]: wishId,
+      refused: error.message,
+    });
   }
 
   revalidatePath("/wishes");

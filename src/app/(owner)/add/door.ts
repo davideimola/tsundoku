@@ -187,7 +187,7 @@ export const THE_FIELDS_A_REFUSAL_CARRIES = [
   "seriesNumber",
   "pricePaid",
   "acquiredOn",
-  "priority",
+  "period",
   "targetPrice",
   "priceFound",
   "shop",

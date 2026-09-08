@@ -597,16 +597,14 @@ type Carrier = { object: PileObject; wishAlreadyOpen: boolean };
 // already carries the fact underneath it: only paper goes through an object. So both are read
 // off the rows now, and the fourth console changes neither.
 
-/**
- * What a proposal suggests for *how soon*: **2, which is "soon"**.
- *
- * A suggestion rather than a judgement, and the least presumptuous of the three: the list
- * knows the owner needs this object to carry on, which is more than *someday* and less than
- * *this is what I am buying next* — and priority is what the owner is likeliest to disagree
- * with, so the picker on the screen defaults to this and does not obey it. Nothing derives
- * it from the entry's place on the list: a pin is an order to read in, not a budget.
- */
-const PROPOSED_PRIORITY = 2;
+// **A proposal names the object and says nothing about when** (ADR-0023).
+//
+// It used to suggest priority 2, *soon*, as the least presumptuous of three words. A period is
+// a month, and there is no such value among months: what this list knows is that the owner
+// needs this object to carry on, and what it has never known is when they mean to spend the
+// money. So the proposal carries the Volume, the picker beside it on the screen defaults to
+// this month, and nothing here derives a plan from an entry's place on the list — a pin is an
+// order to read in, not a budget.
 
 /**
  * What an entry going through this object — or through none — means: the medium it is
@@ -638,9 +636,7 @@ function through(
     // one Volume is refused by the database anyway, and offering it would be this list
     // proposing a mistake.
     proposedWish:
-      carrier && !inTheHouse && !wishAlreadyOpen
-        ? { volumeId: carrier.object.id, priority: PROPOSED_PRIORITY }
-        : null,
+      carrier && !inTheHouse && !wishAlreadyOpen ? { volumeId: carrier.object.id } : null,
     wishAlreadyOpen,
   };
 }

@@ -170,8 +170,8 @@ export async function bought(form: FormData): Promise<void> {
  *
  * The same object as the sentence above it, and the same refusals — it is one form with the
  * acquisition swapped for the intention, which is the whole difference between having paid and
- * meaning to. The Wish's own refusals are `openWish`'s: a priority that is not one of the
- * three, a negative price, a blank shop.
+ * meaning to. The Wish's own refusals are `openWish`'s: a period that is not a month, a
+ * negative price, a blank shop.
  */
 export async function wished(form: FormData): Promise<void> {
   return saying(form, "wished", (title, typeId) =>
@@ -181,9 +181,9 @@ export async function wished(form: FormData): Promise<void> {
       said: "wished",
       object: {
         ...theObject(form),
-        // A picker offers three values, so anything else is not a priority the owner chose;
-        // `NaN` is not an integer and the verb refuses it in the picker's own three words.
-        priority: Number(text(form, "priority")),
+        // A picker offers months, and an empty one is *someday* rather than a missing answer,
+        // so the verb takes it as the plan it is instead of refusing it.
+        period: text(form, "period"),
         targetPrice: text(form, "targetPrice"),
         priceFound: text(form, "priceFound"),
         shop: text(form, "shop"),

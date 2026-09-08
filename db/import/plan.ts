@@ -123,7 +123,6 @@ export type RatingPlan = {
 
 export type WishPlan = {
   readonly volumeKey: string;
-  readonly priority: number;
   readonly targetPrice: string | null;
   readonly priceFound: string | null;
   readonly shop: string | null;
@@ -189,18 +188,6 @@ const SERIES_STATUS: Record<string, "ongoing" | "concluded"> = {
   concluded: "concluded",
 };
 
-const PRIORITIES: Record<string, number> = {
-  alta: 1,
-  "1": 1,
-  subito: 1,
-  media: 2,
-  "2": 2,
-  presto: 2,
-  bassa: 3,
-  "3": 3,
-  "un giorno": 3,
-};
-
 /**
  * Split a cell holding several people — `ONE, Yusuke Murata`, `Jeph Loeb & Tim Sale`.
  *
@@ -215,17 +202,17 @@ function people(said: string | null): string[] {
     .filter((name) => name !== "");
 }
 
-/** Which to buy first, from the word or the number the sheet uses. */
-function priorityOf(planner: Planner, tab: Tab, row: TabRow): number | undefined {
-  const said = row.value("Priorità", "Priorita", "Priority");
-  // An empty cell is `2`: the owner wants it, and has not said it comes before anything.
-  const priority = PRIORITIES[nameKey(said ?? "media")];
-  if (priority === undefined) {
-    planner.blocks(tab.name, row.line, `Priorità: "${said}" is not 1 next, 2 soon or 3 someday.`);
-    return undefined;
-  }
-  return priority;
-}
+// **The `Priorità` column is read by nobody now, and nothing takes its place** (ADR-0023).
+//
+// A Wish is planned into a **month**, and the three words that column held — alta, media,
+// bassa — said where a row stood relative to the others rather than when the owner meant to
+// spend the money. There is no month to derive from them: *alta* in a sheet exported two years
+// ago is not this September, and inventing one would be this planner writing a plan the owner
+// never made. So an imported Wish carries no period at all, which is *someday* and is the
+// honest reading of a spreadsheet that never said a month.
+//
+// The rows that did have a priority are the rows already in production, and migration 0020
+// converted those once, from the day it ran.
 
 /** What a wishlist row says about the shopping, on either sheet. */
 function shoppingOn(row: TabRow): {
@@ -862,9 +849,6 @@ function planComicsWishlist(planner: Planner, tab: Tab, declared: Declared): voi
       seriesNumber: placeable ? seriesNumber : null,
     });
 
-    const priority = priorityOf(planner, tab, row);
-    if (priority === undefined) continue;
-
     if (state.acquired) {
       // `Acquistato` is not a state of wanting. It is two facts: the object is in the
       // house, and the intention that led there is over.
@@ -878,7 +862,6 @@ function planComicsWishlist(planner: Planner, tab: Tab, declared: Declared): voi
       });
       planner.wishes.push({
         volumeKey,
-        priority,
         ...shoppingOn(row),
         closedOn: acquiredOn ?? today(),
       });
@@ -903,7 +886,6 @@ function planComicsWishlist(planner: Planner, tab: Tab, declared: Declared): voi
 
     planner.wishes.push({
       volumeKey,
-      priority,
       ...shoppingOn(row),
       closedOn: state.open ? null : today(),
     });
@@ -964,9 +946,7 @@ function planBooksWishlist(planner: Planner, tab: Tab, declared: Declared): void
       seriesNumber: null,
     });
 
-    const priority = priorityOf(planner, tab, row);
-    if (priority === undefined) continue;
-    planner.wishes.push({ volumeKey, priority, ...shoppingOn(row), closedOn: null });
+    planner.wishes.push({ volumeKey, ...shoppingOn(row), closedOn: null });
   }
 }
 

@@ -425,10 +425,12 @@ open**, which is what puts *start it* or *close it* in a Story's hero and is rea
 stands with one object — in the house, catalogued, or acquired and let go — and therefore
 **which acts its page offers**, which is where an object that left the house is offered
 acquiring it *again* rather than releasing something the house does not have;
-`wishes/shopping.ts` says the three steps a shopping list is bought in — the Pile's
-picker offers the same three words — and bands the list out of the priorities that are
-*there* rather than by filtering a fixed three, so **a Wish cannot be on the list and on no
-band of it**, which is that area's own rule about nothing disappearing silently;
+`wishes/shopping.ts` says the months a shopping list is bought in — the Pile's picker and the
+one door's offer the same ones — and bands the list out of the periods that are *there* rather
+than by filtering a fixed run of months, so **a Wish cannot be on the list and on no band of
+it** and **a month that has gone by keeps its own band**, which is that area's own rule about
+nothing disappearing silently (ADR-0023); it also says what a band **comes to**, which is the
+one figure a period made askable and the one a screen carries its own `Covered` for;
 `credits/body-of-work.ts` cuts everything a person is credited on along the role they held on
 it, over an answer the core hands over split by whether it was read — and a Story they held
 two roles on stands in **both** bands, because that is the pair of facts the word *Credit*

@@ -3,7 +3,7 @@ import { volumeInTheHouse } from "@/test/volumes";
 import { query } from "../db.ts";
 import { listOpenWishes } from "../queries/wish.ts";
 import { type CataloguedVolume, releaseVolume } from "./collection.ts";
-import { closeWish, openWish } from "./wish.ts";
+import { amendWish, closeWish, openWish } from "./wish.ts";
 
 // Seam 1: the verbs and the query surface against a real Postgres. What is asserted is
 // the shopping list — what the owner reads before spending money — rather than the row
@@ -34,7 +34,7 @@ describe("opening a Wish", () => {
 
     await openWish({
       volumeId,
-      priority: 1,
+      period: "2026-09",
       targetPrice: "15.00",
       priceFound: "12.90",
       shop: "Star Shop",
@@ -43,7 +43,7 @@ describe("opening a Wish", () => {
     expect(await listOpenWishes()).toEqual([
       {
         id: expect.any(String),
-        priority: 1,
+        period: "2026-09",
         targetPrice: "15.00",
         priceFound: "12.90",
         withinTarget: true,
@@ -70,17 +70,31 @@ describe("opening a Wish", () => {
   });
 
   it("is a Wish before any price is known, because wanting comes first", async () => {
-    await openWish({ volumeId: await aVolume(), priority: 3 });
+    await openWish({ volumeId: await aVolume(), period: "2026-12" });
 
     expect(await listOpenWishes()).toMatchObject([
-      { priority: 3, targetPrice: null, priceFound: null, withinTarget: null, shop: null },
+      { period: "2026-12", targetPrice: null, priceFound: null, withinTarget: null, shop: null },
     ]);
+  });
+
+  // *Someday* is an answer the owner gives, not a field they failed to fill in — so a Wish
+  // with no month is an ordinary Wish and stands on the list like any other.
+  it("is a Wish with no period at all, which is someday", async () => {
+    await openWish({ volumeId: await aVolume() });
+
+    expect(await listOpenWishes()).toMatchObject([{ period: null }]);
+  });
+
+  it("takes a blank period as someday, rather than sending an empty box to Postgres", async () => {
+    await openWish({ volumeId: await aVolume(), period: "  " });
+
+    expect(await listOpenWishes()).toMatchObject([{ period: null }]);
   });
 
   it("says the price found is over the target rather than leaving the owner to subtract", async () => {
     await openWish({
       volumeId: await aVolume(),
-      priority: 2,
+      period: "2026-09",
       targetPrice: "15.00",
       priceFound: "19.90",
     });
@@ -94,7 +108,7 @@ describe("opening a Wish", () => {
   // insert.
   it("refuses a Volume that does not exist rather than creating one", async () => {
     await expect(
-      openWish({ volumeId: "3f7c1b2e-0000-4000-8000-000000000000", priority: 1 })
+      openWish({ volumeId: "3f7c1b2e-0000-4000-8000-000000000000", period: "2026-09" })
     ).rejects.toMatchObject({
       code: "not-found",
       message:
@@ -105,25 +119,36 @@ describe("opening a Wish", () => {
   });
 
   it("refuses an id that is not an id at all, for the same reason", async () => {
-    await expect(openWish({ volumeId: "banana", priority: 1 })).rejects.toMatchObject({
+    await expect(openWish({ volumeId: "banana", period: "2026-09" })).rejects.toMatchObject({
       code: "not-found",
     });
   });
 
   it("refuses a second open Wish on one Volume, so the list never says buy this twice", async () => {
     const volumeId = await aVolume();
-    await openWish({ volumeId, priority: 1 });
+    await openWish({ volumeId, period: "2026-09" });
 
-    await expect(openWish({ volumeId, priority: 2 })).rejects.toMatchObject({
+    await expect(openWish({ volumeId, period: "2026-10" })).rejects.toMatchObject({
       code: "already-exists",
       message: "There is already an open Wish for that Volume.",
     });
   });
 
-  it("refuses a priority outside the three steps the list is read in", async () => {
-    await expect(openWish({ volumeId: await aVolume(), priority: 4 })).rejects.toMatchObject({
+  it("refuses a period that is not a month", async () => {
+    await expect(
+      openWish({ volumeId: await aVolume(), period: "2026-09-08" })
+    ).rejects.toMatchObject({
       code: "invalid",
-      message: "A priority is 1 (next), 2 (soon) or 3 (someday).",
+      message: "A period is a month, written 2026-09. Leave it empty for someday.",
+    });
+  });
+
+  // The shape is checked before Postgres sees it, which is the whole reason the check is in
+  // the verb: `to_date` would read a thirteenth month as January of the next year, and the
+  // owner would have a plan they never made.
+  it("refuses a thirteenth month rather than rolling it into next year", async () => {
+    await expect(openWish({ volumeId: await aVolume(), period: "2026-13" })).rejects.toMatchObject({
+      code: "invalid",
     });
   });
 
@@ -132,14 +157,14 @@ describe("opening a Wish", () => {
   // into the dot the column wants; anything that is not a price at all is still a refusal,
   // because a syntax error is never laundered into an answer.
   it("takes a target price written with a comma, and stores the number", async () => {
-    await openWish({ volumeId: await aVolume(), priority: 1, targetPrice: "15,00" });
+    await openWish({ volumeId: await aVolume(), period: "2026-09", targetPrice: "15,00" });
 
     expect(await listOpenWishes()).toMatchObject([{ targetPrice: "15.00" }]);
   });
 
   it("still refuses a target price that is not a price", async () => {
     await expect(
-      openWish({ volumeId: await aVolume(), priority: 1, targetPrice: "quindici euro" })
+      openWish({ volumeId: await aVolume(), period: "2026-09", targetPrice: "quindici euro" })
     ).rejects.toMatchObject({ code: "invalid" });
   });
 
@@ -147,33 +172,139 @@ describe("opening a Wish", () => {
     // A form field nobody filled, or an assistant with no number to give. `""` in a
     // `numeric` column is a syntax error, which is never laundered into an answer — so
     // this is the difference between an empty box and a 500 with the whole entry gone.
-    await openWish({ volumeId: await aVolume(), priority: 1, targetPrice: "", priceFound: "  " });
+    await openWish({
+      volumeId: await aVolume(),
+      period: "2026-09",
+      targetPrice: "",
+      priceFound: "  ",
+    });
 
     expect(await listOpenWishes()).toMatchObject([{ targetPrice: null, priceFound: null }]);
   });
 
   it("takes a price found written with a comma too, because both boxes are on the same phone", async () => {
-    await openWish({ volumeId: await aVolume(), priority: 1, priceFound: "12,90" });
+    await openWish({ volumeId: await aVolume(), period: "2026-09", priceFound: "12,90" });
 
     expect(await listOpenWishes()).toMatchObject([{ priceFound: "12.90" }]);
   });
 });
 
 describe("the shopping list", () => {
-  it("puts what to buy first at the top", async () => {
+  it("puts the earliest month at the top and someday at the foot", async () => {
     const someday = await aVolume({ title: "Berserk Deluxe 1" });
-    const next = await aVolume({ title: "Slam Dunk 1" });
-    const soon = await aVolume({ title: "Vagabond 1" });
+    const thisMonth = await aVolume({ title: "Slam Dunk 1" });
+    const later = await aVolume({ title: "Vagabond 1" });
 
-    await openWish({ volumeId: someday, priority: 3 });
-    await openWish({ volumeId: next, priority: 1 });
-    await openWish({ volumeId: soon, priority: 2 });
+    await openWish({ volumeId: someday });
+    await openWish({ volumeId: thisMonth, period: "2026-09" });
+    await openWish({ volumeId: later, period: "2026-11" });
 
     expect((await listOpenWishes()).map((wish) => wish.volume.title)).toEqual([
       "Slam Dunk 1",
       "Vagabond 1",
       "Berserk Deluxe 1",
     ]);
+  });
+
+  // A plan that did not happen is not moved and not marked: it keeps the month it was made
+  // for, which is at the head of the list because that month is the earliest one there.
+  it("leaves a month that has gone by where it is", async () => {
+    const gone = await aVolume({ title: "Pluto 1" });
+    const soon = await aVolume({ title: "Monster 1" });
+
+    await openWish({ volumeId: soon, period: "2026-10" });
+    await openWish({ volumeId: gone, period: "2020-01" });
+
+    expect((await listOpenWishes()).map((wish) => wish.period)).toEqual(["2020-01", "2026-10"]);
+  });
+});
+
+// **Replanning is not a delete**, which is the whole reason this verb exists (ADR-0023). What
+// is asserted here is the pair that used to be impossible: the month changes and the day the
+// intention was opened does not.
+describe("replanning a Wish", () => {
+  it("moves it to another month and keeps the day it was opened", async () => {
+    const { id } = await openWish({ volumeId: await aVolume(), period: "2026-09" });
+    const [before] = await listOpenWishes();
+
+    await amendWish(id, { period: "2026-11" });
+
+    expect(await listOpenWishes()).toMatchObject([
+      { id, period: "2026-11", openedOn: before.openedOn },
+    ]);
+  });
+
+  // Emptying the period **is** how a Wish moves to someday, which is the one thing an
+  // Amendment on a Story, a Volume or a Series cannot do to a field.
+  it("moves it to someday when the period is cleared", async () => {
+    const { id } = await openWish({ volumeId: await aVolume(), period: "2026-09" });
+
+    await amendWish(id, { period: null });
+
+    expect(await listOpenWishes()).toMatchObject([{ period: null }]);
+  });
+
+  it("takes a price off, because a number that is no longer on the shelf is a lie", async () => {
+    const { id } = await openWish({
+      volumeId: await aVolume(),
+      period: "2026-09",
+      priceFound: "19.90",
+      shop: "Star Shop",
+    });
+
+    await amendWish(id, { priceFound: null });
+
+    expect(await listOpenWishes()).toMatchObject([{ priceFound: null, shop: "Star Shop" }]);
+  });
+
+  // The other half of the same distinction: a field nobody named is a field nobody touched.
+  it("leaves standing what the amendment does not name", async () => {
+    const { id } = await openWish({
+      volumeId: await aVolume(),
+      period: "2026-09",
+      targetPrice: "15.00",
+      priceFound: "19.90",
+      shop: "Star Shop",
+    });
+
+    await amendWish(id, { priceFound: "12,90" });
+
+    expect(await listOpenWishes()).toMatchObject([
+      { period: "2026-09", targetPrice: "15.00", priceFound: "12.90", shop: "Star Shop" },
+    ]);
+  });
+
+  it("refuses an amendment that changes nothing, rather than reporting a write", async () => {
+    const { id } = await openWish({ volumeId: await aVolume(), period: "2026-09" });
+
+    await expect(amendWish(id, {})).rejects.toMatchObject({
+      code: "invalid",
+      message: "An amendment changes at least one field of the Wish.",
+    });
+  });
+
+  it("refuses a Wish that has ended, because what it says about a month is nobody's plan", async () => {
+    const { id } = await openWish({ volumeId: await aVolume(), period: "2026-09" });
+    await closeWish(id);
+
+    await expect(amendWish(id, { period: "2026-10" })).rejects.toMatchObject({
+      code: "not-allowed",
+      message: "That Wish has already ended.",
+    });
+  });
+
+  it("refuses an id that names no Wish", async () => {
+    await expect(
+      amendWish("3f7c1b2e-0000-4000-8000-000000000000", { period: "2026-10" })
+    ).rejects.toMatchObject({ code: "not-found" });
+  });
+
+  it("still refuses a period that is not a month", async () => {
+    const { id } = await openWish({ volumeId: await aVolume(), period: "2026-09" });
+
+    await expect(amendWish(id, { period: "settembre" })).rejects.toMatchObject({
+      code: "invalid",
+    });
   });
 });
 
@@ -184,7 +315,7 @@ describe("a Wish ends only by a deliberate act", () => {
   it("stays open while the Volume it names is in the Collection", async () => {
     const volumeId = await aVolume();
 
-    await openWish({ volumeId, priority: 1 });
+    await openWish({ volumeId, period: "2026-09" });
 
     // The Volume is owned — `acquireVolume` is what put it there — and the Wish is still
     // on the shopping list, saying so.
@@ -193,7 +324,7 @@ describe("a Wish ends only by a deliberate act", () => {
 
   it("stays open when the Volume leaves the house", async () => {
     const volumeId = await aVolume();
-    await openWish({ volumeId, priority: 2 });
+    await openWish({ volumeId, period: "2026-09" });
 
     await releaseVolume(volumeId);
 
@@ -201,7 +332,7 @@ describe("a Wish ends only by a deliberate act", () => {
   });
 
   it("ends when the owner closes it, and then it is off the list", async () => {
-    const { id } = await openWish({ volumeId: await aVolume(), priority: 1 });
+    const { id } = await openWish({ volumeId: await aVolume(), period: "2026-09" });
 
     await closeWish(id);
 
@@ -209,7 +340,7 @@ describe("a Wish ends only by a deliberate act", () => {
   });
 
   it("refuses to be closed twice, rather than passing silently", async () => {
-    const { id } = await openWish({ volumeId: await aVolume(), priority: 1 });
+    const { id } = await openWish({ volumeId: await aVolume(), period: "2026-09" });
     await closeWish(id);
 
     await expect(closeWish(id)).rejects.toMatchObject({
@@ -247,10 +378,10 @@ describe("a Wish ends only by a deliberate act", () => {
 
   it("can be wished again once it ended, because the copy sold before the owner got there", async () => {
     const volumeId = await aVolume();
-    const { id } = await openWish({ volumeId, priority: 1, shop: "Star Shop" });
+    const { id } = await openWish({ volumeId, period: "2026-09", shop: "Star Shop" });
     await closeWish(id);
 
-    await openWish({ volumeId, priority: 1, shop: "Amazon" });
+    await openWish({ volumeId, period: "2026-09", shop: "Amazon" });
 
     expect(await listOpenWishes()).toMatchObject([{ shop: "Amazon" }]);
   });
@@ -278,12 +409,14 @@ describe("there is no Acquistato state", () => {
     expect(columns.map((column) => column.column_name)).toEqual([
       "id",
       "volume_id",
-      "priority",
       "target_price",
       "price_found",
       "shop",
       "opened_on",
       "closed_on",
+      // Last, because it arrived last: the priority it replaced was dropped rather than
+      // renamed, so that nothing anywhere could answer *how soon* two ways (ADR-0023).
+      "period",
     ]);
 
     const stateish = columns.filter((column) =>
@@ -295,7 +428,6 @@ describe("there is no Acquistato state", () => {
     // written down. Days, numbers, ids and prose: nothing here can hold a vocabulary.
     expect([...new Set(columns.map((column) => column.data_type))].sort()).toEqual([
       "date",
-      "integer",
       "numeric",
       "text",
       "uuid",

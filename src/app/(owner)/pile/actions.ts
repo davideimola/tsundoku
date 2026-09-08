@@ -137,9 +137,10 @@ export async function unpin(form: FormData): Promise<void> {
  * Open the Wish the entry proposed — **the owner's act, not the list's**.
  *
  * The entry carried a `proposedWish` and the row rendered it; this is the submit. So the
- * Volume and the priority arrive from the form rather than being read back out of the
- * list: what the owner saw is what is opened, and the picker is where they change the
- * priority the proposal suggested.
+ * Volume and the month arrive from the form rather than being read back out of the list: what
+ * the owner saw is what is opened. **The proposal names no month** (ADR-0023) — the list knows
+ * which object, never when the owner means to pay for it — so the picker beside the press is
+ * the whole of where a period comes from here.
  */
 export async function wishFor(form: FormData): Promise<void> {
   await requireOwner();
@@ -148,10 +149,9 @@ export async function wishFor(form: FormData): Promise<void> {
     () =>
       openWish({
         volumeId: text(form, "volumeId") ?? "",
-        // The picker offers three values, so anything else is not a priority the owner
-        // chose; `NaN` is not an integer and the verb refuses it with the picker's own
-        // labels.
-        priority: Number(text(form, "priority")),
+        // A month, or nothing at all where the owner picked *Someday* — which is an answer
+        // and not an empty field, so it is not a refusal.
+        period: text(form, "period"),
       }),
     where(form),
     new URLSearchParams({ wished: text(form, "title") ?? "" })

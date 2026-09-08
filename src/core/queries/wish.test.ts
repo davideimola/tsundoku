@@ -59,7 +59,7 @@ describe("the Volumes a Wish can name", () => {
       binding: "tankobon",
       language: "it",
     });
-    await openWish({ volumeId: id, priority: 1 });
+    await openWish({ volumeId: id, period: "2026-09" });
 
     expect(await listVolumesToWishFor()).toMatchObject([
       { title: "Blame! 1", inCollection: false },
@@ -89,13 +89,13 @@ describe("the shopping list", () => {
     expect(await listOpenWishes()).toEqual([]);
   });
 
-  it("puts the oldest intention first within one priority", async () => {
+  it("puts the oldest intention first within one month", async () => {
     const waiting = await aVolume("Vagabond 1");
     const fresh = await aVolume("Vagabond 2");
 
-    await openWish({ volumeId: waiting, priority: 2 });
+    await openWish({ volumeId: waiting, period: "2026-09" });
     await query("update wish set opened_on = current_date - 200");
-    await openWish({ volumeId: fresh, priority: 2 });
+    await openWish({ volumeId: fresh, period: "2026-09" });
 
     expect((await listOpenWishes()).map((wish) => wish.volume.title)).toEqual([
       "Vagabond 1",
@@ -124,7 +124,7 @@ describe("the object a Wish is read by", () => {
     });
     await placeVolumeInSeries({ volumeId, seriesId, number: 12 });
     await releaseVolume(volumeId);
-    await openWish({ volumeId, priority: 1 });
+    await openWish({ volumeId, period: "2026-09" });
 
     return { volumeId, seriesId };
   }
@@ -163,7 +163,7 @@ describe("the object a Wish is read by", () => {
       binding: "omnibus",
       language: "it",
     });
-    await openWish({ volumeId: id, priority: 3 });
+    await openWish({ volumeId: id });
 
     const [wish] = await listOpenWishes();
 

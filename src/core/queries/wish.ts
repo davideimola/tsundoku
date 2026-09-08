@@ -22,8 +22,16 @@ import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
  */
 export type OpenWish = {
   id: string;
-  /** 1 next, 2 soon, 3 someday. What the list is ordered by. */
-  priority: number;
+  /**
+   * The month the owner means to buy it in, `2026-09` — **what the list is banded and ordered
+   * by** — or `null`, which is *someday*: the absence of a plan rather than a third word for
+   * one (ADR-0023).
+   *
+   * A month that has gone by is an ordinary period and never a state: a Wish planned into
+   * August and not bought in August is still here in September, standing in its own band.
+   * Nothing in this answer says late, because nothing in the model does.
+   */
+  period: string | null;
   targetPrice: string | null;
   priceFound: string | null;
   /**
@@ -81,14 +89,17 @@ export type OpenWish = {
 /**
  * The shopping list: every open Wish, in the order the owner buys in.
  *
- * Priority first, and within one priority the oldest intention first — a Wish that has
- * been waiting is a Wish the owner keeps meaning to act on. This is the query the MCP door
- * exposes for reading what the owner means to buy.
+ * **The earliest month first, and *someday* last** — a plan with no month is the one thing
+ * that is never next — and within one month the oldest intention first, because a Wish that
+ * has been waiting is a Wish the owner keeps meaning to act on. A month already gone by sorts
+ * where it always did, at the head, which is the whole of how an unbought plan stays visible.
+ *
+ * This is the query the MCP door exposes for reading what the owner means to buy.
  */
 export async function listOpenWishes(): Promise<OpenWish[]> {
   return query<OpenWish>(
     `select w.id,
-            w.priority,
+            to_char(w.period, 'YYYY-MM') as period,
             w.target_price::text as "targetPrice",
             w.price_found::text  as "priceFound",
             case
@@ -114,7 +125,7 @@ export async function listOpenWishes(): Promise<OpenWish[]> {
        join volume v on v.id = w.volume_id
        join binding b on b.id = v.binding_id
       where w.closed_on is null
-      order by w.priority, w.opened_on, lower(v.title), w.id`
+      order by w.period asc nulls last, w.opened_on, lower(v.title), w.id`
   );
 }
 

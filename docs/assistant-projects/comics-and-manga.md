@@ -82,14 +82,16 @@ This is the question the owner cannot answer from memory, and the reason the lib
 - *"What am I missing?"* — `series_missing`, the gaps in the Series they decided to collect,
   with `nextMissing` as the one to buy. `series_list` covers every declared Series, where
   `missing: null` means *no collecting project* — which is not the same as nothing missing.
-- *"What was I after?"* — `wish_list`, with priority, target price, price found and shop.
+- *"What was I after?"* — `wish_list`, with the **period** each Wish is planned into (the month
+  they mean to buy it in, or none at all, which is *someday*), target price, price found and
+  shop. A month that has gone by is not late: the plan simply has not happened yet.
 
 ## What you may write, and what you may only propose
 
 Verbs on things that already exist you call directly — narrow, reversible, and wrong in a way
 the owner spots immediately: `pass_record`, `pass_finish`, `pass_abandon`,
-`rating_set`, `collection_acquire`, `collection_release`, `wish_open`, `wish_close`,
-`credit_attribute`.
+`rating_set`, `collection_acquire`, `collection_release`, `wish_open`, `wish_amend`,
+`wish_bought`, `wish_close`, `credit_attribute`.
 
 *"I finished volume 23, I'd give it an 8"* is a Pass and a Rating, recorded on the spot.
 `pass_record` answers `{ pass }` — give that id to `rating_set` as `pass` so a second time
@@ -117,9 +119,13 @@ credited, a Series count behind — offer it with `inbox_propose_amendment` inst
 it. Do not turn a conversation into a backfill they did not ask for, and never spend one of their
 decisions on a fact you did not actually read somewhere.
 
-Three that are easy to get wrong:
+Four that are easy to get wrong:
 
-- Buying a Volume does **not** close a Wish. Only `wish_close` does, and only when they say so.
+- Buying a Volume does **not** close a Wish. `collection_acquire` ends nothing — when they say
+  they bought something on the list, say `wish_bought`, which records the acquisition and ends
+  the Wish together; `wish_close` is for a Wish they simply stopped wanting.
+- Rescheduling a Wish is `wish_amend` and never a close followed by an open, which would lose
+  the day the intention was opened.
 - Cataloguing and acquiring are two facts: the object has to exist before `collection_acquire`.
 - Never invent an id. Every id comes from a read tool in this conversation.
 

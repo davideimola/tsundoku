@@ -615,7 +615,7 @@ describe("an entry that needs a Volume the owner does not own", () => {
 
     const [entry] = await reserve();
 
-    expect(entry.proposedWish).toEqual({ volumeId, priority: 2 });
+    expect(entry.proposedWish).toEqual({ volumeId });
   });
 
   it("proposes it and does not open it: reading the whole list leaves no Wish behind", async () => {
@@ -632,7 +632,7 @@ describe("an entry that needs a Volume the owner does not own", () => {
   it("stops proposing once the owner has opened the Wish themselves", async () => {
     const { volumeId } = await toBuy();
 
-    await openWish({ volumeId, priority: 1 });
+    await openWish({ volumeId, period: "2026-09" });
 
     const [entry] = await reserve();
     expect(entry.wishAlreadyOpen).toBe(true);
@@ -729,7 +729,7 @@ describe("what the Series being collected contribute", () => {
 
     expect(entry.reasons[0].series?.position).toBe(2);
     expect(entry.object?.title).toBe("Death Note Black Edition II");
-    expect(entry.proposedWish).toEqual({ volumeId: second, priority: 2 });
+    expect(entry.proposedWish).toEqual({ volumeId: second });
   });
 
   it("says nothing about a Series the owner never decided to collect", async () => {

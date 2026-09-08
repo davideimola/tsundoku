@@ -183,8 +183,12 @@ export type TheObjectInHand = TheObjectItself & {
  * the question.
  */
 export type TheObjectToBuy = TheObjectItself & {
-  /** 1 next, 2 soon, 3 someday — the shopping list's own three, and the picker's. */
-  priority: number;
+  /**
+   * The month the owner means to buy it in, `2026-09`, or nothing at all — which is *someday*
+   * (ADR-0023). It is the shopping list's own band, and the picker on this screen offers the
+   * same months.
+   */
+  period?: string | null;
   /** What it should cost, as the owner typed it: `15,00`. */
   targetPrice?: string | null;
   /** What it costs where they found it: `12,90`. */
@@ -306,7 +310,7 @@ export async function sayWhatHappened(happened: WhatHappened): Promise<WhatWasRe
         await openWish(
           {
             volumeId: catalogued.id,
-            priority: happened.object.priority,
+            period: happened.object.period,
             targetPrice: happened.object.targetPrice,
             priceFound: happened.object.priceFound,
             shop: happened.object.shop,

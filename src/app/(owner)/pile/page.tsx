@@ -10,7 +10,7 @@ import { tint } from "@/lib/tint";
 // The three steps a shopping list is read in, from the screen that bands by them: this
 // picker offered its own copy of the three words, which is a second answer waiting to
 // happen (#31).
-import { PRIORITIES } from "../wishes/shopping";
+import { theMonthOf, thePeriodsOnOffer } from "../wishes/shopping";
 import { pin, unpin, unwant, wishFor } from "./actions";
 import {
   type PileAddress,
@@ -352,6 +352,11 @@ function Entry({
   behind?: WhatStandsBehind[];
 }) {
   const want = theWantOn(entry);
+  // The month the row is being read in, which is what the picker beside *Want it* offers. It
+  // is read here rather than handed down because it is the only thing on this screen that
+  // needs it, and a value read once when the module loaded would be last month's answer in a
+  // process that has been up since last month.
+  const today = new Date();
 
   return (
     <li className="border-t border-border py-4">
@@ -481,25 +486,28 @@ function Entry({
             ) : null}
 
             {/* **The proposal, as a form.** The entry proposed it; this submit is what opens
-                it. Nothing was written by rendering the row, and the priority the proposal
-                suggested is the picker's default rather than its decision. */}
+                it. Nothing was written by rendering the row, and **the proposal says which
+                object and never which month**: what this list knows is that the owner needs
+                this one to carry on, and when they mean to pay for it is a plan it has never
+                had (ADR-0023). So the picker defaults to the month the owner is standing in,
+                and that default is the screen's rather than the answer's. */}
             {entry.proposedWish ? (
               <form action={wishFor} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="volumeId" value={entry.proposedWish.volumeId} />
                 <input type="hidden" name="title" value={entryTitle(entry)} />
                 <WhereItWasPressed at={at} />
-                <label className="sr-only" htmlFor={`priority-${theKeyOf(entry.subject)}`}>
-                  How soon
+                <label className="sr-only" htmlFor={`period-${theKeyOf(entry.subject)}`}>
+                  Which month
                 </label>
                 <select
-                  id={`priority-${theKeyOf(entry.subject)}`}
-                  name="priority"
-                  defaultValue={entry.proposedWish.priority}
+                  id={`period-${theKeyOf(entry.subject)}`}
+                  name="period"
+                  defaultValue={theMonthOf(today)}
                   className={PICKER}
                 >
-                  {PRIORITIES.map((priority) => (
-                    <option key={priority.value} value={priority.value}>
-                      {priority.name}
+                  {thePeriodsOnOffer(today).map((period) => (
+                    <option key={period.value} value={period.value}>
+                      {period.name}
                     </option>
                   ))}
                 </select>
