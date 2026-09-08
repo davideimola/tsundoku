@@ -393,11 +393,16 @@ already applied, is a migration that **will never run anywhere**, and nothing sa
 `pnpm db:migrate` reports success, a fresh database is built correctly from an empty table,
 and the only surface that finds out is production, where the column is missing and the page is
 a 500. It happened — entries 12 to 18 carry timestamps hand-written a day apart into the
-future, and 0019, 0020 and 0021 arrived from the real clock behind them, so two deploys
-shipped code for a schema the database was never going to be given.
+future, and 0020 and 0021 arrived from the real clock behind them, so a deploy shipped code
+for a schema the database was never going to be given.
 [`db/migrations/journal.test.ts`](db/migrations/journal.test.ts) is the wall now: the journal
-has to climb. Where one has to be moved anyway, move it **past the largest `when` already
-applied**, never below it.
+has to climb, and it names the one entry that is allowed to sit below the mark.
+
+**And a `when` that a database has already recorded is not yours to raise either.** Raising it
+does not make the file run where it was skipped; it makes it run **again** wherever it landed,
+failing on the first `add column` and taking everything behind it down with it — which is how
+0019 answered when it was tried. So: past the largest `when` already applied, or left exactly
+where the databases recorded it. Never between.
 
 Then finish it by hand, because **three things Drizzle does not write are the schema's**:
 
