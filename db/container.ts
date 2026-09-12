@@ -143,12 +143,27 @@ function portConflict(cause: unknown, where: Connection): Error | undefined {
   );
 }
 
+/**
+ * Wait until Postgres accepts a connection **over TCP**, which is not the same question as
+ * whether it is running.
+ *
+ * The official image's entrypoint starts a server of its own first, on the unix socket
+ * only, to run initdb and the `POSTGRES_*` setup against — and then shuts it down and
+ * starts the real one. A `pg_isready` with no host asks the socket, so it answers *ready*
+ * during that window, and what comes next is a connection from the host that is accepted
+ * and then dropped mid-handshake: `Connection terminated unexpectedly`, on a container that
+ * is healthy by the time you go and look at it.
+ *
+ * `-h 127.0.0.1` is the whole fix: it asks over TCP, which the temporary server is not
+ * listening on. Rare on a laptop, where the image is already pulled and the first thing
+ * after this is a human; every time on a cold CI runner, which is where it was found.
+ */
 async function waitUntilReady(name: string, where: Connection): Promise<void> {
   const deadline = Date.now() + 60_000;
   let last = "";
   while (Date.now() < deadline) {
     try {
-      await run("docker", ["exec", name, "pg_isready", "-U", where.user, "-q"]);
+      await run("docker", ["exec", name, "pg_isready", "-h", "127.0.0.1", "-U", where.user, "-q"]);
       return;
     } catch (cause) {
       last = messageOf(cause);
