@@ -51,9 +51,11 @@ import { listOpenWishes } from "./wish.ts";
 //
 //   1. **the passes the showcase shows.** A screen reads the passes of *one* Story
 //      (`findStory`); nothing reads the passes of the library, which is exactly what *what
-//      is being read right now* and *what was finished last* are. It spends `story.ts`'s
+//      is being read right now* and *what was judged last* are. It spends `story.ts`'s
 //      own exported fragments for the line and the jacket, so a tile out here cannot come
-//      to wear a different picture from the same tile on the owner's wall.
+//      to wear a different picture from the same tile on the owner's wall. What counts as a
+//      judgement is `A_VERDICT_WAS_PASSED`, and it is this file's own sentence too: a score,
+//      or having given up.
 //   2. **the order the library came in.** The Pile's spines are answered by title, because
 //      that is the order the owner reads a wall in; *recently added* is the order a page
 //      that changes between visits needs, and it is one column nothing else asks for.
@@ -167,12 +169,22 @@ export type ShowcasePass = {
 export type ShowcaseRating = { score: number } | null;
 
 /**
- * A pass that concluded, and **an abandoned one is shown rather than filtered**.
+ * A pass that concluded **and said something about what it went through**: a verdict.
  *
- * A library that published only its finishes would be a shelf of somebody else's taste. What
- * was given up on, and at which part, is the most honest row on the page, so `outcome` is
- * carried out loud. The prose of a Rating is deliberately not here: a score is a judgement
- * about a work and the prose is the owner writing to themselves.
+ * A verdict is a pass carrying a Rating, **or** one that was given up on. The second half is
+ * the half that has to be written down: giving up is a judgement and it is the sharpest one
+ * this library records, so an abandonment travels for want of a score rather than being
+ * dropped for it. A pass that merely stopped, scored by nobody and abandoned by nobody, said
+ * nothing and is not here. That is the whole of the rule, and it is applied in the statement
+ * below rather than by whoever is rendering: *every concluded pass* is sixty-three rows on the
+ * owner's own library and a number that only ever grows, and a page handed all of them would
+ * be a log rather than a shelf.
+ *
+ * **An abandoned one is shown rather than filtered**, which is the other side of the same
+ * decision: a library that published only its finishes would be a shelf of somebody else's
+ * taste. What was given up on, and at which part, is the most honest row on the page, so
+ * `outcome` is carried out loud. The prose of a Rating is deliberately not here: a score is a
+ * judgement about a work and the prose is the owner writing to themselves.
  */
 export type ShowcaseFinishedPass = ShowcasePass & {
   endedAt: string | null;
@@ -223,8 +235,20 @@ export type Showcase = {
   generatedAt: string;
   /** Open passes: started, never concluded. What is in the owner's hands right now. */
   now: ShowcasePass[];
-  /** Concluded passes, most recently ended first. Finished and given up, together. */
-  finished: ShowcaseFinishedPass[];
+  finished: {
+    /**
+     * **The real number of verdicts**, over the Types asked for, and not the length of
+     * `recent`. The figure beside the sample for the reason `pile.count` is beside its own: a
+     * page reading the sample's length would print *12 verdicts* about a reader who has passed
+     * forty.
+     */
+    count: number;
+    /**
+     * **A sample and not every verdict**: the most recently concluded of them, newest first,
+     * capped at `THE_VERDICTS_SHOWN`. Finished and given up, together.
+     */
+    recent: ShowcaseFinishedPass[];
+  };
   pile: {
     /** **The real count**, over the Types asked for, and not the length of `recent`. */
     count: number;
@@ -283,6 +307,16 @@ export type ShowcaseAnswer =
   | { ok: true; showcase: Showcase }
   | { ok: false; unknown: readonly string[] };
 
+/**
+ * How many verdicts the document carries. `finished.count` beside them is the figure.
+ *
+ * Twelve rather than everything, because *what was concluded* is the one block with no ceiling
+ * in it: the shelf and the pile are as large as a house allows, and a reading history only
+ * ever grows. A dozen is what a page shows as *lately*, and anything older than that is a log
+ * the owner keeps for themselves.
+ */
+export const THE_VERDICTS_SHOWN = 12;
+
 /** How many of the Pile's spines the document carries. `pile.count` beside them is the figure. */
 export const THE_PILE_SHOWN = 12;
 
@@ -326,10 +360,11 @@ export async function theShowcase(narrowing: ShowcaseNarrowing = {}): Promise<Sh
   const narrowedTo = asked === null ? null : types.map((kind) => kind.id);
   const named = new Map(types.map((kind) => [kind.id, asShowcaseType(kind)]));
 
-  const [media, open, concluded, spines, cameIn, shelf, wish] = await Promise.all([
+  const [media, open, verdicts, howManyVerdicts, spines, cameIn, shelf, wish] = await Promise.all([
     listMedia(),
     passesOpen(narrowedTo),
-    passesConcluded(narrowedTo),
+    theVerdicts(narrowedTo),
+    howManyVerdictsThereAre(narrowedTo),
     Promise.all(types.map((kind) => theUnopened(kind.id))),
     theOrderTheLibraryCameIn(),
     theShelf(named, asked !== null),
@@ -349,7 +384,10 @@ export async function theShowcase(narrowing: ShowcaseNarrowing = {}): Promise<Sh
     showcase: {
       generatedAt: new Date().toISOString(),
       now: open.map((row) => asPass(row, named, spoken)),
-      finished: concluded.map((row) => asFinishedPass(row, named, spoken)),
+      finished: {
+        count: howManyVerdicts,
+        recent: verdicts.map((row) => asFinishedPass(row, named, spoken)),
+      },
       pile: {
         count: pile.length,
         byType: byHowMany(
@@ -443,21 +481,57 @@ async function passesOpen(types: readonly string[] | null): Promise<PassRow[]> {
   );
 }
 
+// **What makes a concluded pass a verdict**, written once and spent by both statements below,
+// so the sample and the figure beside it can never come to mean two different things.
+//
+// A score, or having given up. The second half is not a concession to rows with missing data:
+// an abandonment *is* the judgement, and the page this feeds leans on exactly that, so it
+// cannot be dropped for want of a number. What falls out is the pass that ended with nothing
+// said about it, which is most of a library typed in from a shelf.
+const A_VERDICT_WAS_PASSED = `r.outcome is not null
+        and (r.outcome = 'abandoned'
+             or exists (select 1 from rating g where g.pass_id = r.id))`;
+
 /**
- * The passes that concluded, most recently ended first.
+ * The verdicts, most recently concluded first, and **a sample**.
  *
- * Uncapped, because the whole of what was read is what a shelf page is for and the answer is
- * one document (see `Showcase`). One that has no day recorded comes after the ones that do,
- * so an import full of dateless acts cannot crowd out the history that has dates.
+ * Capped here rather than by the consumer, under the rule the rest of `src/core` is written
+ * by: the block is the most recent dozen, so the statement asks for a dozen instead of reading
+ * a history that only grows and throwing most of it away. `howManyVerdictsThereAre` beside it
+ * is what makes the sample honest.
+ *
+ * One that has no day recorded comes after the ones that do, so an import full of dateless
+ * acts cannot crowd out the history that has dates.
  */
-async function passesConcluded(types: readonly string[] | null): Promise<PassRow[]> {
+async function theVerdicts(types: readonly string[] | null): Promise<PassRow[]> {
   return query<PassRow>(
     `select ${THE_PASS_AS_THE_SHOWCASE_SHOWS_IT}
-      where r.outcome is not null
+      where ${A_VERDICT_WAS_PASSED}
         and ${OF_THE_TYPES_ASKED}
-      order by r.ended_on desc nulls last, r.created_at desc`,
+      order by r.ended_on desc nulls last, r.created_at desc
+      limit ${THE_VERDICTS_SHOWN}`,
     [types]
   );
+}
+
+/**
+ * How many verdicts there are, which the sample cannot say once it is capped.
+ *
+ * A statement of its own rather than a window function over the one above, for what it costs
+ * to read: a count over the pass table is cheap where a second copy of the composed row is
+ * not, and the two travel in the same `Promise.all` so it is not a second round trip in wall
+ * time either.
+ */
+async function howManyVerdictsThereAre(types: readonly string[] | null): Promise<number> {
+  const [counted] = await query<{ verdicts: number }>(
+    `select count(*)::int as verdicts
+       from pass r
+       join story s on s.id = r.story_id
+      where ${A_VERDICT_WAS_PASSED}
+        and ${OF_THE_TYPES_ASKED}`,
+    [types]
+  );
+  return counted?.verdicts ?? 0;
 }
 
 /**

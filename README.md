@@ -391,8 +391,8 @@ Authorization: Bearer $API_BEARER_TOKEN
 
 One document, because the consumer is one public page rebuilt on a schedule and five round
 trips to a home cluster are five chances to be half down: what is being read or played right
-now, what concluded and what the owner thought of it, how tall the pile is, and a sample of
-the shelf. `?types=manga,videogame` narrows every block by Type slug, and an unknown slug is a
+now, what the owner passed a verdict on lately, how tall the pile is, and a sample of the
+shelf. `?types=manga,videogame` narrows every block by Type slug, and an unknown slug is a
 400 rather than a quietly empty document. It answers an `ETag` and honours `If-None-Match`,
 and it is `Cache-Control: private, max-age=300`, because this is one person's library behind
 one token and no shared cache may hand it to the next request that arrives without one.
@@ -412,9 +412,14 @@ owner's own address are absent by construction rather than by filtering. Nothing
 document identifies the owner.
 
 Adding a field to that file is the whole act of publishing it, which is why the file's own
-tests assert the forbidden list by name. `shelf.volumes` and `pile.recent` are **samples**,
-capped and ordered by what arrived most recently, with the real figure beside them, and there
-is deliberately no cursor.
+tests assert the forbidden list by name. `shelf.volumes`, `pile.recent` and `finished.recent`
+are **samples**, capped and ordered by what happened most recently, with the real figure beside
+them in `shelf.total`, `pile.count` and `finished.count`, and there is deliberately no cursor.
+
+`finished` is **the verdicts and not the log**: a concluded pass reaches it when it carries a
+score, or when it was given up on. Giving up is a judgement and it travels for want of a
+number rather than being dropped for it; a pass that simply ended with nothing said about it
+is the owner's own record and stays behind the door.
 
 ### A new resource under it is two things
 

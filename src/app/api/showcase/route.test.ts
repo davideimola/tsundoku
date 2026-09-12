@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { query } from "@/core/db";
+import { finishPass, recordPass } from "@/core/verbs/pass";
+import { setRating } from "@/core/verbs/rating";
 import { createStory } from "@/core/verbs/story";
 import { PER_CLIENT } from "@/lib/mcp/rate-limit";
 
@@ -160,6 +162,34 @@ describe("what the door answers with", () => {
     await createStory({ title: "Vagabond", typeId: "manga" });
 
     expect((await GET(get(`Bearer ${TOKEN}`))).headers.get("etag")).not.toBe(before);
+  });
+
+  // **The block the door sends is the verdicts and a figure**, the shape `pile` and `shelf`
+  // already have. A page reading the sample's length as the history would print *12 verdicts*
+  // about a reader who has passed forty, which is the mistake `count` exists to stop.
+  it("sends what concluded as a capped sample with the real number beside it", async () => {
+    const judged = await createStory({ title: "Berserk", typeId: "manga" });
+    const passId = await recordPass({
+      storyId: judged,
+      medium: "paper",
+      provenanceId: "remembered",
+    });
+    await finishPass(passId, "2026-01-01");
+    await setRating({ storyId: judged, passId, score: 9, provenanceId: "remembered" });
+
+    // A pass that ended with nothing said about it is not a verdict, and the door does not
+    // send it: the rule is the query's, and this is the door standing by the same answer.
+    const silent = await createStory({ title: "Vagabond", typeId: "manga" });
+    await finishPass(
+      await recordPass({ storyId: silent, medium: "paper", provenanceId: "remembered" }),
+      "2026-02-02"
+    );
+
+    const document = await (await GET(get(`Bearer ${TOKEN}`))).json();
+
+    expect(document.finished.count).toBe(1);
+    expect(document.finished.recent).toHaveLength(1);
+    expect(document.finished.recent[0]).toMatchObject({ title: "Berserk", rating: { score: 9 } });
   });
 
   it("narrows by Type", async () => {

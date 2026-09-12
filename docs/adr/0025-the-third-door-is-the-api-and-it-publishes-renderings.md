@@ -61,10 +61,29 @@ Two things follow from *Renderings, not records*, and both are in the document's
 verbs, so a consumer heads one block *Reading* and the next *Playing* without keeping a table
 of slugs it would have to maintain (ADR-0021), and a Medium arrives as a pair for the same
 reason, because no rule over `playstation-5` produces *PlayStation 5*. And **the lists are
-samples**: `shelf.volumes` and `pile.recent` are capped, ordered by what arrived most
-recently, with the real figure beside them in `shelf.total` and `pile.count` so a page can say
-*showing 60 of 412*. There is deliberately no cursor: a door that let somebody walk the whole
-library sixty rows at a time would publish what the caps exist to keep to a sample.
+samples**: `shelf.volumes`, `pile.recent` and `finished.recent` are capped, ordered by what
+happened most recently, with the real figure beside them in `shelf.total`, `pile.count` and
+`finished.count` so a page can say *showing 60 of 412*. There is deliberately no cursor: a door
+that let somebody walk the whole library sixty rows at a time would publish what the caps exist
+to keep to a sample.
+
+## What concluded is the verdicts, and not the log
+
+`finished` is **the passes that said something about what they went through**: a pass carrying
+a Rating, or one that was given up on. The second half is the half that had to be written down,
+because giving up is a judgement and it is the sharpest one this library records: an
+abandonment travels for want of a score rather than being dropped for it, and the page this
+feeds leans on exactly that. What falls out is the pass that simply ended with nothing said
+about it, which is most of a library typed in from a shelf.
+
+The rule is in `theShowcase` rather than in the consumer, for the reason everything else about
+this document is: *every concluded pass* was sixty-three rows on the owner's own library and a
+number that only ever grows, so a page handed all of them would be a log of titles once held
+rather than a page about what the owner thought of them. The block is therefore the shape the
+other two samples already have, `count` beside `recent`, and not a bare array: a page that read
+the sample's length as the history would print *12 verdicts* about a reader who has passed
+forty. Reshaping it is a breaking change by the rule at the foot of this document, and it costs
+one coordinated deploy of the page that reads it.
 
 ## The gate is the owner gate's shape, and `/api` is not excluded as a prefix
 

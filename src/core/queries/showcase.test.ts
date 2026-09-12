@@ -9,15 +9,17 @@ import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory, declareInstalments } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import { openWish } from "../verbs/wish.ts";
-import { type Showcase, THE_SHELF_SHOWN, theShowcase } from "./showcase.ts";
+import { type Showcase, THE_SHELF_SHOWN, THE_VERDICTS_SHOWN, theShowcase } from "./showcase.ts";
 
 // Seam 1, and it is about a **Rendering** rather than about a derivation: every fact here
 // already has a query behind it, and what this file asserts is which of them may be seen from
 // outside, in what words, and what is missing by construction (ADR-0025).
 //
 // The document's own rules, in the order they are asserted: the vocabulary travels with every
-// row; an abandoned pass is shown and not filtered; an unknown Type refuses rather than
-// emptying the document; and nothing about money, provenance or plans is anywhere in it.
+// row; what concluded is published only where a verdict was passed on it, and an abandoned
+// pass is a verdict with no number on it rather than a row to filter; an unknown Type refuses
+// rather than emptying the document; and nothing about money, provenance or plans is anywhere
+// in it.
 
 beforeEach(async () => {
   await query("truncate path, series, story, volume cascade");
@@ -49,6 +51,18 @@ async function slamDunk(): Promise<{ storyId: string; volumeId: string }> {
   await recordVolumeCarriesStory(volumeId, storyId);
 
   return { storyId, volumeId };
+}
+
+/**
+ * A pass through a work that was finished **and scored**, which is the ordinary verdict.
+ *
+ * Written once because most of these cases are about something else (the order, the cap, the
+ * figure beside the sample) and each of them needs a row that qualifies.
+ */
+async function judged(storyId: string, endedOn: string, score = 8): Promise<void> {
+  const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+  await finishPass(passId, endedOn);
+  await setRating({ storyId, passId, score, provenanceId: "remembered" });
 }
 
 describe("what the showcase publishes", () => {
@@ -95,9 +109,9 @@ describe("what the showcase publishes", () => {
     });
   });
 
-  // **The most interesting row on the page.** A library that published only its finishes
-  // would be a shelf of somebody else's taste, so a pass given up is shown, marked, and at
-  // the part it reached.
+  // **The most interesting row on the page**, and the reason an abandonment is a verdict
+  // with no number on it. A library that published only its finishes would be a shelf of
+  // somebody else's taste, so a pass given up is shown, marked, and at the part it reached.
   it("shows a pass that was given up, and says so", async () => {
     const { storyId } = await slamDunk();
     const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
@@ -106,8 +120,8 @@ describe("what the showcase publishes", () => {
 
     const { finished } = await showcase();
 
-    expect(finished).toHaveLength(1);
-    expect(finished[0]).toMatchObject({
+    expect(finished.recent).toHaveLength(1);
+    expect(finished.recent[0]).toMatchObject({
       title: "Slam Dunk",
       outcome: "given-up",
       endedAt: "2026-02-02",
@@ -115,20 +129,14 @@ describe("what the showcase publishes", () => {
     });
   });
 
-  it("orders what concluded by the day it ended, most recent first", async () => {
+  it("orders the verdicts by the day they ended, most recent first", async () => {
     const older = await createStory({ title: "Vagabond", typeId: "manga" });
     const newer = await createStory({ title: "Lone Wolf and Cub", typeId: "manga" });
 
-    await finishPass(
-      await recordPass({ storyId: older, medium: "paper", provenanceId: "remembered" }),
-      "2024-05-05"
-    );
-    await finishPass(
-      await recordPass({ storyId: newer, medium: "paper", provenanceId: "remembered" }),
-      "2026-05-05"
-    );
+    await judged(older, "2024-05-05");
+    await judged(newer, "2026-05-05");
 
-    expect((await showcase()).finished.map((pass) => pass.title)).toEqual([
+    expect((await showcase()).finished.recent.map((pass) => pass.title)).toEqual([
       "Lone Wolf and Cub",
       "Vagabond",
     ]);
@@ -154,7 +162,44 @@ describe("what the showcase publishes", () => {
     // **The score and nothing else.** The prose is the owner writing to themselves, and the
     // grain is an axis about how far their own record can be trusted: neither is a question a
     // reader of a shelf page is answering.
-    expect(finished[0].rating).toEqual({ score: 9 });
+    expect(finished.recent[0].rating).toEqual({ score: 9 });
+  });
+
+  // **The block is the verdicts and not the log.** A pass that ended with nothing said about
+  // it is most of a library typed in from a shelf, and a page handed all of them would be a
+  // list of titles the owner once held rather than a page about what they thought.
+  it("leaves out a pass that finished with nothing said about it", async () => {
+    const judgedOn = await createStory({ title: "Berserk", typeId: "manga" });
+    const silent = await createStory({ title: "Vagabond", typeId: "manga" });
+
+    await judged(judgedOn, "2026-01-01");
+    await finishPass(
+      await recordPass({ storyId: silent, medium: "paper", provenanceId: "remembered" }),
+      "2026-02-02"
+    );
+
+    const { finished } = await showcase();
+
+    expect(finished.recent.map((pass) => pass.title)).toEqual(["Berserk"]);
+    // The figure is the verdicts too, and not every pass that ever ended: the sample and the
+    // number beside it answer the same question or the page prints a fraction of two things.
+    expect(finished.count).toBe(1);
+  });
+
+  // **An abandonment is a judgement with no number on it**, and the one case the rule had to
+  // be written for: dropping it for want of a score would publish only what went well.
+  it("keeps a pass that was given up with no score on it", async () => {
+    const storyId = await createStory({ title: "Vinland Saga", typeId: "manga" });
+    await abandonPass(
+      await recordPass({ storyId, medium: "paper", provenanceId: "remembered" }),
+      "2026-03-03"
+    );
+
+    const { finished } = await showcase();
+
+    expect(finished.recent).toHaveLength(1);
+    expect(finished.recent[0]).toMatchObject({ outcome: "given-up", rating: null });
+    expect(finished.count).toBe(1);
   });
 
   it("counts the unopened works and names the most recently catalogued of them", async () => {
@@ -243,6 +288,23 @@ describe("how the showcase is narrowed", () => {
 });
 
 describe("what the document is a sample of", () => {
+  // **A sample and not the whole history.** Every concluded pass is a number that only ever
+  // grows, so the block is the most recent dozen and `count` beside it is what there are.
+  it("caps the verdicts and keeps the real number beside them", async () => {
+    for (let at = 0; at < THE_VERDICTS_SHOWN + 3; at += 1) {
+      const storyId = await createStory({ title: `Storia ${at}`, typeId: "manga" });
+      await judged(storyId, `2026-01-${String(at + 1).padStart(2, "0")}`);
+    }
+
+    const { finished } = await showcase();
+
+    expect(finished.count).toBe(THE_VERDICTS_SHOWN + 3);
+    expect(finished.recent).toHaveLength(THE_VERDICTS_SHOWN);
+    // The most recent dozen, and the three oldest are the ones left out.
+    expect(finished.recent[0].title).toBe(`Storia ${THE_VERDICTS_SHOWN + 2}`);
+    expect(finished.recent.map((pass) => pass.title)).not.toContain("Storia 0");
+  });
+
   // **A sample and not the whole shelf.** The figure beside it is the real one, so a page can
   // say *showing 60 of 412* rather than quietly printing sixty and calling it a library.
   it("caps the shelf and keeps the real count beside it", async () => {
