@@ -121,7 +121,14 @@ const finish: McpTool = {
 The Pass's id comes from \`stories_find\`, which lists every Pass through a Story with its state.
 Refused on a Pass that has already ended — going through something again is a new Pass
 (\`pass_record\`), never an edit of the old one, because the judgement the old one carried belongs to
-that pass.`,
+that pass.
+
+**Finishing is reaching the end**, so it is also refused on a pass that says where it got to while
+that is short of the work's last Instalment — a run at *one of twelve* is not a finished one. Say
+\`finished\` only for what the owner actually reached the end of, because *read* is the answer
+every recommendation is built on. Where they stopped short for good, \`pass_abandon\` is the fact;
+where they mean to carry on, the pass stays open and how far it got is the owner's own to move on
+from their screen.`,
   inputSchema: {
     type: "object",
     properties: {

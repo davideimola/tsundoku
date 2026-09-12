@@ -9,6 +9,9 @@ import {
   RENAME,
   SERIALIZE,
   STRIKE,
+  STRIKE_OUTCOME,
+  STRIKE_PASS,
+  STRIKE_RATING,
   THE_WALLS_FILTERS,
 } from "./panels";
 
@@ -45,21 +48,37 @@ describe("carrying the wall's filters through the form", () => {
     expect(new Set(carried).size).toBe(carried.length);
   });
 
+  // **Every name this file exports**, the three destructive ones included. They were left out
+  // while there were two of them and that was already the wrong list: a slug shared between
+  // any two strikes is the one collision this whole file exists to make impossible, and there
+  // are three now (ADR-0024) — `strike`, `strike-pass` and `strike-outcome` are one typo from
+  // each other, and each unmakes a different record.
+  const THE_PANELS = [
+    NOTHING_ON_IT,
+    STRIKE,
+    STRIKE_PASS,
+    STRIKE_RATING,
+    STRIKE_OUTCOME,
+    SERIALIZE,
+    REACHED,
+    PUBLISHES,
+    RENAME,
+    IMAGE,
+  ];
+
   // A panel's name reaches the URL, so a space or an ampersand in it is a drawer that opens
   // on the way out of one browser and not the other.
   it("names each panel as a plain slug", () => {
-    for (const panel of [NOTHING_ON_IT, STRIKE, SERIALIZE, REACHED, PUBLISHES, RENAME, IMAGE]) {
+    for (const panel of THE_PANELS) {
       expect(panel).toMatch(/^[a-z-]+$/);
     }
   });
 
-  // A bulk delete and six forms. One name shared between any two of them would open the
+  // A bulk delete and nine forms. One name shared between any two of them would open the
   // destructive one where the owner asked for something else entirely — and the rename now
   // stands in the same strip as the strike, which is where that mistake would be cheapest to
   // make and worst to have made.
   it("gives each panel its own name", () => {
-    const panels = [NOTHING_ON_IT, STRIKE, SERIALIZE, REACHED, PUBLISHES, RENAME, IMAGE];
-
-    expect(new Set(panels).size).toBe(panels.length);
+    expect(new Set(THE_PANELS).size).toBe(THE_PANELS.length);
   });
 });

@@ -11,6 +11,7 @@ import {
   type Medium,
   recordInstalmentReached,
   recordPass,
+  strikeOutcome,
   strikePass,
 } from "@/core/verbs/pass";
 import { setRating, strikeRating } from "@/core/verbs/rating";
@@ -26,6 +27,7 @@ import {
   RENAME,
   SERIALIZE,
   STRIKE,
+  STRIKE_OUTCOME,
   STRIKE_PASS,
   STRIKE_RATING,
 } from "../panels";
@@ -443,6 +445,30 @@ export async function strikeThisPass(form: FormData): Promise<void> {
 
   await saying(storyId, () => strikePass(passId), {
     panel: STRIKE_PASS,
+    pass: passId,
+  });
+}
+
+/**
+ * **Say this pass never ended** (ADR-0024): the outcome goes, and the pass, where it got to
+ * and the judgement on it all stay.
+ *
+ * It is the door the owner's own screen had no substitute for. *Finished* cannot be taken
+ * back by finishing it differently — a Pass is never overwritten — and taking the pass off
+ * instead is refused the moment it carries a score, so a run typed in from the shelf as read
+ * could only be corrected by first unwriting what the owner thought of it.
+ *
+ * Nothing refuses it but a pass that never ended in the first place, and that sentence comes
+ * back into this panel rather than onto the page behind: it is about the row that was pressed.
+ */
+export async function strikeThisOutcome(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const storyId = text(form, "storyId") ?? "";
+  const passId = text(form, "passId") ?? "";
+
+  await saying(storyId, () => strikeOutcome(passId), {
+    panel: STRIKE_OUTCOME,
     pass: passId,
   });
 }

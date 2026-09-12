@@ -103,6 +103,31 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NO_SUCH_PASS = "That Pass is not in the library.";
 
 /**
+ * **Finishing is reaching the end** (ADR-0024), said in the three places the rule is felt.
+ *
+ * The prose is here and the *gate* is in each door's own statement, which is the one piece of
+ * duplication in this file that earns itself: the doors know the fraction at different moments
+ * — `concludePass` reads it off the row it is about to update, `recordPass` is holding values
+ * that are not in the database yet — and a shared predicate would have to be given both shapes
+ * anyway. What they must never disagree about is the **sentence**, since that is what the owner
+ * and an assistant act on, so the sentence has exactly one author.
+ */
+function shortOfTheEnd(atInstalment: number, instalments: number): Refusal {
+  return new Refusal(
+    "not-allowed",
+    `That pass is at ${atInstalment} of ${instalments}. Finishing is reaching the end, so move it on to ${instalments} — or give it up, which is what stopping short is.`
+  );
+}
+
+/** The same rule from the other side: a pass that has *already* finished cannot step back. */
+function finishedShortOfTheEnd(atInstalment: number, instalments: number): Refusal {
+  return new Refusal(
+    "not-allowed",
+    `That pass is finished, so it cannot be at ${atInstalment} of ${instalments}: finishing is reaching the end. Say it never ended first, or give it up.`
+  );
+}
+
+/**
  * Record that the owner went through — or is going through — a Story. Returns the Pass's id.
  *
  * Adds a Pass and changes nothing else. Recording a second one for the same Story
@@ -113,6 +138,31 @@ const NO_SUCH_PASS = "That Pass is not in the library.";
  * `../transaction.ts` for why a verb takes one at all).
  */
 export async function recordPass(pass: NewPass, run: Executor = query): Promise<string> {
+  // **Finishing is reaching the end on the way in too** (ADR-0024), or the rule would hold on
+  // `finishPass` and not on the one statement that can write an outcome and a fraction
+  // together — which is how the row that forced the ADR was written in the first place.
+  //
+  // Read through `run` rather than `query`, so the door's own transaction is what answers:
+  // a Story created and passed through in one breath is not yet visible outside it. A Story
+  // that comes back with nothing is left to the insert, whose foreign key says *that Story is
+  // not in the library* in prose the owner reads.
+  // A malformed Story id skips the read rather than crossing the driver as a syntax error:
+  // the insert is what refuses it, as it always was.
+  if (pass.outcome === "finished" && pass.atInstalment != null && UUID.test(pass.storyId)) {
+    const [serialized] = await run<{ instalments: number | null }>(
+      "select instalments from story where id = $1",
+      [pass.storyId]
+    );
+
+    if (
+      serialized?.instalments != null &&
+      Number.isInteger(pass.atInstalment) &&
+      pass.atInstalment < serialized.instalments
+    ) {
+      throw shortOfTheEnd(pass.atInstalment, serialized.instalments);
+    }
+  }
+
   const rows = await refusing(
     () =>
       run<{ id: string }>(
@@ -168,16 +218,48 @@ export async function recordInstalmentReached(
     throw new Refusal("invalid", NOT_AN_INSTALMENT);
   }
 
-  const changed = await refusing(
+  const rows = await refusing(
     () =>
-      query<{ id: string }>("update pass set at_instalment = $2 where id = $1 returning id", [
-        passId,
-        atInstalment,
-      ]),
+      query<{ found: string; moved: string; instalments: number | null }>(
+        `with standing as (
+           select r.outcome, s.instalments
+             from pass r
+             join story s on s.id = r.story_id
+            where r.id = $1
+         ),
+         moved as (
+           update pass
+              set at_instalment = $2
+            where id = $1
+              -- **A finished pass cannot step back short of the end** (ADR-0024), which is
+              -- this rule's third door: the two that write an outcome are held to it, and
+              -- without this one *finished, not counting* — the shape the one door records —
+              -- could be walked to *1 of 12* with one press. Abandoning short is untouched,
+              -- because that is what giving up is, and stopping the count altogether stays
+              -- open to every pass.
+              and (coalesce((select outcome from standing), '') <> 'finished'
+                   or $2::integer is null
+                   or (select instalments from standing) is null
+                   or $2::integer >= (select instalments from standing))
+           returning id
+         )
+         select (select count(*) from pass where id = $1) as found,
+                (select count(*) from moved)              as moved,
+                (select instalments from standing)        as instalments`,
+        [passId, atInstalment]
+      ),
     passProse
   );
 
-  if (changed.length === 0) throw new Refusal("not-found", NO_SUCH_PASS);
+  const [counts] = rows;
+  if (!counts) throw new Error("moving a pass on returned no row");
+  if (counts.found === "0") throw new Refusal("not-found", NO_SUCH_PASS);
+  if (counts.moved === "0") {
+    if (atInstalment === null || counts.instalments === null) {
+      throw new Error("a pass was neither moved on nor refused");
+    }
+    throw finishedShortOfTheEnd(atInstalment, counts.instalments);
+  }
 }
 
 /**
@@ -194,15 +276,40 @@ async function concludePass(
 ): Promise<void> {
   const rows = await refusing(
     () =>
-      query<{ found: string; concluded: string }>(
-        `with concluded as (
+      query<{
+        found: string;
+        concluded: string;
+        outcome: Outcome | null;
+        atInstalment: number | null;
+        instalments: number | null;
+      }>(
+        `with standing as (
+           select r.outcome, r.at_instalment, s.instalments
+             from pass r
+             join story s on s.id = r.story_id
+            where r.id = $1
+         ),
+         concluded as (
            update pass
               set outcome = $2, ended_on = coalesce($3::date, ended_on)
-            where id = $1 and outcome is null
+            where id = $1
+              and outcome is null
+              -- **Finishing is reaching the end** (ADR-0024), and the gate is inside the
+              -- statement that concludes rather than in a read before it: a pass moved on
+              -- between the two would be finished under a rule that had already answered.
+              -- Only a pass that *says* where it got to is held to it, and only finishing —
+              -- stopping short is exactly what giving up is.
+              and ($2 <> 'finished'
+                   or at_instalment is null
+                   or (select instalments from standing) is null
+                   or at_instalment >= (select instalments from standing))
            returning id
          )
          select (select count(*) from pass where id = $1) as found,
-                (select count(*) from concluded)             as concluded`,
+                (select count(*) from concluded)          as concluded,
+                (select outcome from standing)            as outcome,
+                (select at_instalment from standing)      as "atInstalment",
+                (select instalments from standing)        as instalments`,
         [passId, outcome, endedOn]
       ),
     passProse
@@ -215,17 +322,37 @@ async function concludePass(
   }
   if (counts.concluded === "0") {
     // A Pass is never overwritten, so the answer to "it ended differently" is
-    // another Pass rather than an edit of this one.
-    throw new Refusal(
-      "not-allowed",
-      "That Pass has already ended. Going through it again is a new Pass."
-    );
+    // another Pass rather than an edit of this one. It is read first because it is the truer
+    // sentence about a pass that has already ended, whichever else was also true of it.
+    if (counts.outcome !== null) {
+      throw new Refusal(
+        "not-allowed",
+        "That Pass has already ended. Going through it again is a new Pass."
+      );
+    }
+    // Then the only other gate in the statement, and the numbers come back out of it rather
+    // than being read again: the sentence has to name the fraction the statement refused on.
+    if (counts.atInstalment !== null && counts.instalments !== null) {
+      throw shortOfTheEnd(counts.atInstalment, counts.instalments);
+    }
+    throw new Error("a pass was neither concluded nor refused");
   }
 }
 
 /**
  * The owner finished it. Refused on a Pass that has already ended — that is a new
  * Pass, not a correction of this one.
+ *
+ * **And refused on a pass that says it is short of the end** (ADR-0024): `read` at *one of
+ * twelve* is the state this library spent a release telling an external reader, because the
+ * outcome was written without ever looking at the fraction standing beside it. Only a pass
+ * that *says* where it got to is held to this — a null is the owner not counting, which is
+ * the ordinary pass and the one the one door records — and the two answers are the two acts
+ * that were always there: move it on to the last Instalment, or give it up.
+ *
+ * It is the complement of the rule `recordInstalmentReached` states rather than a new one:
+ * reaching the last Instalment does not finish a pass, because finishing is a separate act —
+ * and now not reaching it does not finish one either.
  */
 export async function finishPass(passId: string, endedOn: string | null = null): Promise<void> {
   await concludePass(passId, "finished", endedOn);
@@ -311,4 +438,63 @@ export async function strikePass(passId: string): Promise<string> {
   if (!gone) throw new Refusal("not-found", NO_SUCH_PASS);
 
   return gone.storyId;
+}
+
+/**
+ * Strike a Pass's **outcome**: the library stops knowing that this pass ever ended.
+ *
+ * The pass stays, and so does everything hanging off it — its Provenance, the Volume it went
+ * through, the Instalment it reached and the judgement the owner wrote. Only *finished* or
+ * *abandoned* goes, with the day it ended beside it, because an unconcluded pass that ended on
+ * a date is a state `pass_unconcluded_has_not_ended` does not allow.
+ *
+ * **This is ADR-0018 one field in** (and ADR-0024 states it): a pass that happened is
+ * permanent and a pass that never happened is struck, and the same sentence is true of an
+ * ending. The import door could only ever say *I read it*, so every run it typed in from the
+ * shelf arrived `finished` — and a run stopped at its first Instalment read `read` to every
+ * assistant that asked.
+ *
+ * **Nothing refuses it**, which is `strikeRating`'s answer rather than `strikePass`'s four.
+ * The refusal that guards a strike of the whole pass exists because deleting a rated one would
+ * leave the judgement pointing at nothing and quietly turn *what I thought of that pass* into
+ * *what I think of the narrative*. Here the pass and the judgement both stay exactly where
+ * they were and go on meaning what they meant, so there is nothing to clear first — which is
+ * the whole reason this door exists rather than *strike it and record it again*.
+ *
+ * Returns the Story it was a pass through, off the row rather than out of the form, for
+ * `strikePass`'s reason: the screen that has to say what happened may not be told by the
+ * browser what it just did.
+ *
+ * **The owner's act and never the assistant's**, like every strike (ADR-0005, ADR-0014): the
+ * party that can record a pass through the MCP door is exactly the party that must not be able
+ * to unsay how one ended.
+ */
+export async function strikeOutcome(passId: string): Promise<string> {
+  if (!UUID.test(passId)) throw new Refusal("not-found", NO_SUCH_PASS);
+
+  // One statement, so the count of what was there and the count of what changed come back
+  // together and cannot be read from different moments — `concludePass`'s own shape, and for
+  // its reason: *no such pass* and *it never ended* are two different sentences.
+  const rows = await query<{ found: string; struck: string; storyId: string | null }>(
+    `with struck as (
+       update pass
+          set outcome = null, ended_on = null
+        where id = $1 and outcome is not null
+       returning id, story_id
+     )
+     select (select count(*) from pass where id = $1) as found,
+            (select count(*) from struck)             as struck,
+            (select story_id from struck)             as "storyId"`,
+    [passId]
+  );
+
+  const [counts] = rows;
+  if (!counts) throw new Error("striking an outcome returned no row");
+  if (counts.found === "0") throw new Refusal("not-found", NO_SUCH_PASS);
+  if (counts.struck === "0") {
+    throw new Refusal("not-allowed", "That Pass has not ended, so there is no outcome to strike.");
+  }
+  if (!counts.storyId) throw new Error("striking an outcome returned no Story");
+
+  return counts.storyId;
 }

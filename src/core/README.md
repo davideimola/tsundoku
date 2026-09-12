@@ -67,6 +67,12 @@ call it, which is the other half of the rule: the owner's finder and the assista
 - **Not here either**: invariants that Postgres can enforce. The database refuses
   what must never be true rather than trusting this module to remember, so a rule
   that can be a constraint should be a constraint in a migration, not an `if`.
+  **One exception is written down, and a second wants the same argument made**
+  (ADR-0024): *finishing is reaching the end* is a rule about the **act** and not
+  about the row, because the count of Instalments a work declares is allowed to
+  grow — a line printing a thirty-second tankōbon has not made a finished reading
+  a lie, and a trigger holding the invariant would refuse that ordinary insert. So
+  it lives in the statement each door concludes with, inside `verbs/pass.ts`.
 
 Everything in here is `server-only`. `DATABASE_URL` must never reach a browser
 bundle, and the import makes an accidental client import a build error.

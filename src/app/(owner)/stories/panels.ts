@@ -51,6 +51,21 @@ export const STRIKE_PASS = "strike-pass";
 export const STRIKE_RATING = "strike-rating";
 
 /**
+ * **Striking how a pass ended, and not the pass** (ADR-0024) — the third of the doors that
+ * make a mis-tap survivable, and the one the import door needed.
+ *
+ * A name of its own beside the two above for exactly the reason they are two: it destroys a
+ * different record. A panel meaning *unmake whatever this row is about* would be one URL away
+ * from taking the pass off when the owner meant only to unsay the ending, and the pass is the
+ * one of the three that cannot be typed back in.
+ *
+ * Here rather than beside `[id]/page.tsx` for `STRIKE`'s reason: the page opens the drawer and
+ * `[id]/actions.ts` reopens it to print the verb's refusal inside it — *that Pass has not
+ * ended* is a sentence about the row the owner pressed.
+ */
+export const STRIKE_OUTCOME = "strike-outcome";
+
+/**
  * Saying how many **Instalments** a Story has, and where a pass got to in them (#37).
  *
  * Here for `STRIKE`'s reason: each is spelled by the page that opens the drawer and again by

@@ -7,6 +7,7 @@ import {
   finishPass,
   recordInstalmentReached,
   recordPass,
+  strikeOutcome,
   strikePass,
 } from "./pass.ts";
 import { setRating, strikeRating } from "./rating.ts";
@@ -116,6 +117,44 @@ describe("recording a Pass", () => {
     });
   });
 
+  // The same rule the two-step path is held to (ADR-0024), on the one statement that can write
+  // an outcome and a fraction together — which is how the row that forced the ADR arrived.
+  it("refuses a Pass recorded as finished short of where it says it got to", async () => {
+    const storyId = await createStory({ title: "All-Star Superman", typeId: "comic" });
+    await declareInstalments(storyId, 12);
+
+    await expect(
+      recordPass({
+        storyId,
+        medium: "paper",
+        outcome: "finished",
+        provenanceId: "typed-from-the-shelf",
+        atInstalment: 1,
+      })
+    ).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-allowed",
+      message:
+        "That pass is at 1 of 12. Finishing is reaching the end, so move it on to 12 — or give it up, which is what stopping short is.",
+    });
+
+    expect((await findStory(storyId))?.passes).toHaveLength(0);
+  });
+
+  it("records one as finished with no fraction at all, which is the ordinary pass", async () => {
+    const storyId = await createStory({ title: "Vinland Saga", typeId: "manga" });
+    await declareInstalments(storyId, 27);
+
+    await recordPass({
+      storyId,
+      medium: "paper",
+      outcome: "finished",
+      provenanceId: "typed-from-the-shelf",
+    });
+
+    expect((await findStory(storyId))?.state).toBe("read");
+  });
+
   it("refuses a Pass that ended before it started", async () => {
     const storyId = await createStory({ title: "Berserk", typeId: "manga" });
 
@@ -196,6 +235,76 @@ describe("concluding a Pass", () => {
       name: "Refusal",
       code: "not-allowed",
       message: "That Pass has already ended. Going through it again is a new Pass.",
+    });
+  });
+
+  // **FINISHING IS REACHING THE END** (ADR-0024), and this is the refusal that says so. The
+  // rule is only about the pass that *says* where it got to: a null is the owner not counting,
+  // which is the ordinary pass and the one the one door records, so it stays finishable.
+  it("refuses to finish a pass that says it is short of the end, and names the two answers", async () => {
+    const storyId = await createStory({ title: "All-Star Superman", typeId: "comic" });
+    await declareInstalments(storyId, 12);
+    const passId = await recordPass({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+      atInstalment: 1,
+    });
+
+    await expect(finishPass(passId, "2026-01-04")).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-allowed",
+      message:
+        "That pass is at 1 of 12. Finishing is reaching the end, so move it on to 12 — or give it up, which is what stopping short is.",
+    });
+
+    // And nothing moved: a refused finish is not half a finish.
+    expect((await findStory(storyId))?.passes[0]).toMatchObject({ outcome: null, endedOn: null });
+  });
+
+  it("finishes one that says it reached the last Instalment", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    await declareInstalments(storyId, 20);
+    const passId = await recordPass({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+      atInstalment: 20,
+    });
+
+    await finishPass(passId, "2026-02-01");
+
+    expect((await findStory(storyId))?.passes[0]).toMatchObject({ outcome: "finished" });
+  });
+
+  it("finishes one that never counted, because not counting is the ordinary pass", async () => {
+    const storyId = await createStory({ title: "Vinland Saga", typeId: "manga" });
+    await declareInstalments(storyId, 27);
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+
+    await finishPass(passId, "2026-02-01");
+
+    expect((await findStory(storyId))?.passes[0]).toMatchObject({ outcome: "finished" });
+  });
+
+  // **Abandoning short is not refused**, and the asymmetry is the point: stopping at the first
+  // Instalment is exactly what giving up is, so the door the refusal above points at has to be
+  // open.
+  it("abandons one that is short of the end, which is what giving up means", async () => {
+    const storyId = await createStory({ title: "Berserk", typeId: "manga" });
+    await declareInstalments(storyId, 41);
+    const passId = await recordPass({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+      atInstalment: 3,
+    });
+
+    await abandonPass(passId, "2026-02-01");
+
+    expect((await findStory(storyId))?.passes[0]).toMatchObject({
+      outcome: "abandoned",
+      atInstalment: 3,
     });
   });
 
@@ -385,6 +494,59 @@ describe("the Instalment a pass reached", () => {
     });
   });
 
+  // **The third door the rule is felt at** (ADR-0024). Without it the shape the one door
+  // records — finished, not counting — could be walked to *1 of 12* with one press, which is
+  // the state the two refusals above exist to make unreachable.
+  it("refuses to step a finished pass back short of the end, and names the door that answers it", async () => {
+    const storyId = await slamDunk();
+    const passId = await recordPass({
+      storyId,
+      medium: "paper",
+      outcome: "finished",
+      provenanceId: "typed-from-the-shelf",
+    });
+
+    await expect(recordInstalmentReached(passId, 7)).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-allowed",
+      message:
+        "That pass is finished, so it cannot be at 7 of 20: finishing is reaching the end. Say it never ended first, or give it up.",
+    });
+
+    expect((await findStory(storyId))?.passes[0]).toMatchObject({ atInstalment: null });
+  });
+
+  it("moves a finished pass to the last Instalment, which is where a finished one stands", async () => {
+    const storyId = await slamDunk();
+    const passId = await recordPass({
+      storyId,
+      medium: "paper",
+      outcome: "finished",
+      provenanceId: "typed-from-the-shelf",
+    });
+
+    await recordInstalmentReached(passId, 20);
+
+    expect((await findStory(storyId))?.passes[0]).toMatchObject({ atInstalment: 20 });
+  });
+
+  // Abandoning short is the fact this library keeps, so saying *where* it was given up on is
+  // untouched by the rule — and so is stopping the count altogether.
+  it("says where an abandoned pass was given up, short of the end and ordinarily so", async () => {
+    const storyId = await slamDunk();
+    const passId = await recordPass({
+      storyId,
+      medium: "paper",
+      outcome: "abandoned",
+      provenanceId: "remembered",
+    });
+
+    await recordInstalmentReached(passId, 3);
+    await recordInstalmentReached(passId, null);
+
+    expect((await findStory(storyId))?.passes[0]).toMatchObject({ atInstalment: null });
+  });
+
   it("refuses a Pass the library does not have", async () => {
     await expect(
       recordInstalmentReached("00000000-0000-0000-0000-000000000000", 3)
@@ -492,6 +654,109 @@ describe("striking a Pass", () => {
   // core's edge as a 500 (`verbs/path.ts` states the rule).
   it("refuses an id no row could have", async () => {
     await expect(strikePass("banana")).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
+    });
+  });
+});
+
+// STRIKING AN OUTCOME (ADR-0024). **The ending that never happened**, which is a different
+// record from the pass that never happened above — and the one the import door produced by
+// the hundred: every run typed in from the shelf arrived `finished`, because *I read it* was
+// the only thing the door could say, and a run stopped at its first Instalment then read
+// `read` to everyone who asked.
+//
+// It is `strikePass`'s rule one field in: a pass that happened is permanent, and an outcome
+// that never happened is struck. What separates the two is what survives — here the pass, its
+// Provenance, where it got to and the judgement the owner wrote all stay exactly where they
+// were, which is why the refusal that guards `strikePass` has no business guarding this.
+describe("striking a Pass's outcome", () => {
+  async function allStarSuperman(): Promise<string> {
+    const storyId = await createStory({ title: "All-Star Superman", typeId: "comic" });
+    await declareInstalments(storyId, 12);
+    return storyId;
+  }
+
+  // **The row is written by hand here, and that is the test's own evidence**: no verb in this
+  // module will produce it any more (`recordPass` and `finishPass` both refuse it now), so the
+  // only way to stand in front of the shape the import left behind is to insert it the way the
+  // import did.
+  async function theRowTheImportLeft(storyId: string): Promise<string> {
+    const [written] = await query<{ id: string }>(
+      `insert into pass
+         (story_id, medium, outcome, ended_on, provenance_id, at_instalment)
+       values ($1, 'paper', 'finished', '2026-01-04', 'typed-from-the-shelf', 1)
+       returning id`,
+      [storyId]
+    );
+    if (!written) throw new Error("the fixture wrote no Pass");
+    return written.id;
+  }
+
+  it("puts the pass back under way, keeping where it got to and the judgement on it", async () => {
+    const storyId = await allStarSuperman();
+    const passId = await theRowTheImportLeft(storyId);
+    await setRating({
+      storyId,
+      passId,
+      score: 7.5,
+      prose: "primo numero molto breve",
+      provenanceId: "remembered",
+    });
+
+    await strikeOutcome(passId);
+
+    const story = await findStory(storyId);
+    // The Story stops saying `read`, which is the whole point: the state is derived from the
+    // Passes on every request, so nothing had to be told.
+    expect(story).toMatchObject({
+      state: "reading",
+      howFarItGot: { atInstalment: 1, instalments: 12 },
+    });
+    expect(story?.passes[0]).toMatchObject({
+      outcome: null,
+      // The end date goes with the outcome rather than being left behind: an unconcluded pass
+      // that ended on a day is a state `pass_unconcluded_has_not_ended` does not allow.
+      endedOn: null,
+      atInstalment: 1,
+      provenance: { id: "typed-from-the-shelf", name: "Typed from the shelf" },
+      rating: expect.objectContaining({ score: 7.5, prose: "primo numero molto breve" }),
+    });
+  });
+
+  it("returns the Story it was a pass through, read off the row rather than carried", async () => {
+    const storyId = await createStory({ title: "Pluto", typeId: "manga" });
+    const passId = await recordPass({
+      storyId,
+      medium: "paper",
+      outcome: "abandoned",
+      provenanceId: "remembered",
+    });
+
+    await expect(strikeOutcome(passId)).resolves.toBe(storyId);
+  });
+
+  it("refuses one that has not ended, because there is no outcome to strike", async () => {
+    const storyId = await createStory({ title: "Ulysses", typeId: "novel" });
+    const passId = await recordPass({ storyId, medium: "digital", provenanceId: "remembered" });
+
+    await expect(strikeOutcome(passId)).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-allowed",
+      message: "That Pass has not ended, so there is no outcome to strike.",
+    });
+  });
+
+  it("refuses a Pass the library does not have", async () => {
+    await expect(strikeOutcome("00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({
+      name: "Refusal",
+      code: "not-found",
+      message: "That Pass is not in the library.",
+    });
+  });
+
+  it("refuses an id no row could have", async () => {
+    await expect(strikeOutcome("banana")).rejects.toMatchObject({
       name: "Refusal",
       code: "not-found",
     });

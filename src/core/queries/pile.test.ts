@@ -429,7 +429,7 @@ describe("what a run puts on the list", () => {
         storyId: finished,
         medium: "paper",
         provenanceId: "remembered",
-        atInstalment: 3,
+        atInstalment: 8,
       }),
       "2024-02-02"
     );

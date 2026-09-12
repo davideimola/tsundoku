@@ -30,6 +30,7 @@ import {
   RENAME,
   SERIALIZE,
   STRIKE,
+  STRIKE_OUTCOME,
   STRIKE_PASS,
   STRIKE_RATING,
 } from "../panels";
@@ -57,6 +58,7 @@ import {
   serialize,
   startPass,
   strikeIt,
+  strikeThisOutcome,
   strikeThisPass,
   strikeThisRating,
   takeOwnImageOff,
@@ -132,6 +134,7 @@ const PANELS = [
   STRIKE,
   STRIKE_PASS,
   STRIKE_RATING,
+  STRIKE_OUTCOME,
   PUBLISHES,
   IMAGE,
 ] as const;
@@ -1157,6 +1160,58 @@ export default async function StoryPage({
         </Drawer>
       ) : null}
 
+      {/* **THE THIRD DOOR, AND THE ONE THE IMPORT NEEDED** (ADR-0024). *Finished* cannot be
+          taken back by finishing it differently — a Pass is never overwritten — and the
+          drawer above is refused the moment the pass carries a score, so a run typed in from
+          the shelf as read could only be corrected by first unwriting what the owner thought
+          of it. This unsays the one field that was false and leaves the pass, where it got to
+          and the judgement standing.
+
+          Fields: none, like the two beside it. The whole of the act is the press. */}
+      {panel === STRIKE_OUTCOME && onePass ? (
+        <Drawer
+          title="It never ended"
+          description="For a pass that was closed before it was over — read it, said so, and the ending was never true. The pass itself stays, and so does your score."
+          refused={refused}
+          closesTo={closesTo}
+        >
+          <form action={strikeThisOutcome} className="grid gap-4">
+            <input type="hidden" name="storyId" value={story.id} />
+            <input type="hidden" name="passId" value={onePass.id} />
+
+            {/* Which pass, in the words the row says it in — the same sentence the strike
+                above prints, and for its reason: the stack can hold several. */}
+            <p className="text-pretty text-sm text-muted-foreground">
+              {howItWent(onePass)} · {whenItHappened(onePass)}
+            </p>
+
+            <p className="text-pretty text-sm text-muted-foreground">
+              How this pass ended goes, with the day it ended. Everything else stays where it is:
+              the pass, the Volume it went through, where it got to, and the score you gave it.{" "}
+              <em>{story.title}</em> reads {stateWord("reading")} again, because where a Story
+              stands is derived from its Passes on every request and stored nowhere.
+            </p>
+
+            <p className="text-pretty text-sm text-muted-foreground">
+              It is refused, and nothing happens, if this pass never ended in the first place. To
+              say it went differently, go through it again — that is a second Pass, and last
+              time&rsquo;s judgement stays beside the new one.
+            </p>
+
+            <div>
+              <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
+                It never ended
+              </Button>
+              <p className="mt-2 text-pretty text-xs text-muted-foreground">
+                There is no undo, and nothing but the ending goes: your score and where you got to
+                stay. Finishing it is a press again once the run reaches its last Instalment &mdash;
+                or giving it up, if it never does.
+              </p>
+            </div>
+          </form>
+        </Drawer>
+      ) : null}
+
       {/* The other half, and the reason the refusal above is satisfiable at all: a rated pass
           stands until the judgement goes, and a refusal the owner has no way to answer is the
           dead end this whole pair was opened to end. It is also the answer on its own to a
@@ -1291,9 +1346,21 @@ function Passes({ story }: { story: FoundStory }) {
                   >
                     Strike this Pass
                   </Link>
+                  {/* **And unsaying only the ending** (ADR-0024), which is the act the row
+                      above is too big for: a pass typed in from the shelf as read is a real
+                      pass with a real judgement on it, and the one false field in it is how it
+                      ended. It is drawn only where there is an ending to unsay, so an open
+                      pass carries the three acts it has and no fourth that would refuse. */}
                   {stillOpen(record) ? (
                     <span className="ml-3 text-xs text-muted-foreground">Still open.</span>
-                  ) : null}
+                  ) : (
+                    <Link
+                      href={panelled(story.id, STRIKE_OUTCOME, { pass: record.id })}
+                      className="ml-3 font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      It never ended
+                    </Link>
+                  )}
                 </p>
               </li>
             ))}

@@ -742,7 +742,7 @@ describe("a run with somewhere left to go", () => {
         storyId: finished,
         medium: "paper",
         provenanceId: "remembered",
-        atInstalment: 3,
+        atInstalment: 8,
       }),
       "2024-02-02"
     );
@@ -889,7 +889,7 @@ describe("a run with somewhere left to go", () => {
         storyId,
         medium: "paper",
         provenanceId: "remembered",
-        atInstalment: 12,
+        atInstalment: 20,
       }),
       "2026-03-03"
     );

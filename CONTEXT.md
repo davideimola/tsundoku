@@ -54,6 +54,16 @@ permanent, and a second one is what says it went differently; a row recording a 
 derived from these events and there is no field to correct. That door is refused on the one
 thing that can hang off a pass, a Rating, since deleting a rated one would quietly turn *what I
 thought of that pass* into *what I think of the narrative*.
+**And an ending that never happened is struck on its own** (ADR-0024), which is the same
+sentence one field in: the outcome goes and the pass stays, with its Provenance, the Instalment
+it reached and the judgement on it, because those all happened. Nothing refuses that door —
+there is no record left pointing at nothing — and it is the only way *I read it*, typed in from
+a shelf over a run that had barely begun, is correctable without first unwriting what the owner
+thought of it. Its complement is on the way in: **finishing is reaching the end**, so a pass
+that *says* where it got to cannot be finished short of the last Instalment — it is moved on, or
+it is given up, which is what stopping short is. A pass that never counted is finishable as it
+always was, because not counting is the ordinary pass — and a pass already finished cannot step
+back short of the end either, which is the same rule from the other side.
 _Avoid_: reading status, progress, session — the first two name a field and this is an event,
 and the third names one sitting where this names the whole run at a thing. Also **reading**
 for the record itself, which named only half of what it holds (ADR-0021).
