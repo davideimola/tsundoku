@@ -1,16 +1,13 @@
 # One copy of the library on one machine: Postgres, the migrations, the app.
 #
-# **This is not the local loop and it is not what the cluster runs.** Development is
-# `pnpm db:up && pnpm dev` (README, *The local loop*), where the gate is opened by
-# `AUTH_DEV_OPEN` and nothing is built; production is `apps/tsundoku/` in the cluster
-# repo, where Postgres is CloudNativePG with continuous backup off-site and the image
-# comes from a registry. This file is the third thing, and the only one written for
-# somebody who is not the owner: a fork that wants the whole application running
-# somewhere, with `docker compose up` and no Kubernetes.
+# **This is not the local loop.** Development is `pnpm db:up && pnpm dev` (README, *The
+# local loop*), where the gate is opened by `AUTH_DEV_OPEN` and nothing is built. This
+# file is the other thing: the whole application running somewhere, from a production
+# image, with `docker compose up` and no orchestrator.
 #
 # What it is missing on purpose is the backup. A volume on one machine is where the
-# data lives, not where it is safe — ADR-0003 is the argument, and whoever runs this
-# owes their own copy of it.
+# data lives, not where it is safe, and whoever runs this owes themselves a copy of it
+# somewhere else.
 #
 #   cp .env.example .env.local     # then fill in the gate, see below
 #   docker compose up --build      # http://localhost:3000
@@ -22,8 +19,8 @@
 name: tsundoku
 
 services:
-  # The same major the cluster runs, for the reason `db/container.ts` gives: a local
-  # major that differs from the deployed one is a difference you find out about at
+  # The same major the local loop runs, for the reason `db/container.ts` gives: a major
+  # that differs from the one you develop against is a difference you find out about at
   # migration time.
   postgres:
     image: postgres:18-alpine

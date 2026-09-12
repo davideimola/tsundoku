@@ -1,4 +1,4 @@
-# The container the cluster runs (ADR-0003, ADR-0004).
+# The container this application is deployed as (ADR-0003, ADR-0004).
 #
 # Three things it has to be, and each one is a decision rather than boilerplate:
 #
@@ -15,9 +15,9 @@
 #      them — deliberately, because an image that silently shipped fallback type would look
 #      wrong everywhere and say so nowhere.
 #   2. **It must not run as root.** The image ships with `USER node`, and
-#      `apps/tsundoku/deployment.yaml` in the cluster repo says so again as a
-#      `securityContext`. Twice on purpose: the image is what makes it true anywhere it is
-#      run, and the manifest is what refuses to schedule it if it ever stops being true.
+#      a runtime that can refuse a root container should say so again where it is deployed.
+#      Twice on purpose: the image is what makes it true anywhere it is run, and the
+#      deployment is what refuses to start it if it ever stops being true.
 #   3. **It must carry the migrations.** The deployment runs them from this same image
 #      before the app is allowed to serve, so what is applied is exactly what was built.
 #      `db/` is therefore copied into the runtime stage on purpose, next to the traced

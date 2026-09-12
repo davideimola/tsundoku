@@ -1,14 +1,13 @@
-# The other half of Flux's image automation: the Cluster watches this registry and writes
-# the newest tag back into `davideimola/cluster`, so a push to main is the deploy and
-# nothing in either repository is edited by hand.
+# The image, published to GHCR on every push to main.
 #
-# **`davideimola/cluster`, not `davideimola/home-cluster`.** tsundoku was written to run on the
-# house machine and moved before it ever reconciled there: it is the one service published to
-# the internet, which is what the cloud Cluster exists for and what the house deliberately is
-# not (infrastructure ADR-0006).
+# What it is for: the owner's deployment watches this registry and rolls itself forward to
+# the newest tag, so a push to main is the deploy and nothing is edited by hand on the other
+# side. The tag shape below is the whole contract — `main-<sha>-<timestamp>`, sortable, so
+# "the newest" is a string comparison rather than a registry query.
 #
-# Shaped exactly like pantry's workflow, because the automation on the other side is
-# pantry's automation with a different name and reads the same tag shape.
+# Nothing about where it runs is in this repository, and nothing here needs to be: the image
+# is self-contained, it carries its own migrations, and `compose.yaml`
+# is one way to run it that owes this workflow nothing.
 name: Publish image
 
 on:
@@ -43,7 +42,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           # main-<sha>-<unix timestamp>: the sha says which commit, the timestamp sorts.
-          # Sorting is the point — image tags carry no inherent order, and Flux's automation
+          # Sorting is the point — image tags carry no inherent order, and the automation
           # needs to know which of two builds is newer. `main` stays as a human-readable
           # pointer, and is what the manifests name before automation has run once.
           tags: |
@@ -54,7 +53,7 @@ jobs:
         with:
           context: .
           # The Node this deploys to is x86: Contabo's VPS line is, and infrastructure
-          # ADR-0008 says so outright — "arm64 is no longer a constraint", because the Cluster
+          # ADR-0008 says so outright — "arm64 is no longer a constraint", because the machine
           # was only ever aarch64 as a consequence of Oracle's A1 being Ampere.
           #
           # It was `linux/amd64,linux/arm64` for a day, from when the target was the house

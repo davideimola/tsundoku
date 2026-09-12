@@ -58,9 +58,8 @@ first — it says where a new file goes and why there is no barrel index.
 **The local loop stays entirely local.** Everything up to the first usable version runs
 on a Postgres in Docker: no cloud account, no Google OAuth client, no bearer token and
 no secret to obtain. What it takes to run the same thing in public is
-[going live](#going-live)
-([ADR-0003](docs/adr/0003-postgres-runs-in-cluster-on-our-own-k3s-with-off-site-backups.md),
-[ADR-0004](docs/adr/0004-two-public-surfaces-two-authentications.md)), and none of it
+[running your own copy](#running-your-own-copy)
+([ADR-0004](docs/adr/0004-two-public-surfaces-two-authentications.md)), and none of it
 changes anything below.
 
 Docker must be running.
@@ -233,7 +232,7 @@ set, Auth.js is never reached at all.
 
 It is an **opt-in rather than a fallback** — a gate that opened by itself whenever
 `AUTH_GOOGLE_ID` was missing would open the whole library to anyone with the URL the
-day a variable was misspelled in the cluster — and it is **never honoured in a
+day a variable was misspelled in a deployment — and it is **never honoured in a
 production build**, which the container is. Both conditions are tested.
 
 The four variables that boot the real gate — `AUTH_SECRET`, `AUTH_GOOGLE_ID`,
@@ -483,7 +482,7 @@ decides what stands in front of them, and no more than that.
 
 ### A cover is hotlinked, and only the owner's own images are hosted
 
-**No third-party image byte is stored anywhere in this cluster**
+**No third-party image byte is stored anywhere by this application**
 ([ADR-0013](docs/adr/0013-covers-are-hotlinked-and-only-the-owners-own-images-are-hosted.md)).
 A Volume carries its cover as a *reference* — which source answered, that source's id for the
 record, the address, and the source's own page for the book — and an `<img>` points at
@@ -601,10 +600,9 @@ a TLS terminator of your own — the container serves plain HTTP on 3000 and kno
 about certificates — and set `AUTH_URL` to the origin that terminator publishes.
 
 **The volume is where the data lives, not where it is safe.** Continuous backup is the one
-thing `compose.yaml` deliberately does not have, and
-[ADR-0003](docs/adr/0003-postgres-runs-in-cluster-on-our-own-k3s-with-off-site-backups.md)
-is the argument for owing yourself one: this data is small, hand-curated over years and
-irreplaceable.
+thing `compose.yaml` deliberately does not have, and it is the one thing worth adding before
+you have typed much in: this data is small, hand-curated over years and irreplaceable, and a
+backup that has never been restored is a belief rather than a backup.
 
 ### With node, if you already have a Postgres
 
@@ -656,38 +654,6 @@ rather than admitting everybody, and `/mcp` with `MCP_BEARER_TOKEN` unset or bla
 every request. The authorised redirect URI to register with Google is
 `https://<your domain>/api/auth/callback/google`.
 
-### The parts that are the owner's and not yours
-
-Two commands in this repository read the owner's own spreadsheets — [the import](#the-import)
-and [the conversion](#the-conversion) — and both now refuse to run: they were one-off moves
-onto this model and their fixtures are fabricated data about real books, kept so the code
-stays readable and runnable. A fork starts with an empty library and fills it through the
-screens or through `/mcp`, and `pnpm db:mock` puts an invented one in front of you if you
-want to walk the walls first.
-
-The [assistant project instructions](docs/assistant-projects/) are written in the owner's
-voice about the owner's shelf. They are the two documents that make the MCP door useful, and
-they are meant to be edited rather than pasted as they are.
-
-### Issues are welcome
-
-Issues and pull requests are read. What is **not** open is the shape of the thing: single
-owner, no tenancy, no recommender inside the app, and a vocabulary that is
-[`CONTEXT.md`](CONTEXT.md)'s rather than a preference — those are ADRs, and changing one
-means arguing with the ADR rather than with the code. Everything else — a bug, a source that
-answers differently, a screen that is wrong on a phone, a deployment path that does not work
-— is worth a ticket.
-
-## Going live
-
-**The application is one container and the cluster is a second repository.** The code
-lives here; the Flux manifests that run it live in
-[`davideimola/home-cluster`](https://github.com/davideimola/home-cluster) under
-`apps/tsundoku/`, next to `apps/pantry/` and shaped like it — a CloudNativePG cluster with
-continuous backup to Backblaze B2, the app deployment, and a Traefik ingress with a
-certificate from cert-manager. No tunnel
-([ADR-0004](docs/adr/0004-two-public-surfaces-two-authentications.md)).
-
 ### The image
 
 [`Dockerfile`](Dockerfile), and three things about it that are decisions rather than
@@ -697,14 +663,14 @@ boilerplate:
   every page that reads the library is per-request, and nothing in the build passes a
   connection string. A build that needed one would need one in CI, in a registry job and on
   a laptop, and the first thing anybody would reach for is a copy of the owner's own.
-- **It does not run as root.** `USER node` in the image, and a `securityContext` saying so
-  again in the deployment: the image is what makes it true wherever it is run, the manifest
-  is what refuses to schedule it if it ever stops being true.
-- **It carries the migrations.** `db/` is copied in beside the traced server, and the
-  deployment's init container runs `db/cli.ts migrate` from the same image that then serves
-  — so what is applied is exactly what was built. `migrate` is the one `db:*` command that
-  reaches for no Docker: in the cluster the server already exists and holds the database and
-  the role.
+- **It does not run as root.** `USER node` in the image, and `node` is uid 1000 there — which
+  matters wherever the runtime states it a second time, since an orchestrator asked to refuse
+  a root container cannot tell whether a *name* is root.
+- **It carries the migrations.** `db/` is copied in beside the traced server, so whatever runs
+  this image can apply the schema from it — `db/cli.ts migrate`, before the app is allowed to
+  serve — and what is applied is exactly what was built. `migrate` is the one `db:*` command
+  that reaches for no Docker: by then the server already exists and holds the database and the
+  role. [`compose.yaml`](compose.yaml) is that step written out.
 
 ```sh
 docker build -t tsundoku .
@@ -732,44 +698,34 @@ handed a `var()`. The four literals live once in
 [`src/app/palette.test.ts`](src/app/palette.test.ts) reads `globals.css`, converts the
 primitives to sRGB and asserts they are exactly them, on both grounds.
 
-### The seven variables the cluster sets, and the one it must not
-
-`DATABASE_URL` comes from the secret CloudNativePG writes itself, so no connection string
-is ever in Git. Five of the others are the ones from
-[`.env.example`](.env.example): `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
-`AUTH_OWNER_EMAIL`, `MCP_BEARER_TOKEN`. Each one is a SOPS-encrypted secret in the cluster
-repo; the private half of the key lives in the cluster and never in Git.
-
-The seventh is `COVER_CONTACT_URL`, and it is a plain value rather than a secret: it is what
-the cover lookup puts in its user-agent, so a source with something to say about this
-deployment's traffic can reach the person making it. It is **not** a second copy of
-`AUTH_URL`, which happens to hold the same string here — that one has to match the redirect
-URI registered with Google exactly, and a fork on a LAN has a contact and no public origin
-at all. Unset anywhere, the app identifies itself as the project rather than as this
-deployment, which is what keeps a fork from wearing this domain's name.
-
-**`AUTH_DEV_OPEN` is absent there**, and its absence is deliberate belt and braces rather
-than the thing that keeps the gate shut: it is never honoured in a production build, which
-the container is, and that is a test rather than a promise. Setting it in the cluster would
-change nothing — which is exactly why it is not set.
-
-### `/mcp` is rate limited, and it is the only thing published
+### `/mcp` is rate limited
 
 The limit is in the route handler, immediately before the bearer gate, and
 [`src/lib/mcp/README.md`](src/lib/mcp/README.md) has what it counts and the two assumptions
-it rests on. Nothing else on the cluster becomes reachable as a side effect: the Traefik
-ingress class is deliberately not the cluster's default, so an `Ingress` has to name it to
-be published, and `apps/tsundoku` is the only thing that does.
+it rests on. It counts before the bearer gate is reached, so an unauthenticated flood costs
+this application one comparison rather than a query.
 
-### The restore is what says this is done
+### The parts that are the owner's and not yours
 
-Continuous backup that has never been restored is a belief, not a backup
-([ADR-0003](docs/adr/0003-postgres-runs-in-cluster-on-our-own-k3s-with-off-site-backups.md)),
-and the data is small, hand-curated over years and irreplaceable. So the rehearsal is a
-written procedure with a check at every step, in the cluster repo beside the manifests it
-names: `apps/tsundoku/RESTORE.md`. It is done once, before the spreadsheet import counts as
-complete, and it is the last acceptance criterion of going live.
+Two commands in this repository read the owner's own spreadsheets — [the import](#the-import)
+and [the conversion](#the-conversion) — and both now refuse to run: they were one-off moves
+onto this model and their fixtures are fabricated data about real books, kept so the code
+stays readable and runnable. A fork starts with an empty library and fills it through the
+screens or through `/mcp`, and `pnpm db:mock` puts an invented one in front of you if you
+want to walk the walls first.
 
+The [assistant project instructions](docs/assistant-projects/) are written in the owner's
+voice about the owner's shelf. They are the two documents that make the MCP door useful, and
+they are meant to be edited rather than pasted as they are.
+
+### Issues are welcome
+
+Issues and pull requests are read. What is **not** open is the shape of the thing: single
+owner, no tenancy, no recommender inside the app, and a vocabulary that is
+[`CONTEXT.md`](CONTEXT.md)'s rather than a preference — those are ADRs, and changing one
+means arguing with the ADR rather than with the code. Everything else — a bug, a source that
+answers differently, a screen that is wrong on a phone, a deployment path that does not work
+— is worth a ticket.
 
 ## Tests
 
