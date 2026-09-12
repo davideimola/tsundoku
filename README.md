@@ -39,13 +39,15 @@ Series, Pass, Rating, Path, Wish, the Pile and the rest are used as defined ther
 words it says to avoid are avoided. Every decision lives in exactly one place, its ADR
 in [`docs/adr/`](docs/adr/).
 
-## Two doors over one core
+## Three doors over one core
 
-One Next.js application holds both surfaces: the web view for the owner, and the MCP
-server as a route handler in the same app. Both are **thin adapters over
+One Next.js application holds every surface: the web view for the owner, the MCP server as a
+route handler in the same app, and a read-only `/api` behind a bearer of its own
+([ADR-0025](docs/adr/0025-the-third-door-is-the-api-and-it-publishes-renderings.md)). All are
+**thin adapters over
 [`src/core`](src/core/)**, which owns the verbs and the queries; neither holds domain
 logic ([ADR-0002](docs/adr/0002-the-app-holds-no-model-and-the-recommender-is-external.md)).
-That is what lets one test seam cover both.
+That is what lets one test seam cover all of them.
 
 The app contains **no LLM and spends no tokens**. The recommender is the assistant the
 owner already pays for; this app's job is to make the collection answerable.
@@ -375,6 +377,54 @@ the vocabulary, the write boundary, and the order to ask the questions in — is
 one library. The connector makes the collection answerable; those make it answered
 correctly.
 
+## The API door
+
+`/api` is the third door, and **it is read-only by construction**
+([ADR-0025](docs/adr/0025-the-third-door-is-the-api-and-it-publishes-renderings.md)): there is
+no verb reachable from it, no route under it that writes, and nothing in its gate that could
+grant one. Writes stay behind the Inbox at `/mcp`. Its first resource is:
+
+```
+GET /api/showcase
+Authorization: Bearer $API_BEARER_TOKEN
+```
+
+One document, because the consumer is one public page rebuilt on a schedule and five round
+trips to a home cluster are five chances to be half down: what is being read or played right
+now, what concluded and what the owner thought of it, how tall the pile is, and a sample of
+the shelf. `?types=manga,videogame` narrows every block by Type slug, and an unknown slug is a
+400 rather than a quietly empty document. It answers an `ETag` and honours `If-None-Match`,
+and it is `Cache-Control: private, max-age=300`, because this is one person's library behind
+one token and no shared cache may hand it to the next request that arrives without one.
+
+**The token is not `MCP_BEARER_TOKEN` and must not be.** That one lives in the owner's own
+assistant; this one lives in the page host's environment, and each has to be rotated without
+disturbing the other.
+
+### What it publishes, and what it cannot
+
+**Renderings, not records.** There is no per-row `public` flag in this library: what is
+published is a composition, `theShowcase` in
+[`src/core/queries/showcase.ts`](src/core/queries/showcase.ts), and **what is not composed
+there does not exist to the outside**. Prices, acquisitions and their days, the Inbox and its
+proposals, Paths, Provenance, the grain of a score, the prose of a Rating, ISBNs and the
+owner's own address are absent by construction rather than by filtering. Nothing in the
+document identifies the owner.
+
+Adding a field to that file is the whole act of publishing it, which is why the file's own
+tests assert the forbidden list by name. `shelf.volumes` and `pile.recent` are **samples**,
+capped and ordered by what arrived most recently, with the real figure beside them, and there
+is deliberately no cursor.
+
+### A new resource under it is two things
+
+A route that calls `requireApiCaller()` **first**, and its path added by name to the matcher
+in [`src/proxy.ts`](src/proxy.ts). `/api` is not excluded from the owner gate as a prefix,
+because `api/auth` already lives under it: a route left out of that line is gated by Google
+and answers `307 /signin` to its bearer, which is useless rather than open.
+[`src/app/api/gated.test.ts`](src/app/api/gated.test.ts) walks the routes that are there and
+fails when one stops calling the wall.
+
 ## The schema
 
 **Invariants live in Postgres.** The database refuses what must never be true rather
@@ -646,12 +696,14 @@ this list carries a value in this repository.
 | `AUTH_OWNER_EMAIL` | hosted | the one Google address that may sign in. Singular: a comma in it is refused, not read as a list |
 | `AUTH_URL` | hosted | the public origin, which must match the redirect URI registered with Google exactly |
 | `MCP_BEARER_TOKEN` | for `/mcp` | a string you pick; it is the whole of that door's authentication |
+| `API_BEARER_TOKEN` | for `/api` | a second string you pick, for the read-only API. Deliberately not the same secret: it lives in the page host's environment |
+| `SHOWCASE_WISHLIST` | optional | `true` publishes the wishlist block on `/api/showcase`. Off by default, and off is the right answer unless you want yours public |
 | `COVER_CONTACT_URL` | optional | where a cover source can reach you about your traffic. Unset, this app says it is the project rather than somebody else's deployment |
 | `AUTH_DEV_OPEN` | local only | opens the gate while there is no Google client to point at, and is **never honoured in a production build** |
 
-**Both doors fail closed.** A deployment missing one of the gate variables refuses the owner
-rather than admitting everybody, and `/mcp` with `MCP_BEARER_TOKEN` unset or blank refuses
-every request. The authorised redirect URI to register with Google is
+**All three doors fail closed.** A deployment missing one of the gate variables refuses the
+owner rather than admitting everybody, and `/mcp` or `/api` with its own token unset or blank
+refuses every request. The authorised redirect URI to register with Google is
 `https://<your domain>/api/auth/callback/google`.
 
 ### The image
@@ -698,12 +750,14 @@ handed a `var()`. The four literals live once in
 [`src/app/palette.test.ts`](src/app/palette.test.ts) reads `globals.css`, converts the
 primitives to sRGB and asserts they are exactly them, on both grounds.
 
-### `/mcp` is rate limited
+### `/mcp` and `/api` are rate limited
 
-The limit is in the route handler, immediately before the bearer gate, and
-[`src/lib/mcp/README.md`](src/lib/mcp/README.md) has what it counts and the two assumptions
-it rests on. It counts before the bearer gate is reached, so an unauthenticated flood costs
-this application one comparison rather than a query.
+The limit is immediately before each door's bearer gate, and
+[`src/lib/mcp/README.md`](src/lib/mcp/README.md) has what it counts and the two assumptions it
+rests on. It counts before the gate is reached, so an unauthenticated flood costs this
+application one comparison rather than a query. The two doors share the arithmetic and **not
+the counters**: a flood against the public page must not refuse the owner's own assistant out
+of an allowance it never spent.
 
 ### The parts that are the owner's and not yours
 

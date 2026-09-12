@@ -1,8 +1,13 @@
 # The core module
 
-One core, two doors. The web view and the MCP route handler are **thin adapters over
-this module**, and neither holds domain logic (ADR-0002). That is what makes a single
-test seam cover both surfaces, and it is the rule to break last.
+One core, three doors. The web view, the MCP route handler and the read-only `/api`
+(ADR-0025) are **thin adapters over this module**, and none of them holds domain logic
+(ADR-0002). That is what makes a single test seam cover every surface, and it is the rule to
+break last.
+
+The third door's own file is `queries/showcase.ts`, and it is a **Rendering** rather than a
+new question: it composes answers that already exist and decides which of them may be seen by
+somebody who is not the owner. What is not composed there does not leave the house.
 
 ```
 src/core/

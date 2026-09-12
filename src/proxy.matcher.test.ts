@@ -43,6 +43,10 @@ describe("the proxy's matcher", () => {
   //   - `/mcp`, which is the other door and is authenticated by a static bearer
   //     rather than by Google (ADR-0004) — a redirect to a Google consent screen is
   //     not an answer an assistant can read;
+  //   - `/api/showcase`, the third door's first resource, authenticated by its own
+  //     bearer (ADR-0025) and excluded **by name**: `/api` is not a prefix exclusion,
+  //     because `api/auth` already lives under it and a prefix-wide hole is one every
+  //     later route falls into without anybody deciding it should;
   //   - `/.well-known`, which RFC 8615 reserves for metadata a machine fetches before
   //     it has credentials. A discovery probe that gets `307 /signin` learns nothing;
   //     a `404` correctly says this server publishes none;
@@ -57,6 +61,7 @@ describe("the proxy's matcher", () => {
     "/signin",
     "/mcp",
     "/mcp/",
+    "/api/showcase",
     "/.well-known",
     "/.well-known/oauth-protected-resource",
     "/.well-known/oauth-protected-resource/mcp",
@@ -82,6 +87,8 @@ describe("the proxy's matcher", () => {
     "/mcps",
     "/mcp-token",
     "/api/authors",
+    "/api/showcases",
+    "/api/showcase-token",
     "/.well-known-ish",
     "/.well-knownish/anything",
     "/icon.svg.map",

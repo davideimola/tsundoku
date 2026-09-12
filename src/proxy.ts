@@ -48,6 +48,14 @@ export const config = {
   //     by Google (ADR-0004), and a redirect to a Google consent screen is not an
   //     answer an assistant can read. Reserved here so the slice that builds it does
   //     not have to edit this line.
+  //   - **`api/showcase`**, the third door's first resource, for the same reason and
+  //     **named rather than prefixed** (ADR-0025). `/api` is deliberately not excluded
+  //     as a whole: `api/auth` already lives under it, and a prefix-wide hole is one
+  //     every later route falls into without anybody deciding it should. A route added
+  //     under `/api` and left out of this line is gated by Google and answers
+  //     `307 /signin` to its bearer, which is wrong in the safe direction and loudly
+  //     so. The thing that actually refuses on that door is `requireApiCaller()`, and
+  //     `src/app/api/gated.test.ts` fails when a route stops calling it.
   //   - **`.well-known`**, the prefix RFC 8615 reserves for metadata a machine fetches
   //     *before* it has any credentials to fetch it with. Gating it does not protect
   //     anything — nothing is served under it — and it actively breaks the clients it
@@ -72,6 +80,6 @@ export const config = {
   // `/.well-known-ish`, `/icon.svg.map` — which is a wider hole than the reservation: the
   // exclusion is for these paths, not for these prefixes.
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|(?:api/auth|signin|mcp|\\.well-known|icon\\.svg|icon1|apple-icon|manifest\\.webmanifest)(?:$|/)).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|(?:api/auth|api/showcase|signin|mcp|\\.well-known|icon\\.svg|icon1|apple-icon|manifest\\.webmanifest)(?:$|/)).*)",
   ],
 };

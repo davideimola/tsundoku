@@ -109,9 +109,22 @@ export function clientOf(headers: Headers): string {
 /**
  * A limiter with its own counters.
  *
- * Exported so a test — and only a test — can have one nobody else has touched. The
- * application uses the single `rateLimit` below, because the limit is a property of the
- * door and not of a caller.
+ * Exported so a test can have one nobody else has touched, and so that **a second door can
+ * have one of its own** (ADR-0025). `/api` is the third door and it takes a limiter from
+ * here rather than a second implementation, because the arithmetic and the two windows are
+ * the same argument; what it does not take is the counters. A flood against the public page
+ * must not spend the allowance the owner's own assistant is refused out of, and the two
+ * doors' legitimate traffic looks nothing alike: one page asking on a schedule against one
+ * assistant answering questions.
+ *
+ * **The one-replica assumption is unchanged and now covers two counters rather than one.**
+ * Both live in this process for the life of the container, so two replicas would each hold
+ * their own and both doors' effective limits would double. That is still wrong in the safe
+ * direction and still loudly so, and the honest fix if a second replica is ever wanted is
+ * still to say so at the head of this file first.
+ *
+ * Each door names the one it uses beside itself. `rateLimit` below is `/mcp`'s, because that
+ * was the first and it would be a rename to move it.
  */
 export function createRateLimiter(): RateLimiter {
   const clients = new Map<string, Window>();

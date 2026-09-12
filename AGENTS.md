@@ -24,10 +24,29 @@ testing seam.
 
 ### Where code goes
 
-Both doors — the web view and the MCP route handler — are thin adapters over
-`src/core`, and neither holds domain logic (ADR-0002). Read `src/core/README.md`
+Every door (the web view, the MCP route handler and the read-only `/api`) is a thin adapter
+over `src/core`, and none of them holds domain logic (ADR-0002). Read `src/core/README.md`
 before adding a verb or a query: it says which file yours goes in, and why there is no
 barrel index to edit.
+
+### Where an API resource goes
+
+**A route under `src/app/api/` that calls `requireApiCaller()` first, plus its path added by
+name to the matcher in `src/proxy.ts`** (ADR-0025). Two things and not one, and each catches
+the other's failure: a route that forgets the wall is served to whoever finds the URL, and
+`src/app/api/gated.test.ts` fails; a route left out of the matcher is gated by Google and
+answers `307 /signin` to its bearer, which is useless rather than open. `/api` is deliberately
+**not** a prefix exclusion, because `api/auth` already lives under it and a prefix-wide hole
+is one every later route falls into without anybody deciding it should.
+
+**What it may publish is decided in the core and nowhere else.** There is no per-row `public`
+flag in this library: `theShowcase` in `src/core/queries/showcase.ts` is a composition, and
+what is not composed there does not exist to the outside. Prices, acquisitions, the Inbox,
+Paths, Provenance, the grain of a score, the prose of a Rating and every ISBN are absent by
+construction rather than by filtering, and adding a field to that file is the whole act of
+publishing it. **While one token exists the API is read-only by construction**: no verb is
+reachable from it, and a write on this surface would be a decision to reopen ADR-0025 rather
+than a route.
 
 ### Where an MCP tool goes
 
