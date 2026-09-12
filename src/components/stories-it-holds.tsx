@@ -500,12 +500,15 @@ function Row({
             The library stops knowing {story.title}. The Credits on it go too, and the people they
             name stay.
           </p>
-          <span className="ml-auto flex items-center gap-1">
+          {/* Two presses at a thumb's width and a thumb's gap: what is being confirmed
+              is a strike, and *Keep it* sitting flush against it at thirty-two pixels was
+              the one place in here a mis-tap was cheap to make and impossible to undo. */}
+          <span className="ml-auto flex items-center gap-2">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 text-xs"
+              className="h-11 px-4 text-xs sm:h-8 sm:px-3"
               onClick={onDisarm}
             >
               Keep it
@@ -514,7 +517,7 @@ function Row({
               type="button"
               variant="destructive"
               size="sm"
-              className="h-8 text-xs"
+              className="h-11 px-4 text-xs sm:h-8 sm:px-3"
               disabled={working}
               onClick={onStrike}
             >
@@ -552,7 +555,7 @@ function RowPress({
       title={label}
       disabled={disabled}
       onClick={onPress}
-      className="flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+      className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 sm:size-9"
     >
       <span className="sr-only">{label}</span>
       {children}
@@ -596,7 +599,7 @@ function Line({
             size="sm"
             disabled={working}
             onClick={onAddAll}
-            className="-mr-2 h-8 shrink-0 text-xs"
+            className="-mr-2 h-11 shrink-0 text-xs sm:h-8"
           >
             {theWholeBandPress(band)}
           </Button>

@@ -66,7 +66,8 @@ export function FinderTrigger({ onOpen, className }: { onOpen: () => void; class
         onOpen();
       }}
       className={cn(
-        "flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-muted-foreground transition-colors",
+        "flex size-11 shrink-0 items-center justify-center gap-1.5 rounded-md text-muted-foreground transition-colors",
+        "lg:size-auto lg:justify-start lg:px-1.5 lg:py-1",
         "outline-none hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
         className
       )}

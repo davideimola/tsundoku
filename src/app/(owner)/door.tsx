@@ -59,7 +59,11 @@ export function DoorOnThePhone({ className }: { className?: string }) {
       href={THE_DOOR.href}
       aria-label={SAYS}
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity",
+        // Forty-four pixels on the phone and thirty-six at the desk, which is the same
+        // number the rest of the application is drawn to: a fingertip is 44px wide and a
+        // pointer is one pixel. It is the widest thing in a 48px strip on purpose — this
+        // is the control the owner presses standing up, one-handed, holding a book.
+        "flex size-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity sm:size-9",
         "outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         className
       )}

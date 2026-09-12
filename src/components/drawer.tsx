@@ -26,7 +26,10 @@ import { cn } from "@/lib/utils";
 //
 // What it does not have is a focus trap and an escape key. `<Escape>` is the browser's back
 // gesture away and the close is the first thing in the panel, which is the honest trade for a
-// panel that exists at all with no script running.
+// panel that exists at all with no script running. There are three ways out and all three are
+// links to the same address: the scrim, the word in the corner — which is a 44px target on the
+// phone, because it was eleven pixels of type in the corner a thumb reaches last — and the
+// gesture.
 
 /**
  * A panel over the screen, open because the URL says so.
@@ -79,6 +82,15 @@ export function Drawer({
           "motion-safe:animate-in motion-safe:slide-in-from-bottom motion-safe:sm:slide-in-from-right motion-safe:duration-200"
         )}
       >
+        {/* The grip a panel that came up from the bottom edge is dragged by everywhere
+            else. It drags nothing — the scrim above is the way out, and so is the back
+            gesture — and it is drawn because it is what says which edge this arrived from.
+            The desk gets none: at that width the panel comes in from the right. */}
+        <div
+          aria-hidden
+          className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden"
+        />
+
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-background/95 px-5 py-4 backdrop-blur">
           <div className="min-w-0">
             <h2 className="font-heading text-lg">{title}</h2>
@@ -91,7 +103,7 @@ export function Drawer({
               exactly one way of closing rather than two that could disagree. */}
           <Link
             href={closesTo}
-            className="-mr-1.5 -mt-1 shrink-0 rounded-lg px-2 py-1 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="-mr-3 -mt-2 flex h-11 shrink-0 items-center rounded-lg px-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:-mr-1.5 sm:-mt-1 sm:h-auto sm:px-2 sm:py-1"
           >
             Close
           </Link>

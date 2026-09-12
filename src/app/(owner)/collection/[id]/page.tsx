@@ -661,7 +661,12 @@ function CoveredRange({
           placeholder={covers ? String(covers.to) : String(story.instalments)}
           className={`${NUMBER} w-16`}
         />
-        <Button type="submit" variant="ghost" size="sm" className="h-8 text-xs">
+        <Button
+          type="submit"
+          variant="ghost"
+          size="sm"
+          className="h-11 px-4 text-xs sm:h-8 sm:px-3"
+        >
           Record it
         </Button>
         <span className="basis-full text-xs text-muted-foreground">

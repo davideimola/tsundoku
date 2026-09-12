@@ -63,7 +63,7 @@ export function DeclaredConstraints({
                   type="submit"
                   variant="ghost"
                   size="sm"
-                  className="h-9 shrink-0 text-muted-foreground"
+                  className="h-11 shrink-0 text-muted-foreground sm:h-9"
                 >
                   Withdraw
                 </Button>
