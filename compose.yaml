@@ -1,0 +1,91 @@
+# One copy of the library on one machine: Postgres, the migrations, the app.
+#
+# **This is not the local loop and it is not what the cluster runs.** Development is
+# `pnpm db:up && pnpm dev` (README, *The local loop*), where the gate is opened by
+# `AUTH_DEV_OPEN` and nothing is built; production is `apps/tsundoku/` in the cluster
+# repo, where Postgres is CloudNativePG with continuous backup off-site and the image
+# comes from a registry. This file is the third thing, and the only one written for
+# somebody who is not the owner: a fork that wants the whole application running
+# somewhere, with `docker compose up` and no Kubernetes.
+#
+# What it is missing on purpose is the backup. A volume on one machine is where the
+# data lives, not where it is safe — ADR-0003 is the argument, and whoever runs this
+# owes their own copy of it.
+#
+#   cp .env.example .env.local     # then fill in the gate, see below
+#   docker compose up --build      # http://localhost:3000
+#
+# The three services are the deployment's three steps in order, and compose enforces
+# the order: the database answers, the migrations run to completion in the same image
+# that will serve, and only then does the app start.
+
+name: tsundoku
+
+services:
+  # The same major the cluster runs, for the reason `db/container.ts` gives: a local
+  # major that differs from the deployed one is a difference you find out about at
+  # migration time.
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: tsundoku
+      POSTGRES_PASSWORD: tsundoku
+      POSTGRES_DB: tsundoku
+    volumes:
+      - library:/var/lib/postgresql/data
+    # `pg_isready` rather than a sleep: the migrations depend on this condition, and a
+    # container that has started is not a server that accepts connections.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tsundoku -d tsundoku"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  # The init container, said in compose. It runs `db/cli.ts migrate` from the image
+  # that is about to serve — one runner, one convention, nothing applied that was not
+  # built — and exits. `migrate` is the one `db:*` command that reaches for no Docker:
+  # the server already exists here and already holds the database and the role.
+  migrate:
+    build: .
+    command:
+      - node
+      - --experimental-strip-types
+      - --disable-warning=MODULE_TYPELESS_PACKAGE_JSON
+      - db/cli.ts
+      - migrate
+    environment:
+      DATABASE_URL: postgres://tsundoku:tsundoku@postgres:5432/tsundoku
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    # The gate and the MCP door come from your own `.env.local` — none of those values
+    # is in this repository and none ever should be. `.env.example` says what each one
+    # is and how to get it.
+    env_file:
+      - .env.local
+    environment:
+      # Set here rather than taken from the file on purpose: `.env.local`'s value is
+      # the local loop's, `127.0.0.1`, which inside this network is this container.
+      DATABASE_URL: postgres://tsundoku:tsundoku@postgres:5432/tsundoku
+      # Auth.js builds `redirect_uri` from the origin it is given, and a standalone
+      # server binds `0.0.0.0:3000` — so without this the sign-in asks Google to
+      # redirect to an address Google refuses. It must match the authorised redirect
+      # URI registered there exactly.
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      # Who this copy says it is to the cover sources. Unset, it says it is the
+      # project rather than somebody else's deployment.
+      COVER_CONTACT_URL: ${COVER_CONTACT_URL:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  library:
