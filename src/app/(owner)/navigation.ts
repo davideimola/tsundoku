@@ -32,11 +32,15 @@
  * glossary's: the thing the application is named after, holding a game and a novel without
  * leaning towards either.
  *
- * No icons on the destinations, and no icon library: #19 bought none, one mark does not
- * earn a dependency, and destinations named in words are shorter to read than glyphs to
- * learn. The two screens the chrome carries *outside* this map are the exception and are
- * drawn rather than named — a magnifier and a spine joining the pile — because a control
- * repeated on every screen is learned once and then only recognised.
+ * **Every destination is drawn as well as named** (`src/components/glyphs.tsx`), and there
+ * is still no icon library. That is a reversal of what stood here — *"destinations named in
+ * words are shorter to read than glyphs to learn"* — and the phone is what reversed it: on
+ * the bottom bar the name is set at eleven pixels in a fifth of a phone, where a word is
+ * spelled out rather than seen and *Collection* did not fit on one line. A glyph is learned
+ * once and recognised forever after, which is the argument the chrome's two other marks were
+ * already carrying. The word stays under it at both widths, so nothing has to be guessed on
+ * the first day, and the map is still this module: a `Destination` is data, and which mark
+ * stands for it is decided beside the drawing rather than here.
  */
 
 export type Destination = {

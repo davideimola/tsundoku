@@ -242,6 +242,39 @@ describe("where the owner is", () => {
   });
 });
 
+// The fourth half, and the youngest: **the map is drawn as well as written.** Every line in
+// it carries a mark on the phone's bar and in the sheet behind it (`src/components/glyphs.tsx`),
+// and a destination added without one renders a tab with a hole where the glyph goes — which
+// compiles, passes every check above, and is only ever seen by whoever is holding the phone.
+//
+// It is a grep and not an import, for the same reason the rest of this file is one: the
+// glyphs are markup, the map is data, and the line between them is what lets this test run
+// with no renderer. What it reads is the registry's keys.
+describe("the map is drawn", () => {
+  const glyphs = sourceFiles(SRC).find((read) => read.file === "components/glyphs.tsx");
+  const shell = sourceFiles(APP).find((read) => read.file === `${GROUP}shell.tsx`);
+
+  it("finds the source it is about to check", () => {
+    expect(glyphs).toBeDefined();
+    expect(shell).toBeDefined();
+  });
+
+  it("has a mark for every destination", () => {
+    const undrawn = DESTINATIONS.filter(
+      (destination) => !(glyphs?.source ?? "").includes(`"${destination.href}":`)
+    ).map((destination) => destination.href);
+
+    expect(undrawn).toEqual([]);
+  });
+
+  // Both shapes, because a mark on one of them is a map that disagrees with itself at the
+  // width nobody is testing at.
+  it("draws it in the tab and in the row", () => {
+    expect(shell?.source).toContain("<GlyphFor");
+    expect(shell?.source.match(/<GlyphFor/g)).toHaveLength(2);
+  });
+});
+
 describe("no screen centres itself in a column", () => {
   // The pair, not either half. `max-w-prose` on a paragraph is measure — the line length
   // prose is read at — and it stays. What is forbidden is the pair that takes a width and

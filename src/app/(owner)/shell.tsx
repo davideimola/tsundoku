@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { GlyphFor, MoreGlyph } from "@/components/glyphs";
 import { Mark } from "@/components/mark";
 import { Button } from "@/components/ui/button";
 import { signOutOwner } from "@/lib/auth/actions";
@@ -60,6 +61,13 @@ export function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
   // palette is beside them: one fact, three places, and no way for them to disagree.
   const [finding, setFinding] = useState(false);
 
+  // Whether *More* is open, which the shell does not remember either: it is one search
+  // param on the address the owner is already at (`./shell`'s own paragraph above, and
+  // `src/components/drawer.tsx` for the argument in full). A tap on the scrim is a link
+  // home to this screen, and the back gesture shuts it because shutting it is what going
+  // back means.
+  const menu = useMenu();
+
   return (
     <>
       <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -70,10 +78,7 @@ export function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
           <div className="pb-24 lg:pb-0">{children}</div>
         </div>
       </div>
-      {/* Keyed on the path so that following a link out of *More* leaves it shut: a
-          client-side navigation keeps the DOM, and a `<details>` nobody remounts would
-          still be hanging open over the next screen. */}
-      <Phone key={pathname} here={here} />
+      <Phone here={here} menu={menu} />
 
       <FinderPalette open={finding} onOpenChange={setFinding} />
     </>
@@ -173,99 +178,196 @@ function PhoneChrome({ onFind }: { onFind: () => void }) {
 }
 
 /**
+ * WHERE *MORE* KEEPS ITS ONE BIT OF STATE: the address, and not the browser.
+ *
+ * It was a `<details>` for one release, on the argument that it opens with nothing running
+ * — which is true, and was not enough. A `<details>` cannot be shut by tapping away from
+ * it, which is how every panel on a phone is shut; it takes no scrim, so the screen behind
+ * it stays as loud as the panel; and the back gesture, which the owner's thumb is already
+ * on, does nothing to it.
+ *
+ * A search param has all three and keeps what the `<details>` was bought for: the panel is
+ * server-rendered when `?menu=open` is on the address, every way out of it is a `<Link>`
+ * back to the address without it, and nothing has to be running for any of that. It is the
+ * drawer's design (`src/components/drawer.tsx`, ADR-0010) spent on the navigation, and the
+ * one difference is that this panel is never linked to on purpose: it is a menu, so the
+ * only thing that opens it is the tab.
+ *
+ * Every other param on the address is carried through untouched — the Collection's filters
+ * are still on it, and a menu that dropped them would be a menu that undoes a search.
+ */
+function useMenu(): { open: boolean; opens: string; shuts: string } {
+  const pathname = usePathname();
+  const params = useSearchParams();
+
+  const at = (open: boolean) => {
+    const next = new URLSearchParams(params.toString());
+    if (open) next.set("menu", "open");
+    else next.delete("menu");
+
+    const query = next.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  };
+
+  return { open: params.get("menu") === "open", opens: at(true), shuts: at(false) };
+}
+
+/**
  * The phone. Four destinations and a fifth tab, fixed to the bottom of the window and
  * inside the reach of one thumb.
  *
  * The four are the ones worth opening away from the desk — which destination carries which
- * is argued for in `./navigation` — and the rest are one tap behind the fifth, which is a
- * plain `<details>`: it opens with nothing running in the browser, which is what a screen
- * used on a shop's signal needs (ADR-0010), and it costs no state, no listener and no
- * dependency.
+ * is argued for in `./navigation` — and the rest are one tap behind the fifth, which opens
+ * the sheet below.
  *
- * No icons, because #19 bought none and a glyph invented for *Wishes* would have to be
- * learned. What marks the destination the owner is on is a rule above its name — the same
- * hairline the rest of the application is drawn with, at full ink.
+ * **Each tab is drawn as well as named** (`src/components/glyphs.tsx`). That retires the
+ * stance that stood here — *"no icons, because #19 bought none and a glyph invented for
+ * Wishes would have to be learned"* — and it retires it on the evidence of using the thing:
+ * five words at eleven pixels are five acts of reading, the tab was a word and a hairline,
+ * and *Collection* did not fit its fifth of the bar on one line. A glyph is learned once
+ * and then recognised, and the word stays under it so that the first time is not a guess.
+ *
+ * **The fifth tab is called *More* on every screen.** It renamed itself to whatever screen
+ * the owner was on — *Stories*, *Series* — on the argument that the bar should say where
+ * they are. What that cost is the thing a bar is for: a control in a fixed place with a
+ * fixed name, which the thumb finds without the eye. Where they are is now said by the tab
+ * being marked, the same way the other four say it, and the name holds still.
+ *
+ * Sixty-four pixels tall and no hairline above the glyph: the rule that marked the current
+ * destination has moved to the top edge of its cell, where it costs no room between the
+ * glyph and the word.
  */
-function Phone({ here }: { here: string | undefined }) {
-  // The one thing the fifth tab needs to know: whether the owner is on a screen it holds.
-  // It answers both what the tab is called and whether it is marked, so it is looked up
-  // once rather than asked twice in two ways.
-  const beyond = BEHIND_MORE.flatMap((section) => section.destinations).find(
+function Phone({
+  here,
+  menu,
+}: {
+  here: string | undefined;
+  menu: { open: boolean; opens: string; shuts: string };
+}) {
+  // Whether the owner is on a screen the fifth tab holds. It is what marks the tab, and
+  // it is looked up once rather than asked twice in two ways.
+  const beyond = BEHIND_MORE.flatMap((section) => section.destinations).some(
     ({ href }) => href === here
   );
 
-  // *More* while the owner is on one of the four, and the **name of the screen they are
-  // on** while they are behind it: the criterion is that the section is legible without
-  // reading the URL, and a bar that said *More* on Stories would be telling them where
-  // they are not. Opening it is the same tap either way.
-  const fifth = beyond?.label ?? "More";
-
   return (
-    <nav
-      aria-label="Sections"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
-    >
-      <ul className="flex items-stretch">
-        {ON_THE_BAR.map((destination) => (
-          <li key={destination.href} className="min-w-0 flex-1">
-            <Tab destination={destination} here={here} />
-          </li>
-        ))}
+    <>
+      {menu.open && <Sheet here={here} shuts={menu.shuts} />}
 
-        <li className="min-w-0 flex-1">
-          <details className="relative">
-            <summary
+      <nav
+        aria-label="Sections"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
+      >
+        <ul className="flex items-stretch">
+          {ON_THE_BAR.map((destination) => (
+            <li key={destination.href} className="min-w-0 flex-1">
+              <Tab destination={destination} here={here} />
+            </li>
+          ))}
+
+          <li className="min-w-0 flex-1">
+            <Link
+              href={menu.open ? menu.shuts : menu.opens}
+              aria-expanded={menu.open}
               className={cn(
-                "flex h-14 cursor-pointer list-none flex-col items-center justify-center gap-1.5 px-1 text-center text-eyebrow [&::-webkit-details-marker]:hidden",
-                beyond ? "text-foreground" : "text-muted-foreground",
+                "relative flex h-16 flex-col items-center justify-center gap-1 px-1 text-center text-eyebrow",
+                beyond || menu.open ? "text-foreground" : "text-muted-foreground",
                 FOCUS
               )}
             >
-              <Rule on={beyond !== undefined} />
-              {fifth}
-            </summary>
+              <Rule on={beyond || menu.open} />
+              <MoreGlyph className="size-[22px]" />
+              <span className={cn("truncate", (beyond || menu.open) && "font-medium")}>More</span>
+            </Link>
+          </li>
+        </ul>
+      </nav>
+    </>
+  );
+}
 
-            {/* Opening upwards from the right edge, which is the tap that opened it and
-                the one place on a phone where there is room above. Anchored by `right`
-                alone: the panel is wider than the fifth of the bar it hangs off, so
-                giving it a left edge as well would over-constrain it and send it off the
-                side of the window. */}
-            <div className="absolute bottom-full right-1 mb-2 w-44 rounded-lg border border-border bg-popover p-2 shadow-lg">
-              {BEHIND_MORE.map((section) => (
-                <div key={section.title} className="mb-2 last:mb-0">
-                  <h2 className="px-2 py-1 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-                    {section.title}
-                  </h2>
-                  <ul>
-                    {section.destinations.map((destination) => (
-                      <li key={destination.href}>
-                        <Row destination={destination} here={here} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+/**
+ * What the fifth tab opens: **a sheet up from the edge the tap came from**, over a scrim
+ * that shuts it.
+ *
+ * It replaces a popover eleven rems wide that hung off the right of the bar with rows a
+ * third of a thumb tall. The width is the window's because there is no reason for it not to
+ * be, and what the room buys is rows of forty-eight pixels carrying the destination's own
+ * glyph — the same mark the tab beside it carries, so the map is one drawing at two sizes.
+ *
+ * The sections are named in here and not on the bar, which is the division the two shapes
+ * have always had: the bar is four things a thumb reaches for, the sheet is the map, and
+ * the map is three questions.
+ */
+function Sheet({ here, shuts }: { here: string | undefined; shuts: string }) {
+  return (
+    <div className="fixed inset-0 z-40 lg:hidden">
+      {/* The ground behind, dimmed — and it is a link, because tapping away from a panel is
+          how a panel is shut everywhere else. No accessible name: the tab that opened it is
+          the control a screen reader should find, and it is still on the bar underneath. */}
+      <Link
+        href={shuts}
+        aria-hidden
+        tabIndex={-1}
+        className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]"
+      />
+
+      <nav
+        aria-label="More sections"
+        className={cn(
+          "absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-background px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 ring-1 ring-foreground/10",
+          "motion-safe:animate-in motion-safe:slide-in-from-bottom motion-safe:duration-200"
+        )}
+      >
+        {/* The grip a sheet is dragged by everywhere else. It drags nothing here — the
+            sheet has one bit of state and the scrim above it is the way out — and it is
+            drawn because it is what says *this came up from the bottom and goes back
+            down*. */}
+        <div aria-hidden className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" />
+
+        {BEHIND_MORE.map((section) => (
+          <div key={section.title} className="mb-3 last:mb-0">
+            <h2 className="px-3 pb-1 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+              {section.title}
+            </h2>
+            <ul>
+              {section.destinations.map((destination) => (
+                <li key={destination.href}>
+                  <Row destination={destination} here={here} roomy />
+                </li>
               ))}
+            </ul>
+          </div>
+        ))}
 
-              <SignOut className="border-t border-border pt-1" />
-            </div>
-          </details>
-        </li>
-      </ul>
-    </nav>
+        <SignOut className="mt-2 border-t border-border pt-2" roomy />
+      </nav>
+    </div>
   );
 }
 
 /**
  * A destination as a row, which is the shape it takes in both places that list them: the
- * sidebar at the desk, and the panel the phone's fifth tab opens. One component because
- * they are one thing — the same word, the same mark of being where the owner is, and the
- * same `aria-current` — rather than two that happen to look alike today.
+ * sidebar at the desk, and the sheet the phone's fifth tab opens. One component because
+ * they are one thing — the same mark, the same word, the same sign of being where the owner
+ * is, and the same `aria-current` — rather than two that happen to look alike today.
+ *
+ * `roomy` is the one thing the two postures disagree about, and it is a tap target rather
+ * than a taste: a pointer hits a thirty-pixel row and a thumb does not.
  *
  * The quiet accent is the shadcn token rather than the sidebar's own, because the two are
  * aliases of the same `--paper-quiet` (`src/app/globals.css`) and spending the general one
  * is what lets a single component stand in both surfaces.
  */
-function Row({ destination, here }: { destination: Destination; here: string | undefined }) {
+function Row({
+  destination,
+  here,
+  roomy,
+}: {
+  destination: Destination;
+  here: string | undefined;
+  roomy?: boolean;
+}) {
   const current = here === destination.href;
 
   return (
@@ -273,20 +375,25 @@ function Row({ destination, here }: { destination: Destination; here: string | u
       href={destination.href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "block rounded-md px-2 py-1.5 text-sm transition-colors",
+        "flex items-center gap-2.5 rounded-md px-2 text-sm transition-colors",
+        roomy ? "h-12 gap-3 px-3" : "py-1.5",
         current
           ? "bg-accent font-medium text-accent-foreground"
           : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
         FOCUS
       )}
     >
+      <GlyphFor
+        href={destination.href}
+        className={cn("shrink-0", roomy ? "size-5" : "size-4", !current && "text-muted-foreground")}
+      />
       {destination.label}
     </Link>
   );
 }
 
 /**
- * A destination as one of the phone's five tabs: a rule, then the name, centred in its
+ * A destination as one of the phone's five tabs: the mark, then the name, centred in its
  * fifth of the bar and tall enough to be hit without aiming. A different anatomy from a
  * row rather than a variant of one, which is why it is its own component.
  */
@@ -298,23 +405,35 @@ function Tab({ destination, here }: { destination: Destination; here: string | u
       href={destination.href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "flex h-14 flex-col items-center justify-center gap-1.5 px-1 text-center text-eyebrow",
+        "relative flex h-16 flex-col items-center justify-center gap-1 px-1 text-center text-eyebrow",
         current ? "text-foreground" : "text-muted-foreground",
         FOCUS
       )}
     >
       <Rule on={current} />
-      {destination.label}
+      <GlyphFor href={destination.href} className="size-[22px]" />
+      <span className={cn("truncate", current && "font-medium")}>{destination.label}</span>
     </Link>
   );
 }
 
-/** The mark above a name in the bottom bar: a hairline, at full ink where the owner is. */
+/**
+ * The mark of the tab the owner is on: the house's hairline, at full ink, ruled across the
+ * top edge of the cell.
+ *
+ * It used to sit above the word inside the tab, which is where the room for a glyph now is.
+ * Moving it to the edge costs nothing vertically and says the same thing more plainly — the
+ * bar is drawn with one rule along its top, and the current tab is the length of it that is
+ * inked.
+ */
 function Rule({ on }: { on: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={cn("h-0.5 w-5 rounded-full", on ? "bg-foreground" : "bg-transparent")}
+      className={cn(
+        "absolute inset-x-2 top-0 h-0.5 rounded-full",
+        on ? "bg-foreground" : "bg-transparent"
+      )}
     />
   );
 }
@@ -329,10 +448,15 @@ function Rule({ on }: { on: boolean }) {
  * It earns its place because ending the session is the only way out of a cookie issued to
  * an address that is no longer the owner's.
  */
-function SignOut({ className }: { className?: string }) {
+function SignOut({ className, roomy }: { className?: string; roomy?: boolean }) {
   return (
     <form action={signOutOwner} className={className}>
-      <Button type="submit" variant="ghost" size="sm" className="text-muted-foreground">
+      <Button
+        type="submit"
+        variant="ghost"
+        size={roomy ? "default" : "sm"}
+        className={cn("text-muted-foreground", roomy && "h-12 w-full justify-start px-3")}
+      >
         Sign out
       </Button>
     </form>
