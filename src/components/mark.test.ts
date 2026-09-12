@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { OUTSIDE_THE_CASCADE } from "@/app/outside-the-cascade";
 import { PILE, type Spine, turn, VIEWBOX } from "@/components/mark";
 
 // The mark is drawn twice — once as inline SVG for the chrome, once as the file a browser
@@ -16,6 +17,12 @@ import { PILE, type Spine, turn, VIEWBOX } from "@/components/mark";
 // have if React were replaced.
 
 const ICON = readFileSync(new URL("../app/icon.svg", import.meta.url), "utf8");
+
+/** The README's two mastheads, one per ground. */
+const MASTHEADS = {
+  light: readFileSync(new URL("../../docs/brand/masthead-light.svg", import.meta.url), "utf8"),
+  dark: readFileSync(new URL("../../docs/brand/masthead-dark.svg", import.meta.url), "utf8"),
+} as const;
 
 /** The size the chrome sets it at, and the size a favicon is actually looked at. */
 const SMALL = 20;
@@ -138,5 +145,61 @@ describe("the favicon", () => {
   // therefore has to state both grounds, or it is invisible in one of them.
   it("says what it is in a dark room", () => {
     expect(ICON).toContain("prefers-color-scheme: dark");
+  });
+});
+
+describe("the masthead", () => {
+  // The third drawing of one pile, and the one nobody working on the application ever
+  // looks at: a README is read on GitHub. Same wall as the favicon's, for the same reason
+  // — a logo that drifts from itself is a mistake that is only ever seen by strangers.
+  it.each(["light", "dark"] as const)("is the same pile the chrome draws, on %s", (ground) => {
+    const spines = [...MASTHEADS[ground].matchAll(/<rect class="spine"([^>]*)\/>/g)].map(
+      ([, attributes]) => {
+        const attribute = (name: string) =>
+          attributes.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1] ?? "";
+
+        return {
+          x: Number(attribute("x")),
+          y: Number(attribute("y")),
+          width: Number(attribute("width")),
+          height: Number(attribute("height")),
+          transform: attribute("transform"),
+        };
+      }
+    );
+
+    expect(spines).toEqual(
+      PILE.map((spine) => ({
+        x: spine.x,
+        y: spine.y,
+        width: spine.width,
+        height: spine.height,
+        transform: turn(spine),
+      }))
+    );
+  });
+
+  // Both grounds are stated rather than picked by a media query, because an SVG loaded
+  // through an `<img>` in a README is handed its scheme by the `<picture>` around it.
+  it.each(["light", "dark"] as const)("is paper and ink on %s, and nothing else", (ground) => {
+    const svg = MASTHEADS[ground];
+    const paper = OUTSIDE_THE_CASCADE.paper[ground];
+    const ink = OUTSIDE_THE_CASCADE.ink[ground];
+
+    expect(svg).toContain(`<rect class="ground" width="960" height="300" fill="${paper}"/>`);
+
+    // Every colour in the file is one of those two. What is quieter is ink at an opacity,
+    // so a palette that moves cannot leave a stale hex behind in a picture nobody re-reads.
+    const colours = new Set([...svg.matchAll(/fill="(#[0-9a-f]{6})"/g)].map(([, hex]) => hex));
+    expect([...colours].sort()).toEqual([paper, ink].sort());
+  });
+
+  // It is XML before it is a picture: a comment carrying a double hyphen makes the whole
+  // file unparseable, and GitHub renders the broken-image icon rather than saying so.
+  it.each(["light", "dark"] as const)("is well-formed XML on %s", (ground) => {
+    const comments = [...MASTHEADS[ground].matchAll(/<!--([\s\S]*?)-->/g)];
+
+    expect(comments.length).toBeGreaterThan(0);
+    expect(comments.filter(([, body]) => body.includes("--"))).toEqual([]);
   });
 });

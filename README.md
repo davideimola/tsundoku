@@ -1,4 +1,16 @@
-# tsundoku
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/masthead-dark.svg">
+    <img src="docs/brand/masthead-light.svg" alt="tsundoku — the pile that keeps growing, catalogued" width="720">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://github.com/davideimola/tsundoku/actions/workflows/check.yml"><img src="https://github.com/davideimola/tsundoku/actions/workflows/check.yml/badge.svg" alt="Check"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-1b1b1b" alt="MIT"></a>
+  <img src="https://img.shields.io/badge/Next.js%2016-Postgres%2018-1b1b1b" alt="Next.js 16, Postgres 18">
+  <img src="https://img.shields.io/badge/LLM%20inside-none-1b1b1b" alt="No LLM inside">
+</p>
 
 A single-owner library, named for the pile of unread books that keeps growing: what
 the owner has read, what they thought of it, and what stands on the shelf at home —
@@ -7,7 +19,20 @@ answer *"what should I read next"* without the owner maintaining a spreadsheet b
 hand.
 
 Someone else reuses this by forking the repo and running their own infrastructure,
-never by creating a second account.
+never by creating a second account — [running your own copy](#running-your-own-copy) is
+what that takes.
+
+## The name
+
+**積ん読** — *tsundoku*. Japanese for buying books and letting them pile up unread, and
+the word is a pun rather than a description: 積んでおく (*tsunde oku*, "to pile it up and
+leave it there") with 読 (*doku*, "reading") standing where the last syllable was. It is
+Meiji-era, which is to say the habit is older than any app that ever offered to fix it.
+
+Nothing here offers to fix it. **The pile is the subject, not the backlog**: this
+application catalogues what is on it, what came off it and what was thought of each, and
+the mark at the top of this file is that pile drawn at its smallest — three spines,
+slightly askew, because a stack put down without care is what the word means.
 
 Read [`CONTEXT.md`](CONTEXT.md) for the vocabulary — Story, Volume, Collection,
 Series, Pass, Rating, Path, Wish, the Pile and the rest are used as defined there, and the
@@ -545,6 +570,114 @@ It is a script rather than a migration on purpose — the gesture it presses is 
 SQL, a migration would run itself on a deploy nobody was watching, and nothing here is schema.
 [`db/convert/README.md`](db/convert/README.md) is the argument and the rehearsal.
 
+## Running your own copy
+
+This repository is public and the application is single-owner by design, so the two facts
+meet here: **you run it by forking and hosting it yourself, never by creating a second
+account in somebody else's** ([ADR-0004](docs/adr/0004-two-public-surfaces-two-authentications.md)).
+There is no tenancy in the schema and there is not meant to be. What follows is the whole
+of what that costs.
+
+**Three things, and no fourth.** A Postgres 18, this application, and a Google OAuth client
+so that the gate has something to check you against. No cloud account is implied, no
+Kubernetes, and nothing here calls an LLM or spends a token on your behalf — the recommender
+is the assistant you already pay for
+([ADR-0002](docs/adr/0002-the-app-holds-no-model-and-the-recommender-is-external.md)).
+
+### With Docker, which is the short way
+
+[`compose.yaml`](compose.yaml) is the deployment's three steps in order — the database, the
+migrations, the app — and compose enforces the order, so the schema is always applied by the
+same image that then serves.
+
+```sh
+cp .env.example .env.local   # then fill in the four gate variables, see below
+docker compose up --build    # http://localhost:3000
+```
+
+It is deliberately not the local loop: what it builds is a production image, where
+`AUTH_DEV_OPEN` is never honoured, so the gate is real from the first request. Put it behind
+a TLS terminator of your own — the container serves plain HTTP on 3000 and knows nothing
+about certificates — and set `AUTH_URL` to the origin that terminator publishes.
+
+**The volume is where the data lives, not where it is safe.** Continuous backup is the one
+thing `compose.yaml` deliberately does not have, and
+[ADR-0003](docs/adr/0003-postgres-runs-in-cluster-on-our-own-k3s-with-off-site-backups.md)
+is the argument for owing yourself one: this data is small, hand-curated over years and
+irreplaceable.
+
+### With node, if you already have a Postgres
+
+The same three steps, unwrapped. Node 22 and pnpm 10 — `mise install` pins both — and a
+database you created yourself, empty; the migrations make everything in it.
+
+```sh
+export DATABASE_URL=postgres://user:password@host:5432/tsundoku
+pnpm install --frozen-lockfile
+pnpm build          # needs no database: every page that reads the library is per-request
+pnpm db:migrate     # the one db:* command that reaches for no Docker
+
+# What `output: "standalone"` writes is a server that carries its own dependencies, and
+# the two things it deliberately does not trace, because they are served rather than
+# imported. The Dockerfile does exactly these three lines.
+cp -R public .next/standalone/public
+cp -R .next/static .next/standalone/.next/static
+node .next/standalone/server.js   # PORT and HOSTNAME are the server's own
+```
+
+The build needs the network even without a database: `next/font/google` fetches the three
+families and self-hosts them, so a browser asks Google for nothing at run time, and a build
+that cannot reach them fails outright rather than shipping fallback type.
+
+`pnpm db:migrate` is what the init container and the compose `migrate` service both run, and
+it is idempotent: it reads the journal in `db/migrations/meta/` and applies what that
+database still needs ([ADR-0009](docs/adr/0009-drizzle-owns-the-migrations-and-the-schema-is-still-sql.md)).
+Run it on every deploy, before the new version serves.
+
+### What you have to set, and what the gate does without it
+
+Every one of these is documented at length in [`.env.example`](.env.example). Nothing in
+this list carries a value in this repository.
+
+| Variable | Needed | What it is |
+| --- | --- | --- |
+| `DATABASE_URL` | always | host, port, credentials and database name, and the only variable the local loop needs |
+| `AUTH_SECRET` | hosted | what the session cookie is signed with; `pnpm dlx auth secret` prints one. Rotating it signs everybody out |
+| `AUTH_GOOGLE_ID` | hosted | the OAuth client id from Google Cloud Console |
+| `AUTH_GOOGLE_SECRET` | hosted | its secret |
+| `AUTH_OWNER_EMAIL` | hosted | the one Google address that may sign in. Singular: a comma in it is refused, not read as a list |
+| `AUTH_URL` | hosted | the public origin, which must match the redirect URI registered with Google exactly |
+| `MCP_BEARER_TOKEN` | for `/mcp` | a string you pick; it is the whole of that door's authentication |
+| `COVER_CONTACT_URL` | optional | where a cover source can reach you about your traffic. Unset, this app says it is the project rather than somebody else's deployment |
+| `AUTH_DEV_OPEN` | local only | opens the gate while there is no Google client to point at, and is **never honoured in a production build** |
+
+**Both doors fail closed.** A deployment missing one of the gate variables refuses the owner
+rather than admitting everybody, and `/mcp` with `MCP_BEARER_TOKEN` unset or blank refuses
+every request. The authorised redirect URI to register with Google is
+`https://<your domain>/api/auth/callback/google`.
+
+### The parts that are the owner's and not yours
+
+Two commands in this repository read the owner's own spreadsheets — [the import](#the-import)
+and [the conversion](#the-conversion) — and both now refuse to run: they were one-off moves
+onto this model and their fixtures are fabricated data about real books, kept so the code
+stays readable and runnable. A fork starts with an empty library and fills it through the
+screens or through `/mcp`, and `pnpm db:mock` puts an invented one in front of you if you
+want to walk the walls first.
+
+The [assistant project instructions](docs/assistant-projects/) are written in the owner's
+voice about the owner's shelf. They are the two documents that make the MCP door useful, and
+they are meant to be edited rather than pasted as they are.
+
+### Issues are welcome
+
+Issues and pull requests are read. What is **not** open is the shape of the thing: single
+owner, no tenancy, no recommender inside the app, and a vocabulary that is
+[`CONTEXT.md`](CONTEXT.md)'s rather than a preference — those are ADRs, and changing one
+means arguing with the ADR rather than with the code. Everything else — a bug, a source that
+answers differently, a screen that is wrong on a phone, a deployment path that does not work
+— is worth a ticket.
+
 ## Going live
 
 **The application is one container and the cluster is a second repository.** The code
@@ -599,13 +732,21 @@ handed a `var()`. The four literals live once in
 [`src/app/palette.test.ts`](src/app/palette.test.ts) reads `globals.css`, converts the
 primitives to sRGB and asserts they are exactly them, on both grounds.
 
-### The six variables the cluster sets, and the one it must not
+### The seven variables the cluster sets, and the one it must not
 
 `DATABASE_URL` comes from the secret CloudNativePG writes itself, so no connection string
-is ever in Git. The other five are the ones from
+is ever in Git. Five of the others are the ones from
 [`.env.example`](.env.example): `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
 `AUTH_OWNER_EMAIL`, `MCP_BEARER_TOKEN`. Each one is a SOPS-encrypted secret in the cluster
 repo; the private half of the key lives in the cluster and never in Git.
+
+The seventh is `COVER_CONTACT_URL`, and it is a plain value rather than a secret: it is what
+the cover lookup puts in its user-agent, so a source with something to say about this
+deployment's traffic can reach the person making it. It is **not** a second copy of
+`AUTH_URL`, which happens to hold the same string here — that one has to match the redirect
+URI registered with Google exactly, and a fork on a LAN has a contact and no public origin
+at all. Unset anywhere, the app identifies itself as the project rather than as this
+deployment, which is what keeps a fork from wearing this domain's name.
 
 **`AUTH_DEV_OPEN` is absent there**, and its absence is deliberate belt and braces rather
 than the thing that keeps the gate shut: it is never honoured in a production build, which

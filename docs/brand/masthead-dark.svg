@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-label="tsundoku — the pile that keeps growing, catalogued">
+  <!--
+    THE MASTHEAD, on the dark ground. Generated from one geometry and checked by
+    `src/components/mark.test.ts`, which reads this file, parses these rectangles and holds
+    them to `PILE` in `src/components/mark.tsx` — the same wall that keeps the favicon from
+    drifting into a second logo. Three drawings of one pile, and none of them is the
+    original.
+
+    Two files rather than one with a media query, because this is loaded through an `<img>`
+    in a README and the picking is done by `<picture>` there. Each one therefore states its
+    own ground and its own ink, and the two greys are the paper and ink primitives of
+    `src/app/globals.css` converted to sRGB — the same pair `src/app/outside-the-cascade.ts`
+    names for the surfaces the stylesheet cannot reach, and the same wall pins both.
+
+    Nothing here names a third colour. What is quieter is ink at an opacity, which is why a
+    palette change cannot leave a stale hex behind in a picture nobody re-reads.
+
+    The faces are the application's own, named first and then fallen back through: a README
+    is read on somebody else's machine and there is no `next/font` out here to serve them.
+  -->
+  <rect class="ground" width="960" height="300" fill="#101010"/>
+
+  <g fill="#e8e8e8" transform="translate(64 104) scale(6)">
+    <rect class="spine" x="4.4" y="3.9" width="14.6" height="3.8" rx="0.6" transform="rotate(-4.5 11.7 5.8)"/>
+    <rect class="spine" x="2.5" y="10.3" width="19" height="3.8" rx="0.6" transform="rotate(2 12 12.2)"/>
+    <rect class="spine" x="3.9" y="16.7" width="16.2" height="3.8" rx="0.6" transform="rotate(-1.5 12 18.6)"/>
+  </g>
+
+  <g fill="#e8e8e8" font-family="Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif">
+    <text x="248" y="176" font-size="104" font-weight="600" letter-spacing="-3">tsundoku</text>
+  </g>
+
+  <rect x="250" y="206" width="646" height="1" fill="#e8e8e8" opacity="0.18"/>
+
+  <text x="248" y="246" fill="#e8e8e8" opacity="0.62" font-size="27" font-style="italic"
+        font-family="'Source Serif 4', 'Iowan Old Style', Georgia, 'Times New Roman', serif">
+    the pile that keeps growing, catalogued
+  </text>
+</svg>
