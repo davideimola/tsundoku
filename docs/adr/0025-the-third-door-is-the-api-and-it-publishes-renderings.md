@@ -67,6 +67,41 @@ happened most recently, with the real figure beside them in `shelf.total`, `pile
 that let somebody walk the whole library sixty rows at a time would publish what the caps exist
 to keep to a sample.
 
+## Every row says which one of the run it is
+
+Volumes of a numbered line carry the **same title**, because the title is the object's and the
+run is the narrative's. So a shelf of ten tankōbon published as ten titles is ten identical
+tiles, and so is a Pile of them, and a verdict on volume eleven is indistinguishable from one
+on volume twelve. Every row of this document that names a title therefore carries `standsAt`,
+and the consumer prints the title and that beside it. **It must never take a number out of a
+title string**: what is in a title is whatever the owner typed while cataloguing, half the
+library does not carry one, and a number read off prose is a guess published as a fact.
+
+It is a **range and not a number**, because an object can be several parts of a work: an
+omnibus holding Instalments one to three is a case the model writes down
+(`recordVolumeCoversInstalments`), and flattening it would be the document lying about what is
+inside a book. A single part is `from` and `to` at the same number, so a consumer has one shape
+rather than two, and a standalone is `null` rather than a decorative *1*.
+
+**The `unit` travels because the numbers are genuinely two facts**, for the reason
+`progress.unit` travels. `instalments` is the narrative's own parts (ADR-0017) and is what
+`progress` counts, so the two can stand in one sentence. `volumes` is the printing's: where the
+object stands in its line, the number at the foot of the spine, and it is what is left where
+the work declares no parts. A line whose published count nobody filled in is silence rather
+than nought (ADR-0017), and the nineteenth and twentieth objects of it are still two different
+books. A consumer printing *vol. 7* over a count of Instalments would be inventing a fact about
+a printing out of a fact about a work.
+
+A standing is read from an **object**, because there is nowhere else in this model to get one:
+a narrative has no position and the numbering belongs to the Volume. So it is the object itself
+on the shelf and on the wishlist, the objects carrying the narrative in the Pile, and **the
+Volume the pass names** in `now` and `finished`, which is the other half of this: `progress`
+says how far a pass got and never which object it went through, and a pass through no object at
+all, read digitally or borrowed, says `null`. The rule that turns an object into a standing is
+one function spent by all four blocks, over `WHAT_IT_COVERS` exported from
+`queries/story-to-volume.ts`, so a tile out here and the Story's own page cannot come to
+disagree about what an omnibus holds.
+
 ## What concluded is the verdicts, and not the log
 
 `finished` is **the passes that said something about what they went through**: a pass carrying

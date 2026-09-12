@@ -130,7 +130,12 @@ export type CarryingVolume = {
 //
 // One fragment for both directions of the many-to-many, because it is one fact: it names the
 // link `vs`, the Volume `v` and the Story `s`.
-const WHAT_IT_COVERS = `
+//
+// **Exported for the reason `IN_THE_HOUSE` is**: the showcase says which one of a run a row is
+// (ADR-0025), and which part of the work is inside an object is exactly this question asked
+// from outside. A second copy of the rule out there would be a public document disagreeing with
+// the owner's own screens about what an omnibus holds.
+export const WHAT_IT_COVERS = `
   case
     when vs.covers_from is not null
       then jsonb_build_object('from', vs.covers_from, 'to', vs.covers_to, 'written', true)

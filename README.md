@@ -416,6 +416,15 @@ tests assert the forbidden list by name. `shelf.volumes`, `pile.recent` and `fin
 are **samples**, capped and ordered by what happened most recently, with the real figure beside
 them in `shelf.total`, `pile.count` and `finished.count`, and there is deliberately no cursor.
 
+**Every row that names a title says which one of the run it is.** Volumes of a numbered line
+carry the same title, so ten tankōbon are ten identical tiles unless the document says
+otherwise: `standsAt` is `{ from, to, unit }`, or `null` for something standing in no run. It is
+a range because an omnibus holds Instalments one to three and a single part is `from` and `to`
+at the same number; `unit` is `instalments` where the work declares parts and `volumes` where
+all there is is the number at the foot of the spine. A standalone carries no decorative *1*, and
+a consumer must never read a number out of a title string. On a pass it is the object the pass
+went through, which is what `progress` does not say.
+
 `finished` is **the verdicts and not the log**: a concluded pass reaches it when it carries a
 score, or when it was given up on. Giving up is a judgement and it travels for want of a
 number rather than being dropped for it; a pass that simply ended with nothing said about it

@@ -3,8 +3,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { query } from "@/core/db";
 import { finishPass, recordPass } from "@/core/verbs/pass";
 import { setRating } from "@/core/verbs/rating";
-import { createStory } from "@/core/verbs/story";
+import { declareSeries, placeVolumeInSeries } from "@/core/verbs/series";
+import { createStory, declareInstalments } from "@/core/verbs/story";
+import {
+  recordVolumeCarriesStory,
+  recordVolumeCoversInstalments,
+} from "@/core/verbs/story-to-volume";
 import { PER_CLIENT } from "@/lib/mcp/rate-limit";
+import { volumeInTheHouse } from "@/test/volumes";
 
 import { GET } from "./route";
 
@@ -190,6 +196,54 @@ describe("what the door answers with", () => {
     expect(document.finished.count).toBe(1);
     expect(document.finished.recent).toHaveLength(1);
     expect(document.finished.recent[0]).toMatchObject({ title: "Berserk", rating: { score: 9 } });
+  });
+
+  // **Which one of the run a row is**, as the door sends it. Ten objects of a line carry the
+  // same title and nothing else tells them apart, so this is the field that makes a wall of
+  // them readable, and it is a range, because an object can be three parts of a work.
+  it("sends which one of the run each object on the shelf is", async () => {
+    const run = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    await declareInstalments(run, 20);
+    const seriesId = await declareSeries({
+      name: "Slam Dunk",
+      publisher: "Panini Comics",
+      publishedCount: 20,
+      status: "concluded",
+    });
+    const tankobon = await volumeInTheHouse(
+      { title: "Slam Dunk", publisher: "Panini Comics", binding: "tankobon", language: "it" },
+      { acquiredOn: "2026-01-03" }
+    );
+    await placeVolumeInSeries({ volumeId: tankobon, seriesId, number: 7 });
+    await recordVolumeCarriesStory(tankobon, run);
+
+    const omnibus = await volumeInTheHouse(
+      { title: "Slam Dunk", publisher: "Panini Comics", binding: "hardcover", language: "it" },
+      { acquiredOn: "2026-01-02" }
+    );
+    await recordVolumeCarriesStory(omnibus, run);
+    await recordVolumeCoversInstalments(omnibus, run, { from: 1, to: 3 });
+
+    const alone = await createStory({ title: "Hyperversum", typeId: "novel" });
+    const novel = await volumeInTheHouse(
+      { title: "Hyperversum", publisher: "Giunti", binding: "paperback", language: "it" },
+      { acquiredOn: "2026-01-01" }
+    );
+    await recordVolumeCarriesStory(novel, alone);
+
+    const document = await (await GET(get(`Bearer ${TOKEN}`))).json();
+    const standing = Object.fromEntries(
+      document.shelf.volumes.map((volume: { id: string; standsAt: unknown }) => [
+        volume.id,
+        volume.standsAt,
+      ])
+    );
+
+    expect(standing[tankobon]).toEqual({ from: 7, to: 7, unit: "instalments" });
+    expect(standing[omnibus]).toEqual({ from: 1, to: 3, unit: "instalments" });
+    // A standalone stands in no run, and a decorative 1 beside its title would be a fact this
+    // library does not have.
+    expect(standing[novel]).toBeNull();
   });
 
   it("narrows by Type", async () => {

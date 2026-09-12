@@ -13,7 +13,12 @@ import {
   THE_LINE_IT_STANDS_IN,
   type WallStory,
 } from "./story.ts";
-import { listStoriesInVolumes } from "./story-to-volume.ts";
+import {
+  type CarriedStory,
+  type CoveredInstalments,
+  listStoriesInVolumes,
+  WHAT_IT_COVERS,
+} from "./story-to-volume.ts";
 import { listTypes, type Type } from "./type.ts";
 import { listOpenWishes } from "./wish.ts";
 
@@ -43,10 +48,10 @@ import { listOpenWishes } from "./wish.ts";
 // Type carries the whole Type, so the consumer says *Reading* and *Playing* without
 // inferring either from a slug it would have to keep a table of.
 //
-// ## Composition, and the two statements that are this file's own
+// ## Composition, and the three statements that are this file's own
 //
-// Everything here is composed out of queries that already exist. Two things are not,
-// because no query answers them, and both are written down rather than bolted onto a
+// Everything here is composed out of queries that already exist. Three things are not,
+// because no query answers them, and each is written down rather than bolted onto a
 // screen's query:
 //
 //   1. **the passes the showcase shows.** A screen reads the passes of *one* Story
@@ -59,6 +64,10 @@ import { listOpenWishes } from "./wish.ts";
 //   2. **the order the library came in.** The Pile's spines are answered by title, because
 //      that is the order the owner reads a wall in; *recently added* is the order a page
 //      that changes between visits needs, and it is one column nothing else asks for.
+//   3. **where the objects behind a Pile tile stand in their line.** *Which one of the run is
+//      this* is a question no wall asks, because the owner reads a tile standing in front of
+//      their own shelf; a page somebody else reads has ten tiles carrying one title and
+//      nothing else to tell them apart.
 
 /** A Type, as a row of the document wears it: the slug, the word, and the verb. */
 export type ShowcaseType = {
@@ -138,6 +147,47 @@ export type ShowcaseProgress = { reached: number; total: number; unit: string } 
 /** The one unit this library counts the parts of a work in. It is the model's word. */
 export const THE_UNIT_A_WORK_IS_COUNTED_IN = "instalments";
 
+/** The unit a printing is counted in, which is the number standing at the foot of a spine. */
+export const THE_UNIT_A_LINE_IS_COUNTED_IN = "volumes";
+
+/**
+ * **Which one of a run a row is**, or `null` for something that stands in no run at all.
+ *
+ * Every row of this document that names a title has this, and it is the one field that makes
+ * ten tiles reading *Slam Dunk* into ten different books. The consumer prints the title and
+ * this beside it (*Slam Dunk 7*, *Slam Dunk 1-3*), and it must never take a number out of a
+ * title string: what is in a title is whatever the owner typed when they catalogued the
+ * object, and half the library does not carry one at all.
+ *
+ * **It is a range because one object can be several parts of a work.** An omnibus holding
+ * instalments one to three is a case the model knows about and writes down
+ * (`recordVolumeCoversInstalments`), so flattening it to a single number would be the
+ * document lying about what is inside a book. A single part is `from` and `to` at the same
+ * number, which is one shape for the consumer rather than two.
+ *
+ * **`unit` says which of two facts the numbers are**, and they are genuinely two:
+ *
+ *   - `instalments` is the **narrative's** own parts (`CONTEXT.md`, ADR-0017). *Seven of
+ *     twenty* stays true however the owner read it, and it is what `progress` counts, so a
+ *     page can put the two in one sentence;
+ *   - `volumes` is the **printing's**: where the object stands in its line, the number at the
+ *     foot of the spine. It is what travels where the work declares no parts: a line whose
+ *     published count nobody filled in is silence rather than nought (ADR-0017), and the
+ *     nineteenth and twentieth objects of it are still two different books.
+ *
+ * The unit travels rather than being assumed for `ShowcaseProgress`'s reason: a consumer
+ * printing *vol. 7* over a number that counts instalments would be inventing a fact about a
+ * printing out of a fact about a work.
+ *
+ * `null` is the ordinary answer and not a gap: a novel, an omnibus standing in no line, a pass
+ * made through no object at all. **A standalone must never grow a decorative 1.**
+ */
+export type ShowcaseStanding = {
+  from: number;
+  to: number;
+  unit: typeof THE_UNIT_A_WORK_IS_COUNTED_IN | typeof THE_UNIT_A_LINE_IS_COUNTED_IN;
+} | null;
+
 /** One act of going through a work, as the showcase shows it. */
 export type ShowcasePass = {
   /** The Pass's id, so a consumer can key a list without inventing one. */
@@ -153,6 +203,19 @@ export type ShowcasePass = {
    */
   startedAt: string | null;
   progress: ShowcaseProgress;
+  /**
+   * **Which one of the run this pass went through**, which `progress` does not say.
+   *
+   * The two answer different questions and a page wants both: *seven of twenty* is how far the
+   * owner got, and this is the object they got there through. A verdict on the eleventh
+   * tankobon of a line and a verdict on the twelfth are the same title and the same fraction,
+   * and this is the only thing that tells them apart.
+   *
+   * It is read off the Volume the pass names, so it is `null` wherever there was no object,
+   * read digitally, borrowed or played, which is ordinary rather than a gap (`CONTEXT.md`,
+   * Pass).
+   */
+  standsAt: ShowcaseStanding;
   cover: ShowcaseCover;
   series: ShowcaseSeries;
 };
@@ -200,6 +263,15 @@ export type ShowcasePileEntry = {
   id: string;
   title: string;
   type: ShowcaseType;
+  /**
+   * **Which one of the run is unopened**, read across the objects that carry the narrative.
+   *
+   * A Pile entry is a Story and a Story has no position of its own, so the answer comes from
+   * what carries it: one tankobon standing at seven is *7*, and a work carried by the whole
+   * line is the whole span of it. A narrative nobody owns an object of stands nowhere and is
+   * `null`, which is the digital half of this library and not a gap (ADR-0001).
+   */
+  standsAt: ShowcaseStanding;
   cover: ShowcaseCover;
   series: ShowcaseSeries;
 };
@@ -216,6 +288,16 @@ export type ShowcaseShelfVolume = {
   id: string;
   title: string;
   type: ShowcaseType | null;
+  /**
+   * **Which one of the run this object is**, which is what a wall of a numbered line needs
+   * and what a title alone does not say: ten tankobon of one work are ten rows carrying the
+   * same words.
+   *
+   * The parts of the work inside it where the work declares any, and where it declares none
+   * the number the object stands at in its line. `null` for a standalone, which is most of a
+   * shelf of novels.
+   */
+  standsAt: ShowcaseStanding;
   cover: ShowcaseCover;
   series: ShowcaseSeries;
 };
@@ -225,6 +307,8 @@ export type ShowcaseWishEntry = {
   id: string;
   title: string;
   type: ShowcaseType | null;
+  /** Which one of the run is missing, on the shelf volume's own terms. */
+  standsAt: ShowcaseStanding;
   cover: ShowcaseCover;
   series: ShowcaseSeries;
 };
@@ -379,6 +463,19 @@ export async function theShowcase(narrowing: ShowcaseNarrowing = {}): Promise<Sh
   const pile = spines.flat();
   const byWhenItCameIn = new Map(cameIn.map((id, at) => [id, at]));
 
+  // The dozen spines the document carries, chosen before their standing is asked for: it is a
+  // question about the sample rather than about the Pile, and asking it of four hundred works
+  // to publish twelve would be the cap paid for and thrown away.
+  const spinesShown = pile
+    .slice()
+    .sort(
+      (one, other) =>
+        (byWhenItCameIn.get(one.id) ?? Number.MAX_SAFE_INTEGER) -
+        (byWhenItCameIn.get(other.id) ?? Number.MAX_SAFE_INTEGER)
+    )
+    .slice(0, THE_PILE_SHOWN);
+  const standing = await whereTheirObjectsStand(spinesShown.map((spine) => spine.id));
+
   return {
     ok: true,
     showcase: {
@@ -393,15 +490,7 @@ export async function theShowcase(narrowing: ShowcaseNarrowing = {}): Promise<Sh
         byType: byHowMany(
           types.map((kind, at) => ({ type: asShowcaseType(kind), count: spines[at].length }))
         ),
-        recent: pile
-          .slice()
-          .sort(
-            (one, other) =>
-              (byWhenItCameIn.get(one.id) ?? Number.MAX_SAFE_INTEGER) -
-              (byWhenItCameIn.get(other.id) ?? Number.MAX_SAFE_INTEGER)
-          )
-          .slice(0, THE_PILE_SHOWN)
-          .map((spine) => asPileEntry(spine, named)),
+        recent: spinesShown.map((spine) => asPileEntry(spine, named, standing)),
       },
       shelf,
       ...(wish ? { wish } : {}),
@@ -426,6 +515,24 @@ export async function theShowcase(narrowing: ShowcaseNarrowing = {}): Promise<Sh
 // The Rating is the pass's own and carries **one field out of five**: the score. The prose,
 // the Provenance and the grain it was given in never leave this door, and the prose is the
 // one that would be a breach rather than a leak: it is the owner writing to themselves.
+// **The object a pass went through**, as the two numbers a standing is made of.
+//
+// A Pass names the Volume it was made through where there was one (`CONTEXT.md`, Pass), and
+// that object is the whole of what tells a verdict on volume eleven from a verdict on volume
+// twelve: the title is the same on both and so is the fraction. It answers `null` for a pass
+// through no object, which is the digital and the borrowed half of this library.
+//
+// The link to the Story is joined **left**, because an object can be named by a pass and carry
+// nothing in the catalogue yet, which is a gap the library shows rather than a state it
+// refuses (`CONTEXT.md`, Volume). The range then falls to the position the object stands at, which is
+// exactly what `WHAT_IT_COVERS` does with an unwritten one.
+const THROUGH_WHICH_OBJECT = `(
+    select jsonb_build_object('covers', ${WHAT_IT_COVERS}, 'standsAt', v.series_number)
+      from volume v
+      left join volume_story vs on vs.volume_id = v.id and vs.story_id = s.id
+     where v.id = r.volume_id
+  )`;
+
 const THE_PASS_AS_THE_SHOWCASE_SHOWS_IT = `
     r.id,
     s.title,
@@ -436,6 +543,7 @@ const THE_PASS_AS_THE_SHOWCASE_SHOWS_IT = `
     r.outcome,
     r.at_instalment                   as reached,
     s.instalments                     as total,
+    ${THROUGH_WHICH_OBJECT}           as through,
     ${THE_LINE_IT_STANDS_IN}          as series,
     ${THE_COVER_IT_IS_FACED_OUT_WITH} as cover,
     (select jsonb_build_object('score', g.score::float8)
@@ -458,6 +566,7 @@ type PassRow = {
   outcome: "finished" | "abandoned" | null;
   reached: number | null;
   total: number | null;
+  through: StandingObject | null;
   series: { id: string; name: string } | null;
   cover: FacedWith | null;
   rating: { score: number } | null;
@@ -575,6 +684,91 @@ async function theOrderTheLibraryCameIn(): Promise<string[]> {
   return rows.map((row) => row.id);
 }
 
+// ── Which one of a run a row is ───────────────────────────────────────────────
+
+// **One rule, in one place, spent by all four blocks** (ADR-0025). A standing is worked
+// out from an *object*, because there is nowhere else in this model to get one: a narrative
+// has no position, and a printing's numbering belongs to the Volume.
+//
+// The two numbers it is made of are the two facts, in the order they are true:
+//
+//   1. **what the object covers of the work**, which is `WHAT_IT_COVERS` and is therefore the
+//      same answer the owner's own screens give: the written range of an omnibus first, and
+//      failing that the position followed from the line, which is how a tankobon covers its
+//      own instalment without anybody typing anything (#37);
+//   2. **where the object stands in its line**, which is all there is where the work declares
+//      no parts. A line whose published count nobody filled in says nothing about the
+//      narrative (ADR-0017), and the nineteenth and twentieth objects of it are still two
+//      different books.
+//
+// Nothing is derived from a title here and nothing ever may be: what is in a title is whatever
+// the owner typed, and reading a number out of it would publish a guess as a fact.
+
+/** The two numbers a standing is read from, as one object carries them. */
+type StandingObject = { covers: CoveredInstalments | null; standsAt: number | null };
+
+/**
+ * The standing of one row, over the objects behind it.
+ *
+ * Several objects because a narrative can be carried by a whole line: the span of what they
+ * cover is the honest answer for a work whose twenty tankobon are all on the shelf, and the
+ * single part is that span with one object in it. Objects that say nothing are ignored rather
+ * than collapsing the answer, so a run with one unplaced volume in it still says where the
+ * rest of it stands.
+ */
+function theStanding(objects: readonly StandingObject[]): ShowcaseStanding {
+  const covered = objects.map((held) => held.covers).filter((range) => range !== null);
+  if (covered.length > 0) {
+    return {
+      from: Math.min(...covered.map((range) => range.from)),
+      to: Math.max(...covered.map((range) => range.to)),
+      unit: THE_UNIT_A_WORK_IS_COUNTED_IN,
+    };
+  }
+
+  const placed = objects.map((held) => held.standsAt).filter((at) => at !== null);
+  if (placed.length === 0) return null;
+
+  return {
+    from: Math.min(...placed),
+    to: Math.max(...placed),
+    unit: THE_UNIT_A_LINE_IS_COUNTED_IN,
+  };
+}
+
+/**
+ * **Where the objects carrying each of these Stories stand**, keyed by Story id.
+ *
+ * The third statement this file owns, and it is here for the second one's reason: the walls
+ * answer with tiles, and *which one of the run is this* is a question no wall asks, because
+ * the owner is looking at their own shelf while they read one. `WHAT_IT_COVERS` is spent
+ * rather than copied, so a Pile tile out here and the Story's own page cannot come to disagree
+ * about what an object holds.
+ *
+ * Asked of the dozen spines the document actually carries rather than of the whole Pile: it is
+ * the sample that is published, and the count beside it is a count.
+ */
+async function whereTheirObjectsStand(
+  storyIds: readonly string[]
+): Promise<Map<string, ShowcaseStanding>> {
+  if (storyIds.length === 0) return new Map();
+
+  const rows = await query<{ storyId: string; objects: StandingObject[] }>(
+    `select vs.story_id as "storyId",
+            jsonb_agg(
+              jsonb_build_object('covers', ${WHAT_IT_COVERS}, 'standsAt', v.series_number)
+            ) as objects
+       from volume_story vs
+       join volume v on v.id = vs.volume_id
+       join story  s on s.id = vs.story_id
+      where vs.story_id = any ($1::uuid[])
+      group by vs.story_id`,
+    [storyIds]
+  );
+
+  return new Map(rows.map((row) => [row.storyId, theStanding(row.objects)]));
+}
+
 // ── The blocks, each composed out of a query that already exists ──────────────
 
 /**
@@ -633,7 +827,7 @@ async function theShelf(
         (byWhenItCameHome.get(other.volume.id) ?? Number.MAX_SAFE_INTEGER)
     )
     .slice(0, THE_SHELF_SHOWN)
-    .map(({ volume, types }) => asShelfVolume(volume, types[0] ?? null));
+    .map(({ volume, types }) => asShelfVolume(volume, types[0] ?? null, held[volume.id] ?? []));
 
   const counted = new Map([...named.keys()].map((slug) => [slug, 0]));
   for (const volume of wall) {
@@ -687,6 +881,7 @@ async function theWishlist(
       id: wish.volume.id,
       title: wish.volume.title,
       type,
+      standsAt: standingOfAnObject(wish.volume.seriesNumber, held[wish.volume.id] ?? []),
       cover: asCover(wish.volume.cover),
       series: asSeries(
         wish.volume.seriesId
@@ -764,6 +959,7 @@ function asPass(
     medium: asMedium(row.medium, spoken),
     startedAt: row.startedAt,
     progress: asProgress(row.reached, row.total),
+    standsAt: theStanding(row.through ? [row.through] : []),
     cover: asCover(row.cover),
     series: asSeries(row.series),
   };
@@ -789,7 +985,11 @@ function asFinishedPass(
   };
 }
 
-function asPileEntry(spine: WallStory, named: Map<string, ShowcaseType>): ShowcasePileEntry {
+function asPileEntry(
+  spine: WallStory,
+  named: Map<string, ShowcaseType>,
+  standing: Map<string, ShowcaseStanding>
+): ShowcasePileEntry {
   const type = named.get(spine.type.id);
   if (!type) throw new Error(`the showcase met a Type it did not ask for: ${spine.type.id}`);
 
@@ -797,17 +997,45 @@ function asPileEntry(spine: WallStory, named: Map<string, ShowcaseType>): Showca
     id: spine.id,
     title: spine.title,
     type,
+    standsAt: standing.get(spine.id) ?? null,
     cover: asCover(spine.cover),
     series: asSeries(spine.series),
   };
 }
 
-function asShelfVolume(volume: WallVolume, type: ShowcaseType | null): ShowcaseShelfVolume {
+function asShelfVolume(
+  volume: WallVolume,
+  type: ShowcaseType | null,
+  inside: readonly CarriedStory[]
+): ShowcaseShelfVolume {
   return {
     id: volume.id,
     title: volume.title,
     type,
+    standsAt: standingOfAnObject(volume.seriesNumber, inside),
     cover: asCover(volume.cover),
     series: asSeries(volume.series),
   };
+}
+
+/**
+ * The standing of one object, out of what the shelf already read about it.
+ *
+ * An object holding three narratives has three answers to *what do you cover*, and the span of
+ * them is the honest one: *L'uomo che ride* holds three tales and covers all three. Where none
+ * of them is numbered, which is most of a shelf, what is left is where the object stands in
+ * its line, and where it stands in none there is nothing to say.
+ *
+ * The position is handed over on its own as well as with each narrative, so an object carrying
+ * nothing at all still says where it stands: that gap is one the library shows rather than a
+ * state it refuses, and an unnamed twelfth tankobon is still the twelfth.
+ */
+function standingOfAnObject(
+  seriesNumber: number | null,
+  inside: readonly CarriedStory[]
+): ShowcaseStanding {
+  return theStanding([
+    { covers: null, standsAt: seriesNumber },
+    ...inside.map((story) => ({ covers: story.covers, standsAt: seriesNumber })),
+  ]);
 }

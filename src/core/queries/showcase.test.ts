@@ -7,7 +7,10 @@ import { abandonPass, finishPass, recordInstalmentReached, recordPass } from "..
 import { setRating } from "../verbs/rating.ts";
 import { declareSeries, placeVolumeInSeries } from "../verbs/series.ts";
 import { createStory, declareInstalments } from "../verbs/story.ts";
-import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
+import {
+  recordVolumeCarriesStory,
+  recordVolumeCoversInstalments,
+} from "../verbs/story-to-volume.ts";
 import { openWish } from "../verbs/wish.ts";
 import { type Showcase, THE_SHELF_SHOWN, THE_VERDICTS_SHOWN, theShowcase } from "./showcase.ts";
 
@@ -244,6 +247,125 @@ describe("what the showcase publishes", () => {
 
     expect(shelf.total).toBe(1);
     expect(shelf.volumes[0].type).toBeNull();
+  });
+});
+
+// **Which one of the run a row is**, which is the one field that makes ten tiles carrying the
+// word *Slam Dunk* into ten different books. It is a range because an object can be several
+// parts of a work, it says which of two facts it counts, and it is absent on a standalone
+// rather than decorating one with a 1.
+describe("which one of a run a row is", () => {
+  it("says which instalment an object of a numbered run holds", async () => {
+    await slamDunk();
+
+    const { shelf } = await showcase();
+
+    expect(shelf.volumes[0].standsAt).toEqual({ from: 1, to: 1, unit: "instalments" });
+  });
+
+  // **A range, because one object can be three parts of a work.** An omnibus is the case the
+  // model writes down by hand, and flattening it to a single number would be the document
+  // lying about what is inside a book.
+  it("says the whole range an omnibus holds", async () => {
+    const storyId = await createStory({ title: "Slam Dunk", typeId: "manga" });
+    await declareInstalments(storyId, 20);
+    const volumeId = await volumeInTheHouse(
+      { title: "Slam Dunk", publisher: "Panini Comics", binding: "hardcover", language: "it" },
+      { acquiredOn: "2024-01-01" }
+    );
+    await recordVolumeCarriesStory(volumeId, storyId);
+    await recordVolumeCoversInstalments(volumeId, storyId, { from: 1, to: 3 });
+
+    const { shelf } = await showcase();
+
+    expect(shelf.volumes[0].standsAt).toEqual({ from: 1, to: 3, unit: "instalments" });
+  });
+
+  // **A standalone must never grow a decorative 1.** A novel stands in no run, and a number
+  // beside its title would be a fact this library does not have.
+  it("says nothing at all of a standalone", async () => {
+    const storyId = await createStory({ title: "Hyperversum", typeId: "novel" });
+    const volumeId = await volumeInTheHouse(
+      { title: "Hyperversum", publisher: "Giunti", binding: "paperback", language: "it" },
+      { acquiredOn: "2024-01-01" }
+    );
+    await recordVolumeCarriesStory(volumeId, storyId);
+
+    const { shelf, pile } = await showcase();
+
+    expect(shelf.volumes[0].standsAt).toBeNull();
+    expect(pile.recent[0].standsAt).toBeNull();
+  });
+
+  // **The unit is which of two facts the numbers are**, and they are genuinely two. A line
+  // whose published count nobody filled in says nothing about the narrative (ADR-0017), so
+  // what is left is the number at the foot of the spine, and the nineteenth and twentieth
+  // objects of that line are still two different books.
+  it("falls to the object's own place in the line where the work declares no parts", async () => {
+    const storyId = await createStory({ title: "One-Punch Man", typeId: "manga" });
+    const seriesId = await declareSeries({
+      name: "One-Punch Man",
+      publisher: "Planet Manga",
+      publishedCount: 0,
+      status: "ongoing",
+    });
+    const volumeId = await volumeInTheHouse(
+      { title: "One-Punch Man", publisher: "Planet Manga", binding: "tankobon", language: "it" },
+      { acquiredOn: "2026-01-01" }
+    );
+    await placeVolumeInSeries({ volumeId, seriesId, number: 19 });
+    await recordVolumeCarriesStory(volumeId, storyId);
+
+    const { shelf } = await showcase();
+
+    expect(shelf.volumes[0].standsAt).toEqual({ from: 19, to: 19, unit: "volumes" });
+  });
+
+  // A Pile entry is a **Story**, and a Story has no position of its own: the answer comes from
+  // the objects that carry it, which is what makes ten unopened tankobon ten rows.
+  it("says which one of the run is unopened", async () => {
+    await slamDunk();
+
+    const { pile } = await showcase();
+
+    expect(pile.recent[0]).toMatchObject({
+      title: "Slam Dunk",
+      standsAt: { from: 1, to: 1, unit: "instalments" },
+    });
+  });
+
+  // **What `progress` does not say.** How far a pass got and which object it went through are
+  // two questions, and a verdict on the eleventh tankobon and one on the twelfth are the same
+  // title and the same fraction.
+  it("says which object an open pass went through", async () => {
+    const { storyId, volumeId } = await slamDunk();
+    const passId = await recordPass({
+      storyId,
+      medium: "paper",
+      provenanceId: "remembered",
+      volumeId,
+    });
+    await recordInstalmentReached(passId, 1);
+
+    const { now } = await showcase();
+
+    expect(now[0]).toMatchObject({
+      progress: { reached: 1, total: 20, unit: "instalments" },
+      standsAt: { from: 1, to: 1, unit: "instalments" },
+    });
+  });
+
+  // A pass through no object is the digital and the borrowed half of this library, and it is
+  // ordinary rather than a gap (`CONTEXT.md`, Pass).
+  it("says nothing of a pass that went through no object", async () => {
+    const { storyId } = await slamDunk();
+    const passId = await recordPass({ storyId, medium: "digital", provenanceId: "remembered" });
+    await finishPass(passId, "2026-01-01");
+    await setRating({ storyId, passId, score: 9, provenanceId: "remembered" });
+
+    const { finished } = await showcase();
+
+    expect(finished.recent[0].standsAt).toBeNull();
   });
 });
 
