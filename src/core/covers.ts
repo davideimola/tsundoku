@@ -235,10 +235,43 @@ function openLibraryCover(isbn: string): string {
   return `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`;
 }
 
-// Who this is, said to the sources that ask. Open Library gives an identified caller three
-// requests a second where an anonymous one gets one, and a source that wants to complain
-// about our traffic should be able to find out whose it is.
-const WHO_IS_ASKING = "tsundoku/1.0 (single-owner library; https://tsundoku.davideimola.dev)";
+/**
+ * The slice of the environment this file reads, named as a type so a caller can hand in a
+ * literal in a test and `process.env` in production. One variable, and it is not a secret.
+ */
+export type ContactEnv = {
+  readonly COVER_CONTACT_URL?: string;
+  readonly [variable: string]: string | undefined;
+};
+
+/**
+ * Where this deployment can be reached, when it says nothing about itself: **the project,
+ * not anybody's copy of it.**
+ *
+ * This is the half that made the literal below wrong once the repository was public. A fork
+ * inherits every line in here, so a hard-coded origin is a fork going around the internet
+ * wearing the address of a deployment it has nothing to do with — and the complaint about
+ * its traffic lands on a stranger. The repository is the one address that is true of every
+ * copy, which is why it is the fallback rather than an empty header.
+ */
+const THE_PROJECT = "https://github.com/davideimola/tsundoku";
+
+/**
+ * Who this is, said to the sources that ask.
+ *
+ * Open Library gives an identified caller three requests a second where an anonymous one
+ * gets one, and a source that wants to complain about our traffic should be able to find
+ * out whose it is — so the header is never omitted, only pointed somewhere true.
+ *
+ * `COVER_CONTACT_URL` is deliberately not `AUTH_URL`, which the cluster also sets to this
+ * deployment's origin. That one has to match the redirect URI registered with Google
+ * exactly; this one is an address a human can be reached at, and on a copy running behind
+ * a LAN with no public origin at all the two have nothing to do with each other.
+ */
+export function whoIsAsking(env: ContactEnv): string {
+  const contact = env.COVER_CONTACT_URL?.trim();
+  return `tsundoku/1.0 (single-owner library; ${contact === undefined || contact === "" ? THE_PROJECT : contact})`;
+}
 
 // Long enough for a slow CDN, short enough that a hung source does not hold a form post
 // open behind it. A timeout is `unanswered`, never an absence.
@@ -247,7 +280,7 @@ const PATIENCE = 10_000;
 async function ask(url: string, method: "GET" | "HEAD"): Promise<Response> {
   return fetch(url, {
     method,
-    headers: { "user-agent": WHO_IS_ASKING },
+    headers: { "user-agent": whoIsAsking(process.env) },
     // Manual, because the redirect *is* the answer at Open Library: a 302 into an Internet
     // Archive item means the cover exists, and following it would land on bytes this app has
     // no business fetching.

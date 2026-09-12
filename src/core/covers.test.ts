@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { googleVolumeId, hotlinkable, readDynamicLinks, readOpenLibraryProbe } from "./covers.ts";
+import {
+  googleVolumeId,
+  hotlinkable,
+  readDynamicLinks,
+  readOpenLibraryProbe,
+  whoIsAsking,
+} from "./covers.ts";
 
 // **What this is, in the words `vitest.config.ts` asks for: the licensed pure derivation,
 // not a third seam.** Every function under test here takes text or a status code and
@@ -143,5 +149,30 @@ describe("a Google volume id", () => {
   it("is absent rather than invented where the URL carries none", () => {
     expect(googleVolumeId("https://books.google.com/books/content?img=1")).toBeNull();
     expect(googleVolumeId("not a url at all")).toBeNull();
+  });
+});
+
+describe("saying who is asking", () => {
+  it("names the address the deployment was given", () => {
+    expect(whoIsAsking({ COVER_CONTACT_URL: "https://tsundoku.davideimola.dev" })).toBe(
+      "tsundoku/1.0 (single-owner library; https://tsundoku.davideimola.dev)"
+    );
+  });
+
+  // The one that matters now that anybody can clone this: a copy that says nothing about
+  // itself must not go around wearing the original deployment's domain, because the
+  // complaint about its traffic would land on somebody who never made the request.
+  it("names the project, not this deployment, when nothing is configured", () => {
+    for (const env of [{}, { COVER_CONTACT_URL: "" }, { COVER_CONTACT_URL: "   " }]) {
+      expect(whoIsAsking(env)).toBe(
+        "tsundoku/1.0 (single-owner library; https://github.com/davideimola/tsundoku)"
+      );
+    }
+  });
+
+  // Never omitted, whatever it says: an anonymous caller gets one request a second at Open
+  // Library where an identified one gets three.
+  it("is always a header with a contact in it", () => {
+    expect(whoIsAsking({})).toMatch(/^tsundoku\/1\.0 \(single-owner library; https:\/\/\S+\)$/);
   });
 });
