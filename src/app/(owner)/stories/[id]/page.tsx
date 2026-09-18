@@ -17,6 +17,10 @@ import { type CarryingVolume, listVolumesCarryingStory } from "@/core/queries/st
 import { theWantOnTheStory } from "@/core/queries/want";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
+// **The door's own rule, imported rather than restated** (`../../add/door.ts`, ADR-0022):
+// whether a Type is a thing you can hold, read off the media it offers and never off its name.
+// A second copy of it here is a second answer, and the eighth Type would have to be told twice.
+import { aTypeCarriesAnObject } from "../../add/door";
 import { credit, uncredit } from "../../credits/actions";
 import { PersonPicker } from "../../credits/picker";
 // The ledger's own caption, borrowed rather than written again: a Series named one way on its
@@ -297,10 +301,24 @@ export default async function StoryPage({
   // placeable Volumes: the lines that name no Story are not on this page otherwise, and a
   // page reading rows it will not show is what the filter rule in `AGENTS.md` is about.
   const linesToChooseFrom = panel === PUBLISHES ? await listSeriesPublishingNothing() : [];
-  // The media this Story's Type offers, read the same way and only where the panel that asks
-  // for one is open (#63). Here the Type is already known — it is the record on screen — so
-  // the one-Type question is enough and the door's whole-table shape is not needed.
-  const mediaToOffer = panel === START ? await theMediaToOffer(story.type.id) : [];
+  // The media this Story's Type offers. Here the Type is already known — it is the record on
+  // screen — so the one-Type question is enough and the door's whole-table shape is not needed.
+  //
+  // **It is no longer read only where the *Start it* panel is open**, and the reason is the two
+  // lines under it: the page itself now asks this vocabulary a question, so it is an ordinary
+  // read rather than a panel's. That is the filter rule kept rather than bent — what it forbids
+  // is reading rows a screen will not use, and these decide what the screen *is*.
+  const mediaToOffer = await theMediaToOffer(story.type.id);
+  // **Whether an object can carry this at all.** No medium a videogame offers goes through one,
+  // so there is no object to stand under it and no shelf to offer it from — which is the same
+  // sentence the one door reads to take its object half off the screen, and it survives the
+  // eighth Type because it names no Type.
+  const carriesAnObject = aTypeCarriesAnObject(mediaToOffer);
+  // **And a record already written is shown whatever the Type says.** *Offered is not allowed*
+  // holds in this direction too: the core takes a Volume carrying any Story it is given, so an
+  // object that does carry this one is a fact — and a screen that folded it away because the
+  // Type says it is unusual would be hiding a record the owner can no longer correct.
+  const standsOnObjects = carriesAnObject || carriedBy.length > 0;
 
   return (
     <main className="px-5 py-8 sm:px-8 sm:py-12">
@@ -501,7 +519,15 @@ export default async function StoryPage({
         </div>
 
         <div className="grid gap-6">
-          <Carriers storyId={story.id} carriedBy={carriedBy} offerable={offerable} />
+          {/* **Absent rather than empty where nothing could carry this** (ADR-0021). The card
+              standing over a videogame asked the owner which object they played it on and
+              explained, in a paragraph about ebooks and Goodreads, why there was none — a
+              question with no answer and a reason that is not this one's. What is left is the
+              card doing its job on everything printed, and on the one game that does turn out
+              to carry an object, because that object is a record. */}
+          {standsOnObjects ? (
+            <Carriers storyId={story.id} carriedBy={carriedBy} offerable={offerable} />
+          ) : null}
 
           <PublishedBy storyId={story.id} ledgers={publishedBy} />
 
@@ -653,24 +679,30 @@ export default async function StoryPage({
               </select>
             </div>
 
-            <div className="grid gap-1.5">
-              <Label htmlFor="pass-volume" className="text-xs text-muted-foreground">
-                Through which object
-              </Label>
-              <select id="pass-volume" name="volumeId" defaultValue="" className={PICKER}>
-                <option value="">No object — digital, borrowed, or not recorded</option>
-                {carriedBy.map((volume) => (
-                  <option key={volume.id} value={volume.id}>
-                    {volume.title} — {volume.binding.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground">
-                Only the objects carrying this Story are offered, and none is the ordinary answer. A
-                digital Pass went through no object at all: an owned ebook is not a thing this
-                library has.
-              </p>
-            </div>
+            {/* The same rule the card below the page is held to, and for the sharper reason:
+                every medium this Type offers goes through nothing, so the only answer this
+                picker could take is the one it is already defaulted to. A control whose every
+                use is a no-op is a question the owner has to read and dismiss. */}
+            {standsOnObjects ? (
+              <div className="grid gap-1.5">
+                <Label htmlFor="pass-volume" className="text-xs text-muted-foreground">
+                  Through which object
+                </Label>
+                <select id="pass-volume" name="volumeId" defaultValue="" className={PICKER}>
+                  <option value="">No object — digital, borrowed, or not recorded</option>
+                  {carriedBy.map((volume) => (
+                    <option key={volume.id} value={volume.id}>
+                      {volume.title} — {volume.binding.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Only the objects carrying this Story are offered, and none is the ordinary answer.
+                  A digital Pass went through no object at all: an owned ebook is not a thing this
+                  library has.
+                </p>
+              </div>
+            ) : null}
 
             <div className="grid gap-1.5">
               <Label htmlFor="pass-started" className="text-xs text-muted-foreground">
