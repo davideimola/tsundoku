@@ -27,6 +27,7 @@ import { howTheRangeIsKept, whatThisObjectHolds } from "../../stories/passes";
 import {
   acquire,
   carryStories,
+  correct,
   correctWhatItIs,
   coverInstalments,
   forgetCover,
@@ -47,7 +48,10 @@ import {
   type Act,
   facedWith,
   type Panel,
+  THE_ACQUISITION_A_PANEL_IS_ABOUT,
+  theAcquisitionBeingCorrected,
   theActsOnTheObject,
+  theCorrectionAct,
   theEditionNoteAct,
   timesSaid,
   whatTheCatalogueAnswered,
@@ -152,13 +156,20 @@ function asked(params: Asked, name: string): string | undefined {
  * This screen's address with a panel open on it.
  *
  * A Volume is one record and this page narrows nothing, so there are no filters to carry
- * through — what the address holds is the panel and nothing else. What it deliberately drops
- * is the answer to the last write: a refusal, or what a lookup just said, is about the press
- * that produced it, and carrying it through the opening of a drawer would print it again over
- * an act nobody just performed.
+ * through — what the address holds is the panel, the row it is about where it is about one,
+ * and nothing else. What it deliberately drops is the answer to the last write: a refusal, or
+ * what a lookup just said, is about the press that produced it, and carrying it through the
+ * opening of a drawer would print it again over an act nobody just performed.
+ *
+ * `about` is the acquisition a correction stands over, and it is the only panel that takes
+ * one: the other five are acts on the object, of which there is one each, and this is an act
+ * on a record, of which an object acquired twice has two.
  */
-function panelled(volumeId: string, panel: Panel): string {
-  return `/collection/${volumeId}?panel=${panel}`;
+function panelled(volumeId: string, panel: Panel, about?: string): string {
+  const asking = new URLSearchParams({ panel });
+  if (about) asking.set(THE_ACQUISITION_A_PANEL_IS_ABOUT, about);
+
+  return `/collection/${volumeId}?${asking}`;
 }
 
 // The same look at the size a number wants: two boxes standing in a sentence rather than a
@@ -213,8 +224,17 @@ export default async function VolumePage({
   // itself and not just its name, because a panel's title is the label of the press that
   // opened it and nothing on this page recomputes that sentence.
   const asking = asked(said, "panel");
-  const acting = [...acts, noting].find((act) => act.panel === asking);
+  const acting = [...acts, noting, theCorrectionAct()].find((act) => act.panel === asking);
   const closesTo = `/collection/${volume.id}`;
+  // **And which row a correction is about**, read against the history this page is holding.
+  // The name alone is not enough for this one panel: it is an act on a record rather than on
+  // the object, so `?panel=correction` naming an acquisition of somebody else's object has to
+  // open nothing rather than a form that would write to it.
+  const correcting = theAcquisitionBeingCorrected(
+    asking,
+    asked(said, THE_ACQUISITION_A_PANEL_IS_ABOUT),
+    history
+  );
 
   return (
     <main className="px-5 py-8 sm:px-8 sm:py-12">
@@ -359,7 +379,7 @@ export default async function VolumePage({
               core's answer rather than one this screen re-derives from the history. */}
           <p className="mt-2 max-w-prose text-pretty text-sm">{whatTheHouseSays(volume)}</p>
 
-          <History acquisitions={history} />
+          <History acquisitions={history} volumeId={volume.id} />
         </section>
       </div>
 
@@ -461,6 +481,52 @@ export default async function VolumePage({
               Leave both empty where the receipt is gone — the fact does not depend on the day, and
               a gift has no price in it. A comma is a decimal point: the numeric keyboard on an
               Italian phone offers no dot.
+            </p>
+          </form>
+        </Drawer>
+      ) : null}
+
+      {/* **The one panel about a row, and the one form on this screen where an empty box takes
+          a fact off the record.** Everywhere else on this page a cleared box keeps what is
+          there, because the box arrived holding a proposal; here it arrives holding the record
+          and the owner opened the drawer to take a wrong fact out of it. A price nobody paid
+          has to end as no price — not as the old number, and not as a nought, which would be a
+          claim about money. */}
+      {acting?.panel === "correction" && correcting ? (
+        <Drawer
+          title={acting.label}
+          refused={refused}
+          description="What was paid for this one, and the day it came home. The acquisition itself stays: the object did arrive, and the Passes made through it are still true — this rewrites a fact on the record rather than unmaking it."
+          closesTo={closesTo}
+        >
+          <form action={correct} className="grid gap-4">
+            <input type="hidden" name="volumeId" value={volume.id} />
+            <input type="hidden" name="acquisitionId" value={correcting.id} />
+            {/* The boxes arrive holding what the record says, so the owner corrects what is
+                there rather than retyping it — and so that emptying one is visibly an act. */}
+            <Field
+              form="correct"
+              name="pricePaid"
+              label="Price paid"
+              placeholder="6,50"
+              inputMode="decimal"
+              defaultValue={correcting.pricePaid ?? ""}
+            />
+            <Field
+              form="correct"
+              name="acquiredOn"
+              label="Came home"
+              type="date"
+              defaultValue={correcting.acquiredOn ?? ""}
+            />
+            <Button type="submit" className="h-11 w-full sm:h-10">
+              Correct it
+            </Button>
+            <p className="max-w-prose text-xs text-muted-foreground">
+              <strong className="font-medium text-foreground">Emptying a box clears it.</strong> A
+              price you never paid comes off the record and the acquisition stops counting towards
+              what the library has cost; an empty day is an object that was simply always here. A
+              comma is a decimal point.
             </p>
           </form>
         </Drawer>
@@ -1036,7 +1102,13 @@ function objectSaid(volume: RecordedVolume): string {
  * book owned since before any of this was written down are acquisitions with no purchase in
  * them, and `€ 0.00` would be a claim about money rather than an absence of one.
  */
-function History({ acquisitions }: { acquisitions: readonly Acquisition[] }) {
+function History({
+  acquisitions,
+  volumeId,
+}: {
+  acquisitions: readonly Acquisition[];
+  volumeId: string;
+}) {
   if (acquisitions.length === 0) return null;
 
   return (
@@ -1065,12 +1137,21 @@ function History({ acquisitions }: { acquisitions: readonly Acquisition[] }) {
                 )}
               </span>
             </span>
-            <span className="font-mono tabular-nums">
-              {acquisition.pricePaid ? (
-                `€ ${acquisition.pricePaid}`
-              ) : (
-                <span className="font-sans text-muted-foreground">— no price recorded</span>
-              )}
+            <span className="flex items-baseline gap-3">
+              <span className="font-mono tabular-nums">
+                {acquisition.pricePaid ? (
+                  `€ ${acquisition.pricePaid}`
+                ) : (
+                  <span className="font-sans text-muted-foreground">— no price recorded</span>
+                )}
+              </span>
+
+              {/* **Opened from the row rather than from the hero**, because which acquisition
+                  a press means is only answerable from the row it was pressed on: an object
+                  acquired twice has two of these and the hero has one of everything. */}
+              <OpensDrawer href={panelled(volumeId, "correction", acquisition.id)}>
+                Correct it
+              </OpensDrawer>
             </span>
           </li>
         ))}
@@ -1107,17 +1188,27 @@ function Fact({
 function Field({
   name,
   label,
+  form = "acquire",
   ...props
 }: {
   name: string;
   label: string;
+  /**
+   * Which form the field belongs to, which is the whole of what the id is for.
+   *
+   * Two panels ask for a price and a day now — acquiring and correcting — and only one of
+   * them is ever on screen, so nothing collides in the DOM. It is a parameter anyway because
+   * an id spelled `acquire-pricePaid` inside the correction panel is a label pointing at a
+   * form that is not the one around it, which is the kind of wrong nothing ever catches.
+   */
+  form?: string;
 } & React.ComponentProps<typeof Input>) {
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={`acquire-${name}`} className="text-xs text-muted-foreground">
+      <Label htmlFor={`${form}-${name}`} className="text-xs text-muted-foreground">
         {label}
       </Label>
-      <Input id={`acquire-${name}`} name={name} className="h-11 sm:h-10" {...props} />
+      <Input id={`${form}-${name}`} name={name} className="h-11 sm:h-10" {...props} />
     </div>
   );
 }

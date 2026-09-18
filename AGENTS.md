@@ -420,11 +420,28 @@ and a Wish with no price says so in words rather than showing a row of dashes.
 
 Three rules for adding one. **Read the panel against a list**, the way every filter on a wall
 is read — `?panel=banana` opens nothing, and neither does a `?pass=` naming no Pass of
-this Story. Better still, read it against **the acts the screen has**: `theActsOnTheObject`
-and `theEditionNoteAct` in `collection/[id]/standing.ts` name every panel a Volume has, the
-page opens none they did not name, and so a hand-typed `?panel=release` cannot stand a release
-form over an object the house does not hold. Each act's label is its panel's title too, so a
-press and the panel it opens cannot come to call one act two things. **And a refused write
+this Story. Better still, read it against **the acts the screen has**: `theActsOnTheObject`,
+`theEditionNoteAct` and `theCorrectionAct` in `collection/[id]/standing.ts` name every panel a
+Volume has, the page opens none they did not name, and so a hand-typed `?panel=release` cannot
+stand a release form over an object the house does not hold. Each act's label is its panel's
+title too, so a press and the panel it opens cannot come to call one act two things.
+
+**A panel about a *row* is read twice, and the second read is the one that matters.** Every
+other act on an object is an act on the object, of which there is one each; correcting an
+acquisition is an act on a record, and an object acquired twice has two of them. So the name
+gets the drawer open and `theAcquisitionBeingCorrected` decides whether there is anything for
+it to stand over — checked against the history *this page is holding*, so an address naming an
+acquisition of some other object opens nothing rather than a form that would write to it. A
+per-row act is opened from its row and never from the hero, because which row a press meant is
+only answerable where it was pressed.
+
+**And what an empty box does is the panel's to decide, not the screen's habit.** The two rules
+are both in use on this one page and they are opposites: a box that arrived holding a
+**proposal** keeps the record when it is cleared, which is the *keep mine* gesture on the ISBN
+panel, and a box that arrived holding **the record** clears it, which is what the correction
+panel is for — *I never paid that* has to end with no price, and there is no other form in the
+application that can take a fact off an acquisition. The panel says which it is, in the prose
+under the button, because the owner cannot tell by looking. **And a refused write
 comes back with its panel open, carrying the verb's prose into the panel** — the sentence is
 about what was typed, so it is only useful beside the field it is about, and a panel covers the
 screen it would otherwise be printed behind. And **carry the screen's other parameters through**:

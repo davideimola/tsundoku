@@ -54,6 +54,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const NO_SUCH_VOLUME = "No Volume has that id.";
 
+/** An acquisition's id is never typed either: it comes off the object's own page. */
+const NO_SUCH_ACQUISITION = "No acquisition has that id.";
+
 /**
  * Record what an object is: the library knows it from now on. Returns its id.
  *
@@ -345,6 +348,95 @@ export async function releaseVolume(volumeId: string): Promise<void> {
         : "That Volume is catalogued and has never been in the house."
     );
   }
+}
+
+/** What a correction rewrites on one acquisition. Absent is *leave it standing*. */
+export type AcquisitionCorrection = {
+  /**
+   * What was paid, as the owner types it — or **`null`, which is the price nobody paid**.
+   *
+   * The two absences are different and the type is where that is said: `undefined` is a fact
+   * this correction is not about, and `null` is the fact being taken off the record.
+   */
+  pricePaid?: string | null;
+  /** The day it came home, `YYYY-MM-DD`, or `null` for a day nobody wrote down. */
+  acquiredOn?: string | null;
+};
+
+/**
+ * **Correct what an acquisition says**: the price that was never paid, the day typed wrong.
+ *
+ * The act exists because the two facts on an acquisition are the two this library gets wrong
+ * most easily and could not repair at all. A price arrives from a spreadsheet import, from a
+ * shop's list price typed while the owner was standing in it, or from an assistant that filled
+ * a field in rather than leaving it empty — and once written it was permanent, silently wrong,
+ * and summed into every figure about money the application prints.
+ *
+ * **It is a correction and not a strike, and the distinction is `CONTEXT.md`'s.** Striking says
+ * *there was no record*; this says the record is real and one fact on it is wrong. The object
+ * did come home, the Passes made through it stand, and the acquisition keeps the day it was
+ * made — which is why the wrong price is rewritten in place rather than the row being unmade
+ * and said again. Unmaking it is the one move that would lose what is not wrong.
+ *
+ * **It is not called `amendVolume`'s word either, and that is the whole shape of it.** An
+ * amendment in this repository completes a record: it `coalesce`s, an empty box keeps what is
+ * there, and taking a fact *out* is deliberately not something it can do. This verb's reason
+ * to exist is exactly that — *I never paid that* has to end with no price on the record, not
+ * with a nought, which would be a claim about money, and not with the old number still
+ * standing. So `null` clears, and the statement says so in SQL rather than in this paragraph.
+ *
+ * Naming no fact at all is refused rather than passing quietly: a press that reported success
+ * and changed nothing is one the owner cannot tell from a broken one.
+ */
+export async function correctAcquisition(
+  acquisitionId: string,
+  correction: AcquisitionCorrection
+): Promise<void> {
+  if (!UUID.test(acquisitionId)) throw new Refusal("not-found", NO_SUCH_ACQUISITION);
+
+  const writesPrice = correction.pricePaid !== undefined;
+  const writesDay = correction.acquiredOn !== undefined;
+  if (!writesPrice && !writesDay) {
+    throw new Refusal("invalid", "A correction rewrites at least one fact of the acquisition.");
+  }
+
+  // `priceAsTyped` reads an empty string as no price, which is the same answer `null` is: a
+  // box the owner emptied and a box a door left out arrive here as one fact, because they are
+  // one fact. What they are *not* is `0`, and that is the money module's rule rather than this
+  // verb's.
+  const pricePaid = writesPrice ? priceAsTyped(correction.pricePaid) : null;
+  if (writesDay && correction.acquiredOn && !DAY.test(correction.acquiredOn)) {
+    throw new Refusal("invalid", "A purchase date is a day, written 2024-03-11.");
+  }
+
+  // **A flag per fact rather than `coalesce`**, which is the difference between this verb and
+  // every `amend` above it said in the one place it has to be true. `coalesce` cannot express
+  // *write nothing here*, and writing nothing here is what the owner came for.
+  const changed = await refusing(
+    () =>
+      query<{ id: string }>(
+        `update acquisition
+            set price_paid  = case when $2::boolean then $3::numeric else price_paid end,
+                acquired_on = case when $4::boolean then $5::date    else acquired_on end
+          where id = $1
+          returning id`,
+        [acquisitionId, writesPrice, pricePaid, writesDay, correction.acquiredOn ?? null]
+      ),
+    (constraint) => {
+      switch (constraint) {
+        case "acquisition_price_paid_is_not_negative":
+          return "A price paid is not negative. Leave it empty if you never paid one.";
+        // The day being moved past the day it ended. It is the object's own history arguing
+        // with itself, so the sentence names both ends rather than the column.
+        case "acquisition_release_follows_acquisition":
+          return "That would have the object coming home after it left the house. Correct the day it went, or pick an earlier one.";
+        default:
+          return "That acquisition could not be corrected.";
+      }
+    }
+  );
+
+  if (changed.length === 0) throw new Refusal("not-found", NO_SUCH_ACQUISITION);
 }
 
 // STRIKING A VOLUME FROM THE CATALOGUE, and why this is not the delete ADR-0007 refuses.

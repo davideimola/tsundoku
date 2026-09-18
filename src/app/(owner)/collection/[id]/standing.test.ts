@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { RecordedVolume } from "@/core/queries/collection";
+import type { Acquisition, RecordedVolume } from "@/core/queries/collection";
 
 import {
   facedWith,
+  theAcquisitionBeingCorrected,
   theActsOnTheObject,
+  theCorrectionAct,
   theEditionNoteAct,
   timesSaid,
   whatTheCatalogueAnswered,
@@ -260,6 +262,47 @@ describe("the Edition note's own act", () => {
       expect(act.label.toLowerCase()).not.toContain("rating");
       expect(act.label.toLowerCase()).not.toContain("score");
     }
+  });
+});
+
+// **The one panel on this screen that is about a row**, and therefore the one whose address
+// carries two things. What is worth holding is not the label — it is that an address naming
+// an acquisition this object does not have opens nothing: a correction form standing over
+// somebody else's row is the only way this panel could be worse than not existing.
+describe("correcting one acquisition", () => {
+  const made = (id: string): Acquisition => ({
+    id,
+    acquiredOn: "2026-03-02",
+    pricePaid: "6.50",
+    releasedOn: null,
+  });
+  const history = [made("a1"), made("a2")];
+
+  it("is an act with a panel of its own", () => {
+    expect(theCorrectionAct()).toEqual({ panel: "correction", label: "Correct this acquisition" });
+  });
+
+  // Amend is the word this repository spends on completing a record, and this form can take a
+  // fact out. The label is what the owner reads before they know which of the two they want.
+  it("calls it correcting rather than amending", () => {
+    expect(theCorrectionAct().label.toLowerCase()).not.toContain("amend");
+  });
+
+  it("stands over the acquisition the address names", () => {
+    expect(theAcquisitionBeingCorrected("correction", "a2", history)).toEqual(made("a2"));
+  });
+
+  it.each([
+    ["banana", "a1", "a panel this screen does not have"],
+    ["correction", "a9", "an acquisition of some other object"],
+    ["correction", undefined, "no acquisition at all"],
+    [undefined, "a1", "an id with no panel asked for"],
+  ])("opens nothing for %s / %s — %s", (panel, about, _why) => {
+    expect(theAcquisitionBeingCorrected(panel, about, history)).toBeNull();
+  });
+
+  it("opens nothing where the object has no acquisitions to correct", () => {
+    expect(theAcquisitionBeingCorrected("correction", "a1", [])).toBeNull();
   });
 });
 

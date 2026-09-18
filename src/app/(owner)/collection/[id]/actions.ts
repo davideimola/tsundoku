@@ -6,7 +6,12 @@ import { type Band, theStoriesOnOffer } from "@/components/stories-on-offer";
 import { whatIsPublishedUnderThisIsbn } from "@/core/queries/isbn";
 import { listStoriesNotInVolume } from "@/core/queries/story-to-volume";
 import { isRefusal } from "@/core/refusal";
-import { acquireVolume, amendVolume, releaseVolume } from "@/core/verbs/collection";
+import {
+  acquireVolume,
+  amendVolume,
+  correctAcquisition,
+  releaseVolume,
+} from "@/core/verbs/collection";
 import { dropOwnCover, forgetTheCover, lookUpCoverFor, setOwnCover } from "@/core/verbs/cover";
 import { eraseEditionNote, writeEditionNote } from "@/core/verbs/edition-note";
 import { createStoryCarriedBy, strikeStoryCarriedBy } from "@/core/verbs/story";
@@ -17,7 +22,7 @@ import {
 } from "@/core/verbs/story-to-volume";
 import { requireOwner } from "@/lib/auth/owner";
 import { THE_ISBN_FIELD, WHAT_THE_CATALOGUE_SAID } from "./panels";
-import type { Panel } from "./standing";
+import { type Panel, THE_ACQUISITION_A_PANEL_IS_ABOUT } from "./standing";
 
 // The write side of one Volume's page: what the object **is**, whether it is in the house,
 // what it carries, and what the owner thinks of it as an object. A thin adapter like every other one (ADR-0002) — it reads a form, calls one
@@ -256,6 +261,42 @@ export async function acquire(form: FormData): Promise<void> {
         acquiredOn: text(form, "acquiredOn"),
       }),
     "acquire"
+  );
+}
+
+/**
+ * Correct what one acquisition says: the price that was never paid, the day typed wrong.
+ *
+ * **Both boxes are always in this form, so an empty one is an answer and not an absence.**
+ * That is the opposite of the ISBN panel two functions down, and deliberately: there a
+ * cleared box means *keep mine*, because the box arrived holding a **proposal** from a
+ * catalogue and clearing it declines the proposal. Here the box arrives holding **the
+ * record**, and the owner opened the panel to take a wrong fact out of it — so an empty price
+ * is no price, which is the sentence *I never paid that* needs and the one `€ 0.00` would get
+ * wrong. It is the shopping list's rule, for the shopping list's reason.
+ *
+ * The refusal reopens this panel carrying the acquisition it was about, because the panel is
+ * about a row and a drawer that came back over the wrong one would be worse than none.
+ */
+export async function correct(form: FormData): Promise<void> {
+  await requireOwner();
+
+  const volumeId = text(form, "volumeId") ?? "";
+  const acquisitionId = text(form, "acquisitionId") ?? "";
+
+  return saying(
+    volumeId,
+    new URLSearchParams({ corrected: "1" }),
+    () =>
+      correctAcquisition(acquisitionId, {
+        // `text` answers null for a box nobody filled, which is exactly the fact being
+        // written: the verb takes `null` as *take it off* and `undefined` as *leave it
+        // standing*, and this form is never about leaving one standing.
+        pricePaid: text(form, "pricePaid"),
+        acquiredOn: text(form, "acquiredOn"),
+      }),
+    "correction",
+    { [THE_ACQUISITION_A_PANEL_IS_ABOUT]: acquisitionId }
   );
 }
 

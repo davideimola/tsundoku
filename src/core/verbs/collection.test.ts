@@ -8,6 +8,7 @@ import {
   amendVolume,
   type CataloguedVolume,
   catalogueVolume,
+  correctAcquisition,
   releaseVolume,
   strikeVolumes,
 } from "./collection.ts";
@@ -149,6 +150,128 @@ describe("releasing a Volume", () => {
     await expect(releaseVolume("3f7c1b2e-0000-4000-8000-000000000000")).rejects.toMatchObject({
       code: "not-found",
     });
+  });
+});
+
+// **Correcting an acquisition**, which is the one repair this file had no verb for and the
+// one the shelves needed: a Volume stands in production carrying a price the owner never
+// paid, and every figure about money counted it.
+//
+// What is asserted is the pair of absences, because that is the whole of the design. A fact
+// the correction does not name is left standing; a fact it names as null is **taken off the
+// record**, which is what no `amend` in this file can do and what *I never paid that* means.
+describe("correcting an acquisition", () => {
+  /** One acquisition of one object, and its id, which is what a correction names. */
+  async function anAcquisition(made: { pricePaid?: string; acquiredOn?: string } = {}) {
+    const volumeId = await volumeInTheHouse(aTankobon(), made);
+    const [row] = await query<{ id: string }>("select id from acquisition where volume_id = $1", [
+      volumeId,
+    ]);
+    return { volumeId, id: row.id };
+  }
+
+  /** What the record says now, read back rather than trusted. */
+  async function asRecorded(id: string) {
+    const [row] = await query<{ pricePaid: string | null; acquiredOn: string | null }>(
+      `select price_paid::text as "pricePaid", to_char(acquired_on, 'YYYY-MM-DD') as "acquiredOn"
+         from acquisition where id = $1`,
+      [id]
+    );
+    return row;
+  }
+
+  it("rewrites a price that was wrong", async () => {
+    const { id } = await anAcquisition({ pricePaid: "24.90", acquiredOn: "2026-03-02" });
+
+    await correctAcquisition(id, { pricePaid: "6,50" });
+
+    // Written as the owner typed it, comma and all: that is `priceAsTyped`'s rule, and this
+    // verb spends it rather than keeping a second copy.
+    expect(await asRecorded(id)).toEqual({ pricePaid: "6.50", acquiredOn: "2026-03-02" });
+  });
+
+  // The sentence this verb exists for.
+  it("takes a price off the record where the owner never paid one", async () => {
+    const { id } = await anAcquisition({ pricePaid: "24.90", acquiredOn: "2026-03-02" });
+
+    await correctAcquisition(id, { pricePaid: null });
+
+    // Null and never nought. A zero would be a claim about money where the truth is that no
+    // money is recorded, and every figure in the app reads the two apart.
+    expect(await asRecorded(id)).toEqual({ pricePaid: null, acquiredOn: "2026-03-02" });
+  });
+
+  it("leaves a fact the correction does not name standing", async () => {
+    const { id } = await anAcquisition({ pricePaid: "6.50", acquiredOn: "2026-03-02" });
+
+    await correctAcquisition(id, { acquiredOn: "2026-03-09" });
+
+    expect(await asRecorded(id)).toEqual({ pricePaid: "6.50", acquiredOn: "2026-03-09" });
+  });
+
+  it("takes the day off the record too, for an object that was simply always here", async () => {
+    const { id } = await anAcquisition({ pricePaid: "6.50", acquiredOn: "2026-03-02" });
+
+    await correctAcquisition(id, { acquiredOn: null });
+
+    expect(await asRecorded(id)).toEqual({ pricePaid: "6.50", acquiredOn: null });
+  });
+
+  it("keeps the acquisition rather than unmaking it, so nothing else moves", async () => {
+    const { volumeId, id } = await anAcquisition({ pricePaid: "24.90" });
+
+    await correctAcquisition(id, { pricePaid: null });
+
+    // Still in the house, still one acquisition. Correcting a fact is not striking a record,
+    // and a verb that unmade the row and said it again would lose what is not wrong.
+    expect(await searchCollection({})).toMatchObject([{ id: volumeId }]);
+  });
+
+  it("refuses a correction that names nothing, rather than reporting a write it did not make", async () => {
+    const { id } = await anAcquisition({ pricePaid: "6.50" });
+
+    await expect(correctAcquisition(id, {})).rejects.toMatchObject({
+      code: "invalid",
+      message: "A correction rewrites at least one fact of the acquisition.",
+    });
+  });
+
+  it("refuses a price that is not one, in the words every field that takes money uses", async () => {
+    const { id } = await anAcquisition();
+
+    await expect(
+      correctAcquisition(id, { pricePaid: "sei euro e cinquanta" })
+    ).rejects.toMatchObject({ code: "invalid" });
+  });
+
+  it("refuses a day written as prose", async () => {
+    const { id } = await anAcquisition();
+
+    await expect(correctAcquisition(id, { acquiredOn: "il 2 marzo" })).rejects.toMatchObject({
+      code: "invalid",
+      message: "A purchase date is a day, written 2024-03-11.",
+    });
+  });
+
+  // The object's own history arguing with itself, which is the one refusal the database owns
+  // here rather than this verb.
+  it("refuses a day that would have the object come home after it left", async () => {
+    const { volumeId, id } = await anAcquisition({ acquiredOn: "2026-03-02" });
+    await releaseVolume(volumeId);
+
+    // `invalid` rather than `not-allowed`, because it is a check constraint and that is the
+    // code every check violation in this repository comes back as.
+    await expect(correctAcquisition(id, { acquiredOn: "2099-01-01" })).rejects.toMatchObject({
+      code: "invalid",
+      message:
+        "That would have the object coming home after it left the house. Correct the day it went, or pick an earlier one.",
+    });
+  });
+
+  it("refuses an id that names no acquisition", async () => {
+    await expect(
+      correctAcquisition("3f7c1b2e-0000-4000-8000-000000000000", { pricePaid: null })
+    ).rejects.toMatchObject({ code: "not-found", message: "No acquisition has that id." });
   });
 });
 

@@ -1,4 +1,4 @@
-import type { RecordedVolume } from "@/core/queries/collection";
+import type { Acquisition, RecordedVolume } from "@/core/queries/collection";
 import type { EditionNote } from "@/core/queries/edition-note";
 
 // **Where the owner stands with one object, in words** — the Volume screen's own derivation,
@@ -132,12 +132,27 @@ export function facedWith(volume: RecordedVolume): string {
  *
  * The names are a closed set because the page reads what was asked for **against** them, the
  * way every filter on every wall is read: `?panel=banana` opens nothing. And it reads it
- * against the **acts** rather than against this list — `theActsOnTheObject` and
- * `theEditionNoteAct` name every panel there is, and the page opens none they did not name —
- * so an `?panel=acquire` hand-typed onto an object already in the house opens nothing either,
- * and the two halves of ADR-0007 cannot be made to disagree by editing an address.
+ * against the **acts** rather than against this list — `theActsOnTheObject`,
+ * `theEditionNoteAct` and `theCorrectionAct` name every panel there is, and the page opens
+ * none they did not name — so an `?panel=acquire` hand-typed onto an object already in the
+ * house opens nothing either, and the two halves of ADR-0007 cannot be made to disagree by
+ * editing an address.
+ *
+ * `correction` is the one that is checked twice, because it is the one that is about a row:
+ * the name gets it open, and `theAcquisitionBeingCorrected` decides whether there is anything
+ * for it to stand over.
  */
-export type Panel = "acquire" | "release" | "isbn" | "cover" | "note";
+export type Panel = "acquire" | "release" | "isbn" | "cover" | "note" | "correction";
+
+/**
+ * Which acquisition a correction panel stands over, as the address spells it.
+ *
+ * The one panel on this screen that is about a **row** rather than about the object, so the
+ * address carries two things and not one — the shopping list's shape, for the shopping list's
+ * reason: an object acquired twice has two of these, and a panel that could not say which
+ * would be a form over whichever the page drew first.
+ */
+export const THE_ACQUISITION_A_PANEL_IS_ABOUT = "acquisition";
 
 /** One act on the object, and the panel a press on it opens. */
 export type Act = {
@@ -177,6 +192,45 @@ export type Act = {
  */
 export function theActsOnTheObject(volume: RecordedVolume): readonly Act[] {
   return [theHouseAct(volume), theIsbnAct(volume), theCoverAct(volume)];
+}
+
+/**
+ * **Correcting one acquisition**, which is in neither the hero nor the note's place: it is
+ * opened from the row it is about, in the history under *In the house*.
+ *
+ * It is not in `theActsOnTheObject` and that is the point rather than an omission. Those three
+ * are acts on the **object** — whether the house holds it, what it is, what it is faced with —
+ * and there is one of each. This one is an act on a **record**, there are as many of them as
+ * the object has acquisitions, and which one a press means is only answerable from the row it
+ * was pressed on. Standing it in the hero would be a fourth button that then had to ask.
+ *
+ * One label whichever fact is wrong, because the panel rewrites both and the owner arriving at
+ * it has not yet said which they came for. *Correct it* rather than *Amend it*: amend is the
+ * word this repository spends on completing a record, and this is the form that can take a
+ * fact out.
+ */
+export function theCorrectionAct(): Act {
+  return { panel: "correction", label: "Correct this acquisition" };
+}
+
+/**
+ * **Which acquisition the address is asking about, read against the ones this object has**
+ * rather than trusted.
+ *
+ * The rule every panel and every filter in this application is held to, and here it is doing
+ * two jobs at once: `?panel=correction` naming nothing opens nothing, and one naming an
+ * acquisition of a **different object** opens nothing either — otherwise a hand-typed address
+ * would stand a correction form over somebody else's row and write to it, which is the one
+ * way this panel could be worse than not existing.
+ */
+export function theAcquisitionBeingCorrected(
+  panel: string | undefined,
+  about: string | undefined,
+  history: readonly Acquisition[]
+): Acquisition | null {
+  if (panel !== "correction") return null;
+
+  return history.find((acquisition) => acquisition.id === about) ?? null;
 }
 
 /**

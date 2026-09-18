@@ -148,6 +148,13 @@ together because the owner said one sentence about one event, and neither is der
 other. An open acquisition is the shelf; one that ended is a record of having had
 the object, which is why selling a volume and buying it again is one object acquired twice
 rather than two objects. A Volume can have none at all, and that is an ordinary Volume.
+**The two facts on it are corrected in place and never by unmaking the row**: a price that was
+never paid — typed off a shop's shelf, imported from a spreadsheet, filled in where it should
+have been left empty — is rewritten or **taken off**, and taking it off leaves no price rather
+than a nought, because a nought is a claim about money. It is a correction and not a
+**striking**: the object did come home, the Passes made through it stand, and what was wrong
+is one field. Unmaking the row and saying it again would lose the day it was made, which is
+the same argument that makes a **Wish** replanned rather than replaced.
 _Avoid_: purchase — a gift and a book owned since before any of this was written down are
 acquisitions with no purchase in them. Also: ownership, stock.
 
