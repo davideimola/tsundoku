@@ -85,7 +85,11 @@ import { defineConfig } from "vitest/config";
 // the order on a route is the one judgement in this application nothing derives —
 // `src/app/(owner)/wishes/shopping.ts`, which says the three steps a shopping list is bought
 // in — the Pile's picker offers the same three words — and holds the banding to the
-// Wish's own rule that nothing silently disappears from what the owner meant to buy, and
+// Wish's own rule that nothing silently disappears from what the owner meant to buy,
+// `src/app/(owner)/acquisitions/months.ts`, which says what a month of the ledger is called —
+// including the band of acquisitions nobody wrote a day for, which is a gap and deliberately
+// not the shopping list's *Someday* — and whether the object that came home is still in the
+// house, and
 // `src/app/(owner)/credits/body-of-work.ts`, which cuts everything a person is credited on
 // along the role they held on it, over an answer the core hands over split by whether it was
 // read, and `src/components/stories-on-offer.ts`, which bands what the field under an object's

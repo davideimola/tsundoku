@@ -10,13 +10,14 @@ import { type Covered, libraryInFigures, thePile, unrecorded, whole } from "./li
 
 // Seam 1, and this file is about **the coverage rather than the numbers**.
 //
-// The dashboard's figures are ordinary counts and one sum; what is worth a test is the
-// second half of every answer — how much of the library the figure speaks for. Eighteen of
-// seventy-seven acquisitions carry a price, so a total that arrived on its own would read
-// as complete and would be a lie, and the page has no way to invent a denominator it was
-// never given. That is what these assertions hold: the denominator comes back with the
-// figure, always, and it is the count of records that *could* have carried the fact rather
-// than the count that did.
+// The dashboard's figures are ordinary counts; what is worth a test is the second half of
+// every answer — how much of the library the figure speaks for. The page has no way to
+// invent a denominator it was never given, so that is what these assertions hold: the
+// denominator comes back with the figure, always, and it is the count of records that
+// *could* have carried the fact rather than the count that did.
+//
+// **What was spent is no longer one of them** and is `./acquisition.test.ts`': the figure has
+// a period on it now, and the month it belongs to is the thing being tested.
 beforeEach(async () => {
   await query("truncate table volume, story, series cascade");
 });
@@ -136,55 +137,16 @@ describe("what the library is, in figures", () => {
     expect(whole(missing)).toBe(false);
   });
 
-  it("adds up what was paid, over the acquisitions that carry a price", async () => {
-    await volumeInTheHouse(
-      { title: "Slam Dunk 1", publisher: "Planet Manga", binding: "tankobon", language: "it" },
-      { pricePaid: "6.50" }
-    );
-    await volumeInTheHouse(
-      { title: "Slam Dunk 2", publisher: "Planet Manga", binding: "tankobon", language: "it" },
-      { pricePaid: "24.90" }
-    );
-    // No receipt: an acquisition with no price is the ordinary case in this library.
-    await volumeInTheHouse({
-      title: "Slam Dunk 3",
-      publisher: "Planet Manga",
-      binding: "tankobon",
-      language: "it",
-    });
-
-    const { spent } = await libraryInFigures();
-
-    expect(spent).toEqual({ figure: "31.40", from: 2, of: 3 });
-    expect(whole(spent)).toBe(false);
-  });
-
-  it("keeps what was paid for a Volume that has since left the house", async () => {
-    const id = await volumeInTheHouse(
-      { title: "Berserk 1", publisher: "Planet Manga", binding: "tankobon", language: "it" },
-      { pricePaid: "9.90" }
-    );
-    await releaseVolume(id);
-
-    const { spent, owned } = await libraryInFigures();
-
-    // The money was spent. Selling the object does not unspend it, which is why the sum is
-    // over every acquisition and not over the shelf.
-    expect(spent).toEqual({ figure: "9.90", from: 1, of: 1 });
-    expect(owned.figure).toBe(0);
-  });
-
   it("answers a library with nothing in it without inventing a denominator", async () => {
-    const { owned, collecting, missing, spent } = await libraryInFigures();
+    const { owned, collecting, missing } = await libraryInFigures();
 
     expect(owned).toEqual({ figure: 0, from: 0, of: 0 });
     expect(collecting).toEqual({ figure: 0, from: 0, of: 0 });
     expect(missing).toEqual({ figure: 0, from: 0, of: 0 });
-    expect(spent).toEqual({ figure: "0.00", from: 0, of: 0 });
 
     // Nothing recorded is not partial coverage: there was nothing to cover. What the page
     // says about an empty figure is decided by the figure being zero, not by the coverage.
-    expect(whole(spent)).toBe(true);
+    expect(whole(owned)).toBe(true);
   });
 });
 

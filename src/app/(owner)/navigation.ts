@@ -13,7 +13,10 @@
  * moments** — not because nine links wanted grouping. *Reading and playing* is the desk at
  * night: what am I in the middle of, what is next, what did I think of it. *Owning* is the
  * question asked standing in a fumetteria: do I have this, what am I missing, what was I
- * going to buy. *Repairing* is the maintenance of the catalogue itself — what an
+ * going to buy — and, once home, what I have been buying and what it came to, which is the
+ * one line in this section read at a desk. It is still the same question: a ledger of
+ * acquisitions is what owning *has cost*, and filing it under *Reading and playing* would
+ * put money beside an evening. *Repairing* is the maintenance of the catalogue itself — what an
  * assistant asked for, and the people nobody has credited yet. A screen goes in the
  * section whose question it answers, and if it answers none of them the section is wrong
  * rather than the screen.
@@ -83,6 +86,7 @@ export const NAVIGATION: readonly Section[] = [
     title: "Owning",
     destinations: [
       { href: "/collection", label: "Collection", onTheBar: true },
+      { href: "/acquisitions", label: "Acquisitions" },
       { href: "/series", label: "Series" },
       { href: "/wishes", label: "Wishes" },
     ],

@@ -16,11 +16,20 @@ import { listStoryWall, type WallStory } from "./story.ts";
 //
 // So the coverage is **part of the query's contract and not a presentation choice**: every
 // figure below is a `Covered<…>`, the denominator comes out of Postgres beside the figure,
-// and a page has nothing to invent. Two of the four are whole by construction and will stay
+// and a page has nothing to invent. Two of the three are whole by construction and will stay
 // whole — every Volume says whether it is in the house, every Series says whether it is
 // being collected — and that is an argument *for* the uniform shape rather than against it:
 // a contract with two special cases is a contract a screen has to remember, and the screen
 // that forgets is the one printing the lie.
+//
+// **The money used to be the fourth figure here, and it has moved to
+// `queries/acquisition.ts`.** What stood under *Spent* was every acquisition ever made added
+// up, and a figure with no period on it answers a question nobody asks twice: the owner knows
+// what the library cost in the sense that they have it, and what they want on a Tuesday is
+// *where am I this month*. A sum over all time could only ever grow, so it said the same thing
+// every evening. So the dashboard reads `whatThisMonthHasCost`, the ledger reads the months
+// behind it, and both come off one fragment in that file — which is also why the total did not
+// merely move: what a month comes to and what a month's band comes to have to be one answer.
 //
 // It composes rather than re-derives. What is missing from a Series is
 // `listMissingVolumes`, and the pile is `listStoryWall` narrowed to `to-read` — both
@@ -79,7 +88,7 @@ export function unrecorded(covered: Covered<unknown>): boolean {
   return covered.of > 0 && covered.from === 0;
 }
 
-/** What the library is, in the four figures the dashboard's second band is made of. */
+/** What the library is, in the three figures the dashboard's second band counts. */
 export type LibraryInFigures = {
   /**
    * The Volumes in the house, over the Volumes the library knows of at all.
@@ -104,23 +113,12 @@ export type LibraryInFigures = {
    * ledger can speak for.
    */
   missing: Covered<number>;
-  /**
-   * What the library cost, as the owner typed it, over every acquisition ever made.
-   *
-   * **Over every acquisition and not over the shelf**: money spent on a Volume later sold
-   * was still spent, and the acquisition that ended is the record of having spent it.
-   *
-   * A string rather than a number, like every price in this repo: `24.90` is what the owner
-   * typed and what both doors render, and a float would make it `24.900000000000002` on the
-   * way through.
-   */
-  spent: Covered<string>;
 };
 
-// Three of the four figures and their denominators, and the missing figure's coverage.
+// Two of the three figures and their denominators, and the missing figure's coverage.
 //
-// Scalar subqueries rather than a round trip each: they are read from three tables that
-// nothing here joins, and a dashboard showing the shelf from one moment and the spending from
+// Scalar subqueries rather than a round trip each: they are read from two tables that
+// nothing here joins, and a dashboard showing the shelf from one moment and the Series from
 // another is one nobody could reconcile. **The missing figure itself is not in here** — it is
 // summed from `listMissingVolumes` below, so it is a second read and a second moment, which is
 // the price of that derivation existing in exactly one place (`queries/series.ts`). Worth
@@ -135,13 +133,7 @@ const FIGURES = `
     -- Collected, and with a published count to measure against. The two together are the
     -- missing figure's coverage, and the second is the half that can be short.
     (select count(*)::int from series
-      where collecting_since is not null and published_count > 0)         as "collectedAndCounted",
-    -- Fixed to two places on the way out, so an empty library reads 0.00 rather than 0 and
-    -- the figure is one shape whatever is in it.
-    (select coalesce(sum(a.price_paid), 0)::numeric(12,2)::text
-       from acquisition a)                                                as spent,
-    (select count(*)::int from acquisition a where a.price_paid is not null) as priced,
-    (select count(*)::int from acquisition)                                as acquisitions`;
+      where collecting_since is not null and published_count > 0)         as "collectedAndCounted"`;
 
 type FigureRow = {
   owned: number;
@@ -149,14 +141,13 @@ type FigureRow = {
   collecting: number;
   declared: number;
   collectedAndCounted: number;
-  spent: string;
-  priced: number;
-  acquisitions: number;
 };
 
 /**
- * **What the library is**: what is owned, what is being collected, what that is short of,
- * and what it cost — each with the coverage that says how far it can be read.
+ * **What the library is**: what is owned, what is being collected, and what that is short of
+ * — each with the coverage that says how far it can be read.
+ *
+ * What it cost is `queries/acquisition.ts`', because that question now has a period on it.
  *
  * The missing figure is summed from `listMissingVolumes` rather than derived again here:
  * that query is the one place `generate_series(1, published_count)` minus the shelf is
@@ -177,7 +168,6 @@ export async function libraryInFigures(): Promise<LibraryInFigures> {
     owned: { figure: counted.owned, from: counted.catalogued, of: counted.catalogued },
     collecting: { figure: counted.collecting, from: counted.declared, of: counted.declared },
     missing: { figure: missing, from: counted.collectedAndCounted, of: counted.collecting },
-    spent: { figure: counted.spent, from: counted.priced, of: counted.acquisitions },
   };
 }
 

@@ -10,8 +10,8 @@ import { CUT, VIEWBOX } from "./mark";
  * one glance, after the first time. The word stays underneath it, because recognition has to
  * be learned once and a bar of glyphs alone would make the owner guess on day one.
  *
- * **Still no icon library**, and that has not softened: this is fourteen rectangles, the
- * favicon's own geometry, and a dependency would bring three hundred glyphs to spend nine.
+ * **Still no icon library**, and that has not softened: this is a few dozen rectangles, the
+ * favicon's own geometry, and a dependency would bring three hundred glyphs to spend ten.
  * What is bought here is a *vocabulary*, not a set — every mark below is **a paper object
  * seen edge-on**, drawn in the technique `./mark` established: filled rects with a barely-cut
  * corner, in the same 24-unit square, set in whatever ink surrounds them.
@@ -113,6 +113,27 @@ function Climb(props: { className?: string }) {
   );
 }
 
+/**
+ * Acquisitions: four months of spines put down flat, and the length of each one is the month.
+ *
+ * The one mark here that is a **figure** rather than a thing, and it stays inside the
+ * vocabulary because of what it is drawn as: these are the same rects every other glyph is,
+ * lying down and cut to length, which is what a ledger of objects looks like from above. It
+ * cannot be mistaken for the Pile — those three are equal and tilted, because a pile is put
+ * down without care — and the unequal lengths are the whole of what this screen says: some
+ * months cost more than others.
+ */
+function Months(props: { className?: string }) {
+  return (
+    <Glyph {...props}>
+      <rect x={3.4} y={4.6} width={8.4} height={2.8} rx={CUT} />
+      <rect x={3.4} y={9} width={14.2} height={2.8} rx={CUT} />
+      <rect x={3.4} y={13.4} width={5.6} height={2.8} rx={CUT} />
+      <rect x={3.4} y={17.8} width={11.2} height={2.8} rx={CUT} />
+    </Glyph>
+  );
+}
+
 /** Series: two volumes held together by the band over their heads — the obi a run is sold in. */
 function Band(props: { className?: string }) {
   return (
@@ -203,6 +224,7 @@ export const GLYPHS: Record<string, (props: { className?: string }) => React.Rea
   "/": OpenBook,
   "/pile": Pile,
   "/collection": Shelf,
+  "/acquisitions": Months,
   "/stories": Spine,
   "/paths": Climb,
   "/series": Band,

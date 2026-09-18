@@ -444,6 +444,10 @@ open**, which is what puts *start it* or *close it* in a Story's hero and is rea
 stands with one object — in the house, catalogued, or acquired and let go — and therefore
 **which acts its page offers**, which is where an object that left the house is offered
 acquiring it *again* rather than releasing something the house does not have;
+`acquisitions/months.ts` says what a month of the
+ledger is called and what the object that came home is doing now — and it is where the
+distance between *nobody wrote the day down* and the shopping list's *Someday* is kept, since
+one is a gap and the other is an answer the owner picked;
 `wishes/shopping.ts` says the months a shopping list is bought in — the Pile's picker and the
 one door's offer the same ones — and bands the list out of the periods that are *there* rather
 than by filtering a fixed run of months, so **a Wish cannot be on the list and on no band of
@@ -525,6 +529,16 @@ unread* is the thing being reported; *18 of 77 acquisitions carried a price* is 
 report can be trusted. So the length of a list a page holds whole and renders whole — the
 spines in the pile, the entries in a band's heading — is not a figure this rule binds: there is
 nothing partial about it and no denominator to get wrong.
+
+**A figure with a period on it is the same contract, and the ledger is where that shows.**
+`queries/acquisition.ts` bands every acquisition into the month it was made in and hands each
+month its own `Covered<string>` — which is why banding is in the *core* there and not on the
+screen, against the rule the previous section states: the month is what the question is about
+rather than how the answer is read, and the denominator of a month's total is the query's to
+supply. The dashboard's *Spent in September* and the ledger's September band come off **one
+SQL fragment in that file**, because two screens disagreeing about one month would be
+unfindable from either of them. What has no day recorded is in neither figure and still has a
+band of its own, so an object cannot be in the house and on no band of what came home.
 
 Two rules follow, and `src/app/(owner)/page.tsx` is the pattern for both. Coverage is rendered
 only where it is short (`whole()` answers that, so no screen writes the comparison itself) — a

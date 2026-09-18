@@ -1,19 +1,21 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
 import { Pile } from "@/components/pile";
+import { whatThisMonthHasCost } from "@/core/queries/acquisition";
 import { countWaitingInboxEntries } from "@/core/queries/inbox";
 import { type Covered, libraryInFigures, thePile, unrecorded, whole } from "@/core/queries/library";
 import { composePile, type PileEntry, theKeyOf } from "@/core/queries/pile";
 import { listStoryWall } from "@/core/queries/story";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
+import { monthNamed } from "./acquisitions/months";
 import { entryStanding, entryTitle } from "./pile/entry";
 import { storyDetail } from "./stories/story-state";
 
 // THE DASHBOARD. For eleven slices this page listed the five Types, which is what a walking
 // skeleton's home page looks like; this is the one that tells the owner something (#24).
 //
-// Four decisions, and each of them is about honesty rather than layout.
+// Five decisions, and each of them is about honesty rather than layout.
 //
 //   1. **Two bands, and the actionable one is on top.** Tonight first — what is in the
 //      owner's hands, what is next, what is waiting for a decision — and then, under a rule,
@@ -33,11 +35,18 @@ import { storyDetail } from "./stories/story-state";
 //      under *spent* is a claim about the owner's money, and it would be wrong. An empty
 //      library is the other case and gets its zero, because nothing bought is a measurement
 //      rather than a gap — `figureOf` is where that line is drawn, once.
-//   4. **An empty band is an invitation.** Every block here says what is missing and offers
+//   4. **The money on this page has a period on it.** What stood here was every acquisition
+//      ever made added up, and a figure with no period could only ever grow: it said the same
+//      thing every evening, and there was nothing to do about it. *This month* is a figure the
+//      owner can still act on, it is the one they came to look at, and the months behind it
+//      are `/acquisitions` — which is where a total belongs, beside the objects it was paid
+//      for. It is read from `whatThisMonthHasCost` off the database's own clock rather than
+//      worked out here from `new Date()`, so the month named is the month summed.
+//   5. **An empty band is an invitation.** Every block here says what is missing and offers
 //      the thing that fills it, because with every Pass finished *under way* is zero and
 //      an empty box is the least useful true statement a screen can make.
 //
-// A thin adapter over five queries, like every page here (ADR-0002): no SQL, no domain logic,
+// A thin adapter over six queries, like every page here (ADR-0002): no SQL, no domain logic,
 // and no colour of its own — the one on screen is the library's.
 export const dynamic = "force-dynamic";
 
@@ -59,13 +68,14 @@ const IN_PROSE =
 export default async function Home() {
   await requireOwner();
 
-  const [underWay, entries, waiting, figures, pile] = await Promise.all([
+  const [underWay, entries, waiting, figures, thisMonth, pile] = await Promise.all([
     // Narrowed in the core rather than here, like every wall in this app: the band shows
     // what is open, so it reads what is open.
     listStoryWall({ state: "reading" }),
     composePile(),
     countWaitingInboxEntries(),
     libraryInFigures(),
+    whatThisMonthHasCost(),
     thePile(),
   ]);
 
@@ -197,9 +207,9 @@ export default async function Home() {
           The library
         </h2>
         <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          What is owned, what is being collected, what that is short of, and what it cost. Every
-          figure says what it was counted over, and one that has no data behind it says so instead
-          of printing a zero.
+          What is owned, what is being collected, what that is short of, and what this month has
+          cost. Every figure says what it was counted over, and one that has no data behind it says
+          so instead of printing a zero.
         </p>
 
         <dl className="mt-7 grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
@@ -300,34 +310,50 @@ export default async function Home() {
             )}
           </Figure>
 
-          {/* The figure this ticket exists for. Eighteen of seventy-seven acquisitions carry a
-              price, so a total would read as complete and would be wrong by a factor of four
-              — and where records exist and not one of them carries a price, there is no figure
-              at all. The currency is the one the Collection and the Wishes already print. */}
+          {/* **The one figure here with a period on it.** Eighteen of seventy-seven
+              acquisitions carry a price, so a month's total would read as complete and would
+              be wrong — and where the month has acquisitions and not one of them carries a
+              price, there is no figure at all. A month with nothing in it still gets its zero,
+              because nothing bought is a measurement. The currency is the one the Collection
+              and the Wishes already print, and the months behind this one are the ledger. */}
           <Figure
-            label="Spent"
-            figure={figureOf(figures.spent, "No acquisition carries a price", "€ ")}
+            label={`Spent in ${monthNamed(thisMonth.month)}`}
+            figure={figureOf(thisMonth.comesTo, "No acquisition this month carries a price", "€ ")}
           >
-            {figures.spent.of === 0 ? (
-              <>Nothing has come home yet, so nothing has been spent.</>
-            ) : figures.spent.from === 0 ? (
+            {thisMonth.comesTo.of === 0 ? (
               <>
-                No price on any of the {figures.spent.of}{" "}
-                {figures.spent.of === 1 ? "acquisition" : "acquisitions"}.{" "}
-                <Link href="/collection" className={IN_PROSE}>
-                  Add one
+                Nothing has come home this month.{" "}
+                <Link href="/acquisitions" className={IN_PROSE}>
+                  The months before it
                 </Link>{" "}
-                as a Volume comes home.
+                are on the ledger.
               </>
-            ) : whole(figures.spent) ? (
+            ) : thisMonth.comesTo.from === 0 ? (
               <>
-                Across every one of the {figures.spent.of}{" "}
-                {figures.spent.of === 1 ? "acquisition" : "acquisitions"}, as I typed them.
+                No price on any of this month's {thisMonth.comesTo.of}{" "}
+                {thisMonth.comesTo.of === 1 ? "acquisition" : "acquisitions"}.{" "}
+                <Link href="/acquisitions" className={IN_PROSE}>
+                  They are on the ledger
+                </Link>
+                , and the price is on each object's own page.
+              </>
+            ) : whole(thisMonth.comesTo) ? (
+              <>
+                Across all {thisMonth.comesTo.of} of this month's{" "}
+                {thisMonth.comesTo.of === 1 ? "acquisition" : "acquisitions"}, as I typed them.{" "}
+                <Link href="/acquisitions" className={IN_PROSE}>
+                  Month by month
+                </Link>
+                .
               </>
             ) : (
               <>
-                From <Coverage of={figures.spent} records="acquisitions" />. The rest carry no
-                price, so this is a floor and not a total.
+                From <Coverage of={thisMonth.comesTo} records="acquisitions" /> this month. The rest
+                carry no price, so this is a floor and not a total —{" "}
+                <Link href="/acquisitions" className={IN_PROSE}>
+                  month by month
+                </Link>
+                .
               </>
             )}
           </Figure>
