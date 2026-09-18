@@ -34,6 +34,34 @@ reading an old export to them is not the same as them remembering it.`,
 
 const DAY = "A day, written 2024-03-11. Leave it out where the owner did not say one.";
 
+/**
+ * **LOOK AT WHAT THE STORY ALREADY CARRIES**, written once here and spent by the two tools
+ * that between them produce the failure it exists to stop.
+ *
+ * The failure, reported from production: the owner had already said they read something, said
+ * afterwards what they thought of it, and the score landed on a **second Pass** that was
+ * created to hold it. The library then says they went through it twice and judged only the
+ * second time — two facts, both false, and neither visible from the sentence the owner said.
+ *
+ * **The gap was never a capability**, which is the lesson #53 already made this door pay for
+ * once. `stories_find` has answered with every Pass and its id since the screen did; naming an
+ * existing one in `rating_set` has always worked. What was missing is that `pass_record`'s own
+ * prose said *it never overwrites and never replaces* and *a second Pass through the same Story
+ * is a second row* — true, and read by an assistant holding a score as permission to make one.
+ * So the instruction is one sentence rather than a nuance in two descriptions, and
+ * `./pass.test.ts` is what holds both tools to it.
+ *
+ * It says what a second Pass **means** rather than forbidding one, because a reread is
+ * ordinary and this door must not make it awkward to record. What is wrong is not the second
+ * row; it is a second row standing for an act the owner never performed.
+ */
+export const THE_PASS_MAY_ALREADY_BE_THERE = `**Look at what the Story already carries before you
+record one** — \`stories_find\` answers with every Pass it has and the id of each. A second Pass is
+a claim that the owner went through it **again**: right for a reread, and wrong for a score, a day
+or a correction about the time they already told you about. Where the Pass is already there, do not
+record another: name its id as \`pass\` in \`rating_set\`, or close it with \`pass_finish\` or
+\`pass_abandon\`.`;
+
 const record: McpTool = {
   name: "pass_record",
   title: "Record a Pass through a Story",
@@ -47,8 +75,9 @@ it later.
 
 **It never overwrites and never replaces.** Going through a thing again is ordinary here, so a
 second Pass through the same Story is a second row and the Rating the first carried survives beside
-it. If the owner is correcting a Pass they just described, that is still a Pass — say so rather than
-expecting an edit.
+it — which is why recording one is a claim and not a formality.
+
+${THE_PASS_MAY_ALREADY_BE_THERE}
 
 A Pass needs no Volume, and **only \`paper\` may have one**: an owned ebook is not something this
 model has, and neither is a disc on a shelf, so every other medium went through no object. On

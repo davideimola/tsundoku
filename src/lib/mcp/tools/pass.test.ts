@@ -2,6 +2,7 @@ import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { McpTool } from "../tool.ts";
+import { THE_PASS_MAY_ALREADY_BE_THERE } from "./pass.ts";
 
 // The vocabulary wall over this door, and it sits beside the Pass area because that is the
 // area the rename is named after (#59, ADR-0021).
@@ -96,6 +97,67 @@ describe("the five tools named for the old vocabulary", () => {
   it("leave nothing behind under the old names", () => {
     const names = everyTool.map((tool) => tool.name);
     expect(names.filter((name) => name.startsWith("reading"))).toEqual([]);
+  });
+});
+
+// **THE SECOND WALL OVER THIS AREA, and it is `./inbox.test.ts`'s argument arriving a second
+// time.** There the failure was an assistant proposing duplicates although every tool needed to
+// avoid one had shipped; here it is an assistant recording a **second Pass** to hang a score on
+// although `stories_find` has always answered with the first and `rating_set` has always taken
+// its id. Reported from production: the owner said they had read something, said later what
+// they thought of it, and the library came to claim they went through it twice and judged only
+// the second time.
+//
+// The remedy is the one this door has already been made to pay for: **one instruction, in one
+// place, spent by every tool that can produce the failure** — never a nuance each description
+// words its own way, because the weakest wording is the one an assistant finds a way to read as
+// permission. So `THE_PASS_MAY_ALREADY_BE_THERE` is declared in `./pass.ts` and this is what
+// holds both spenders to it.
+//
+// A third tool that records a Pass, or a second that writes a judgement, is the case this
+// exists to catch: it will fail here until it spends the sentence rather than restating it.
+describe("a score does not make a Pass that never happened", () => {
+  /** The two tools that between them can produce the failure. */
+  async function theSpenders(): Promise<McpTool[]> {
+    const pass = (await import("./pass.ts")).default;
+    const rating = (await import("./rating.ts")).default;
+
+    return [
+      ...pass.filter((tool) => tool.name === "pass_record"),
+      ...rating.filter((tool) => tool.name === "rating_set"),
+    ];
+  }
+
+  it("finds both of them, so this is not checking nothing", async () => {
+    expect((await theSpenders()).map((tool) => tool.name)).toEqual(["pass_record", "rating_set"]);
+  });
+
+  it("says the instruction in both, in the same words", async () => {
+    for (const tool of await theSpenders()) {
+      expect(tool.description).toContain(THE_PASS_MAY_ALREADY_BE_THERE);
+    }
+  });
+
+  // The sentence is only worth anything if it names the tool that answers the question. An
+  // instruction to *check first* with nowhere to check is the shape of advice an assistant
+  // skips.
+  it("names where the existing Pass is found", () => {
+    expect(THE_PASS_MAY_ALREADY_BE_THERE).toContain("stories_find");
+  });
+
+  // It says what a second Pass **means** rather than forbidding one: a reread is ordinary, and
+  // a door that made recording one awkward would have traded this failure for a worse one.
+  it("does not forbid a second Pass, because rereading is ordinary", () => {
+    expect(THE_PASS_MAY_ALREADY_BE_THERE).toMatch(/reread/i);
+  });
+
+  // And the argument that carries the id has to point at the same place, because that is the
+  // field an assistant actually fills in.
+  it("sends rating_set's own pass argument to the same tool", async () => {
+    const [, rating] = await theSpenders();
+    const pass = (rating.inputSchema.properties as Record<string, { description?: string }>).pass;
+
+    expect(pass?.description).toContain("stories_find");
   });
 });
 

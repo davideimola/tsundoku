@@ -1,6 +1,11 @@
 import { FIRST_HAND } from "@/core/queries/provenance";
 import { type RatingScale, setRating } from "@/core/verbs/rating";
 import { type McpTool, numberArgument, stringArgument } from "../tool.ts";
+// **The Pass area's sentence, spent rather than paraphrased.** The failure it stops is made by
+// these two tools together — a score arriving with a Pass that was created to hold it — so
+// saying it here in this file's own words would be the second, weaker wording that `AGENTS.md`
+// names as the way an instruction like this stops working.
+import { THE_PASS_MAY_ALREADY_BE_THERE } from "./pass.ts";
 
 // The Rating area: the owner's judgement of a **Story**, and the other half of the sentence
 // this whole app was built for — *"I finished volume 23, I'd give it an 8"*.
@@ -27,7 +32,9 @@ Story spanning twenty volumes has one judgement, not twenty.
 **Set, in one sense of the word.** There is one Rating per Story per Pass, so saying it again is
 an edit of that same judgement. A second opinion after going through it *again* belongs to the
 second Pass: name that Pass's \`pass\` id and both survive, which is the only way a Story ends up
-with two scores.`,
+with two scores.
+
+**A score is nearly always about something already recorded.** ${THE_PASS_MAY_ALREADY_BE_THERE}`,
   inputSchema: {
     type: "object",
     properties: {
@@ -56,9 +63,13 @@ library needs to know which. Defaults to "half-points".`,
       },
       pass: {
         type: "string",
-        description: `The Pass this judgement came out of, from \`pass_record\` or
-\`stories_find\`. Name it whenever you know it: it is what keeps a second time through's score
-beside the first one instead of over it.`,
+        description: `The Pass this judgement came out of. **Read it off \`stories_find\` where
+the owner has gone through this before** — that is the usual case, and it is the whole of what
+stops a score creating a pass that never happened. It comes from \`pass_record\` only when this
+call and that one are the same sentence: *"I finished it last night, I'd give it an 8"*.
+
+Leaving it out is a judgement of the **Story in general** rather than of any pass through it, which
+is right for a score off an old sheet and wrong for one the owner is telling you now.`,
       },
       provenance: {
         type: "string",

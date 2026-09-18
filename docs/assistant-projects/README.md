@@ -33,9 +33,11 @@ has the Claude Code command and the custom connector settings. A file has to sta
 characters**, which is the limit the projects impose; check with `wc -m` before committing an
 edit, because there is no warning when it runs out.
 
-**Two of these three are over it and want trimming** — `comics-and-manga.md` is at ~8900 and
-`books-and-reading.md` at ~8500, both from before this was checked. `videogames.md` is under,
-and the room left is about a line.
+**All three are under it now**, at roughly 7900–8000, and the room left in each is about a
+line. Two of them were over — they pre-dated the check being written down here — and what paid
+for the difference was mostly a paragraph that could not be acted on: there is no tool on this
+door that reads or writes an **Edition note**, so the bullet teaching the word was teaching one
+the assistant can never use. The rule it actually guarded is the Rating's own sentence.
 
 **Each file is self-contained, and that is a hard rule rather than a style.** What is pasted is
 **only that one file**: the assistant is not handed this repository and cannot open anything
