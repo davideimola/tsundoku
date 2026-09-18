@@ -213,6 +213,46 @@ async function called(id: Id, params: unknown, mounted: () => Promise<McpTool[]>
 
   const input = readObject(params, "arguments");
 
+  // **An argument this tool does not take refuses the call, by name.**
+  //
+  // Every schema on this door already says `additionalProperties: false`, and until now
+  // nothing made that true: an argument the tool did not declare was read by nobody and
+  // dropped in silence. What that cost is on the shelves. `rating_set` took `reading` before
+  // the rename and takes `pass` now (#59), so an assistant holding the older photograph of
+  // the tool list sent `reading` — and the door recorded the score, answered with an id, and
+  // attached the judgement to **nothing**. A standalone Rating is a real thing here, so the
+  // row looked ordinary; the owner was told three times that it was fixed, and each time it
+  // was not.
+  //
+  // A client that photographs the tool list has no signal to take another photograph
+  // (`./README.md`), so a stale argument name is not an edge case on this door — it is the
+  // normal consequence of shipping a rename. The refusal is what turns it from a wrong
+  // permanent record into one sentence the assistant can act on in the same turn, which is
+  // the same choice `theIsbnItIs` makes about a barcode: name what was actually handed over
+  // rather than waving it through on a length check.
+  //
+  // It names what the tool *does* take, because the reader is a program that can retry. And
+  // it is the adapter's own business rather than a verb's: this is the wire contract, and
+  // nothing in `src/core` knows an argument was ever sent by name.
+  const declared = tool.inputSchema;
+  if (declared.additionalProperties === false) {
+    const known = new Set(Object.keys(declared.properties ?? {}));
+    const unknown = Object.keys(input).filter((sent) => !known.has(sent));
+
+    if (unknown.length > 0) {
+      const takes = [...known].sort();
+      return failure(
+        id,
+        INVALID_PARAMS,
+        `\`${name}\` does not take ${unknown.map((sent) => `\`${sent}\``).join(", ")}. It takes ${
+          takes.length === 0
+            ? "no arguments at all"
+            : takes.map((argument) => `\`${argument}\``).join(", ")
+        }. If you are holding an older list of these tools, ask for it again.`
+      );
+    }
+  }
+
   try {
     const answered = await tool.run(input);
     return result(id, {

@@ -88,6 +88,11 @@ telling you now — that is "${FIRST_HAND}".`,
   // destroys something the owner authored, and a client is right to confirm it.
   destructive: true,
   async run(input) {
+    // The core says `passId`; this door says `pass`, which is the word an assistant reads.
+    // It is read once and answered with, rather than read straight into the call, because
+    // **what this tool did has to be readable from what it returns**.
+    const passId = stringArgument(input, "pass");
+
     return {
       // `Number.NaN` where an assistant sent something that is not a number at all, which
       // the verb refuses as a score in half points. Nothing is corrected here: the score is
@@ -97,10 +102,23 @@ telling you now — that is "${FIRST_HAND}".`,
         score: numberArgument(input, "score") ?? Number.NaN,
         prose: stringArgument(input, "prose"),
         scale: stringArgument(input, "scale") as RatingScale | undefined,
-        // The core says `passId`; this door says `pass`, which is the word an assistant reads.
-        passId: stringArgument(input, "pass"),
+        passId,
         provenanceId: stringArgument(input, "provenance") ?? FIRST_HAND,
       }),
+      /**
+       * **Which Pass the judgement ended up on, or `null` for one attached to no pass.**
+       *
+       * The belt to the refusal in the door: the two ways a judgement lands are a real
+       * distinction in this model, and an answer of `{ rating }` alone let an assistant
+       * report *recorded on your PC pass* about a score that in fact points at nothing. Saying
+       * it back is what makes the difference checkable in the same turn rather than on the
+       * owner's screen a week later.
+       *
+       * It echoes what was sent rather than reading the row back, and that is enough: the verb
+       * refuses a Pass belonging to another Story in its own prose, so a call that returned at
+       * all attached the judgement exactly here.
+       */
+      pass: passId ?? null,
     };
   },
 };

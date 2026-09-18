@@ -161,6 +161,20 @@ describe("a score does not make a Pass that never happened", () => {
   });
 });
 
+// **The rule that makes the door's refusal reachable at all**, and it belongs on the directory
+// walk rather than beside any one tool. `protocol.ts` refuses an argument a tool does not
+// declare — which is what turns a stale tool list from a silently wrong record into one
+// sentence — but it can only do that where the schema says `additionalProperties: false`. A
+// tool that left it out would opt itself back into the silence, and nothing else would notice.
+describe("every tool closes its arguments", () => {
+  it.each(everyTool.map((tool) => [tool.name, tool] as const))(
+    "%s says additionalProperties: false",
+    (_name, tool) => {
+      expect(tool.inputSchema.additionalProperties).toBe(false);
+    }
+  );
+});
+
 describe("every sentence the door hands an external reader", () => {
   it.each(everyTool.map((tool) => [tool.name, tool] as const))(
     "%s never names a Reading",

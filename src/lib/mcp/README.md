@@ -169,6 +169,28 @@ list has no signal to take another photograph**, ever. It refetches when it is m
 A **renamed** tool is the same failure wearing a worse face — the old name does not merely
 stay unlisted, it stops answering — which is why the rename below has a section of its own.
 
+### A renamed **argument** was the worst face of all, and the door now refuses it
+
+A renamed tool fails loudly: the old name is gone and the call is told so. A renamed
+**argument** used to fail in silence, and it cost the library a wrong permanent record.
+`rating_set` took `reading` before #59 and takes `pass` now. An assistant holding the older
+photograph sent `reading`; nothing read it, nothing complained, and the door recorded the
+score attached to **nothing at all**. A Rating pointing at no Pass is a real thing here — it
+is what a score off an old sheet looks like — so the row was unremarkable, and the owner was
+told three times that a 10 was on their finished PC pass when it was not.
+
+So `protocol.ts` **honours the schemas this door was already publishing**. Every tool says
+`additionalProperties: false`; a `tools/call` carrying an argument the tool does not declare is
+refused with `-32602`, naming what was sent, naming what the tool takes, and saying out loud
+that the client may be holding an older list. `src/lib/mcp/protocol.test.ts` is that wall, and
+`tools/pass.test.ts` holds every tool to the closed schema the rule depends on — a tool that
+left `additionalProperties` out would quietly opt itself back into the silence.
+
+`rating_set` answers with `pass` as well as `rating` for the same reason from the other end: an
+answer of `{ rating }` alone let an assistant report *recorded on your PC pass* about a
+judgement attached to none. The two ways a score can land are a real distinction in this model,
+so the door says which one happened rather than leaving it to be discovered on a screen.
+
 So, after deploying a new tool, in this order:
 
 1. **restart the tunnel client** — `kubectl -n tunnel-client rollout restart
