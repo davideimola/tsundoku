@@ -74,9 +74,12 @@ more weakly than the four is the failure this section exists to stop: the weakes
 the list is the one an assistant will find a way to read as permission.
 `src/lib/mcp/tools/inbox.test.ts` is what holds them there.
 
-The two project files an assistant is actually handed — `docs/assistant-projects/` — say the
+The three project files an assistant is actually handed — `docs/assistant-projects/` — say the
 same instruction in the same words, because they are read by the same assistant before it ever
-sees a tool description.
+sees a tool description. The third is the **Videogame** lens, and it is a document of its own
+rather than a paragraph in the printed two: a game carries no Volume (ADR-0021), so the
+Collection, the Series and a Wish are not narrowed away for it but **absent**, and an assistant
+handed the comics instructions goes looking on a shelf for a thing that was never there.
 
 **A proposal may name records other than the one it proposes, and only ever by id** (#52). A
 proposed Volume says which Stories are inside it, because an object catalogued carrying no
