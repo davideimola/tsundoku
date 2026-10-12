@@ -47,6 +47,8 @@ describe("the proxy's matcher", () => {
   //     bearer (ADR-0025) and excluded **by name**: `/api` is not a prefix exclusion,
   //     because `api/auth` already lives under it and a prefix-wide hole is one every
   //     later route falls into without anybody deciding it should;
+  //   - `/healthz`, which whatever runs the image asks without a session. Gated, a probe
+  //     would be answered `307 /signin` and count it as healthy whatever Postgres is doing;
   //   - `/.well-known`, which RFC 8615 reserves for metadata a machine fetches before
   //     it has credentials. A discovery probe that gets `307 /signin` learns nothing;
   //     a `404` correctly says this server publishes none;
@@ -62,6 +64,7 @@ describe("the proxy's matcher", () => {
     "/mcp",
     "/mcp/",
     "/api/showcase",
+    "/healthz",
     "/.well-known",
     "/.well-known/oauth-protected-resource",
     "/.well-known/oauth-protected-resource/mcp",
@@ -89,6 +92,8 @@ describe("the proxy's matcher", () => {
     "/api/authors",
     "/api/showcases",
     "/api/showcase-token",
+    "/healthzz",
+    "/healthz-and-more",
     "/.well-known-ish",
     "/.well-knownish/anything",
     "/icon.svg.map",

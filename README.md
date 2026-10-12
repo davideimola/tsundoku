@@ -764,6 +764,17 @@ handed a `var()`. The four literals live once in
 [`src/app/palette.test.ts`](src/app/palette.test.ts) reads `globals.css`, converts the
 primitives to sRGB and asserts they are exactly them, on both grounds.
 
+### `/healthz` is for whatever runs it
+
+`GET /healthz` answers `200 ok` while Postgres answers `select 1` within two seconds, and
+`503 unavailable` when it does not — plain text, `no-store`, and never the reason, which goes
+to the log. It is excluded from the owner gate by name, because a probe has no session and
+`307 /signin` is an answer it counts as healthy. It reads no row and writes nothing.
+
+Point a **readiness** check at it, not a liveness one: a database that has gone away should
+take the app out of rotation until it is back, not restart a process that was never the
+problem.
+
 ### `/mcp` and `/api` are rate limited
 
 The limit is immediately before each door's bearer gate, and

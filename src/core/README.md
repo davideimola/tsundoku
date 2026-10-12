@@ -12,6 +12,7 @@ somebody who is not the owner. What is not composed there does not leave the hou
 ```
 src/core/
 ├── db.ts            the pool, and the only file that knows what a pool is
+├── health.ts        whether the database answers, for `/healthz` — no table, no write
 ├── covers.ts        the cover sources — one of the two files that know what a fetch is
 ├── records.ts       what a book is, asked by ISBN — the other one
 ├── isbn.ts          what an ISBN is, and what else a camera hands over

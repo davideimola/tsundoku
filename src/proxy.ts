@@ -56,6 +56,10 @@ export const config = {
   //     `307 /signin` to its bearer, which is wrong in the safe direction and loudly
   //     so. The thing that actually refuses on that door is `requireApiCaller()`, and
   //     `src/app/api/gated.test.ts` fails when a route stops calling it.
+  //   - **`healthz`**, which whatever runs the image asks whether the database answers. A
+  //     probe carries no session, and gated it would be answered `307 /signin` — which it
+  //     counts as healthy, whatever Postgres is doing. It reads no row and writes nothing,
+  //     and says `ok` or `unavailable` and never why.
   //   - **`.well-known`**, the prefix RFC 8615 reserves for metadata a machine fetches
   //     *before* it has any credentials to fetch it with. Gating it does not protect
   //     anything — nothing is served under it — and it actively breaks the clients it
@@ -77,9 +81,9 @@ export const config = {
   //
   // Every named path is anchored to a path boundary. Unanchored they would also excuse
   // anything merely *starting* with those letters — `/api/authors`, `/mcp-token`,
-  // `/.well-known-ish`, `/icon.svg.map` — which is a wider hole than the reservation: the
-  // exclusion is for these paths, not for these prefixes.
+  // `/healthzz`, `/.well-known-ish`, `/icon.svg.map` — which is a wider hole than the
+  // reservation: the exclusion is for these paths, not for these prefixes.
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|(?:api/auth|api/showcase|signin|mcp|\\.well-known|icon\\.svg|icon1|apple-icon|manifest\\.webmanifest)(?:$|/)).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|(?:api/auth|api/showcase|signin|mcp|healthz|\\.well-known|icon\\.svg|icon1|apple-icon|manifest\\.webmanifest)(?:$|/)).*)",
   ],
 };
