@@ -35,6 +35,7 @@ import {
   reasonSaid,
   theWantOn,
 } from "./entry";
+import { entryWears, sharedJackets } from "./jacket";
 
 // THE PILE. The screen the owner opens most, and the one the whole application is
 // for: the spreadsheet's `Prossimo` column, recomputed by hand for every route, plus three
@@ -120,6 +121,9 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
   // **The narrowing is an argument to the query and never a filter over its answer**, which is
   // every wall's rule here: what the screen shows is what it asked for.
   const { head, reserve, types } = await composePile({ typeId: narrowedTo?.id });
+  // The jackets two rows on this list both borrow, so neither claims to be that book
+  // (`./jacket`).
+  const shared = sharedJackets([...head, ...reserve]);
 
   const refused = asked(params, "refused");
   const wished = asked(params, "wished");
@@ -269,6 +273,7 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
                     entry={entry}
                     place={place + 1}
                     pinned
+                    shared={shared}
                     at={at}
                   />
                 ))}
@@ -297,6 +302,7 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
                     entry={row.entry}
                     behind={row.behind}
                     pinned={false}
+                    shared={shared}
                     at={at}
                   />
                 ))}
@@ -351,9 +357,12 @@ function Entry({
   entry,
   place,
   pinned,
+  shared,
   at,
   behind = [],
 }: {
+  /** The borrowed jackets another row on this list also wears (`./jacket`). */
+  shared: Set<string>;
   entry: PileEntry;
   place?: number;
   pinned: boolean;
@@ -365,6 +374,7 @@ function Entry({
   behind?: WhatStandsBehind[];
 }) {
   const want = theWantOn(entry);
+  const wears = entryWears(entry, shared);
   // The month the row is being read in, which is what the picker beside *Want it* offers. It
   // is read here rather than handed down because it is the only thing on this screen that
   // needs it, and a value read once when the module loaded would be last month's answer in a
@@ -391,13 +401,14 @@ function Entry({
             image over whatever the object carrying it lends (#65). A Series entry nobody has
             catalogued an object for has no jacket to wear and is the drawn tile, which is the
             normal case here and not a gap. */}
-        <div className="w-16 shrink-0 sm:w-20">
+        <div className="w-12 shrink-0">
           <Cover
             href={entryLeadsTo(entry)}
             title={entryTitle(entry)}
-            tint={tint(entryLine(entry))}
+            tint={tint(entryLine(entry) ?? entry.story?.id ?? entryTitle(entry))}
             label={entryDetail(entry)}
-            image={entry.cover}
+            image={wears.image}
+            size="thumb"
           />
         </div>
 
@@ -413,7 +424,9 @@ function Entry({
             {/* What it is, and whether it can be started tonight — `./entry`'s wording,
                 because the stop standing behind a route says the same thing under its own
                 title and two copies of it is how the two come to say it differently. */}
-            <p className={`mt-0.5 ${META}`}>{entrySaid(entry)}</p>
+            <p className={`mt-0.5 ${META}`}>
+              {wears.boundIn ? `In ${wears.boundIn} · ${entrySaid(entry)}` : entrySaid(entry)}
+            </p>
 
             {/* **Every reason it is here, and one row says all of them.** Wanted, and on two
                 routes, is three sentences under one title rather than the same book three
