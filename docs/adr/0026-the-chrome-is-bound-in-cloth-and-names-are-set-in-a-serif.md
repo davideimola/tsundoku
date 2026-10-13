@@ -121,10 +121,12 @@ owner's verdict on it was short: **the covers are the heart of the app, so show 
 - **Stories bound in one Volume are one tile.** Where several Stories on a wall borrow the same
   jacket, the wall draws it once, faced out of two sheets of paper, with *N stories inside*
   under it, and it opens a sheet listing them with a way onto the Volume. The sheet is a
-  drawer whose open state is the URL, so it works with nothing running. The Story wall's query
-  does not name the Volume that lends a jacket, so the grouping is by the jacket's address
-  (`src/components/bound-together.ts`) and the Volume is found among the house's by the same
-  address — an approximation stated where it is made.
+  drawer whose open state is the URL, so it works with nothing running. The grouping is by
+  the Volume that lends the jacket, which the core names beside the picture (`lentBy`, off the
+  one pick `THE_VOLUME_THAT_LENDS_THE_JACKET`), so the sheet leads to the Volume whether the
+  house holds it or not (`src/components/bound-together.ts`). It was by the jacket's address
+  at first, with the Volume found among the house's by the same address, until the query was
+  widened to say which.
 - **A rating is a bookmark** (`src/components/rating-mark.tsx`): a ribbon filled with cloth to
   the score, the figure beside it in the serif — *9*, *7.5* — named *Rated 9 out of 10*. An
   absent score is said in words, *Not rated yet*, with the act that fills it.
