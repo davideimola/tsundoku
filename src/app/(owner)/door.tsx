@@ -23,14 +23,15 @@ import { THE_DOOR } from "./navigation";
  *
  * **Two anatomies, for the two postures**, the way `Row` and `Tab` already are in the shell.
  * At the desk it is a named line under the finder: there is room for the sentence. On the
- * phone it is a filled cloth square in the top strip beside the finder, glyph alone — the
- * strip is sticky, so it is on every screen at a thumb's stretch, and it stays out of the
- * bottom bar, which is four *destinations* and would have to give one of them up.
+ * phone it is **the raised round `+` in the middle of the bottom bar** — a 56px disc of cloth
+ * lifted off the bar, with a soft shadow under it so it reads as standing above the tabs
+ * rather than as a fifth of them (ADR-0026, second tranche).
  *
- * Why the top strip rather than the thumb: the door's phone moment is a fumetteria with an
- * object in one hand, and what it opens is a field to type in or a camera to point — both
- * two-handed, both above the fold. A bar of six would also take every tab below the width
- * its word already barely fits in.
+ * It stood in the sticky strip at the top for a while, on the argument that what it opens is
+ * a field to type in or a camera to point, both above the fold. The argument for the thumb won:
+ * the phone is picked up in a shop with an object in the other hand, and the first press is the
+ * door — what follows it is the door's own screen, which puts its field where it puts it. The
+ * strip keeps the finder and takes the Inbox's count instead, which is what the bar gave up.
  */
 
 /** The words on it, everywhere it is named. A control keeps one name through the flow. */
@@ -57,17 +58,14 @@ export function DoorOnThePhone({ className }: { className?: string }) {
     <Link
       href={THE_DOOR.href}
       aria-label={SAYS}
+      title={SAYS}
       className={cn(
-        // Forty-four pixels on the phone and thirty-six at the desk, which is the same
-        // number the rest of the application is drawn to: a fingertip is 44px wide and a
-        // pointer is one pixel. It is the widest thing in a 48px strip on purpose — this
-        // is the control the owner presses standing up, one-handed, holding a book.
-        "flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity sm:size-10",
+        "flex size-14 shrink-0 -translate-y-[1.375rem] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-cloth-fill/30 ring-4 ring-background transition-opacity",
         "outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         className
       )}
     >
-      <ThePlus className="size-4" />
+      <ThePlus className="size-6" />
     </Link>
   );
 }

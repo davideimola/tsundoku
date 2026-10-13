@@ -58,6 +58,13 @@ function route(file: string): string {
   return segments === "" ? "/" : `/${segments}`;
 }
 
+/** One top-level function's source, so *where* something is rendered can be asserted. */
+function body(source: string, name: string): string {
+  const from = source.indexOf(`function ${name}(`);
+  const next = source.indexOf("\nfunction ", from + 1);
+  return source.slice(from, next === -1 ? undefined : next);
+}
+
 /** A route with a `[param]` in it is opened from a screen, never from the navigation. */
 const detail = (path: string) => path.includes("[");
 
@@ -124,13 +131,6 @@ describe("the map and the routes agree", () => {
 describe("the finder", () => {
   const shell = sourceFiles(APP).find((read) => read.file === `${GROUP}shell.tsx`);
 
-  /** One top-level function's source, so *where* the field is rendered can be asserted. */
-  function body(source: string, name: string): string {
-    const from = source.indexOf(`function ${name}(`);
-    const next = source.indexOf("\nfunction ", from + 1);
-    return source.slice(from, next === -1 ? undefined : next);
-  }
-
   it("is a screen that exists", () => {
     expect(gated.map((read) => route(read.file))).toContain(THE_FINDER.href);
   });
@@ -165,7 +165,8 @@ describe("the finder", () => {
 // The other one, held to the same word. The door is the act the chrome carries rather than a
 // question the map groups, so what has to be true of it is what has to be true of the finder
 // — it exists, it is not *also* a destination, and the chrome opens it at both widths — plus
-// the one thing that is its own: it stays off the bottom bar, which is four destinations.
+// the one thing that is its own: on the phone it stands raised in the middle of the bottom
+// bar, and it is still not one of the destinations the bar carries.
 describe("the door", () => {
   const shell = sourceFiles(APP).find((read) => read.file === `${GROUP}shell.tsx`);
   const source = shell?.source ?? "";
@@ -184,9 +185,11 @@ describe("the door", () => {
     expect(source).toContain("<DoorOnThePhone");
   });
 
-  // Not a fifth destination on the bar by another name: the bar is four, and the door is
-  // reached from the strip above the fold instead.
-  it("is not on the phone's bottom bar", () => {
+  // In the middle of the phone's bar, and drawn there by the bar itself rather than by the
+  // strip above it (ADR-0026, second tranche) — but as the act between the tabs, not as a
+  // fourth destination by another name: the map's bar is the places, and the door is not one.
+  it("stands in the phone's bottom bar without being one of its destinations", () => {
+    expect(body(source, "Phone")).toContain("<DoorOnThePhone");
     expect(ON_THE_BAR.map((destination) => destination.href)).not.toContain(THE_DOOR.href);
   });
 
@@ -198,9 +201,21 @@ describe("the door", () => {
 describe("the phone", () => {
   const behindMore = BEHIND_MORE.flatMap((section) => section.destinations);
 
-  it("carries four destinations on the bar, and the rest behind the fifth tab", () => {
-    expect(ON_THE_BAR).toHaveLength(4);
+  // Three places, the door raised in the middle of them, and *More*: five things a thumb can
+  // tell apart on the width of a phone. The Inbox gave its tab up to the door.
+  it("carries three destinations on the bar, and the rest behind the last tab", () => {
+    expect(ON_THE_BAR).toHaveLength(3);
     expect(behindMore.length).toBeGreaterThan(0);
+  });
+
+  // What the Inbox kept when it left the bar: a tray in the strip at the top, on every screen,
+  // carrying how many are waiting. A destination that fills up while nobody is looking cannot
+  // be only behind *More*.
+  it("keeps the Inbox in the strip above the fold", () => {
+    const shell = sourceFiles(APP).find((read) => read.file === `${GROUP}shell.tsx`);
+
+    expect(body(shell?.source ?? "", "PhoneChrome")).toContain("<InboxInTheStrip");
+    expect(behindMore.map((destination) => destination.href)).toContain("/inbox");
   });
 
   // The bar and the panel are a partition of the map, not two lists that happen to add up:
@@ -268,10 +283,12 @@ describe("the map is drawn", () => {
   });
 
   // Both shapes, because a mark on one of them is a map that disagrees with itself at the
-  // width nobody is testing at.
-  it("draws it in the tab and in the row", () => {
-    expect(shell?.source).toContain("<GlyphFor");
-    expect(shell?.source.match(/<GlyphFor/g)).toHaveLength(2);
+  // width nobody is testing at — and the Inbox's tray in the phone's strip, which is the same
+  // mark rather than a third drawing of a tray.
+  it("draws it in the tab, in the row and in the strip's tray", () => {
+    expect(body(shell?.source ?? "", "Tab")).toContain("<GlyphFor");
+    expect(body(shell?.source ?? "", "Row")).toContain("<GlyphFor");
+    expect(body(shell?.source ?? "", "InboxInTheStrip")).toContain("<GlyphFor");
   });
 });
 

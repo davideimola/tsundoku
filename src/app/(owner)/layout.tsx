@@ -1,3 +1,5 @@
+import { countWaitingInboxEntries } from "@/core/queries/inbox";
+import { requireOwner } from "@/lib/auth/owner";
 import { Shell } from "./shell";
 
 // The `(owner)` group. **Everything that reads the library lives here** — this is the
@@ -15,6 +17,15 @@ import { Shell } from "./shell";
 // and which would then ship one visitor's session inside a static payload.
 export const dynamic = "force-dynamic";
 
-export default function OwnerLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <Shell>{children}</Shell>;
+// **And one thing the chrome reads: how many Inbox entries are waiting** (ADR-0026, second
+// tranche). The Inbox gave its tab on the phone up to the door, and its count moved to a badge
+// in the strip at the top and on its line at the desk — on every screen, so it is counted here
+// rather than by each page. It is read behind the same gate the pages assert: the layout is
+// not the wall, but it is not a way round it either, so a count of the owner's proposals is
+// never put in a response the gate would refuse.
+export default async function OwnerLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  await requireOwner();
+  const waiting = await countWaitingInboxEntries();
+
+  return <Shell waiting={waiting}>{children}</Shell>;
 }

@@ -58,11 +58,17 @@ export type Destination = {
    * question — *is this worth a thumb?* — is answered where the destination is declared
    * and cannot drift out of step with it.
    *
-   * Four carry it. The home page is where an evening starts, the Pile is what gets opened
-   * on a sofa, the Collection is the one question that is *only* ever asked
-   * away from the desk — do I already have volume 12 — and the Inbox is the one that
-   * fills up while nobody is looking. Nobody opens Paths standing in a fumetteria, and
+   * Three carry it. The home page is where an evening starts, the Pile is what gets opened
+   * on a sofa, and the Collection is the one question that is *only* ever asked away from the
+   * desk — do I already have volume 12. Nobody opens Paths standing in a fumetteria, and
    * nobody credits an artist one-handed.
+   *
+   * **The Inbox carried it too, and gave its place up to the door** (ADR-0026, second
+   * tranche). The bar's middle is the raised `+` now — the act the phone is most often
+   * picked up for — and what the Inbox owed a thumb was never the destination itself but
+   * *how many are waiting*, which is a count, and a count fits in the strip at the top: a
+   * tray with a cloth badge on it, on every screen. It stays one tap away, and behind *More*
+   * like every destination the bar does not carry.
    */
   readonly onTheBar?: true;
 };
@@ -94,7 +100,7 @@ export const NAVIGATION: readonly Section[] = [
   {
     title: "Repairing",
     destinations: [
-      { href: "/inbox", label: "Inbox", onTheBar: true },
+      { href: "/inbox", label: "Inbox" },
       { href: "/credits", label: "Credits" },
     ],
   },
@@ -141,9 +147,10 @@ export const THE_FINDER: Destination = { href: "/find", label: "Find" };
  * it already holds, the door tells it something new — and they are the only two. A third
  * would be an argument to have here, in this module, before it is an element in the shell.
  *
- * `./door` is what it looks like, and why it is the one filled control in the chrome. It is
- * still not on the phone's bottom bar: that bar is four *destinations*, and the door is not
- * one of them.
+ * `./door` is what it looks like. On the phone it is **the raised round `+` in the middle of
+ * the bottom bar** — not a tab: the tabs are the three destinations either side of it and
+ * *More*, and the door stands between them as the one act, lifted off the bar so it never
+ * reads as a fifth place to be.
  */
 export const THE_DOOR: Destination = { href: "/add", label: "Add to the library" };
 

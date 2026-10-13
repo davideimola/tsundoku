@@ -24,8 +24,8 @@ import {
 // to the browser's back button.
 //
 // **Two shapes of the same map** (`./navigation`), and no third one: a persistent sidebar
-// at the desk, and a bottom bar on a phone carrying the four destinations worth opening
-// away from it. The map is shared so the two cannot disagree about what exists; the
+// at the desk, and a bottom bar on a phone carrying the three destinations worth opening
+// away from it, with the door raised in the middle of them. The map is shared so the two cannot disagree about what exists; the
 // *shapes* differ because the postures do — a mouse at a desk reaches anywhere, a thumb on
 // a phone reaches the bottom of the screen and little else.
 //
@@ -49,10 +49,23 @@ import {
 // running. It renders on the server like everything else, so the navigation's answer is
 // already in the HTML.
 
+/**
+ * Where on the phone's bar the door stands: after the first two destinations, so it is the
+ * middle of five with the Collection and *More* on the other side of it.
+ */
+const DOOR_STANDS_AT = 2;
+
 /** The house's focus ring, the same one the links inside the screens carry. */
 const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-export function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
+export function Shell({
+  children,
+  waiting,
+}: Readonly<{
+  children: React.ReactNode;
+  /** How many Inbox entries are waiting for a decision, counted by the layout on the server. */
+  waiting: number;
+}>) {
   const pathname = usePathname();
   const here = currentDestination(pathname);
 
@@ -71,9 +84,9 @@ export function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <>
       <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <Desk here={here} onFind={() => setFinding(true)} />
+        <Desk here={here} waiting={waiting} onFind={() => setFinding(true)} />
         <div className="min-w-0">
-          <PhoneChrome onFind={() => setFinding(true)} />
+          <PhoneChrome waiting={waiting} onFind={() => setFinding(true)} />
           {/* Room for the bar the phone floats over its own content. */}
           <div className="pb-24 lg:pb-0">{children}</div>
         </div>
@@ -90,7 +103,15 @@ export function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
  * with them, because at this width there is room to name a group and the owner meets all
  * nine destinations at once.
  */
-function Desk({ here, onFind }: { here: string | undefined; onFind: () => void }) {
+function Desk({
+  here,
+  waiting,
+  onFind,
+}: {
+  here: string | undefined;
+  waiting: number;
+  onFind: () => void;
+}) {
   return (
     <nav
       aria-label="Sections"
@@ -118,7 +139,11 @@ function Desk({ here, onFind }: { here: string | undefined; onFind: () => void }
             <ul className="space-y-0.5">
               {section.destinations.map((destination) => (
                 <li key={destination.href}>
-                  <Row destination={destination} here={here} />
+                  <Row
+                    destination={destination}
+                    here={here}
+                    count={destination.href === INBOX ? waiting : undefined}
+                  />
                 </li>
               ))}
             </ul>
@@ -148,16 +173,70 @@ function Desk({ here, onFind }: { here: string | undefined; onFind: () => void }
  * The glyph and no key beside it: there is no `⌘` to press on a phone, and a hint about one
  * would be chrome that is only ever wrong here.
  */
-function PhoneChrome({ onFind }: { onFind: () => void }) {
+function PhoneChrome({ waiting, onFind }: { waiting: number; onFind: () => void }) {
   return (
-    <div className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background px-5 sm:gap-3 sm:px-8 lg:hidden">
+    <div className="sticky top-0 z-20 flex h-14 items-center gap-1 border-b border-border bg-background px-5 sm:gap-2 sm:px-8 lg:hidden">
       <Link href="/" className={cn("flex shrink-0 items-center rounded-md", FOCUS)}>
         <Wordmark at="strip" />
       </Link>
 
       <FinderTrigger onOpen={onFind} className="ml-auto" />
-      <DoorOnThePhone />
+      <InboxInTheStrip waiting={waiting} />
     </div>
+  );
+}
+
+/** The Inbox's route, which is the one destination the chrome counts for. */
+const INBOX = "/inbox";
+
+/**
+ * **The Inbox, as the phone's strip carries it: a tray, and how many are waiting on it.**
+ *
+ * The Inbox gave its tab up to the door (`./navigation`), and what it owed a thumb was the
+ * count rather than the place — the one thing in this application that fills up while nobody
+ * is looking. So the tray stands in the strip on every screen with a small cloth badge when
+ * something is waiting, and nothing at all on it when nothing is: a nought on a badge is a
+ * badge that has stopped meaning anything. The count is in the accessible name, because a
+ * badge is a picture of a number.
+ */
+function InboxInTheStrip({ waiting }: { waiting: number }) {
+  const said =
+    waiting === 0
+      ? "Inbox"
+      : `Inbox, ${waiting} ${waiting === 1 ? "proposal" : "proposals"} waiting`;
+
+  return (
+    <Link
+      href={INBOX}
+      aria-label={said}
+      title={said}
+      className={cn(
+        "relative flex size-11 shrink-0 items-center justify-center rounded-lg text-foreground hover:bg-accent/60",
+        FOCUS
+      )}
+    >
+      <GlyphFor href={INBOX} className="size-[22px]" />
+      {waiting > 0 ? <Count of={waiting} className="absolute right-0.5 top-1" /> : null}
+    </Link>
+  );
+}
+
+/**
+ * A count in a small cloth badge: the Inbox's, in the strip and on its line at the desk. Cloth
+ * because it is asking the owner to do something; capped at *99+*, because past that the
+ * number has stopped being read and become a texture.
+ */
+function Count({ of, className }: { of: number; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-cloth-fill px-1 text-[0.6875rem] font-semibold leading-none text-on-cloth tabular-nums",
+        className
+      )}
+    >
+      {of > 99 ? "99+" : of}
+    </span>
   );
 }
 
@@ -243,7 +322,20 @@ function Phone({
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
         <ul className="flex items-stretch">
-          {ON_THE_BAR.map((destination) => (
+          {ON_THE_BAR.slice(0, DOOR_STANDS_AT).map((destination) => (
+            <li key={destination.href} className="min-w-0 flex-1">
+              <Tab destination={destination} here={here} />
+            </li>
+          ))}
+
+          {/* The door, in the middle and lifted off the bar: the one act among the places
+              (`./door`). Not a tab — it marks nothing, because adding is never where the
+              owner *is*. */}
+          <li className="flex min-w-0 flex-1 justify-center">
+            <DoorOnThePhone />
+          </li>
+
+          {ON_THE_BAR.slice(DOOR_STANDS_AT).map((destination) => (
             <li key={destination.href} className="min-w-0 flex-1">
               <Tab destination={destination} here={here} />
             </li>
@@ -345,10 +437,13 @@ function Row({
   destination,
   here,
   roomy,
+  count,
 }: {
   destination: Destination;
   here: string | undefined;
   roomy?: boolean;
+  /** A count the line carries in a badge at its end — the Inbox's, and only where it is not 0. */
+  count?: number;
 }) {
   const current = here === destination.href;
 
@@ -373,7 +468,13 @@ function Row({
           !current && "text-muted-foreground"
         )}
       />
-      {destination.label}
+      <span className="min-w-0 flex-1 truncate">{destination.label}</span>
+      {count ? (
+        <>
+          <Count of={count} />
+          <span className="sr-only">, {count} waiting</span>
+        </>
+      ) : null}
     </Link>
   );
 }
