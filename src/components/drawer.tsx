@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { DrawerKeys } from "./drawer-keys";
 
 // THE DRAWER: a panel that slides in over the screen to hold a form the owner opened
 // deliberately — and **its open state is the URL, not a script** (#32, ADR-0010).
@@ -24,12 +25,17 @@ import { cn } from "@/lib/utils";
 // *say I bought this*), it **survives a refresh**, and the back button closes it because closing it is what
 // going back means.
 //
-// What it does not have is a focus trap and an escape key. `<Escape>` is the browser's back
-// gesture away and the close is the first thing in the panel, which is the honest trade for a
-// panel that exists at all with no script running. There are three ways out and all three are
+// What it does not need is a focus trap and an escape key, and with no script it has neither:
+// the close is the first thing in the panel, which is the honest trade for a panel that
+// exists at all with no script running. Where a script *is* running it is given both halves
+// of what a dialog is expected to do — the focus moves into it as it opens, and `Escape`
+// closes it by going where the close link goes (`./drawer-keys`). There are three ways out and all three are
 // links to the same address: the scrim, the word in the corner — which is a 44px target on the
 // phone, because it was eleven pixels of type in the corner a thumb reaches last — and the
 // gesture.
+
+/** The one panel open at a time, which is what the keyboard is handed to as it opens. */
+const PANEL = "the-drawer";
 
 /**
  * A panel over the screen, open because the URL says so.
@@ -74,9 +80,16 @@ export function Drawer({
       {/* From the bottom on a phone, from the right at the desk — the two edges a thumb and
           a pointer respectively come from. Capped at the height of the window and scrolling
           inside itself, because the forms in here are taller than a phone. */}
+      <DrawerKeys panel={PANEL} closesTo={closesTo} />
+
       <section
+        id={PANEL}
+        tabIndex={-1}
         aria-label={title}
+        aria-modal="true"
+        role="dialog"
         className={cn(
+          "outline-none",
           "absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col overflow-y-auto rounded-t-2xl bg-background ring-1 ring-foreground/10",
           "sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-[30rem] sm:rounded-none sm:rounded-l-2xl",
           "motion-safe:animate-in motion-safe:slide-in-from-bottom motion-safe:sm:slide-in-from-right motion-safe:duration-200"
