@@ -149,7 +149,9 @@ function Spine({ story }: { story: PiledStory }) {
     >
       {/* Full ink and nothing quieter, as on the covers: the tint's wall proves the reading
           threshold against `--ink` and against nothing else. */}
-      <span className="truncate font-heading text-xs font-medium">{story.title}</span>
+      <span className="truncate font-sans text-xs font-semibold [font-stretch:87.5%]">
+        {story.title}
+      </span>
     </Link>
   );
 }

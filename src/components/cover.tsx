@@ -218,7 +218,7 @@ export function Cover({
       {shared ? (
         <Fascetta title={title} foot={foot} tint={tint} />
       ) : (
-        <span className="relative mt-auto self-center rounded-sm bg-background/85 px-1.5 py-0.5 text-center font-mono text-xs tabular-nums text-foreground">
+        <span className="relative mt-auto self-center rounded-sm bg-background/85 px-1.5 py-0.5 text-center text-xs font-medium tabular-nums text-foreground">
           {foot}
         </span>
       )}
@@ -230,9 +230,8 @@ export function Cover({
       <span className="flex min-h-0 flex-1 items-center justify-center">
         {/* Centred on the tile the way a title is centred on a jacket, and clamped rather
             than ellipsised on one line: *La storia della mia vita - Spider-Man* is four
-            lines here and a single truncated word in a spine. Set in the chrome's own
-            grotesque at its normal width — the width axis is for the headings, and a tile
-            this narrow needs the letterforms it has rather than tighter ones.
+            lines here and a single truncated word in a spine. Set in the serif, because a
+            title is the name of a thing and names are set in it (ADR-0026).
 
             Held to the height of the tile as well as to five lines, because the two are not
             the same limit: five lines of this face are taller than a 4rem tile (#31 stood
@@ -240,12 +239,12 @@ export function Cover({
             holds it loses as much off the top as off the bottom — *Batman di Jeph Loeb e Tim
             Sale* drawn as *di Jeph Loeb e Ti…*. Clipped at the foot, a title still starts
             with the word the owner is looking for. */}
-        <span className="line-clamp-5 max-h-full overflow-hidden text-balance text-center font-heading text-sm font-medium leading-snug">
+        <span className="line-clamp-5 max-h-full overflow-hidden text-balance text-center font-heading text-[0.9375rem] font-semibold leading-tight">
           {title}
         </span>
       </span>
 
-      <span className="text-center font-mono text-xs tabular-nums">{foot}</span>
+      <span className="text-center text-xs font-medium tabular-nums">{foot}</span>
     </>
   );
 
@@ -364,12 +363,12 @@ function Fascetta({
         tint ? WORN : UNWORN
       )}
     >
-      <span className="line-clamp-2 min-w-0 flex-1 text-pretty font-heading text-xs font-medium leading-tight">
+      <span className="line-clamp-2 min-w-0 flex-1 text-pretty font-heading text-xs font-semibold leading-tight">
         {title}
       </span>
       {/* The figure keeps the foot it has everywhere else — same face, same tabular figures —
           so a run of tiles is still read by running a finger down one column of numbers. */}
-      <span className="shrink-0 font-mono text-xs tabular-nums">{foot}</span>
+      <span className="shrink-0 text-xs font-medium tabular-nums">{foot}</span>
     </span>
   );
 }

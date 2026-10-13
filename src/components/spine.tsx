@@ -63,7 +63,7 @@ export function Spine({
     // buys that is the same thing that buys the pile's 28px: the object is one tap away as a
     // cover on the Collection wall, at the size a thumb wants.
     "flex h-24 w-7 flex-col items-center justify-between overflow-hidden rounded-sm p-1 sm:h-28 sm:w-8",
-    "font-mono text-eyebrow tabular-nums",
+    "text-tab tabular-nums",
     held
       ? cn("border border-border text-foreground", tint ? WORN : UNWORN)
       : // Dashed, quiet and empty: what is not there is drawn as not there.
@@ -76,7 +76,7 @@ export function Spine({
         {title ? (
           // Bottom to top, and clipped at the height of the spine rather than wrapped, since
           // a spine has one line.
-          <span className="block h-full rotate-180 overflow-hidden font-heading text-eyebrow font-medium [text-orientation:mixed] [writing-mode:vertical-rl]">
+          <span className="block h-full rotate-180 overflow-hidden font-sans text-tab font-semibold [font-stretch:87.5%] [text-orientation:mixed] [writing-mode:vertical-rl]">
             {title}
           </span>
         ) : null}

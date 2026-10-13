@@ -9,7 +9,8 @@ import { listStoryWall } from "@/core/queries/story";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import { monthNamed } from "./acquisitions/months";
-import { entryStanding, entryTitle } from "./pile/entry";
+import { DoorInTheHeader } from "./door";
+import { entrySaid, entryTitle } from "./pile/entry";
 import { storyDetail } from "./stories/story-state";
 
 // THE DASHBOARD. For eleven slices this page listed the five Types, which is what a walking
@@ -58,12 +59,15 @@ export const dynamic = "force-dynamic";
  */
 const NEXT_UP = 3;
 
-/** The idiom every label on this page is set in, and the app's smallest type. */
-const EYEBROW = "font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground";
+/** A section's heading: the name of a band, in the serif. */
+const HEADING = "font-heading text-section font-semibold";
 
-/** A link in prose, which is most of the invitations below. */
+/** The count beside a heading, quiet and in the interface's face. */
+const COUNT = "text-sm font-normal text-muted-foreground tabular-nums";
+
+/** A link in prose, which is most of the invitations below: cloth, because it does something. */
 const IN_PROSE =
-  "underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring";
+  "font-medium text-cloth underline-offset-4 hover:underline outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm";
 
 export default async function Home() {
   await requireOwner();
@@ -94,24 +98,25 @@ export default async function Home() {
 
   return (
     <main className="px-5 pb-16 sm:px-8">
-      <header className="pt-8 sm:pt-12">
-        <h1 className="font-heading text-2xl sm:text-3xl">Tonight</h1>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          What is in my hands, what is next, and what is waiting for a decision. Everything here is
-          derived on this request and stored nowhere.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4 pt-8 sm:pt-10">
+        <div>
+          <h1 className="font-heading text-title font-semibold lg:text-title-lg">Tonight</h1>
+          <p className="mt-2 text-pretty text-base text-muted-foreground">
+            What you are in the middle of, and what comes next.
+          </p>
+        </div>
+        <DoorInTheHeader />
       </header>
 
-      <div className="mt-8 space-y-9">
+      <div className="mt-10 space-y-10">
         <Block label="Under way" count={underWay.length}>
           {underWay.length === 0 ? (
             <Invitation>
               No Pass is open.{" "}
               <Link href="/stories?state=to-read" className={IN_PROSE}>
-                Pick something nobody has started
-              </Link>{" "}
-              and say you have begun it — a Pass is recorded from the assistant too, and the spines
-              at the foot of this page are the library itself.
+                Pick something you have not started
+              </Link>
+              .
             </Invitation>
           ) : (
             /* The wall's own grid and the wall's own tile, at the width a title is legible
@@ -146,20 +151,23 @@ export default async function Home() {
           <Block
             label="The Pile"
             count={composed.length}
-            more={composed.length > next.length ? { href: "/pile", word: "All of it" } : undefined}
+            more={
+              composed.length > next.length
+                ? { href: "/pile", word: `See all ${composed.length}` }
+                : undefined
+            }
           >
             {composed.length === 0 ? (
               <Invitation>
-                Nothing composed — every route is walked to the end and every Series I am collecting
-                is complete, or there is nothing to compose from yet.{" "}
+                The Pile is empty.{" "}
                 <Link href="/paths" className={IN_PROSE}>
                   Define a Path
                 </Link>{" "}
                 or{" "}
                 <Link href="/series" className={IN_PROSE}>
-                  decide to collect a Series
-                </Link>
-                .
+                  collect a Series
+                </Link>{" "}
+                to fill it.
               </Invitation>
             ) : (
               <ol>
@@ -172,47 +180,50 @@ export default async function Home() {
 
           {/* The boundary the assistant writes into, and the one nobody looks at until it has
               filled up (ADR-0005). A count and a way in, because deciding is the only thing
-              that empties it. */}
-          <Block label="Waiting for me" count={waiting}>
+              that empties it — drawn on soft cloth, because it is the one block here that is
+              asking the owner for something. */}
+          <section aria-labelledby="band-waiting">
+            <h2 id="band-waiting" className="sr-only">
+              Waiting for you
+            </h2>
             {waiting === 0 ? (
-              /* The Amendment is named here now, and it was deliberately absent while it was
-                 only an ADR: #21 gave the schema and the verbs an amendment, #26 gave the
-                 assistant the door to propose one, so the sentence naming it is a sentence
-                 about something the application can actually do. */
-              <Invitation>
-                Nothing waiting. A Story, a Volume or a Series the assistant meets — or a repair to
-                a record that stands incomplete — lands in the{" "}
-                <Link href="/inbox" className={IN_PROSE}>
-                  Inbox
-                </Link>{" "}
-                for me to approve, because writing either of those from outside is what this library
-                does not allow (ADR-0005, ADR-0011).
-              </Invitation>
+              <div className="rounded-2xl border border-border p-4">
+                <p className="text-[0.9375rem] font-semibold">Nothing is waiting</p>
+                <p className="mt-0.5 text-pretty text-label text-muted-foreground">
+                  What an assistant proposes lands in the{" "}
+                  <Link href="/inbox" className={IN_PROSE}>
+                    Inbox
+                  </Link>{" "}
+                  for you to approve.
+                </p>
+              </div>
             ) : (
-              <p className="text-pretty text-sm">
-                <Link href="/inbox" className={IN_PROSE}>
-                  {waiting} {waiting === 1 ? "proposal" : "proposals"}
-                </Link>{" "}
-                <span className="text-muted-foreground">
-                  to approve or reject. Nothing was written by the asking.
+              <Link
+                href="/inbox"
+                className="flex items-center gap-4 rounded-2xl bg-cloth-soft p-4 outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[0.9375rem] font-semibold">
+                    <span className="tabular-nums">{waiting}</span>{" "}
+                    {waiting === 1 ? "proposal is waiting" : "proposals are waiting"}
+                  </span>
+                  <span className="mt-0.5 block text-label text-muted-foreground">
+                    Nothing changes until you say yes.
+                  </span>
                 </span>
-              </p>
+                <span className="shrink-0 text-sm font-semibold text-cloth">Review</span>
+              </Link>
             )}
-          </Block>
+          </section>
         </div>
       </div>
 
       <section aria-labelledby="the-library" className="mt-14 border-t border-border pt-8">
-        <h2 id="the-library" className="font-heading text-xl sm:text-2xl">
+        <h2 id="the-library" className={HEADING}>
           The library
         </h2>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          What is owned, what is being collected, what that is short of, and what this month has
-          cost. Every figure says what it was counted over, and one that has no data behind it says
-          so instead of printing a zero.
-        </p>
 
-        <dl className="mt-7 grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
+        <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
           {/* Whole by construction, both of the next two: an acquisition is recorded
               deliberately and a collecting decision is made deliberately (ADR-0007), so every
               Volume and every Series answers the question and no figure here can be a gap.
@@ -260,8 +271,8 @@ export default async function Home() {
                 None of the {figures.collecting.of} declared.{" "}
                 <Link href="/series" className={IN_PROSE}>
                   Decide to complete one
-                </Link>{" "}
-                — holding some of it is not the decision.
+                </Link>
+                .
               </>
             ) : (
               /* No plural to pick: *Series* is one word for one line and for nine, which is
@@ -365,10 +376,9 @@ export default async function Home() {
             because that is what a stack of unread things looks like. One word for two of
             them, on one screen, was the collision the rename made. */}
         <section aria-labelledby="not-started" className="mt-12">
-          <h3 id="not-started" className={`flex items-baseline gap-3 ${EYEBROW}`}>
+          <h3 id="not-started" className={`flex items-baseline gap-3 ${HEADING}`}>
             Not started
-            <span className="tabular-nums">{pile.spines.length}</span>
-            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            <span className={COUNT}>{pile.spines.length}</span>
           </h3>
 
           {pile.spines.length === 0 ? (
@@ -376,21 +386,19 @@ export default async function Home() {
               <Invitation>
                 {pile.stories === 0 ? (
                   <>
-                    No Stories yet, so there is nothing stacked. A Story is the narrative unit —
-                    record one from the assistant, or approve one waiting in the{" "}
-                    <Link href="/inbox" className={IN_PROSE}>
-                      Inbox
+                    No Stories yet.{" "}
+                    <Link href="/add" className={IN_PROSE}>
+                      Add the first one
                     </Link>
                     .
                   </>
                 ) : (
                   <>
-                    Nothing unopened. All {pile.stories} Stories in the library have been opened at
-                    least once, which is the one state this application was not built expecting.{" "}
+                    Every one of the {pile.stories} Stories has been opened.{" "}
                     <Link href="/stories" className={IN_PROSE}>
-                      The wall
-                    </Link>{" "}
-                    has them by state.
+                      See them all
+                    </Link>
+                    .
                   </>
                 )}
               </Invitation>
@@ -406,7 +414,7 @@ export default async function Home() {
                 <span className="tabular-nums text-foreground">
                   {pile.spines.length} of {pile.stories}
                 </span>{" "}
-                Stories have never been opened. Every spine is one of them, and it opens.
+                Stories have never been opened. Each spine opens one.
               </p>
 
               <div className="mt-5">
@@ -434,8 +442,7 @@ export default async function Home() {
  *
  * The count is beside the label rather than inside the block, because the three blocks are
  * scanned before any of them is read — *two in hand, nine next, three waiting* is the whole
- * of the first band at a glance, and it is the same eyebrow-and-rule the Story wall names its
- * shelves with.
+ * of the first band at a glance.
  */
 function Block({
   label,
@@ -453,18 +460,19 @@ function Block({
 
   return (
     <section aria-labelledby={id}>
-      <h2 id={id} className={`flex items-baseline gap-3 ${EYEBROW}`}>
-        {label}
-        <span className="tabular-nums">{count}</span>
-        <span className="h-px flex-1 bg-border" aria-hidden="true" />
+      <div className="flex items-baseline gap-3">
+        <h2 id={id} className={`flex items-baseline gap-3 ${HEADING}`}>
+          {label}
+          <span className={COUNT}>{count}</span>
+        </h2>
         {more ? (
-          <Link href={more.href} className={`shrink-0 ${IN_PROSE}`}>
+          <Link href={more.href} className={`ml-auto shrink-0 text-sm ${IN_PROSE}`}>
             {more.word}
           </Link>
         ) : null}
-      </h2>
+      </div>
 
-      <div className="mt-3">{children}</div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
@@ -483,18 +491,19 @@ function Invitation({ children }: { children: React.ReactNode }) {
 /** One row of the Pile, as the dashboard shows it: the order, the title, the standing. */
 function NextEntry({ entry, place }: { entry: PileEntry; place: number }) {
   return (
-    <li className="flex gap-3 border-t border-border py-2.5 first:border-t-0 first:pt-0">
+    <li className="flex items-baseline gap-3 border-t border-border py-3 first:border-t-0 first:pt-0">
       {/* The ordinal, because the order *is* the answer the Pile gives. */}
-      <span
-        aria-hidden="true"
-        className="w-5 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-muted-foreground"
-      >
-        {String(place).padStart(2, "0")}
+      <span aria-hidden="true" className="w-4 shrink-0 text-sm tabular-nums text-muted-foreground">
+        {place}
       </span>
 
       <div className="min-w-0">
-        <p className="truncate font-heading text-sm font-medium">{entryTitle(entry)}</p>
-        <p className={`mt-0.5 ${EYEBROW}`}>{entryStanding(entry)}</p>
+        <p className="truncate font-heading text-lg font-semibold leading-snug">
+          {entryTitle(entry)}
+        </p>
+        <p className="mt-0.5 text-label text-muted-foreground first-letter:uppercase">
+          {entrySaid(entry)}
+        </p>
       </div>
     </li>
   );
@@ -552,13 +561,14 @@ function Figure({
 }) {
   return (
     <div>
-      <dt className={EYEBROW}>{label}</dt>
-      <dd className="mt-1.5">
-        <span className="block font-mono text-3xl tabular-nums sm:text-4xl">{figure}</span>
+      <dt className="sr-only">{label}</dt>
+      <dd>
+        <span className="block font-heading text-figure font-semibold tabular-nums">{figure}</span>
+        <span aria-hidden="true" className="mt-1.5 block text-sm font-medium">
+          {label}
+        </span>
 
-        <p className="mt-1.5 text-pretty text-xs leading-relaxed text-muted-foreground">
-          {children}
-        </p>
+        <p className="mt-1 text-pretty text-label text-muted-foreground">{children}</p>
       </dd>
     </div>
   );

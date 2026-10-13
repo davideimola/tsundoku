@@ -88,7 +88,12 @@ export const dynamic = "force-dynamic";
 const PICKER =
   "h-11 rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30";
 
-const EYEBROW = "font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground";
+/** The quiet line under a title: what it is, and whether it can be started tonight. */
+const META = "text-label text-muted-foreground first-letter:uppercase";
+
+/** A link that does something: cloth, sentence case, underlined only on hover. */
+const LINK =
+  "font-medium text-cloth underline-offset-4 hover:underline outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm";
 
 type Asked = Record<string, string | string[] | undefined>;
 
@@ -131,14 +136,22 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="px-5 pb-16 sm:px-8">
-      <header className="pt-8 sm:pt-12">
-        <h1 className="font-heading text-2xl sm:text-3xl">The Pile</h1>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          What to take on next — read or play. Two halves: what I pinned leads, in the order I
-          pinned it, and that half is mine to keep short. Everything under it composes itself from
-          what I said I want, the routes I am walking, the runs I am in the middle of and the Series
-          I am completing, and it is in no order at all. When the order starts to matter, I pin it.
+      <header className="pt-8 sm:pt-10">
+        <h1 className="font-heading text-title font-semibold lg:text-title-lg">The Pile</h1>
+        <p className="mt-2 text-pretty text-base text-muted-foreground">
+          What to take on next. Pin what should lead.
         </p>
+        <details className="mt-3 max-w-prose text-pretty text-sm text-muted-foreground">
+          <summary className="cursor-pointer text-sm font-medium text-cloth">
+            How this works
+          </summary>
+          <p className="mt-2">
+            What you pin leads, in the order you pinned it, and that half is yours to keep short.
+            Everything under it composes itself from what you said you want, the Paths you are
+            walking, the runs you are in the middle of and the Series you are completing, in no
+            order at all.
+          </p>
+        </details>
       </header>
 
       {/* **NARROWED BY TYPE, AND BY NOTHING ELSE** (#64). *Tonight I play* is a decision the
@@ -158,7 +171,7 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
           it, and a control that appears only once the library is mixed enough is one they
           have to discover twice. */}
       {offered.length > 0 ? (
-        <nav aria-label="Narrow the Pile" className="mt-6 border-y border-border py-3">
+        <nav aria-label="Narrow the Pile" className="mt-6">
           <Axis label="Type">
             <Chip href={thePileAt({ shown })} on={narrowedTo === undefined}>
               All
@@ -187,7 +200,7 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
       {wished ? (
         <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
           On the shopping list.{" "}
-          <Link href="/wishes" className="underline underline-offset-4">
+          <Link href="/wishes" className={LINK}>
             Wishes
           </Link>{" "}
           has the price and the shop.
@@ -204,12 +217,12 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
             No {narrowedTo.name} stands on the Pile.
           </p>
           <p className="mt-4 text-sm">
-            <Link href={thePileAt({ shown })} className="underline underline-offset-4">
-              Take the filter off
+            <Link href={thePileAt({ shown })} className={LINK}>
+              Show every Type
             </Link>{" "}
-            to see the whole list, or say I want to take a {narrowedTo.name} on from{" "}
-            <Link href="/stories" className="underline underline-offset-4">
-              the Stories
+            or pick one from{" "}
+            <Link href="/stories" className={LINK}>
+              Stories
             </Link>
             .
           </p>
@@ -217,22 +230,21 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
       ) : composed === 0 ? (
         <div className="mt-10 max-w-prose">
           <p className="text-pretty text-sm text-muted-foreground">
-            Nothing composed. Either I want to take on nothing in particular, every route is walked
-            to the end and every Series I am collecting is complete — which is a real answer — or
-            there is nothing to compose from yet.
+            The Pile is empty: nothing is wanted, every Path is walked and every Series you are
+            collecting is complete.
           </p>
           <p className="mt-4 text-sm">
             Open a{" "}
-            <Link href="/stories" className="underline underline-offset-4">
+            <Link href="/stories" className={LINK}>
               Story
             </Link>{" "}
-            and say I want to take it on — that costs nothing else. Or{" "}
-            <Link href="/paths" className="underline underline-offset-4">
+            and say you want to take it on,{" "}
+            <Link href="/paths" className={LINK}>
               define a Path
             </Link>{" "}
-            and put Stories on it in the order I mean to take them on, or{" "}
-            <Link href="/series" className="underline underline-offset-4">
-              decide to collect a Series
+            or{" "}
+            <Link href="/series" className={LINK}>
+              collect a Series
             </Link>
             .
           </p>
@@ -241,11 +253,14 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
         <div className="mt-9 space-y-10">
           {/* **The head, numbered, because it is the one place an order means anything.**
               There is no cap on it: twenty pins look wrong here, and pruning them is mine. */}
-          <Half label="Pinned" count={head.length} said="In the order I pinned it, newest first.">
+          <Half
+            label="Pinned"
+            count={head.length}
+            said="In the order you pinned them, newest first."
+          >
             {head.length === 0 ? (
               <p className="max-w-prose text-pretty text-sm text-muted-foreground">
-                Nothing pinned. Pin anything below and it leads this list until I unpin it — that is
-                the only order I keep by hand.
+                Nothing pinned. Pin anything below and it leads this list until you unpin it.
               </p>
             ) : (
               <ol>
@@ -273,7 +288,7 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
           >
             {reserve.length === 0 ? (
               <p className="max-w-prose text-pretty text-sm text-muted-foreground">
-                Nothing else composed — everything the library has to offer is pinned above.
+                Nothing else: everything on the Pile is pinned above.
               </p>
             ) : (
               <ul>
@@ -311,12 +326,11 @@ function Half({
 
   return (
     <section aria-labelledby={id}>
-      <h2 id={id} className={`flex items-baseline gap-3 ${EYEBROW}`}>
+      <h2 id={id} className="flex items-baseline gap-3 font-heading text-section font-semibold">
         {label}
-        <span className="tabular-nums">{count}</span>
-        <span className="h-px flex-1 bg-border" aria-hidden="true" />
+        <span className="text-sm font-normal text-muted-foreground tabular-nums">{count}</span>
       </h2>
-      <p className="mt-1.5 max-w-prose text-pretty text-sm text-muted-foreground">{said}</p>
+      <p className="mt-1 max-w-prose text-pretty text-label text-muted-foreground">{said}</p>
 
       <div className="mt-3">{children}</div>
     </section>
@@ -366,9 +380,9 @@ function Entry({
         {place === undefined ? null : (
           <span
             aria-hidden="true"
-            className="w-6 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-muted-foreground"
+            className="w-5 shrink-0 pt-1 text-sm tabular-nums text-muted-foreground"
           >
-            {String(place).padStart(2, "0")}
+            {place}
           </span>
         )}
 
@@ -394,12 +408,14 @@ function Entry({
             the order they are read in either way. */}
         <div className="min-w-0 flex-1 lg:flex lg:items-start lg:gap-8">
           <div className="min-w-0 lg:flex-1">
-            <h3 className="font-heading text-lg text-balance">{entryTitle(entry)}</h3>
+            <h3 className="font-heading text-lg font-semibold leading-snug text-balance">
+              {entryTitle(entry)}
+            </h3>
 
             {/* What it is, and whether it can be started tonight — `./entry`'s wording,
                 because the stop standing behind a route says the same thing under its own
                 title and two copies of it is how the two come to say it differently. */}
-            <p className={`mt-1 ${EYEBROW}`}>{entrySaid(entry)}</p>
+            <p className={`mt-0.5 ${META}`}>{entrySaid(entry)}</p>
 
             {/* **Every reason it is here, and one row says all of them.** Wanted, and on two
                 routes, is three sentences under one title rather than the same book three
@@ -417,10 +433,7 @@ function Entry({
                     <p className="text-sm">
                       {said.said}
                       {said.names ? (
-                        <Link
-                          href={said.names.href}
-                          className="underline underline-offset-4 hover:text-foreground"
-                        >
+                        <Link href={said.names.href} className={LINK}>
                           {said.names.label}
                         </Link>
                       ) : null}
@@ -440,12 +453,11 @@ function Entry({
                 so is better than an affordance that could not work. */}
             {!entry.atHand && !entry.object ? (
               <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-                I have not recorded this object yet, so there is nothing to wish for. Catalogue it
-                on the{" "}
-                <Link href="/collection" className="underline underline-offset-4">
-                  Collection
+                No Volume is recorded for this yet, so there is nothing to wish for.{" "}
+                <Link href="/add" className={LINK}>
+                  Add it to the library
                 </Link>{" "}
-                and it becomes something I can want.
+                first.
               </p>
             ) : null}
           </div>
@@ -461,7 +473,7 @@ function Entry({
                 type="submit"
                 variant="ghost"
                 size="sm"
-                className="-ml-2.5 h-9 sm:h-8 lg:ml-0"
+                className="-ml-2.5 h-9 text-cloth hover:text-cloth sm:h-8 lg:ml-0"
               >
                 {pinned ? "Unpin" : "Pin it"}
               </Button>
@@ -480,7 +492,7 @@ function Entry({
                   size="sm"
                   className="h-9 text-muted-foreground hover:text-foreground sm:h-8"
                 >
-                  I did not mean that
+                  Undo
                 </Button>
               </form>
             ) : null}
@@ -557,10 +569,10 @@ function Behind({ behind, at }: { behind: WhatStandsBehind; at: PileAddress }) {
           at,
           behind.shown ? { hide: behind.route.id } : { show: behind.route.id }
         )}
-        className="inline-block rounded py-1.5 text-sm text-muted-foreground underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-block rounded-sm py-1.5 text-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
       >
         {behind.shown ? "Hide the " : "Show the "}
-        <span className="font-mono tabular-nums">{standing}</span>
+        <span className="tabular-nums">{standing}</span>
         {standing === 1 ? " stop behind it on " : " stops behind it on "}
         {behind.route.name}
       </Link>
@@ -595,22 +607,25 @@ function Stop({ stop, at }: { stop: StopBehind; at: PileAddress }) {
           says where the stop stands on the *route*, never where it stands on the list. */}
       <span
         aria-hidden="true"
-        className="w-6 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground"
+        className="w-6 shrink-0 text-right text-sm tabular-nums text-muted-foreground"
       >
         {stop.place}
       </span>
 
       <span className="min-w-0 flex-1">
         {leadsTo ? (
-          <Link href={leadsTo} className="underline-offset-4 outline-none hover:underline">
+          <Link
+            href={leadsTo}
+            className="font-heading font-semibold underline-offset-4 outline-none hover:underline"
+          >
             {title}
           </Link>
         ) : (
-          title
+          <span className="font-heading font-semibold">{title}</span>
         )}
         {/* The same sentence the leading row carries: a stop read *on the shelf* with
             nothing to say what it was, and a game read *tonight* the same way. */}
-        <span className={`mt-0.5 block ${EYEBROW}`}>{entrySaid(stop.entry)}</span>
+        <span className={`mt-0.5 block ${META}`}>{entrySaid(stop.entry)}</span>
       </span>
 
       <form action={pin} className="shrink-0">

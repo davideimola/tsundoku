@@ -83,7 +83,7 @@ export function Spines({
           {fill.missing.length > 0 ? ": " : null}
         </span>
         {fill.missing.length > 0 ? (
-          <span className="font-mono tabular-nums">{fill.missing.join(", ")}</span>
+          <span className="tabular-nums">{fill.missing.join(", ")}</span>
         ) : null}
       </p>
     </div>

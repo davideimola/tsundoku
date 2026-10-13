@@ -9,7 +9,7 @@ import type { SeriesLedger } from "@/core/queries/series";
 /** How far along a Series is, in the two numbers that say it: `4 of 27`. */
 export function Progress({ ledger }: { ledger: SeriesLedger }) {
   return (
-    <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground tabular-nums">
+    <span className="text-label font-medium text-muted-foreground tabular-nums">
       {ledger.ownedCount} of {ledger.publishedCount}
       {ledger.status === "ongoing" ? " · ongoing" : ""}
     </span>
@@ -20,9 +20,9 @@ export function Progress({ ledger }: { ledger: SeriesLedger }) {
 export function SeriesName({ ledger }: { ledger: SeriesLedger }) {
   return (
     <>
-      <span className="font-heading">{ledger.name}</span>
+      <span className="font-heading font-semibold">{ledger.name}</span>
       {ledger.editionLine ? (
-        <span className="ml-2 whitespace-nowrap font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+        <span className="ml-2 whitespace-nowrap font-sans text-label font-medium text-muted-foreground">
           {ledger.editionLine}
         </span>
       ) : null}
