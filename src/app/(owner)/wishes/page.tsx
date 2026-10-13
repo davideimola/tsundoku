@@ -502,8 +502,7 @@ function WishCard({ wish }: { wish: OpenWish }) {
           href={`/collection/${wish.volume.id}`}
           title={wish.volume.title}
           tint={tint(wish.volume.seriesId)}
-          detail={wishDetail(wish)}
-          foot={<Position of={wish.volume.seriesNumber} />}
+          label={wishDetail(wish)}
           image={wish.volume.cover}
         />
       </div>
@@ -552,27 +551,6 @@ function WishCard({ wish }: { wish: OpenWish }) {
       </div>
     </li>
   );
-}
-
-/**
- * Where the object stands in its line, at the foot of the tile — **and standing in no line
- * reads as an absence rather than as a nought.**
- *
- * The same posture the Story wall's score takes to a Story nobody judged: an em dash with the
- * reason said out loud to anything not looking at the page. Most of what a Wish names stands
- * in no line at all, because a position of a Series is filled by what is on the shelf.
- */
-function Position({ of }: { of: number | null }) {
-  if (of === null) {
-    return (
-      <>
-        <span aria-hidden="true">—</span>
-        <span className="sr-only">Stands in no line</span>
-      </>
-    );
-  }
-
-  return <>{of}</>;
 }
 
 /**

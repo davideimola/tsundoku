@@ -28,7 +28,6 @@ import {
 } from "./behind";
 import {
   entryDetail,
-  entryFoot,
   entryLeadsTo,
   entryLine,
   entrySaid,
@@ -397,8 +396,7 @@ function Entry({
             href={entryLeadsTo(entry)}
             title={entryTitle(entry)}
             tint={tint(entryLine(entry))}
-            detail={entryDetail(entry)}
-            foot={entryFoot(entry)}
+            label={entryDetail(entry)}
             image={entry.cover}
           />
         </div>

@@ -49,7 +49,7 @@ import {
   whatItCovers,
   whenItHappened,
 } from "../passes";
-import { StoryScore, StoryStateLabel, stateWord, storyDetail } from "../story-state";
+import { StoryStateLabel, stateWord, storyDetail } from "../story-state";
 import {
   carryFromStory,
   faceWithOwnImage,
@@ -339,14 +339,8 @@ export default async function StoryPage({
             <Cover
               title={story.title}
               tint={tint(story.series?.id)}
-              detail={storyDetail(story)}
-              foot={<StoryScore of={story.latestScore} />}
+              label={storyDetail(story)}
               image={story.cover}
-              // The same tile the wall was tapped on, stack and all, so arriving here is
-              // arriving at the thing that was tapped. It counts the carriers this page is
-              // already holding rather than asking a second time: `Carriers` below stands
-              // those same objects up, and one fact read twice is one fact that can disagree.
-              objects={carriedBy.length}
             />
           </div>
 

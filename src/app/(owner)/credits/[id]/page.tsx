@@ -3,7 +3,7 @@ import { Cover } from "@/components/cover";
 import { type CreditedStory, findCreditedPerson } from "@/core/queries/credit";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
-import { StoryScore, StoryStateLabel, storyDetail } from "../../stories/story-state";
+import { StoryStateLabel, storyDetail } from "../../stories/story-state";
 import { type BandOfWork, bodyOfWork } from "../body-of-work";
 import { rolesSaid } from "../roles";
 
@@ -129,14 +129,8 @@ function Work({ story }: { story: CreditedStory }) {
         href={`/stories/${story.id}`}
         title={story.title}
         tint={tint(story.series?.id)}
-        detail={storyDetail(story)}
-        foot={<StoryScore of={story.latestScore} />}
+        label={storyDetail(story)}
         image={story.cover}
-        // A run is faced as a run here too (#34): this is the Story wall's tile, and a
-        // narrative drawn as a stack there and as a single object here would be the same
-        // borrowed jacket claiming two different things.
-        narratives={story.wornBy}
-        objects={story.carriedBy}
       />
       <p className="mt-1.5">
         <StoryStateLabel state={story.state} />

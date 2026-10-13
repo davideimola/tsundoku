@@ -408,8 +408,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
                 href={`/collection/${volume.id}`}
                 title={volume.title}
                 tint={tint(volume.series?.id)}
-                detail={detailOf(volume)}
-                foot={<Standing of={volume} />}
+                label={detailOf(volume)}
                 image={volume.cover}
               />
             </li>

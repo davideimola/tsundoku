@@ -129,17 +129,8 @@ export default async function Home() {
                     href={`/stories/${story.id}`}
                     title={story.title}
                     tint={tint(story.series?.id)}
-                    detail={storyDetail(story)}
-                    foot={story.type.name}
+                    label={storyDetail(story)}
                     image={story.cover}
-                    // And whether that jacket is shared with the other works in the same
-                    // object, for the same reason: one tile, one wall, one set of markings.
-                    narratives={story.wornBy}
-                    // The wall's tile says whether the jacket is the front of a run (#34),
-                    // and this is the wall's tile: a Story in hand that is drawn as one
-                    // object here and as a stack one screen away would be two claims about
-                    // the same narrative.
-                    objects={story.carriedBy}
                   />
                 </li>
               ))}

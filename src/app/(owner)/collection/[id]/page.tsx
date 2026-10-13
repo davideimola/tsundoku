@@ -254,8 +254,7 @@ export default async function VolumePage({
             <Cover
               title={volume.title}
               tint={tint(volume.series?.id)}
-              detail={objectSaid(volume)}
-              foot={volume.seriesNumber ?? volume.binding.name}
+              label={objectSaid(volume)}
               image={volume.cover}
             />
           </div>

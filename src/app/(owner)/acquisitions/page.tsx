@@ -189,8 +189,7 @@ function Row({ made }: { made: AcquisitionMade }) {
           href={`/collection/${made.volume.id}`}
           title={made.volume.title}
           tint={tint(made.volume.series?.id)}
-          detail={acquisitionDetail(made)}
-          foot={<Position of={made.volume.seriesNumber} />}
+          label={acquisitionDetail(made)}
           image={made.volume.cover}
         />
       </div>
@@ -224,24 +223,4 @@ function Row({ made }: { made: AcquisitionMade }) {
       </div>
     </li>
   );
-}
-
-/**
- * Where the object stands in its line, at the foot of the tile — and standing in no line
- * reads as an absence rather than as a nought.
- *
- * The same posture the shopping list's tile takes, because it is the same statement about the
- * same fact: most of what this library holds stands in a line, and an omnibus stands in none.
- */
-function Position({ of }: { of: number | null }) {
-  if (of === null) {
-    return (
-      <span className="text-muted-foreground">
-        <span aria-hidden="true">—</span>
-        <span className="sr-only">In no Series</span>
-      </span>
-    );
-  }
-
-  return <>{of}</>;
 }
