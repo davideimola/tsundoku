@@ -123,7 +123,9 @@ export const RENAME = "title";
  * threads them the same way. A refusal comes back to the wall the owner was actually looking
  * at, with the panel open over it.
  */
-export const THE_WALLS_FILTERS = ["type", "state"] as const;
+// `view` is not a filter — it narrows nothing — but it is the rest of what the owner is looking
+// at (`./diary.ts`), so a refused strike comes back to the wall laid out as it was.
+export const THE_WALLS_FILTERS = ["type", "state", "view"] as const;
 
 /**
  * The field name a carried filter travels under — **and it is prefixed for a reason that cost

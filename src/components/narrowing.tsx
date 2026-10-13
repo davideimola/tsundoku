@@ -28,6 +28,46 @@ export function Axis({ label, children }: { label: string; children: React.React
 }
 
 /**
+ * **How a wall is laid out, rather than what is on it**: two or three ways of drawing the same
+ * answer — covers or rows, covers or spines — as a small segmented pair of links.
+ *
+ * Drawn apart from the chips on purpose. A chip narrows, and the count beside the wall changes
+ * when one is pressed; a view changes nothing about what is there, so it must not look like a
+ * filter the owner could forget is on. A link like everything else here: the view is in the URL,
+ * so it survives a refresh and needs no script (ADR-0010).
+ */
+export function Views({
+  label,
+  options,
+}: {
+  /** What the group is called to a screen reader: *How Finished is laid out*. */
+  label: string;
+  options: { said: string; href: string; on: boolean }[];
+}) {
+  return (
+    <nav
+      aria-label={label}
+      className="inline-flex shrink-0 items-center rounded-full border border-border p-0.5"
+    >
+      {options.map((one) => (
+        <Link
+          key={one.said}
+          href={one.href}
+          aria-current={one.on ? "true" : undefined}
+          className={cn(
+            "inline-flex h-8 items-center rounded-full px-3.5 text-sm font-medium transition-colors",
+            "outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            one.on ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {one.said}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/**
  * One value of one axis, as a link.
  *
  * The one that is on is marked for the eye and with `aria-current`, and it still leads

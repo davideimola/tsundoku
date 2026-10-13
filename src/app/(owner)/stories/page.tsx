@@ -1,12 +1,19 @@
 import Link from "next/link";
+import { ownsItsCover } from "@/components/bound-together";
+import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
 // The chips are a control two walls share now, so there is one of them (#64,
 // `@/components/narrowing`): this wall narrows by Type and state, and the Pile narrows by Type.
-import { Axis, Chip } from "@/components/narrowing";
+import { Axis, Chip, Views } from "@/components/narrowing";
+import { RatingMark, scoreSaid } from "@/components/rating-mark";
 import { StackSheet, StoryShelf, theOpenStack } from "@/components/story-shelf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  type HowFarItGot,
+  type LastEnding,
+  listLastEndings,
+  listRunsInProgress,
   listStoriesNothingHasHappenedTo,
   listStoryWall,
   type StoryNothingHasHappenedTo,
@@ -16,7 +23,15 @@ import {
 } from "@/core/queries/story";
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
+import { tint } from "@/lib/tint";
 import { strike } from "./actions";
+import {
+  lastThroughInAMonth,
+  lastThroughInAYear,
+  latestFirst,
+  type View,
+  viewAsked,
+} from "./diary";
 import { whatGoesWithIt } from "./nothing-on-it";
 import { carriedAs, NOTHING_ON_IT, THE_WALLS_FILTERS } from "./panels";
 import { bandName, storyDetail, WALL_STATES } from "./story-state";
@@ -78,10 +93,13 @@ function asked(params: Asked, name: string): string | undefined {
  * exactly where they were, and closing it — `wallAt(narrowing)`, with nothing passed — must
  * put the owner back on the wall they had narrowed. One function, so the two cannot disagree.
  */
-function wallAt(narrowing: StoryWallFilter, panel?: string, bound?: string): string {
+function wallAt(narrowing: Wall, panel?: string, bound?: string): string {
   const search = new URLSearchParams();
   if (narrowing.typeId) search.set("type", narrowing.typeId);
   if (narrowing.state) search.set("state", narrowing.state);
+  // How the settled bands are laid out (`./diary.ts`): carried by every address on the wall,
+  // and absent where it is the default, so the plain wall is still `/stories`.
+  if (narrowing.view && narrowing.view !== "list") search.set("view", narrowing.view);
   if (panel) search.set("panel", panel);
   // A stack of Stories bound in one Volume, open over the wall: the same one bit of
   // navigation as a panel, under its own name because it carries which stack.
@@ -90,6 +108,9 @@ function wallAt(narrowing: StoryWallFilter, panel?: string, bound?: string): str
   const query = search.toString();
   return query === "" ? "/stories" : `/stories?${query}`;
 }
+
+/** What the owner is looking at: the two filters, and how the settled bands are laid out. */
+type Wall = StoryWallFilter & { view?: View };
 
 export default async function Stories({ searchParams }: { searchParams: Promise<Asked> }) {
   await requireOwner();
@@ -104,16 +125,33 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
   const typeId = types.find((type) => type.id === wanted)?.id;
   const state = WALL_STATES.find((one) => one === asked(said, "state"));
   const narrowing: StoryWallFilter = { typeId, state };
+  const view = viewAsked(asked(said, "view"));
+  const looking: Wall = { ...narrowing, view };
 
   // Two questions, and the second is not the first narrowed. The wall is what the owner
   // narrowed; the clean-up list is the residue of approvals that went through in a hurry, and
   // it is read whole — a dozen rows beside seventy-seven — because a filter over a destructive
   // list would be a way to have half of it in front of you and not know.
-  const [stories, nothingOnThem] = await Promise.all([
+  //
+  // The other two are what makes the wall a diary rather than a second shelf: **what is about
+  // the owner** under each tile. How far a run in hand has got is the core's own answer to
+  // *seven of twenty* (the one Home's *Under way* reads), and when each Story was last gone
+  // through is asked under the wall's own narrowing.
+  const [stories, nothingOnThem, runs, endings] = await Promise.all([
     listStoryWall(narrowing),
     listStoriesNothingHasHappenedTo(),
+    listRunsInProgress(),
+    listLastEndings(narrowing),
   ]);
+  const says: Diary = {
+    howFar: new Map(runs.map((run) => [run.story.id, run.howFarItGot])),
+    endings: new Map(endings.map((ending) => [ending.storyId, ending])),
+    verbPast: new Map(types.map((type) => [type.id, type.verbPast])),
+  };
   const narrowed = typeId !== undefined || state !== undefined;
+  const firstSettled = WALL_STATES.find(
+    (one) => settled(one) && stories.some((story) => story.state === one)
+  );
 
   // Read against the panels this screen has, the way the filters above are read against the
   // vocabulary: `?panel=banana` opens nothing (`./panels.ts`).
@@ -147,7 +185,7 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
         <div className="min-w-0">
           <h1 className="font-heading text-title font-semibold lg:text-title-lg">Stories</h1>
           <p className="mt-2 text-pretty text-base text-muted-foreground">
-            Everything you have read, played, or mean to.
+            What you have read, played, or mean to.
           </p>
         </div>
 
@@ -165,7 +203,7 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           {nothingOnThem.length > 0 ? (
             <p className="mt-2 text-pretty text-xs text-muted-foreground sm:text-right">
               <Link
-                href={wallAt(narrowing, NOTHING_ON_IT)}
+                href={wallAt(looking, NOTHING_ON_IT)}
                 className="inline-block rounded-sm py-1.5 text-sm font-medium underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="tabular-nums">{nothingOnThem.length}</span> with nothing on{" "}
@@ -178,22 +216,26 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
 
       <div className="mt-6 space-y-2 border-y border-border py-3">
         <Axis label="Type">
-          <Chip href={wallAt({ state })} on={typeId === undefined}>
+          <Chip href={wallAt({ state, view })} on={typeId === undefined}>
             All
           </Chip>
           {types.map((type) => (
-            <Chip key={type.id} href={wallAt({ state, typeId: type.id })} on={typeId === type.id}>
+            <Chip
+              key={type.id}
+              href={wallAt({ state, typeId: type.id, view })}
+              on={typeId === type.id}
+            >
               {type.name}
             </Chip>
           ))}
         </Axis>
 
         <Axis label="State">
-          <Chip href={wallAt({ typeId })} on={state === undefined}>
+          <Chip href={wallAt({ typeId, view })} on={state === undefined}>
             All
           </Chip>
           {WALL_STATES.map((one) => (
-            <Chip key={one} href={wallAt({ typeId, state: one })} on={state === one}>
+            <Chip key={one} href={wallAt({ typeId, state: one, view })} on={state === one}>
               {bandName(one)}
             </Chip>
           ))}
@@ -224,7 +266,7 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
         </span>
         {narrowed ? (
           <Link
-            href="/stories"
+            href={wallAt({ view })}
             className="rounded-sm text-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             Clear
@@ -240,10 +282,32 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
         <div className="mt-8 space-y-10">
           {WALL_STATES.map((one) => (
             <Band
+              // The switch stands over the first settled band on the wall and only there: it
+              // lays out both, and two of them would read as two settings.
+              first={one === firstSettled}
               key={one}
               state={one}
               stories={stories.filter((story) => story.state === one)}
-              opens={(key) => wallAt(narrowing, undefined, key)}
+              opens={(key) => wallAt(looking, undefined, key)}
+              says={says}
+              view={view}
+              views={
+                <Views
+                  label="How finished and abandoned Stories are laid out"
+                  options={[
+                    {
+                      said: "List",
+                      href: wallAt({ ...narrowing, view: "list" }),
+                      on: view === "list",
+                    },
+                    {
+                      said: "Covers",
+                      href: wallAt({ ...narrowing, view: "covers" }),
+                      on: view === "covers",
+                    },
+                  ]}
+                />
+              }
             />
           ))}
         </div>
@@ -265,14 +329,14 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           — so a destructive act says how many it is about to take while the owner is still
           ticking. The bar does not exist until something is ticked, and it sticks to the foot
           of the drawer, because a dozen rows are longer than a phone. */}
-      {stack ? <StackSheet stack={stack} closesTo={wallAt(narrowing)} /> : null}
+      {stack ? <StackSheet stack={stack} closesTo={wallAt(looking)} /> : null}
 
       {striking ? (
         <Drawer
           title="Nothing has happened to these"
           description="Stories nobody has read, judged, planned or holds on a shelf."
           refused={refused}
-          closesTo={wallAt(narrowing)}
+          closesTo={wallAt(looking)}
         >
           {/* One form around the list and the bar, rather than the `form` attribute the
               Collection's rows need: there is no second form in this drawer for a checkbox to
@@ -283,7 +347,14 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
                 Server Function has no URL to read a filter off. Under a prefixed name, because
                 one of the two filters is called `type` (`./panels.ts`). */}
             {THE_WALLS_FILTERS.map((name) => {
-              const value = name === "type" ? typeId : state;
+              const value =
+                name === "type"
+                  ? typeId
+                  : name === "state"
+                    ? state
+                    : view === "covers"
+                      ? view
+                      : null;
               return value ? (
                 <input key={name} type="hidden" name={carriedAs(name)} value={value} />
               ) : null;
@@ -367,6 +438,24 @@ function NothingOnItRow({ story }: { story: StoryNothingHasHappenedTo }) {
 }
 
 /**
+ * What the wall says about **the owner** under a tile — the half of the screen that makes it a
+ * diary rather than a second shelf. Read once per request and handed to every band.
+ */
+type Diary = {
+  /** How far a run in hand has got, by Story, where it is counted in parts. */
+  howFar: ReadonlyMap<string, HowFarItGot>;
+  /** When each Story was last gone through to an end, where a day was written down. */
+  endings: ReadonlyMap<string, LastEnding>;
+  /** What going through each Type is called — *read*, *played* — by Type id. */
+  verbPast: ReadonlyMap<string, string>;
+};
+
+/** Whether a band is settled: what is over, finished or given up on. */
+function settled(state: StoryState): boolean {
+  return state === "read" || state === "abandoned";
+}
+
+/**
  * One band of the wall: the Stories in one state, standing up.
  *
  * An empty band is dropped rather than drawn as a heading over nothing — this library has
@@ -376,39 +465,220 @@ function NothingOnItRow({ story }: { story: StoryNothingHasHappenedTo }) {
  * The **grouping** is the screen's and the **narrowing** is the query's, which is the whole
  * of the distinction: a band is where an answer is drawn, and a filter decides what is
  * asked for. A wall showing one state fetched one state.
+ *
+ * **What stands under a tile is about the owner, never about the object** — that is the
+ * Collection's, which says a Volume's number and its Binding. Under way, how far it has got;
+ * finished, the bookmark and the year it was last gone through. A settled band is read the way
+ * a diary is, the most recent first, and can be laid out as rows (`./diary.ts`).
  */
 function Band({
   state,
   stories,
   opens,
+  says,
+  view,
+  views,
+  first,
 }: {
+  /** Whether this is the first settled band on the wall, which carries the switch. */
+  first: boolean;
   state: StoryState;
   stories: WallStory[];
   /** This wall's own address with a stack open on it. */
   opens: (key: string) => string;
+  says: Diary;
+  view: View;
+  /** The control that switches a settled band between covers and rows. */
+  views: React.ReactNode;
 }) {
   if (stories.length === 0) return null;
 
+  const isSettled = settled(state);
+  const inOrder = isSettled ? latestFirst(stories, says.endings) : stories;
+
   return (
     <section aria-labelledby={`band-${state}`}>
-      <h2
-        id={`band-${state}`}
-        className="flex items-baseline gap-2.5 font-heading text-section font-semibold"
-      >
-        {bandName(state)}
-        <span className="font-sans text-sm font-normal text-muted-foreground tabular-nums">
-          {stories.length}
-        </span>
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h2
+          id={`band-${state}`}
+          className="flex items-baseline gap-2.5 font-heading text-section font-semibold"
+        >
+          {bandName(state)}
+          <span className="font-sans text-sm font-normal text-muted-foreground tabular-nums">
+            {stories.length}
+          </span>
+        </h2>
+        {isSettled && first ? views : null}
+      </div>
 
-      {/* Covers, and nothing printed on them: the jacket is the title, and the name is the
-          tile's accessible name. Stories bound in one Volume stand as one stack
-          (`@/components/story-shelf`). The same grid on a phone and at the desk — fewer per
-          row, never a second layout. */}
       <div className="mt-4">
-        <StoryShelf stories={stories} opens={opens} label={storyDetail} />
+        {isSettled && view === "list" ? (
+          <DiaryRows stories={inOrder} state={state} says={says} />
+        ) : (
+          /* Covers, and nothing printed on them: the jacket is the title, and the name is
+             the tile's accessible name. Stories bound in one Volume stand as one stack
+             (`@/components/story-shelf`). The same grid on a phone and at the desk — fewer
+             per row, never a second layout. */
+          <StoryShelf
+            stories={inOrder}
+            opens={opens}
+            label={(story) => saidOf(story, says)}
+            progress={
+              state === "reading"
+                ? (story) => {
+                    const far = says.howFar.get(story.id);
+                    return far ? far.atInstalment / far.instalments : null;
+                  }
+                : undefined
+            }
+            caption={(story) => <UnderTheTile story={story} state={state} says={says} />}
+          />
+        )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Everything a Story's tile cannot fit, and the half of it that is about the owner: the title,
+ * the Type and the line (`storyDetail`), then how far it got, the score and when.
+ */
+function saidOf(story: WallStory, says: Diary): string {
+  const far = says.howFar.get(story.id);
+  const ending = says.endings.get(story.id);
+
+  return [
+    storyDetail(story),
+    story.state === "reading" && far ? `${far.atInstalment} of ${far.instalments}` : null,
+    story.latestScore !== null ? `rated ${scoreSaid(story.latestScore)} out of 10` : null,
+    ending ? lastThroughInAYear(ending, verbOf(story, says)).toLowerCase() : null,
+  ]
+    .filter(Boolean)
+    .join(" — ");
+}
+
+/** What going through this Story is called, off its Type; *read* where the Type says nothing. */
+function verbOf(story: WallStory, says: Diary): string {
+  return says.verbPast.get(story.type.id) ?? "read";
+}
+
+/**
+ * The one quiet line under a tile, and it differs by band: how far a run has got under way,
+ * nothing under a Story not started — there is nothing yet to say about the owner and it — and
+ * the bookmark and the year once it is settled. *Not rated* is said only under what was
+ * finished: a book given up on is not waiting for a score.
+ */
+function UnderTheTile({
+  story,
+  state,
+  says,
+}: {
+  story: WallStory;
+  state: StoryState;
+  says: Diary;
+}) {
+  if (state === "reading") {
+    const far = says.howFar.get(story.id);
+    return far ? (
+      <span className="tabular-nums">
+        {far.atInstalment} of {far.instalments}
+      </span>
+    ) : null;
+  }
+
+  if (!settled(state)) return null;
+
+  const ending = says.endings.get(story.id);
+
+  return (
+    <span aria-hidden="true" className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      {story.latestScore !== null ? (
+        <RatingMark score={story.latestScore} className="text-foreground" />
+      ) : state === "read" ? (
+        <span>Not rated</span>
+      ) : null}
+      {ending ? (
+        <span className="tabular-nums">{lastThroughInAYear(ending, verbOf(story, says))}</span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * A settled band as **rows of a diary**: a small cover, the name in the serif, the bookmark and
+ * the month it was last gone through — denser than covers, and read down rather than across.
+ *
+ * Every Story is its own row here, the tales of an omnibus included: a row is told apart by
+ * its name, so nothing repeats, and each tale carries its own score. A tale wears its own cloth
+ * rather than the jacket it shares (`ownsItsCover`), the rule its own page keeps.
+ */
+function DiaryRows({
+  stories,
+  state,
+  says,
+}: {
+  stories: WallStory[];
+  state: StoryState;
+  says: Diary;
+}) {
+  return (
+    /* In two columns at the desk, and as columns rather than a grid: a diary is read down,
+       so the most recent is at the top of the first and the order runs on into the second. */
+    <ul className="gap-x-10 lg:columns-2">
+      {stories.map((story) => {
+        const ending = says.endings.get(story.id);
+        const line = story.series ? story.series.name : null;
+
+        return (
+          <li key={story.id} className="break-inside-avoid border-t border-border">
+            <Link
+              href={`/stories/${story.id}`}
+              aria-label={saidOf(story, says)}
+              className="flex min-h-16 items-center gap-4 py-2.5 outline-none hover:text-cloth focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span aria-hidden="true" className="w-10 shrink-0">
+                <Cover
+                  title={story.title}
+                  tint={tint(story.series?.id ?? story.id)}
+                  image={ownsItsCover(story) ? story.cover : null}
+                  size="thumb"
+                />
+              </span>
+
+              <span aria-hidden="true" className="min-w-0 flex-1">
+                <span className="block truncate font-heading text-lg font-semibold leading-snug">
+                  {story.title}
+                </span>
+                <span className="mt-0.5 block truncate text-label text-muted-foreground">
+                  {[story.type.name, line].filter(Boolean).join(" · ")}
+                  {/* On a phone the month stands here, under the name, so the name keeps the
+                      width; at the desk it has a column of its own. */}
+                  <span className="sm:hidden">
+                    {" · "}
+                    {ending ? lastThroughInAMonth(ending) : "No day"}
+                  </span>
+                </span>
+              </span>
+
+              <span aria-hidden="true" className="flex shrink-0 justify-end sm:w-20">
+                {story.latestScore !== null ? (
+                  <RatingMark score={story.latestScore} />
+                ) : state === "read" ? (
+                  <span className="text-sm text-muted-foreground">Not rated</span>
+                ) : null}
+              </span>
+
+              <span
+                aria-hidden="true"
+                className="hidden w-28 shrink-0 text-right text-sm text-muted-foreground tabular-nums sm:block"
+              >
+                {ending ? lastThroughInAMonth(ending) : "No day"}
+              </span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
