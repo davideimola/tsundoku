@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { listCollectionWall } from "@/core/queries/collection";
 import { findSeries, listVolumesOutsideASeries } from "@/core/queries/series";
+import { findStory } from "@/core/queries/story";
 import { requireOwner } from "@/lib/auth/owner";
+import { tint } from "@/lib/tint";
 import { collect, conclude, place, recordPublished, stopCollecting } from "../actions";
 import { Spines } from "../spines";
 
@@ -89,15 +92,29 @@ export default async function SeriesDetailPage({
   const [{ id }, asks] = await Promise.all([params, searchParams]);
   const panel = PANELS.find((one) => one === asked(asks, "panel"));
 
-  const [series, placeable] = await Promise.all([
+  const [series, placeable, faced] = await Promise.all([
     findSeries(id),
     // Read only where the panel that offers them is open. The objects in no Series are not on
     // this screen otherwise, and a page reading rows it will not show is the thing the filter
     // rule in `AGENTS.md` is about.
     panel === PLACE ? listVolumesOutsideASeries() : [],
+    // **The jackets of the objects in the house**, read for one thing: the cover the hero
+    // stands beside the name. `findSeries` lists the objects without their faces, and the
+    // Collection wall narrowed to this Series is the existing question that has them.
+    listCollectionWall({ series: id }),
   ]);
 
   if (!series) notFound();
+
+  // The first Volume in the house that is faced with anything: how the owner recognises the
+  // line, the way a bookshop faces out volume one.
+  const firstFaced = faced.find((volume) => volume.cover) ?? null;
+  // **What it publishes, as a work**: the Type and who made it, for the hero's two lines. A
+  // Series has neither of its own (ADR-0006), so they are read off the Story it publishes,
+  // where it says which; a Series that names none simply goes without.
+  const work = series.publishes ? await findStory(series.publishes.id) : null;
+  const jackets = new Map(faced.map((volume) => [volume.id, volume.cover]));
+  const makers = work ? [...new Set(work.credits.map((credit) => credit.person.name))] : [];
 
   const collecting = Boolean(series.collectingSince);
   const refused = asked(asks, "refused");
@@ -108,45 +125,76 @@ export default async function SeriesDetailPage({
     <main className="px-5 pb-16 sm:px-8">
       {/* No breadcrumb: the shell marks *Series* while the owner is standing here, so a
           trail one step long was a second answer to a question the chrome answers. */}
-      <header className="pt-8 sm:pt-12">
-        <h1 className="text-balance font-heading text-name font-semibold lg:text-name-lg">
-          {series.name}
-        </h1>
-        <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span>{series.publisher}</span>
-          {series.editionLine ? <Badge variant="outline">{series.editionLine}</Badge> : null}
-          <span>·</span>
-          <span>{series.status === "ongoing" ? "Ongoing" : "Concluded"}</span>
-          <span>·</span>
-          <span className="tabular-nums">{series.publishedCount} published</span>
-        </p>
+      {/* **The hero, like a Story's** (ADR-0026, second tranche): the line's first faced
+          Volume beside its name, what it is in one quiet line, the name in the display serif
+          and who made it in the serif under it — and, across from them, the ledger's one
+          figure, *N of M in the house*, over a gilt bar, because how far a line has got is
+          progress and progress is gilt.
 
-        {/* **The one row on this screen that points out of the ledger** (#39). Everything in
-            the row above counts objects — a publisher, an edition, a status, a number out —
-            and this names a *narrative*, so it stands on its own rather than joining them
-            behind a middle dot.
+          No breadcrumb: the shell marks *Series* while the owner is standing here. */}
+      <header className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6 pt-8 sm:pt-12">
+        <div className="flex min-w-0 flex-wrap items-end gap-x-7 gap-y-5">
+          <Cover
+            size="hero"
+            href={firstFaced ? `/collection/${firstFaced.id}` : undefined}
+            title={series.name}
+            tint={tint(series.id)}
+            image={firstFaced?.cover}
+            label={
+              firstFaced
+                ? `${firstFaced.title}, the first Volume of ${series.name} in the house`
+                : series.name
+            }
+            className="w-[6.5rem] shrink-0 sm:w-[8.25rem]"
+          />
 
-            Drawn only where the Series says which Story it publishes, and there is
-            deliberately nothing here when it does not: this screen stays a place the owner
-            *looks* rather than one they edit, and an empty slot with a control in it would be
-            the Series screen quietly becoming a second place a narrative is managed. Which
-            Story a line publishes is said on that Story's own page. */}
-        {series.publishes ? (
-          <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-label font-medium text-muted-foreground">Publishes</span>
-            <Link
-              href={`/stories/${series.publishes.id}`}
-              className="rounded-sm font-heading text-lg font-semibold text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {series.publishes.title}
-            </Link>
-          </p>
-        ) : null}
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <p className="text-sm text-muted-foreground">
+              {[
+                work?.type.name,
+                series.publisher,
+                series.editionLine,
+                series.status === "ongoing" ? "still coming out" : "concluded",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            <h1 className="text-balance font-heading text-name font-semibold lg:text-name-lg">
+              {series.name}
+            </h1>
+            {makers.length > 0 ? (
+              <p className="font-heading text-xl font-medium">{makers.join(", ")}</p>
+            ) : null}
+
+            {/* **The one row that points out of the ledger** (#39): the narrative this line
+                publishes, which is read here and set on that Story's own page. Drawn only
+                where the Series says which. */}
+            {series.publishes ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Publishes{" "}
+                <Link
+                  href={`/stories/${series.publishes.id}`}
+                  className="rounded-sm font-heading text-base font-semibold text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {series.publishes.title}
+                </Link>
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <InTheHouse
+          owned={series.ownedCount}
+          published={series.publishedCount}
+          collecting={collecting}
+          missing={series.missing?.length ?? null}
+        />
 
         {/* **The decision leads, because it is the one act that changes what this screen
             means**: the same hollow position is *missing* under a collecting project and
-            merely empty without one. The two maintenance acts follow it, quietly. */}
-        <div className="mt-6 flex flex-wrap items-center gap-3">
+            merely empty without one. It is the one cloth act until it is taken; then it is
+            outlined, and the two maintenance acts follow it. */}
+        <div className="flex w-full flex-wrap items-center gap-2.5">
           <form action={collecting ? stopCollecting : collect}>
             <input type="hidden" name="seriesId" value={series.id} />
             <Button
@@ -158,7 +206,9 @@ export default async function SeriesDetailPage({
             </Button>
           </form>
 
-          <OpensDrawer href={panelled(series.id, PLACE)}>Place a Volume</OpensDrawer>
+          <OpensDrawer href={panelled(series.id, PLACE)} emphasis={collecting ? "loud" : "quiet"}>
+            Place a Volume
+          </OpensDrawer>
           <OpensDrawer href={panelled(series.id, PUBLISHED)}>
             What the publisher has done
           </OpensDrawer>
@@ -185,29 +235,31 @@ export default async function SeriesDetailPage({
         <h2 className="font-heading text-section font-semibold">
           {collecting ? "What I am missing" : "What is here, position by position"}
         </h2>
-
         {/* Drawn either way, because what the publisher has done is worth knowing before
             anything is decided — and *said* differently, because a hollow position of a
             Series nobody is collecting is empty and not a shopping list. */}
-        <div className="mt-4">
+        <p className="mt-1.5 max-w-prose text-pretty text-sm text-muted-foreground">
+          Each spine is a Volume, and the filled ones are in the house.{" "}
+          {collecting ? (
+            <>
+              Collecting since{" "}
+              <span className="whitespace-nowrap tabular-nums">{series.collectingSince}</span>.
+            </>
+          ) : (
+            "Nothing counts as missing until you decide to collect it."
+          )}
+        </p>
+
+        <div className="mt-5">
           <Spines ledger={series} volumes={series.volumes} />
         </div>
-
-        {collecting ? (
-          <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-            Collecting since {series.collectingSince}. Stopping ends the project and nothing else:
-            every Volume you own stays in the house.
-          </p>
-        ) : (
-          <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-            {series.ownedCount} of {series.publishedCount} published Volumes are in the house.
-            Nothing counts as missing until you decide to collect it.
-          </p>
-        )}
       </section>
 
-      <section className="mt-12">
+      <section className="mt-12 max-w-3xl">
         <h2 className="font-heading text-section font-semibold">On the shelf</h2>
+        <p className="mt-1.5 text-pretty text-sm text-muted-foreground">
+          The same Volumes, by name, with the Binding that tells two printings apart.
+        </p>
 
         {series.volumes.length === 0 ? (
           <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
@@ -215,26 +267,32 @@ export default async function SeriesDetailPage({
             what remains.
           </p>
         ) : (
-          /* The same objects the spines are drawn from, in words. A spine carries its title
-             up its side and as its label, which a pointer and a screen reader read and a
-             thumb does not — so the titles are here too, where they can be read at any
-             width, with the Binding that tells two printings of one position apart. */
-          <ul className="mt-2">
+          /* The same objects the spines are drawn from, in words: a spine carries its title up
+             its side, which a pointer and a screen reader read and a thumb does not. Each row
+             opens on the object's own small cover, where it has one. */
+          <ul className="mt-4 border-b border-border">
             {series.volumes.map((volume) => (
-              <li key={volume.id} className="border-t border-border first:border-t-0">
+              <li key={volume.id} className="border-t border-border">
                 <Link
                   href={`/collection/${volume.id}`}
-                  className="flex items-baseline gap-3 py-3 outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex items-center gap-4 py-2.5 outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <span className="w-8 shrink-0 text-sm tabular-nums text-muted-foreground">
-                    {volume.number}
+                  <Cover
+                    size="thumb"
+                    title={volume.title}
+                    tint={tint(series.id)}
+                    image={jackets.get(volume.id)}
+                    className="w-10 shrink-0"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-heading text-lg font-semibold leading-snug">
+                      {volume.title}
+                    </span>
+                    <span className="block text-label text-muted-foreground">
+                      <span className="tabular-nums">{volume.number}</span> of the Series ·{" "}
+                      {volume.binding.name}
+                    </span>
                   </span>
-                  <span className="min-w-0 flex-1 truncate font-heading text-lg font-semibold leading-snug">
-                    {volume.title}
-                  </span>
-                  <Badge variant="outline" className="shrink-0">
-                    {volume.binding.name}
-                  </Badge>
                 </Link>
               </li>
             ))}
@@ -375,4 +433,50 @@ function newsFrom(params: Asked): string | undefined {
   const placed = asked(params, "placed");
   if (placed) return `Placed as ${placed} of this Series.`;
   return undefined;
+}
+
+/**
+ * **The ledger's one figure**: how many of the published Volumes are in the house, said in
+ * the serif over a gilt bar — gilt because it is how far the line has got, and progress is
+ * the one thing gilt is spent on. The sentence under it is what the figure means, which
+ * depends on whether the owner decided to complete the line at all: under a collecting
+ * project the rest are *to go*; without one they are simply not here.
+ */
+function InTheHouse({
+  owned,
+  published,
+  collecting,
+  missing,
+}: {
+  owned: number;
+  published: number;
+  collecting: boolean;
+  missing: number | null;
+}) {
+  const share = published > 0 ? Math.min(1, owned / published) : 0;
+
+  return (
+    <div className="flex min-w-64 flex-col gap-2">
+      <p className="font-heading text-2xl font-semibold tabular-nums">
+        {owned} of {published} in the house
+      </p>
+      <span
+        role="img"
+        aria-label={`${owned} of ${published} Volumes in the house`}
+        className="block h-1.5 overflow-hidden rounded-full bg-muted"
+      >
+        <span
+          className="block h-full rounded-full bg-gilt"
+          style={{ width: `${Math.round(share * 100)}%` }}
+        />
+      </span>
+      <p className="text-label text-muted-foreground">
+        {!collecting
+          ? "You are not collecting it."
+          : missing === 0 || missing === null
+            ? "You are collecting it, and it is complete."
+            : `You are collecting it. ${missing} to go.`}
+      </p>
+    </div>
+  );
 }
