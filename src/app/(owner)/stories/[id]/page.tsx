@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cover } from "@/components/cover";
-import { Drawer, OpensDrawer } from "@/components/drawer";
+import { Drawer } from "@/components/drawer";
+import { RatingMark, scoreSaid, Unrated } from "@/components/rating-mark";
 import { Spine } from "@/components/spine";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { type CollectionVolume, searchCollection } from "@/core/queries/collection";
 import { type CreditRole, listCreditRoles } from "@/core/queries/credit";
@@ -49,7 +49,7 @@ import {
   whatItCovers,
   whenItHappened,
 } from "../passes";
-import { StoryStateLabel, stateWord, storyDetail } from "../story-state";
+import { stateWord, storyDetail } from "../story-state";
 import {
   carryFromStory,
   faceWithOwnImage,
@@ -91,10 +91,12 @@ export const dynamic = "force-dynamic";
 //   2. **The owner's own prose is set in the serif**, in the box it is typed into as much as
 //      where it is read back. What they wrote is not what the application says, and that is
 //      the whole of what the third face is for.
-//   3. **The tile the owner tapped opens the page**, in the same colour, with the same score
-//      at its foot — a detail screen in this redesign wears the shelf's vocabulary, and the
-//      objects carrying the Story are a row of spines because that is a shelf seen from the
-//      side. It carries no href: a link to the page you are standing on is a focusable no-op.
+//   3. **The page opens with the cover, large and clean** (ADR-0026, second tranche): the
+//      jacket — or the drawn cloth — on a quiet panel, the name in the display serif, who made
+//      it, the last rating as a bookmark, and one cloth act. What follows is sections under
+//      rules rather than a stack of boxes, and the objects carrying the Story are still a row
+//      of spines, because that is a shelf seen from the side. The cover carries no href: a
+//      link to the page you are standing on is a focusable no-op.
 //
 // Every form here is a plain `POST` to a Server Function and every drawer is a link to
 // `?panel=…`, so the whole screen works with nothing running in the browser (ADR-0010). A
@@ -172,6 +174,132 @@ function panelled(
 const PICKER =
   "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:h-10 md:text-sm dark:bg-input/30";
 
+// The hero's acts, as the canvas draws them (ADR-0026, second tranche): **one cloth act** the
+// page is opened for, the rest outlined in the edge of a field, and the corrections as quiet
+// text. Links rather than buttons where they open a drawer, so they work with nothing running.
+const ACT =
+  "inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl px-5 text-[0.9375rem] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const LOUD_ACT = `${ACT} bg-primary font-semibold text-primary-foreground hover:bg-primary/90`;
+const OUTLINED_ACT = `${ACT} border border-input font-medium text-foreground hover:bg-muted`;
+const QUIET_ACT =
+  "inline-flex h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-[0.9375rem] text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
+
+/** A link in a sentence: cloth, because it does something. */
+const IN_PROSE =
+  "rounded-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring";
+
+/** An act in a row that is a correction rather than the row's point: quiet ink. */
+const QUIET_LINK =
+  "rounded-sm text-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring";
+
+/** One row of a section: a hairline over it, and air. */
+const ROW = "border-t border-border py-3.5";
+
+/**
+ * A section of the page: a heading in the serif, one short line under it, and rows separated
+ * by hairlines — rather than a boxed card, because a detail page is read down like a page.
+ */
+function Section({
+  title,
+  intro,
+  children,
+}: {
+  title: string;
+  intro?: string;
+  children: React.ReactNode;
+}) {
+  const id = `section-${title.replace(/\W+/g, "-").toLowerCase()}`;
+
+  return (
+    <section aria-labelledby={id} className="min-w-0">
+      <h2 id={id} className="font-heading text-section font-semibold">
+        {title}
+      </h2>
+      {intro ? <p className="mt-1 text-pretty text-sm text-muted-foreground">{intro}</p> : null}
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+/**
+ * **The owner's last judgement, as a bookmark**, with what it is said beside it — or the
+ * absence said in words, and the act that fills it where there is a Pass to hang it on.
+ */
+function LastRating({
+  score,
+  finished,
+  rate,
+  large = false,
+}: {
+  score: number | null;
+  finished: number;
+  rate?: string;
+  large?: boolean;
+}) {
+  const times =
+    finished === 0
+      ? null
+      : finished === 1
+        ? "Finished once."
+        : finished === 2
+          ? "Finished twice."
+          : `Finished ${finished} times.`;
+
+  if (score === null) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Not rated yet.{" "}
+        {rate ? (
+          <Link href={rate} className={IN_PROSE}>
+            Rate it
+          </Link>
+        ) : null}
+        {times ? <span className="block">{times}</span> : null}
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3.5">
+      <RatingMark score={score} size={large ? "large" : "small"} />
+      <p className="text-label leading-snug text-muted-foreground lg:text-sm">
+        Your last rating,
+        <br />
+        out of 10.{times ? ` ${times}` : null}
+      </p>
+    </div>
+  );
+}
+
+/** What the house holds of it, said the way the owner would: *Bompiani, Hardcover*. */
+function yourCopies(held: CarryingVolume[]): string {
+  const [first] = held;
+  if (held.length === 1) {
+    return [first.publisher, first.editionLine, first.binding.name].filter(Boolean).join(", ");
+  }
+  const publishers = [...new Set(held.map((volume) => volume.publisher))];
+  return `${held.length} Volumes, ${publishers.join(" and ")}`;
+}
+
+/** The way back to the wall: a chevron, stroked at the nib's weight. */
+function Back({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      className={className}
+    >
+      <path d="M15 5l-7 7 7 7" />
+    </svg>
+  );
+}
+
 /**
  * The role picker.
  *
@@ -211,32 +339,36 @@ function Uncredit({ storyId, held }: { storyId: string; held: StoryCredit }) {
   );
 }
 
-function Judgement({ rating, storyId }: { rating: StoryRating; storyId: string }) {
+/**
+ * A score and the owner's words beside it: the bookmark, then what they wrote in the serif's
+ * italic — which on this surface means one thing only, that these words are theirs.
+ */
+function Judgement({
+  rating,
+  storyId,
+  saidAlready,
+}: {
+  rating: StoryRating;
+  storyId: string;
+  /** The Provenance the row above already printed, so the same word is not said twice. */
+  saidAlready?: string;
+}) {
   return (
-    <div className="mt-2">
-      <p className="flex items-baseline gap-1">
-        <span className="font-heading text-2xl font-semibold tabular-nums">
-          {rating.score.toFixed(1)}
-        </span>
-        <span className="text-sm text-muted-foreground">/ 10</span>
-      </p>
-      {/* The serif's italic, which on this surface means one thing and only one thing: these
-          are the owner's own words, and the application's are not. */}
-      {rating.prose ? (
-        <p className="mt-1 max-w-prose text-pretty font-serif text-prose italic">{rating.prose}</p>
-      ) : null}
-      {/* **Unmaking it, from wherever it is drawn** (ADR-0018). It is here rather than beside
-          the Pass because a score is struck by its own id: the same control serves a
-          judgement under the pass it came out of and one in the card of scores that point at
-          no pass, and neither place has to know about the other. Quiet, and beside the
-          Provenance rather than under the prose — it is a correction, and a destructive
-          control set louder than the words it would destroy reads as the point of the tile. */}
-      <p className="mt-1.5 flex flex-wrap items-baseline gap-x-3 text-label text-muted-foreground">
-        <span>{rating.provenance.name}</span>
-        <Link
-          href={panelled(storyId, STRIKE_RATING, { rating: rating.id })}
-          className="rounded-sm text-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-        >
+    <div className="grid gap-1.5">
+      <div className="flex items-start gap-3">
+        <RatingMark score={rating.score} className="pt-0.5" />
+        {rating.prose ? (
+          <p className="min-w-0 max-w-prose text-pretty font-serif text-[1.0625rem] leading-snug italic">
+            {rating.prose}
+          </p>
+        ) : null}
+      </div>
+      {/* **Unmaking it, from wherever it is drawn** (ADR-0018): a score is struck by its own
+          id, so the same control serves a judgement under its Pass and one under no Pass.
+          Quiet, beside the Provenance — it is a correction, not the point of the row. */}
+      <p className="flex flex-wrap items-baseline gap-x-3 text-label text-muted-foreground">
+        {rating.provenance.name === saidAlready ? null : <span>{rating.provenance.name}</span>}
+        <Link href={panelled(storyId, STRIKE_RATING, { rating: rating.id })} className={QUIET_LINK}>
           Strike this score
         </Link>
       </p>
@@ -322,300 +454,277 @@ export default async function StoryPage({
   // Type says it is unusual would be hiding a record the owner can no longer correct.
   const standsOnObjects = carriesAnObject || carriedBy.length > 0;
 
+  // The newest Pass, which is where *Rate it* in the hero goes: a score belongs to a Pass, and
+  // the one in hand (or the last one closed) is the one the owner means.
+  const newest = story.passes[0];
+  const finishedTimes = story.passes.filter((pass) => pass.outcome === "finished").length;
+  // The people on the cover, once each, in the order roles are credited in.
+  const creators = [...new Set(story.credits.map((held) => held.person.name))];
+  const held = carriedBy.filter((volume) => volume.inTheHouse);
+
   return (
-    <main className="px-5 py-8 sm:px-8 sm:py-12">
-      {/* No breadcrumb: the shell marks *Stories* while the owner is standing here. The tile
-          the wall laid this Story out as opens the page instead, in the same colour and with
-          the same score at its foot — so arriving from the wall is arriving at the thing that
-          was tapped. It carries no href, because this is the page it would lead to. */}
-      {/* **The record's own act stands apart from the acts of going through it**, which is
-          the shape the Path's page already gives this (`../../paths/[id]/page.tsx`): what
-          the hero *says* is corrected from the hero, and the presses about tonight keep the
-          column beside the cover to themselves. On a phone the cluster wraps under the whole
-          block rather than squeezing the title into two words. */}
-      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-        <div className="flex min-w-0 flex-1 basis-72 items-start gap-4 sm:gap-6">
-          <div className="w-20 shrink-0 sm:w-28">
-            <Cover
-              title={story.title}
-              tint={tint(story.series?.id)}
-              label={storyDetail(story)}
-              image={story.cover}
-            />
+    <main className="px-5 pt-4 pb-12 sm:px-8 sm:pt-6 lg:pb-16">
+      {/* The way back, and the one act that corrects what the record *says*. The shell
+          already marks *Stories*; this is the thumb's way back to the wall it came from. */}
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href="/stories"
+          className="-ml-1 inline-flex h-11 items-center gap-0.5 rounded-lg pr-2 text-[0.9375rem] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Back className="size-5" />
+          Stories
+        </Link>
+        <Link href={panelled(id, RENAME)} className={QUIET_ACT}>
+          <Nib className="size-4 shrink-0" />
+          Correct the title
+        </Link>
+      </div>
+
+      {/* THE HERO (ADR-0026, second tranche): the cover, large and clean, on a quiet panel at
+          a desk and beside the rating on a phone; then what it is, its name in the display
+          serif, who made it, and the one act the page is opened for. The cover carries no
+          href, because this is the page it would lead to. */}
+      <div className="mt-3 flex flex-wrap items-start gap-x-12 gap-y-6">
+        <div className="flex w-full flex-col gap-3 lg:w-auto lg:max-w-[340px] lg:flex-[1_1_280px]">
+          <div className="flex items-end gap-5 lg:grid lg:h-[460px] lg:place-items-center lg:rounded-3xl lg:bg-muted">
+            <div className="w-[132px] shrink-0 lg:w-[236px]">
+              <Cover
+                size="hero"
+                title={story.title}
+                tint={tint(story.series?.id ?? story.id)}
+                label={storyDetail(story)}
+                image={story.cover}
+              />
+            </div>
+            <div className="min-w-0 pb-1 lg:hidden">
+              <LastRating
+                score={story.latestScore}
+                finished={finishedTimes}
+                rate={newest ? panelled(id, RATE, { pass: newest.id }) : undefined}
+              />
+            </div>
           </div>
+          {/* Whose picture it is, and the act that changes it — beside the picture, as a
+              sentence, because it is a correction to the record rather than tonight's act. */}
+          <p className="text-pretty text-label text-muted-foreground">
+            {story.ownImage
+              ? "Your own image of it."
+              : story.cover
+                ? "The jacket of the first Volume carrying it."
+                : "No cover yet, so it is drawn."}{" "}
+            <Link href={panelled(id, IMAGE)} className={IN_PROSE}>
+              {story.ownImage ? "Change it" : "Add a cover"}
+            </Link>
+          </p>
+        </div>
 
-          <div className="min-w-0 flex-1">
-            <h1 className="text-balance font-heading text-name font-semibold lg:text-name-lg">
-              {story.title}
-            </h1>
-            <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="text-label font-medium text-muted-foreground">
-                {story.type.name}
-              </span>
-              <StoryStateLabel state={story.state} />
-              {/* **The fraction is the run's own unit**, tabular so that 7 of 20 and 12 of 20
-                read as places in one book rather than as two different numbers. It is drawn
-                only where the work says it has parts, which is the minority of Stories. */}
-              {story.howFarItGot ? (
-                <span className="text-label font-medium tabular-nums text-gilt">
-                  {howFarItGot(story.howFarItGot)}
-                </span>
-              ) : null}
-            </p>
-            {story.series ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                <Link
-                  href={`/series/${story.series.id}`}
-                  className="rounded-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+        <div className="flex min-w-0 flex-[999_1_420px] flex-col gap-6">
+          <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              {/* What it is and where the owner stands with it, in one quiet line — the state
+                  derived from the Passes, and the fraction in gilt because it is progress. */}
+              <p className="text-sm text-muted-foreground first-letter:uppercase">
+                {story.type.name} ·{" "}
+                <span
+                  className={story.state === "abandoned" ? "line-through decoration-1" : undefined}
+                  title="Derived from this Story's Passes, and stored nowhere"
                 >
-                  {[story.series.name, story.series.editionLine].filter(Boolean).join(" ")}
-                </Link>
+                  {stateWord(story.state)}
+                </span>
+                {story.howFarItGot ? (
+                  <>
+                    {" · "}
+                    <span className="tabular-nums text-gilt">{howFarItGot(story.howFarItGot)}</span>
+                  </>
+                ) : null}
               </p>
-            ) : null}
+              <h1 className="text-balance font-heading text-name font-semibold lg:text-name-lg">
+                {story.title}
+              </h1>
+              {creators.length > 0 ? (
+                <p className="font-heading text-xl font-medium lg:text-[1.375rem]">
+                  {creators.join(", ")}
+                </p>
+              ) : null}
+            </div>
+            <div className="hidden lg:block">
+              <LastRating
+                score={story.latestScore}
+                finished={finishedTimes}
+                rate={newest ? panelled(id, RATE, { pass: newest.id }) : undefined}
+                large
+              />
+            </div>
+          </header>
 
-            {/* **The act this screen is opened to perform**, and which one it is follows from
+          {/* **One cloth act and the rest outlined.** Which act is the cloth one follows from
               the Passes rather than from a choice: a Story with something open is one the
               owner is holding, and the only thing to say about it is how it ended. */}
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               {open ? (
                 <>
-                  <OpensDrawer href={panelled(id, FINISHED)} emphasis="loud">
+                  <Link href={panelled(id, FINISHED)} className={LOUD_ACT}>
                     I finished it
-                  </OpensDrawer>
-                  <OpensDrawer href={panelled(id, GAVE_UP)}>I gave up on it</OpensDrawer>
+                  </Link>
+                  <Link href={panelled(id, GAVE_UP)} className={OUTLINED_ACT}>
+                    I gave up on it
+                  </Link>
                   {story.instalments === null ? null : (
-                    <OpensDrawer href={panelled(id, REACHED, { pass: open.id })}>
+                    <Link href={panelled(id, REACHED, { pass: open.id })} className={OUTLINED_ACT}>
                       Where I am in it
-                    </OpensDrawer>
+                    </Link>
                   )}
-                  <span className="text-sm text-muted-foreground">{passNow(open)}</span>
                 </>
               ) : (
-                <>
-                  <OpensDrawer href={panelled(id, START)} emphasis="loud">
-                    Start it
-                  </OpensDrawer>
-                  {story.passes.length > 0 ? (
-                    <span className="text-sm text-muted-foreground">
-                      Again. Earlier Passes stay.
-                    </span>
-                  ) : null}
-                </>
+                <Link href={panelled(id, START)} className={LOUD_ACT}>
+                  Start it
+                </Link>
               )}
-            </div>
-
-            {/* **The lesser half of the same sentence**, and it is deliberately quiet: *not
-              tonight, but soon* is a smaller act than starting, so it sits under the loud one
-              in a label's register rather than beside it as a second button competing for
-              the press. A press that asks for nothing is a plain form and not a panel.
-
-              What it says back is the whole of what a Want is. There is no *unwant*: a Want
-              falls quiet on its own once a Pass begins after it was opened, so a quiet one
-              says which side of the Pass it stands on, and the only press against either is
-              taking back a sentence that was a slip. */}
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-              {want ? (
-                <>
-                  <span className="text-label font-medium text-muted-foreground">
-                    {want.quiet ? "Wanted, and taken on since" : "On the Pile"}
-                  </span>
-                  <form action={unwant}>
-                    <input type="hidden" name="storyId" value={id} />
-                    <input type="hidden" name="wantId" value={want.id} />
-                    <Button
-                      type="submit"
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      Undo
-                    </Button>
-                  </form>
-                </>
-              ) : (
+              {/* **The lesser half of the same sentence**: *not tonight, but soon*. A press
+                  that asks for nothing is a plain form and not a panel. There is no *unwant*
+                  beyond taking back a slip: a Want falls quiet once a Pass begins after it. */}
+              {want ? null : (
                 <form action={wantIt}>
                   <input type="hidden" name="storyId" value={id} />
-                  <Button
-                    type="submit"
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-sm text-cloth"
-                  >
+                  <button type="submit" className={OUTLINED_ACT}>
                     I want to take it on
-                  </Button>
+                  </button>
                 </form>
               )}
             </div>
-          </div>
-        </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <OpensDrawer href={panelled(id, RENAME)}>
-            <Nib className="size-4 shrink-0" />
-            Correct the title
-          </OpensDrawer>
-          {/* **Beside the title and not among the presses about tonight**, because it is the
-              same kind of act: what the record *says*, corrected from the hero. It is offered
-              on every Story rather than on the ones nothing carries — a photograph of the
-              work is as good an answer for a Bonelli monthly as for a game, and a control
-              that appeared only for one Type would be the library making a rule the model
-              does not have. */}
-          <OpensDrawer href={panelled(id, IMAGE)}>
-            {story.ownImage ? "Change the cover" : "Add a cover"}
-          </OpensDrawer>
-        </div>
-      </header>
-
-      {refused ? (
-        <p
-          role="alert"
-          className="mt-6 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
-          {refused}
-        </p>
-      ) : null}
-      {credited ? (
-        <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
-          {credited} is credited on this Story.
-        </p>
-      ) : null}
-      {uncredited ? (
-        <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
-          {uncredited} is no longer credited here. Their other Credits stay.
-        </p>
-      ) : null}
-
-      {/* The stack takes the width at a desk and the rest stands beside it, because what
-          happened to a Story is the thing this page is for; on a phone the two columns are
-          one and the order is the same. */}
-      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
-        <div className="grid gap-6">
-          <Passes story={story} />
-
-          {story.standaloneRatings.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold">Ratings with no Pass</CardTitle>
-                <CardDescription className="text-pretty">
-                  Scores that belong to no Pass, most often from an imported sheet.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="-my-1">
-                  {story.standaloneRatings.map((rating) => (
-                    <li key={rating.id} className="border-t border-border py-2 first:border-t-0">
-                      <Judgement rating={rating} storyId={story.id} />
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          ) : null}
-        </div>
-
-        <div className="grid gap-6">
-          {/* **Absent rather than empty where nothing could carry this** (ADR-0021). The card
-              standing over a videogame asked the owner which object they played it on and
-              explained, in a paragraph about ebooks and Goodreads, why there was none — a
-              question with no answer and a reason that is not this one's. What is left is the
-              card doing its job on everything printed, and on the one game that does turn out
-              to carry an object, because that object is a record. */}
-          {standsOnObjects ? (
-            <Carriers storyId={story.id} carriedBy={carriedBy} offerable={offerable} />
-          ) : null}
-
-          <PublishedBy storyId={story.id} ledgers={publishedBy} />
-
-          <Instalments story={story} />
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold">Credits</CardTitle>
-              <CardDescription className="text-pretty">
-                Who wrote it and who drew it.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {story.credits.length === 0 ? (
-                <p className="text-pretty text-sm text-muted-foreground">
-                  Nobody is credited on this Story yet.
-                </p>
-              ) : (
-                /* Laid out as a comic's indicia is: the role on the left, the name against it.
-                   A definition list, because that is what it is — and it stacks to one column
-                   on a phone without the roles stopping being labels. */
-                <dl className="-my-1">
-                  {story.credits.map((held) => (
-                    <div
-                      key={held.id}
-                      className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 border-t border-border py-2.5 first:border-t-0"
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              {open ? <span>{passNow(open)}</span> : null}
+              {!open && story.passes.length > 0 ? <span>Again. Earlier Passes stay.</span> : null}
+              {want ? (
+                <>
+                  <span>{want.quiet ? "Wanted, and taken on since." : "On the Pile."}</span>
+                  <form action={unwant}>
+                    <input type="hidden" name="storyId" value={id} />
+                    <input type="hidden" name="wantId" value={want.id} />
+                    <button
+                      type="submit"
+                      className="rounded-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <dt className="basis-full text-label font-medium text-muted-foreground sm:basis-24">
-                        {held.role.name}
-                      </dt>
-                      <dd className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
-                        <Link
-                          href={`/credits/${held.person.id}`}
-                          className="truncate underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          {held.person.name}
-                        </Link>
-                        <Uncredit storyId={story.id} held={held} />
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
+                      Undo
+                    </button>
+                  </form>
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          {/* The facts, as a definition list between two rules — what the house holds of it,
+              the line it stands in and how many parts it has, each where there is one. */}
+          {held.length > 0 || story.series || story.instalments !== null ? (
+            <dl className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-5 gap-y-2.5 border-y border-border py-4 text-[0.9375rem] leading-snug sm:grid-cols-[7.5rem_minmax(0,1fr)]">
+              {held.length > 0 ? (
+                <>
+                  <dt className="text-muted-foreground">Your copies</dt>
+                  <dd>{yourCopies(held)}</dd>
+                </>
+              ) : null}
+              {story.series ? (
+                <>
+                  <dt className="text-muted-foreground">Series</dt>
+                  <dd>
+                    <Link href={`/series/${story.series.id}`} className={IN_PROSE}>
+                      {[story.series.name, story.series.editionLine].filter(Boolean).join(" ")}
+                    </Link>
+                  </dd>
+                </>
+              ) : null}
+              {story.instalments === null ? null : (
+                <>
+                  <dt className="text-muted-foreground">Parts</dt>
+                  <dd>
+                    {theCountItDeclares(story.instalments, story.instalmentsSaidBy)}
+                    {story.howFarItGot ? (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · you are at {howFarItGot(story.howFarItGot)}
+                      </span>
+                    ) : null}
+                  </dd>
+                </>
               )}
+            </dl>
+          ) : null}
 
-              {/* A name and a role, and nothing else to fill in: a person the library has not
-                  met is named by crediting them, because the owner is reading a cover rather
-                  than keeping a register of people.
+          {refused ? (
+            <p
+              role="alert"
+              className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {refused}
+            </p>
+          ) : null}
+          {credited ? (
+            <p role="status" className="rounded-lg bg-muted px-3 py-2 text-sm">
+              {credited} is credited on this Story.
+            </p>
+          ) : null}
+          {uncredited ? (
+            <p role="status" className="rounded-lg bg-muted px-3 py-2 text-sm">
+              {uncredited} is no longer credited here. Their other Credits stay.
+            </p>
+          ) : null}
 
-                  The field suggests the people who already exist as it is typed into, and that
-                  is the whole of what the script here does: a second spelling of a name is a
-                  second person forever (ADR-0012), and this form is where the owner would make
-                  one. It stays a plain `POST` with the name in it, so a name typed in full is
-                  credited whether the suggestions arrived or not (ADR-0010). */}
-              <form action={credit} className="mt-6 grid gap-3 border-t border-border pt-4">
-                <input type="hidden" name="storyId" value={story.id} />
-                <PersonPicker />
-                <div className="grid gap-1.5">
-                  <Label
-                    htmlFor="credit-role"
-                    className="text-label font-medium text-muted-foreground"
-                  >
-                    Role
-                  </Label>
-                  <RoleSelect id="credit-role" roles={roles} />
-                </div>
-                <Button type="submit" className="h-11 w-full sm:h-10">
-                  Credit them
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+          {/* **What happened to it, and what it is** — sections under serif headings and
+              hairline rows rather than a stack of boxed cards. The Passes take the first
+              column because what happened to a Story is what this page is for; the objects,
+              the lines and the people stand beside them. One column on a phone, same order. */}
+          <div className="grid items-start gap-x-10 gap-y-10 xl:grid-cols-2">
+            <div className="grid gap-10">
+              <Passes story={story} />
+
+              {story.standaloneRatings.length > 0 ? (
+                <Section
+                  title="Ratings with no Pass"
+                  intro="Scores that belong to no Pass, most often from an imported sheet."
+                >
+                  <ul>
+                    {story.standaloneRatings.map((rating) => (
+                      <li key={rating.id} className={ROW}>
+                        <Judgement rating={rating} storyId={story.id} />
+                      </li>
+                    ))}
+                  </ul>
+                </Section>
+              ) : null}
+            </div>
+
+            <div className="grid gap-10">
+              <Credits storyId={story.id} credits={story.credits} roles={roles} />
+
+              {/* **Absent rather than empty where nothing could carry this** (ADR-0021): a
+                  videogame is asked about no object, unless one does turn out to carry it —
+                  then that object is a record and is shown whatever the Type says. */}
+              {standsOnObjects ? (
+                <Carriers storyId={story.id} carriedBy={carriedBy} offerable={offerable} />
+              ) : null}
+
+              <PublishedBy storyId={story.id} ledgers={publishedBy} />
+
+              <Instalments story={story} />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* **The act that unmakes the record, and it is at the bottom for a reason** (ADR-0015).
-          Everything above is what happened to this narrative; this is the statement that none
-          of it did — that the row itself was a mistake, a duplicate an assistant proposed and
-          a bulk approval let through. So it is the last thing on the page, quiet, one press
-          away from a drawer rather than a button beside *Start it*.
-
-          **It is offered whatever stands on the Story, and that is deliberate.** The four
-          refusals are the verb's (`@/core/verbs/story`), and a screen that re-derived them to
-          decide whether to draw this would be a second copy of the rule — one that cannot even
-          see the fourth, since this page never asks which Paths name the Story. So the press
-          exists and the answer is the verb's own sentence, which names what the owner has lived
-          with. That is the whole reason this door is here at all: the wall's list holds only
-          Stories nothing has happened to, so no refusal is reachable from it. */}
-      <div className="mt-10 border-t border-border pt-4">
+      {/* **The act that unmakes the record, last and quiet** (ADR-0015). Everything above is
+          what happened to this narrative; this says none of it did. It is offered whatever
+          stands on the Story: the four refusals are the verb's, and its own sentence comes
+          back in the drawer naming what the owner has lived with. */}
+      <div className="mt-12 border-t border-border pt-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <p className="max-w-prose text-pretty text-sm text-muted-foreground">
             Never real, such as the same title twice? Strike it.
           </p>
-          <OpensDrawer href={panelled(id, STRIKE)}>Strike from the library</OpensDrawer>
+          <Link href={panelled(id, STRIKE)} className={QUIET_ACT}>
+            Strike from the library
+          </Link>
         </div>
       </div>
 
@@ -1251,7 +1360,7 @@ export default async function StoryPage({
 
             <p className="text-pretty text-sm text-muted-foreground">
               The library stops knowing you judged <em>{story.title}</em> at{" "}
-              <span className="tabular-nums">{oneJudgement.score.toFixed(1)}</span>
+              <span className="tabular-nums">{scoreSaid(oneJudgement.score)}</span>
               {oneJudgement.prose ? ", and your words go with it" : ""}.
             </p>
 
@@ -1284,102 +1393,159 @@ export default async function StoryPage({
  */
 function Passes({ story }: { story: FoundStory }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">Passes</CardTitle>
-        <CardDescription className="text-pretty">
-          Newest first. Going through it again adds a Pass.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {story.passes.length === 0 ? (
-          <p className="text-pretty text-sm text-muted-foreground">
-            No Pass yet. Start one from the top of the page.
-          </p>
-        ) : (
-          <ol className="-my-1">
-            {story.passes.map((record) => (
-              <li key={record.id} className="border-t border-border py-3.5 first:border-t-0">
-                <p className="flex flex-wrap items-baseline justify-between gap-x-4">
-                  <span className="font-medium tabular-nums">{whenItHappened(record)}</span>
-                  <span className="text-label font-medium text-muted-foreground">
-                    {howItWent(record)}
+    <Section title="Passes" intro="Each time through, newest first.">
+      {story.passes.length === 0 ? (
+        <p className="text-pretty text-sm text-muted-foreground">
+          No Pass yet. Start one from the top of the page.
+        </p>
+      ) : (
+        <ol>
+          {story.passes.map((record) => (
+            <li key={record.id} className={`${ROW} grid gap-2`}>
+              <p className="flex flex-wrap items-baseline justify-between gap-x-4">
+                <span className="font-heading text-[1.0625rem] font-semibold tabular-nums">
+                  {whenItHappened(record)}
+                </span>
+                <span className="text-label text-muted-foreground">{howItWent(record)}</span>
+              </p>
+              <p className="flex flex-wrap items-baseline gap-x-3 text-label text-muted-foreground">
+                <span>{record.provenance.name}</span>
+                {/* Where *this* pass got, which is not where the owner is now: a run given up
+                    at nine in 2019 says so under itself. */}
+                {record.atInstalment === null || story.instalments === null ? null : (
+                  <span className="tabular-nums text-gilt">
+                    {howFarItGot({
+                      atInstalment: record.atInstalment,
+                      instalments: story.instalments,
+                    })}
                   </span>
-                </p>
-                <p className="mt-1 flex flex-wrap items-baseline gap-x-3 text-label text-muted-foreground">
-                  <span>{record.provenance.name}</span>
-                  {/* Where *this* pass got, which is not where the owner is now: a run given
-                      up at nine in 2019 says so under itself, and the hero says where the
-                      pass in hand is. */}
-                  {record.atInstalment === null || story.instalments === null ? null : (
-                    <span className="tabular-nums text-gilt">
-                      {howFarItGot({
-                        atInstalment: record.atInstalment,
-                        instalments: story.instalments,
-                      })}
-                    </span>
-                  )}
-                </p>
-
-                {record.rating ? (
-                  <Judgement rating={record.rating} storyId={story.id} />
-                ) : (
-                  <p className="mt-2 text-sm text-muted-foreground">No Rating on this Pass.</p>
                 )}
+              </p>
 
-                {/* The judgement is opened from the Pass it will belong to, because that
-                    attachment is what a second pass's opinion is made of. An open Pass
-                    can be rated too: the owner is two hundred pages in and knows. */}
-                <p className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  <Link
-                    href={panelled(story.id, RATE, { pass: record.id })}
-                    className="rounded-sm text-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {record.rating ? "Say it again" : "Rate it"}
-                  </Link>
-                  {/* Where this pass got, said from the pass it is about — the same shape the
-                      judgement is opened in, and for the same reason: both belong to one act
-                      of going through it rather than to the Story. */}
-                  {story.instalments === null ? null : (
-                    <Link
-                      href={panelled(story.id, REACHED, { pass: record.id })}
-                      className="rounded-sm text-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      {record.atInstalment === null ? "Say where I got to" : "Move it on"}
+              {/* The judgement is opened from the Pass it will belong to, because that
+                  attachment is what a second pass's opinion is made of. */}
+              {record.rating ? (
+                <Judgement
+                  rating={record.rating}
+                  storyId={story.id}
+                  saidAlready={record.provenance.name}
+                />
+              ) : (
+                <Unrated
+                  rate={
+                    <Link href={panelled(story.id, RATE, { pass: record.id })} className={IN_PROSE}>
+                      Rate it
                     </Link>
-                  )}
-                  {/* **And unmaking the pass itself**, which is the door this row was missing
-                      (ADR-0018). It sits last among the acts because it is the one that is
-                      about the row rather than about the pass: rate it, say where it got
-                      to — and, if it never happened, take it off. */}
-                  <Link
-                    href={panelled(story.id, STRIKE_PASS, { pass: record.id })}
-                    className="rounded-sm text-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    Strike this Pass
+                  }
+                />
+              )}
+
+              <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+                {record.rating ? (
+                  <Link href={panelled(story.id, RATE, { pass: record.id })} className={IN_PROSE}>
+                    Say it again
                   </Link>
-                  {/* **And unsaying only the ending** (ADR-0024), which is the act the row
-                      above is too big for: a pass typed in from the shelf as read is a real
-                      pass with a real judgement on it, and the one false field in it is how it
-                      ended. It is drawn only where there is an ending to unsay, so an open
-                      pass carries the three acts it has and no fourth that would refuse. */}
-                  {stillOpen(record) ? (
-                    <span className="text-sm text-muted-foreground">Still open</span>
-                  ) : (
-                    <Link
-                      href={panelled(story.id, STRIKE_OUTCOME, { pass: record.id })}
-                      className="rounded-sm text-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      It never ended
-                    </Link>
-                  )}
-                </p>
-              </li>
-            ))}
-          </ol>
-        )}
-      </CardContent>
-    </Card>
+                ) : null}
+                {story.instalments === null ? null : (
+                  <Link
+                    href={panelled(story.id, REACHED, { pass: record.id })}
+                    className={IN_PROSE}
+                  >
+                    {record.atInstalment === null ? "Say where I got to" : "Move it on"}
+                  </Link>
+                )}
+                {/* **Unmaking the pass itself** (ADR-0018), last among the acts because it is
+                    about the row rather than about the pass. */}
+                <Link
+                  href={panelled(story.id, STRIKE_PASS, { pass: record.id })}
+                  className={QUIET_LINK}
+                >
+                  Strike this Pass
+                </Link>
+                {/* **And unsaying only the ending** (ADR-0024), drawn only where there is an
+                    ending to unsay. */}
+                {stillOpen(record) ? (
+                  <span className="text-sm text-muted-foreground">Still open</span>
+                ) : (
+                  <Link
+                    href={panelled(story.id, STRIKE_OUTCOME, { pass: record.id })}
+                    className={QUIET_LINK}
+                  >
+                    It never ended
+                  </Link>
+                )}
+              </p>
+            </li>
+          ))}
+        </ol>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * Who wrote it and who drew it, laid out as an indicia: the name, and the role against it.
+ *
+ * A name and a role, and nothing else to fill in: a person the library has not met is named
+ * by crediting them. The field suggests the people who already exist as it is typed into — a
+ * second spelling of a name is a second person forever (ADR-0012) — and it stays a plain
+ * `POST`, so a name typed in full is credited whether the suggestions arrived or not.
+ */
+function Credits({
+  storyId,
+  credits,
+  roles,
+}: {
+  storyId: string;
+  credits: StoryCredit[];
+  roles: CreditRole[];
+}) {
+  return (
+    <Section title="Credits" intro="Who wrote it and who drew it.">
+      {credits.length === 0 ? (
+        <p className="text-pretty text-sm text-muted-foreground">
+          Nobody is credited on this Story yet.
+        </p>
+      ) : (
+        <dl>
+          {credits.map((held) => (
+            <div
+              key={held.id}
+              className="flex items-baseline justify-between gap-3 border-t border-border py-3"
+            >
+              <dd className="min-w-0 flex-1">
+                <Link
+                  href={`/credits/${held.person.id}`}
+                  className="truncate rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {held.person.name}
+                </Link>
+              </dd>
+              <dt className="shrink-0 text-sm text-muted-foreground">{held.role.name}</dt>
+              <Uncredit storyId={storyId} held={held} />
+            </div>
+          ))}
+        </dl>
+      )}
+
+      <form action={credit} className="mt-2 grid gap-3 border-t border-border pt-4">
+        <input type="hidden" name="storyId" value={storyId} />
+        <PersonPicker />
+        <div className="grid gap-1.5">
+          <Label htmlFor="credit-role" className="text-label font-medium text-muted-foreground">
+            Role
+          </Label>
+          <RoleSelect id="credit-role" roles={roles} />
+        </div>
+        <Button
+          type="submit"
+          variant="outline"
+          className="h-11 w-full sm:h-10 sm:w-auto sm:justify-self-start"
+        >
+          Add a credit
+        </Button>
+      </form>
+    </Section>
   );
 }
 
@@ -1401,59 +1567,48 @@ function Passes({ story }: { story: FoundStory }) {
  */
 function PublishedBy({ storyId, ledgers }: { storyId: string; ledgers: SeriesLedger[] }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">Series publishing it</CardTitle>
-        <CardDescription className="text-pretty">The lines that print this Story.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {ledgers.length === 0 ? (
-          <p className="text-pretty text-sm text-muted-foreground">
-            No Series publishes this Story. That is the usual answer.
-          </p>
-        ) : (
-          <ul className="-my-1">
-            {ledgers.map((ledger) => (
-              <li key={ledger.id} className="border-t border-border first:border-t-0">
-                <Link
-                  href={`/series/${ledger.id}`}
-                  className="grid gap-1 py-3 outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <span className="text-pretty font-heading text-lg font-semibold leading-snug">
-                    <SeriesName ledger={ledger} />
-                  </span>
-                  <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <Progress ledger={ledger} />
-                    {/* The missing read, and only where there is a project it is missing from:
-                        a hollow position of a Series nobody decided to complete is empty and
-                        never a shopping list (`series/positions.ts` decides that once). */}
-                    {ledger.missing === null ? null : ledger.missing.length === 0 ? (
-                      <span className="text-label font-medium text-gilt">Complete</span>
-                    ) : (
-                      <span className="text-label tabular-nums text-muted-foreground">
-                        Missing {ledger.missing.length} · next is {ledger.nextMissing}
-                      </span>
-                    )}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+    <Section title="Series publishing it" intro="The lines that print this Story.">
+      {ledgers.length === 0 ? (
+        <p className="text-pretty text-sm text-muted-foreground">
+          No Series publishes this Story. That is the usual answer.
+        </p>
+      ) : (
+        <ul>
+          {ledgers.map((ledger) => (
+            <li key={ledger.id} className="border-t border-border">
+              <Link
+                href={`/series/${ledger.id}`}
+                className="grid gap-1 py-3 outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="text-pretty font-heading text-lg font-semibold leading-snug">
+                  <SeriesName ledger={ledger} />
+                </span>
+                <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <Progress ledger={ledger} />
+                  {/* The missing read, and only where there is a project it is missing from
+                      (`series/positions.ts` decides that once). */}
+                  {ledger.missing === null ? null : ledger.missing.length === 0 ? (
+                    <span className="text-label font-medium text-gilt">Complete</span>
+                  ) : (
+                    <span className="text-label tabular-nums text-muted-foreground">
+                      Missing {ledger.missing.length} · next is {ledger.nextMissing}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
 
-        <p className="mt-6 border-t border-border pt-5">
-          <OpensDrawer href={panelled(storyId, PUBLISHES)}>
-            Say which Series publishes it
-          </OpensDrawer>
-        </p>
-        {/* One clause, and the panel says the rest. What the press does in full is read
-            beside the picker where the line is chosen, so that it is read once and about a
-            line the owner has actually picked. */}
-        <p className="mt-3 text-pretty text-xs leading-relaxed text-muted-foreground">
-          Its Volumes come to carry this Story. Nothing you own moves.
-        </p>
-      </CardContent>
-    </Card>
+      {/* One clause, and the panel says the rest, beside the picker where the line is chosen. */}
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-border pt-3 text-label text-muted-foreground">
+        <Link href={panelled(storyId, PUBLISHES)} className={`text-sm ${IN_PROSE}`}>
+          Say which Series publishes it
+        </Link>
+        <span>Its Volumes come to carry this Story. Nothing you own moves.</span>
+      </p>
+    </Section>
   );
 }
 
@@ -1517,28 +1672,18 @@ function Nib({ className }: { className?: string }) {
 
 function Instalments({ story }: { story: FoundStory }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">Instalments</CardTitle>
-        <CardDescription className="text-pretty">
-          The numbered parts of the work, however they are printed.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Section title="Instalments" intro="The numbered parts of the work, however they are printed.">
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-border pt-3">
         {story.instalments === null ? (
-          <p className="text-pretty text-sm text-muted-foreground">
-            Not numbered. Most Stories are not.
-          </p>
+          <span className="text-sm text-muted-foreground">Not numbered. Most Stories are not.</span>
         ) : (
-          <p className="flex flex-wrap items-baseline gap-x-3">
-            {/* **Where the count comes from the line, the number wears its provenance in the
-                label** the hero already sets a Type and a state in (#34) — three words, and
-                no card explaining the relation between a printing's count and a narrative's.
-                The owner's own count is a plain number; there is no label for *from you*. */}
+          <>
+            {/* Where the count comes from the line, the number wears its provenance in words
+                (#34); the owner's own count is a plain number. */}
             <span
               className={
                 story.instalmentsSaidBy === "line"
-                  ? "text-label font-medium text-muted-foreground"
+                  ? "text-sm text-muted-foreground"
                   : "text-sm font-medium tabular-nums"
               }
             >
@@ -1549,16 +1694,13 @@ function Instalments({ story }: { story: FoundStory }) {
                 You are at {howFarItGot(story.howFarItGot)}.
               </span>
             ) : null}
-          </p>
+          </>
         )}
-
-        <p className="mt-4">
-          <OpensDrawer href={panelled(story.id, SERIALIZE)}>
-            {story.instalments === null ? "Say how many parts it has" : "Correct the count"}
-          </OpensDrawer>
-        </p>
-      </CardContent>
-    </Card>
+        <Link href={panelled(story.id, SERIALIZE)} className={`text-sm ${IN_PROSE}`}>
+          {story.instalments === null ? "Say how many parts it has" : "Correct the count"}
+        </Link>
+      </p>
+    </Section>
   );
 }
 
@@ -1581,90 +1723,82 @@ function Carriers({
   offerable: CollectionVolume[];
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">Volumes carrying it</CardTitle>
-        <CardDescription className="text-pretty">
-          The objects this Story is printed in.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {carriedBy.length === 0 ? (
-          <p className="text-pretty text-sm text-muted-foreground">
-            No Volume carries this Story. That is fine: read digitally, borrowed, or only
-            remembered.
+    <Section title="Volumes carrying it" intro="The objects this Story is printed in.">
+      {carriedBy.length === 0 ? (
+        <p className="text-pretty text-sm text-muted-foreground">
+          No Volume carries this Story. That is fine: read digitally, borrowed, or only remembered.
+        </p>
+      ) : (
+        <div className="border-t border-border pt-3">
+          <ol className="flex flex-wrap gap-1" aria-label="The objects carrying this Story">
+            {carriedBy.map((volume) => (
+              <li key={volume.id}>
+                <Spine
+                  href={`/collection/${volume.id}`}
+                  title={volume.title}
+                  // No position to print for an object nobody placed in a line, and an
+                  // absence is drawn as one rather than as a glyph standing in for a number.
+                  foot={volume.seriesNumber ?? "—"}
+                  tint={tint(volume.seriesId ?? storyId)}
+                  held={volume.inTheHouse}
+                  detail={[
+                    volume.title,
+                    volume.binding.name,
+                    volume.covers ? whatItCovers(volume.covers) : null,
+                    volume.inTheHouse ? "on the shelf" : "not on the shelf",
+                  ]
+                    .filter(Boolean)
+                    .join(" — ")}
+                />
+              </li>
+            ))}
+          </ol>
+          <p className="mt-3 text-pretty text-label text-muted-foreground">
+            {carriedBy.length} {carriedBy.length === 1 ? "Volume" : "Volumes"}, in the
+            publisher&apos;s order. A hollow spine is one not in the house.
           </p>
-        ) : (
-          <>
-            <ol className="flex flex-wrap gap-1" aria-label="The objects carrying this Story">
-              {carriedBy.map((volume) => (
-                <li key={volume.id}>
-                  <Spine
-                    href={`/collection/${volume.id}`}
-                    title={volume.title}
-                    // No position to print for an object nobody placed in a line, and an
-                    // absence is drawn as one rather than as a glyph standing in for a
-                    // number. What it is, is in the label the spine carries.
-                    foot={volume.seriesNumber ?? "—"}
-                    tint={tint(volume.seriesId)}
-                    held={volume.inTheHouse}
-                    detail={[
-                      volume.title,
-                      volume.binding.name,
-                      // What of the work is inside this object, where the work is numbered:
-                      // an omnibus says *Instalments 1–35* and a tankōbon says the one it is.
-                      volume.covers ? whatItCovers(volume.covers) : null,
-                      volume.inTheHouse ? "on the shelf" : "not on the shelf",
-                    ]
-                      .filter(Boolean)
-                      .join(" — ")}
-                  />
-                </li>
-              ))}
-            </ol>
-            <p className="mt-3 text-pretty text-xs leading-relaxed text-muted-foreground">
-              {carriedBy.length} {carriedBy.length === 1 ? "Volume" : "Volumes"}, in the
-              publisher&apos;s order. A hollow spine is one not in the house.
-            </p>
-          </>
-        )}
+        </div>
+      )}
 
-        {/* The same fact the object's own page writes, recorded from this end because a
-            Story spanning twenty objects would otherwise be twenty visits. Take it back on
-            the object's page: a Volume carries Stories, so the correction belongs there. */}
-        <form action={carryFromStory} className="mt-6 grid gap-3 border-t border-border pt-5">
-          <input type="hidden" name="storyId" value={storyId} />
-          <div className="grid gap-1.5">
-            <Label htmlFor="carry-volume" className="text-label font-medium text-muted-foreground">
-              Another Volume carrying it
-            </Label>
-            <select
-              id="carry-volume"
-              name="volumeId"
-              required
-              disabled={offerable.length === 0}
-              defaultValue=""
-              className={PICKER}
-            >
-              <option value="" disabled>
-                {offerable.length === 0
-                  ? "Every Volume in the house already carries it"
-                  : "Choose a Volume"}
+      {/* The same fact the object's own page writes, recorded from this end because a Story
+          spanning twenty objects would otherwise be twenty visits. */}
+      <form action={carryFromStory} className="mt-4 grid gap-3 border-t border-border pt-4">
+        <input type="hidden" name="storyId" value={storyId} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="carry-volume" className="text-label font-medium text-muted-foreground">
+            Another Volume carrying it
+          </Label>
+          <select
+            id="carry-volume"
+            name="volumeId"
+            required
+            disabled={offerable.length === 0}
+            defaultValue=""
+            className={PICKER}
+          >
+            <option value="" disabled>
+              {offerable.length === 0
+                ? "Every Volume in the house already carries it"
+                : "Choose a Volume"}
+            </option>
+            {offerable.map((volume) => (
+              <option key={volume.id} value={volume.id}>
+                {volume.title} — {volume.binding.name}
               </option>
-              {offerable.map((volume) => (
-                <option key={volume.id} value={volume.id}>
-                  {volume.title} — {volume.binding.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button type="submit" disabled={offerable.length === 0} className="h-11 w-full sm:h-10">
-            Record it
-          </Button>
-          <p className="text-label text-muted-foreground">Only Volumes in the house are offered.</p>
-        </form>
-      </CardContent>
-    </Card>
+            ))}
+          </select>
+        </div>
+        <Button
+          type="submit"
+          variant="outline"
+          disabled={offerable.length === 0}
+          className="h-11 w-full sm:h-10 sm:w-auto sm:justify-self-start"
+        >
+          Record it
+        </Button>
+        <p className="text-label text-muted-foreground">Only Volumes in the house are offered.</p>
+      </form>
+    </Section>
   );
 }
 
