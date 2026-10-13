@@ -1,4 +1,4 @@
-import { Mark } from "@/components/mark";
+import { Wordmark } from "@/components/mark";
 import { Button } from "@/components/ui/button";
 import { signInWithGoogle } from "@/lib/auth/actions";
 
@@ -29,20 +29,26 @@ export default async function SignInPage({
       <div>
         {/* The mark, at the size it was drawn to survive. It is the pile the application
             is named after, and this is the one screen a stranger ever sees. */}
-        <h1 className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-          <Mark className="size-5 shrink-0 text-foreground" />
-          tsundoku
+        <h1>
+          <Wordmark at="door" />
         </h1>
-        <p className="mt-4 border-t border-border pt-4 text-pretty text-sm leading-relaxed">
-          A private library — what has been read, what it was worth, what is on the shelf. One
-          Google address gets in.
+        <p className="mt-5 text-pretty font-heading text-lg italic leading-snug text-muted-foreground">
+          The pile that keeps growing, catalogued.
+        </p>
+        <p className="mt-6 border-t border-border pt-5 text-pretty text-sm leading-relaxed">
+          A private library: what has been read, what it was worth, what is on the shelf. One Google
+          address gets in.
         </p>
       </div>
 
       <form action={signInWithGoogle}>
         {/* The one thing anyone taps here, so it is a full touch target rather than
             the primitive's default height. */}
-        <Button type="submit" size="lg" className="h-11 w-full">
+        <Button
+          type="submit"
+          size="lg"
+          className="h-12 w-full rounded-xl text-[0.9375rem] font-semibold"
+        >
           Sign in with Google
         </Button>
       </form>

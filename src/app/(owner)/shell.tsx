@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { GlyphFor, MoreGlyph } from "@/components/glyphs";
-import { Mark } from "@/components/mark";
+import { Wordmark } from "@/components/mark";
 import { Button } from "@/components/ui/button";
 import { signOutOwner } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
@@ -94,37 +94,28 @@ function Desk({ here, onFind }: { here: string | undefined; onFind: () => void }
   return (
     <nav
       aria-label="Sections"
-      className="sticky top-0 hidden h-dvh flex-col border-r border-sidebar-border bg-sidebar px-3 py-5 lg:flex"
+      className="sticky top-0 hidden h-dvh flex-col border-r border-sidebar-border bg-sidebar px-4 py-6 lg:flex"
     >
-      {/* The name and the finder on one line, which is the whole of the chrome above the
-          map: the way to the front of the application, and the way to a record. */}
-      <div className="flex items-center gap-1">
-        <Link
-          href="/"
-          className={cn(
-            "flex min-w-0 items-center gap-2.5 rounded-md px-2 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground",
-            FOCUS
-          )}
-        >
-          <Mark className="size-5 shrink-0 text-foreground" />
-          tsundoku
-        </Link>
+      {/* The name, which is the way to the front of the application. */}
+      <Link href="/" className={cn("flex min-w-0 items-center rounded-md px-2.5", FOCUS)}>
+        <Wordmark />
+      </Link>
 
-        <FinderTrigger onOpen={onFind} className="ml-auto" />
+      {/* The two ways in that are not destinations (`./navigation`): the finder, drawn as the
+          field it opens, and the door, a quiet line under it. The door used to be the one
+          filled block across the top of the sidebar; the act is filled where it is the point
+          of the screen — the header of Home — and here it is a way to it from anywhere,
+          which is all the chrome owes it (ADR-0026). */}
+      <div className="mt-6 space-y-1.5">
+        <FinderTrigger onOpen={onFind} />
+        <DoorAtTheDesk />
       </div>
 
-      {/* The act, before the questions. It is the one filled thing in the chrome, and it
-          sits above the map rather than in it because it is not a destination — see
-          `./navigation`'s `THE_DOOR` for the argument and `./door` for the anatomy. */}
-      <DoorAtTheDesk className="mt-6" />
-
-      <div className="mt-7 flex-1 space-y-7 overflow-y-auto">
+      <div className="mt-6 flex-1 space-y-5 overflow-y-auto">
         {NAVIGATION.map((section) => (
           <div key={section.title}>
-            <h2 className="px-2 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-              {section.title}
-            </h2>
-            <ul className="mt-1.5">
+            <h2 className="px-3 pb-1 text-xs font-medium text-muted-foreground">{section.title}</h2>
+            <ul className="space-y-0.5">
               {section.destinations.map((destination) => (
                 <li key={destination.href}>
                   <Row destination={destination} here={here} />
@@ -159,16 +150,9 @@ function Desk({ here, onFind }: { here: string | undefined; onFind: () => void }
  */
 function PhoneChrome({ onFind }: { onFind: () => void }) {
   return (
-    <div className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-border bg-background px-5 sm:gap-3 sm:px-8 lg:hidden">
-      <Link
-        href="/"
-        className={cn(
-          "flex shrink-0 items-center gap-2.5 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground",
-          FOCUS
-        )}
-      >
-        <Mark className="size-5 shrink-0 text-foreground" />
-        tsundoku
+    <div className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background px-5 sm:gap-3 sm:px-8 lg:hidden">
+      <Link href="/" className={cn("flex shrink-0 items-center rounded-md", FOCUS)}>
+        <Wordmark at="strip" />
       </Link>
 
       <FinderTrigger onOpen={onFind} className="ml-auto" />
@@ -270,14 +254,14 @@ function Phone({
               href={menu.open ? menu.shuts : menu.opens}
               aria-expanded={menu.open}
               className={cn(
-                "relative flex h-16 flex-col items-center justify-center gap-1 px-1 text-center text-eyebrow",
-                beyond || menu.open ? "text-foreground" : "text-muted-foreground",
+                "relative flex h-16 flex-col items-center justify-center gap-1 px-1 text-center text-tab",
+                beyond || menu.open ? "text-cloth" : "text-muted-foreground",
                 FOCUS
               )}
             >
               <Rule on={beyond || menu.open} />
               <MoreGlyph className="size-[22px]" />
-              <span className={cn("truncate", (beyond || menu.open) && "font-medium")}>More</span>
+              <span className={cn("truncate", (beyond || menu.open) && "font-semibold")}>More</span>
             </Link>
           </li>
         </ul>
@@ -327,9 +311,7 @@ function Sheet({ here, shuts }: { here: string | undefined; shuts: string }) {
 
         {BEHIND_MORE.map((section) => (
           <div key={section.title} className="mb-3 last:mb-0">
-            <h2 className="px-3 pb-1 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-              {section.title}
-            </h2>
+            <h2 className="px-3 pb-1 text-xs font-medium text-muted-foreground">{section.title}</h2>
             <ul>
               {section.destinations.map((destination) => (
                 <li key={destination.href}>
@@ -375,17 +357,21 @@ function Row({
       href={destination.href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-md px-2 text-sm transition-colors",
-        roomy ? "h-12 gap-3 px-3" : "py-1.5",
+        "flex items-center gap-3 rounded-lg px-3 text-[0.9375rem] transition-colors",
+        roomy ? "h-12" : "h-10",
         current
-          ? "bg-accent font-medium text-accent-foreground"
-          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+          ? "bg-accent font-semibold text-cloth"
+          : "font-medium text-foreground hover:bg-accent/60",
         FOCUS
       )}
     >
       <GlyphFor
         href={destination.href}
-        className={cn("shrink-0", roomy ? "size-5" : "size-4", !current && "text-muted-foreground")}
+        className={cn(
+          "shrink-0",
+          roomy ? "size-5" : "size-[19px]",
+          !current && "text-muted-foreground"
+        )}
       />
       {destination.label}
     </Link>
@@ -405,14 +391,14 @@ function Tab({ destination, here }: { destination: Destination; here: string | u
       href={destination.href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "relative flex h-16 flex-col items-center justify-center gap-1 px-1 text-center text-eyebrow",
-        current ? "text-foreground" : "text-muted-foreground",
+        "relative flex h-16 flex-col items-center justify-center gap-1 px-1 text-center text-tab",
+        current ? "text-cloth" : "text-muted-foreground",
         FOCUS
       )}
     >
       <Rule on={current} />
       <GlyphFor href={destination.href} className="size-[22px]" />
-      <span className={cn("truncate", current && "font-medium")}>{destination.label}</span>
+      <span className={cn("truncate", current && "font-semibold")}>{destination.label}</span>
     </Link>
   );
 }
@@ -432,7 +418,7 @@ function Rule({ on }: { on: boolean }) {
       aria-hidden="true"
       className={cn(
         "absolute inset-x-2 top-0 h-0.5 rounded-full",
-        on ? "bg-foreground" : "bg-transparent"
+        on ? "bg-cloth" : "bg-transparent"
       )}
     />
   );

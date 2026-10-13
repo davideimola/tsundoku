@@ -96,17 +96,31 @@ export function Mark({ className }: { className?: string }) {
  * *tsundoku* in the serif — lowercase and set tight, a word rather than a logotype spelled out
  * in capitals.
  */
+/** The three sizes the name is signed at: the phone's strip, the sidebar, the sign-in screen. */
+const SIGNED_AT = {
+  strip: { gap: "gap-2", mark: "size-6", word: "text-xl" },
+  sidebar: { gap: "gap-2.5", mark: "size-7", word: "text-2xl" },
+  door: { gap: "gap-3", mark: "size-10", word: "text-[2.5rem]" },
+} as const;
+
 export function Wordmark({
+  at = "sidebar",
   className,
-  markClassName,
 }: {
+  at?: keyof typeof SIGNED_AT;
   className?: string;
-  markClassName?: string;
 }) {
+  const size = SIGNED_AT[at];
+
   return (
-    <span className={cn("flex items-center gap-2.5", className)}>
-      <Mark className={cn("shrink-0", markClassName ?? "size-7")} />
-      <span className="font-heading text-2xl font-semibold leading-none tracking-[-0.01em] text-foreground">
+    <span className={cn("flex items-center", size.gap, className)}>
+      <Mark className={cn("shrink-0", size.mark)} />
+      <span
+        className={cn(
+          "pb-0.5 font-heading font-semibold leading-none tracking-[-0.01em] text-foreground",
+          size.word
+        )}
+      >
         tsundoku
       </span>
     </span>

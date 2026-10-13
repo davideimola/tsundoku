@@ -21,9 +21,7 @@ import { cn } from "@/lib/utils";
 export function Axis({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-      <span className="w-11 shrink-0 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-        {label}
-      </span>
+      <span className="w-12 shrink-0 text-label font-medium text-muted-foreground">{label}</span>
       {children}
     </div>
   );
@@ -50,11 +48,11 @@ export function Chip({
       href={href}
       aria-current={on ? "true" : undefined}
       className={cn(
-        "rounded-full border px-2.5 py-1 font-mono text-eyebrow uppercase tracking-eyebrow transition-colors",
-        "outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex h-8 items-center rounded-full border px-3.5 text-sm font-medium transition-colors",
+        "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         on
-          ? "border-foreground bg-accent text-foreground"
-          : "border-border text-muted-foreground hover:text-foreground"
+          ? "border-cloth-fill bg-cloth-fill text-on-cloth"
+          : "border-border text-foreground hover:bg-accent/60"
       )}
     >
       {children}

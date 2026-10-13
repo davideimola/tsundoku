@@ -66,13 +66,16 @@ export function FinderTrigger({ onOpen, className }: { onOpen: () => void; class
         onOpen();
       }}
       className={cn(
-        "flex size-11 shrink-0 items-center justify-center gap-1.5 rounded-md text-muted-foreground transition-colors",
-        "lg:size-auto lg:justify-start lg:px-1.5 lg:py-1",
+        "flex size-11 shrink-0 items-center justify-center gap-2.5 rounded-lg text-muted-foreground transition-colors",
+        // At the desk it is drawn as the field it opens: a quiet box with the word and the
+        // key in it, which says *search* before anybody reads it.
+        "lg:h-10 lg:w-full lg:justify-start lg:border lg:border-border lg:px-3 lg:text-sm",
         "outline-none hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
         className
       )}
     >
-      <Magnifier className="size-4" />
+      <Magnifier className="size-[18px] shrink-0" />
+      <span className="hidden flex-1 lg:inline">Find</span>
       <Kbd className="hidden lg:inline-flex">
         <Shortcut />
       </Kbd>
@@ -285,7 +288,7 @@ function Search({ onDone }: { onDone: () => void }) {
             {groups.map((group) => (
               // biome-ignore lint/a11y/useSemanticElements: a `fieldset` inside a `listbox` is not a group of options, and this is.
               <div key={group.heading} role="group" aria-label={group.heading}>
-                <p className="px-2 py-1 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                <p className="px-2 pb-1 pt-2 text-label font-semibold text-muted-foreground">
                   {group.heading}
                 </p>
                 {group.suggestions.map((suggestion) => {
@@ -328,12 +331,12 @@ function Search({ onDone }: { onDone: () => void }) {
  */
 function Footing({ term }: { term: string }) {
   const quiet =
-    "rounded-md px-1.5 py-0.5 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring";
+    "rounded-md px-1.5 py-0.5 text-label font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
     <div className="flex items-center justify-between gap-3 border-t border-border px-3 py-2">
       {/* The keys, where there is a keyboard to press them on. */}
-      <p className="hidden items-center gap-3 text-eyebrow text-muted-foreground lg:flex">
+      <p className="hidden items-center gap-3 text-label text-muted-foreground lg:flex">
         <span className="flex items-center gap-1.5">
           <Kbd>↵</Kbd> open
         </span>
@@ -346,7 +349,7 @@ function Footing({ term }: { term: string }) {
         {term === "" ? null : (
           <Link
             href={`/find?q=${encodeURIComponent(term)}`}
-            className={cn(quiet, "underline underline-offset-4")}
+            className={cn(quiet, "text-cloth hover:text-cloth hover:underline underline-offset-4")}
           >
             All results
           </Link>
