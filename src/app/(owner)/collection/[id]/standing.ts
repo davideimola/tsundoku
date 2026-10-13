@@ -396,5 +396,5 @@ function theIsbnAct(volume: RecordedVolume): Act {
 
 /** The cover: found where the tile is drawn, changed where an image is standing on it. */
 function theCoverAct(volume: RecordedVolume): Act {
-  return { panel: "cover", label: volume.cover ? "Change its cover" : "Find it a cover" };
+  return { panel: "cover", label: volume.cover ? "Change the cover" : "Add a cover" };
 }

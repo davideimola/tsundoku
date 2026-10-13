@@ -219,8 +219,8 @@ describe("the acts the object's page offers", () => {
 
   // A wrong cover loads perfectly and is a lie (ADR-0013), so the act over one that exists
   // is worded as a change rather than as a search that has already succeeded.
-  it("offers to find a cover where there is none and to change the one on the tile", () => {
-    expect(labelOf({}, "cover")).toContain("Find");
+  it("offers to add a cover where there is none and to change the one on the tile", () => {
+    expect(labelOf({}, "cover")).toContain("Add");
     expect(labelOf({ cover: { url: "https://x/y", from: "google-books" } }, "cover")).toContain(
       "Change"
     );

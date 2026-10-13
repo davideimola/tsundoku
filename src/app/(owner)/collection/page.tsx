@@ -204,10 +204,13 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           full-width act, one line of prose, and the wall starts where the fold used to be. */}
       <header className="pt-8 sm:flex sm:items-start sm:justify-between sm:gap-x-6 sm:pt-12">
         <div className="min-w-0">
-          <h1 className="font-heading text-2xl sm:text-3xl">Collection</h1>
-          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-            The Volumes physically in the house, standing the way the shelf stands. Not what has
-            been read, and not what is wanted — what is owned.
+          <h1 className="font-heading text-title font-semibold lg:text-title-lg">Collection</h1>
+          <p className="mt-2 text-pretty text-base text-muted-foreground">
+            What is on your shelves.{" "}
+            <span className="tabular-nums">
+              {owned} {owned === 1 ? "Volume" : "Volumes"}
+            </span>
+            .
           </p>
         </div>
 
@@ -233,12 +236,11 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
               absent at nought, like *not in the house* beside it, for the sharper reason: a
               line reading *nothing is missing its contents* is a screen asking to be
               congratulated on a shop's signal. */}
-          <p className="mt-2 text-pretty text-xs text-muted-foreground">
+          <p className="mt-2 text-pretty text-sm text-muted-foreground">
             {elsewhere.length > 0 ? (
               <>
                 <Fact href={panelled(params, ELSEWHERE)}>
-                  <span className="font-mono tabular-nums">{elsewhere.length}</span> not in the
-                  house
+                  <span className="tabular-nums">{elsewhere.length}</span> not in the house
                 </Fact>
                 <BetweenFacts />
               </>
@@ -246,8 +248,8 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             {carryingNothing.length > 0 ? (
               <>
                 <Fact href={panelled(params, CARRYING_NOTHING)}>
-                  <span className="font-mono tabular-nums">{carryingNothing.length}</span> carrying
-                  no Story yet
+                  <span className="tabular-nums">{carryingNothing.length}</span> carrying no Story
+                  yet
                 </Fact>
                 <BetweenFacts />
               </>
@@ -372,30 +374,28 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </div>
       ) : null}
 
-      {/* What is on, and the one gesture that turns it all off. The clear is absent on a
-          whole wall, because a control that does nothing is a reason to wonder what it
-          did. */}
-      <p className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground">
-        <span>
-          {narrowed
-            ? `${volumes.length} of ${owned} ${owned === 1 ? "Volume" : "Volumes"}`
-            : `${owned} ${owned === 1 ? "Volume" : "Volumes"} in the house`}
-        </span>
-        {narrowed ? (
+      {/* What is on, and the one gesture that turns it all off. Both are absent on a whole
+          wall: the count is already under the title, and a control that does nothing is a
+          reason to wonder what it did. */}
+      {narrowed ? (
+        <p className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          <span className="tabular-nums">
+            {volumes.length} of {owned} {owned === 1 ? "Volume" : "Volumes"}
+          </span>
           <Link
             href="/collection"
-            className="font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="rounded-sm text-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             Clear
           </Link>
-        ) : null}
-      </p>
+        </p>
+      ) : null}
 
       {volumes.length === 0 ? (
         <p className="mt-6 max-w-prose text-pretty text-sm text-muted-foreground">
           {narrowed
-            ? "Nothing owned matches that. Which is the answer worth having in a shop — widen it to be sure, then buy it."
-            : "Nothing in the Collection yet. Add to the library says what the object in your hand is, that it came home, and what it holds — in one act."}
+            ? "Nothing you own matches that. Widen the search to be sure, then buy it."
+            : "Nothing in the Collection yet. Add to the library to record the object in your hand."}
         </p>
       ) : (
         /* As many covers as the window holds, at the width a title is legible across —
@@ -420,17 +420,15 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
       {panel === ELSEWHERE && elsewhere.length > 0 ? (
         <Drawer
           title="Known, not in the house"
-          description="The other half of the catalogue: objects the library knows and the Collection does not claim."
+          description="Catalogued, and not on the shelf."
           closesTo={unpanelled(params)}
         >
           <div className="group/strike">
             <p className="text-pretty text-sm text-muted-foreground">
-              {elsewhere.length} {elsewhere.length === 1 ? "Volume" : "Volumes"} catalogued to be
-              wanted, or had once and let go. Say one is in the house when it arrives, and it joins
-              the wall. Tick any that were never real — a duplicate proposed and approved in a hurry
-              — and strike them: the library stops knowing them, and any acquisition that ended goes
-              too. Striking is refused on anything you read, judged or wished for, and on anything
-              in the house; one that stands refuses the whole tick and says which.
+              {elsewhere.length} {elsewhere.length === 1 ? "Volume" : "Volumes"} wanted, or had once
+              and let go. Open one to say it is in the house. Tick any that were never real and
+              strike them: the library stops knowing them. Striking is refused on anything you read,
+              judged, wished for or hold, and the refusal names which.
             </p>
 
             {/* Rows rather than tiles, because that is the difference the screen is about:
@@ -471,8 +469,8 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
                   ticked; repeating it here would spend a third of a phone on a caveat the
                   owner has already gone past. */}
               <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
-                Strike <span className="font-mono tabular-nums after:[content:counter(ticked)]" />{" "}
-                from the catalogue
+                Strike <span className="tabular-nums after:[content:counter(ticked)]" /> from the
+                catalogue
               </Button>
             </form>
           </div>
@@ -500,16 +498,13 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
       {panel === CARRYING_NOTHING && carryingNothing.length > 0 ? (
         <Drawer
           title="Carrying no Story yet"
-          description="Objects the library knows and nobody has said the contents of. A gap to fill, not a mistake."
+          description="Nobody has said what is inside these yet."
           closesTo={unpanelled(params)}
         >
           <p className="text-pretty text-sm text-muted-foreground">
-            {carryingNothing.length} {carryingNothing.length === 1 ? "Volume" : "Volumes"}{" "}
-            catalogued before anybody named what is inside — approved from the Inbox, where an
-            assistant may link the Stories an object holds and never invent one, or catalogued from
-            a photograph in a shop. Nothing refuses such an object and nothing is wrong with it: it
-            simply stands on no Pile and takes no judgement until it carries something. Open one and
-            name what it holds, in the field under its contents.
+            {carryingNothing.length} {carryingNothing.length === 1 ? "Volume" : "Volumes"} with no
+            Story named yet. Nothing is wrong with them, but until one carries something it stands
+            on no Pile and takes no judgement. Open one and name what it holds.
           </p>
 
           {/* The *elsewhere* list's register — rows and a dashed frame, an outline of the
@@ -528,7 +523,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
       {panel === COVERS ? (
         <Drawer
           title="Covers"
-          description="Asked for by ISBN, pointed at where they live, and never copied here."
+          description="Looked up by ISBN and linked to, never copied."
           closesTo={unpanelled(params)}
         >
           <p className="text-pretty text-sm">
@@ -547,10 +542,8 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
               Look up what is missing
             </Button>
             <p className="mt-2 text-pretty text-xs text-muted-foreground">
-              Google Books first, then Open Library for what Google does not have. One run asks
-              about a couple of dozen objects and checks the ones already faced, so a jacket that
-              has been withdrawn is looked up again rather than left broken. Press it again for the
-              rest.
+              Google Books first, then Open Library. One run covers a couple of dozen Volumes; press
+              it again for the rest.
             </p>
           </form>
 
@@ -566,10 +559,8 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
               Ask again about the ones already faced
             </Button>
             <p className="mt-2 text-pretty text-xs text-muted-foreground">
-              For a cover that is wrong rather than missing — the wall showing another book&apos;s
-              jacket because the ISBN it was asked about has since been corrected. This ignores what
-              is recorded and asks the sources from scratch. It costs a request per object, so it is
-              the slower of the two.
+              For a cover that is wrong rather than missing, usually because the ISBN was corrected
+              after it was looked up. Slower: it asks again about every Volume.
             </p>
           </form>
         </Drawer>
@@ -604,7 +595,7 @@ function Fact({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
       href={href}
-      className="inline-block rounded py-1.5 underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      className="inline-block rounded-sm py-1.5 font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
     >
       {children}
     </Link>
@@ -647,7 +638,9 @@ function CarryingNothingRow({ volume }: { volume: VolumeCarryingNothing }) {
         className="flex min-h-11 items-baseline justify-between gap-3 rounded py-3 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="min-w-0">
-          <span className="block truncate font-medium">{volume.title}</span>
+          <span className="block truncate font-heading text-lg font-semibold leading-snug">
+            {volume.title}
+          </span>
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">
             {under}
             {volume.inTheHouse ? null : " · not in the house"}
@@ -745,7 +738,7 @@ function Picker({
 }) {
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
+      <Label htmlFor={id} className="text-label font-medium text-muted-foreground">
         {label}
       </Label>
       <select
@@ -807,7 +800,9 @@ function CataloguedRow({ volume }: { volume: CataloguedVolumeOutsideTheCollectio
       <details className="group min-w-0 flex-1">
         <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 py-3 marker:hidden">
           <span className="min-w-0">
-            <span className="block truncate font-medium text-muted-foreground">{volume.title}</span>
+            <span className="block truncate font-heading text-lg font-semibold leading-snug">
+              {volume.title}
+            </span>
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">
               {under}
               {volume.releasedOn ? ` · left the house on ${volume.releasedOn}` : null}
@@ -840,7 +835,7 @@ function CataloguedRow({ volume }: { volume: CataloguedVolumeOutsideTheCollectio
               Leave both empty where the receipt is gone.{" "}
               <Link
                 href={`/collection/${volume.id}`}
-                className="underline underline-offset-4 hover:text-foreground"
+                className="font-medium text-cloth underline-offset-4 hover:underline"
               >
                 This object&apos;s page
               </Link>{" "}
@@ -870,7 +865,7 @@ function Field({
 
   return (
     <div className={`grid gap-1.5 ${className ?? ""}`}>
-      <Label htmlFor={fieldId} className="text-xs text-muted-foreground">
+      <Label htmlFor={fieldId} className="text-label font-medium text-muted-foreground">
         {label}
       </Label>
       {/* 44px under a thumb, and the desk's own 40px from `sm` up. Every control the owner

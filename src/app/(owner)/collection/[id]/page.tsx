@@ -181,7 +181,7 @@ function panelled(volumeId: string, panel: Panel, about?: string): string {
 const PARTS = "flex h-1.5 items-stretch gap-px data-[gesture=on]:h-5";
 
 const NUMBER =
-  "h-9 rounded-lg border border-input bg-transparent px-2 text-center font-mono text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
+  "h-9 rounded-lg border border-input bg-transparent px-2 text-center text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 export default async function VolumePage({
   params,
@@ -261,7 +261,7 @@ export default async function VolumePage({
           </div>
 
           <div className="min-w-0">
-            <h1 className="text-pretty font-heading text-2xl leading-tight sm:text-3xl">
+            <h1 className="text-balance font-heading text-name font-semibold lg:text-name-lg">
               {volume.title}
             </h1>
             <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -274,11 +274,11 @@ export default async function VolumePage({
               <p className="mt-2 text-sm text-muted-foreground">
                 <Link
                   href={`/series/${volume.series.id}`}
-                  className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  className="rounded-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {[volume.series.name, volume.series.editionLine].filter(Boolean).join(", ")}
                 </Link>{" "}
-                <span className="font-mono tabular-nums">{volume.seriesNumber}</span>
+                <span className="tabular-nums">{volume.seriesNumber}</span>
               </p>
             ) : null}
           </div>
@@ -323,19 +323,13 @@ export default async function VolumePage({
           never one paragraph mixing a publisher with a price. */}
       <div className="mt-10 grid gap-10 lg:grid-cols-2 lg:gap-8">
         <section>
-          <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-            What it is
-          </h2>
-          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-            The object as the library catalogues it. All of it is true whether or not the thing is
-            in your house.
-          </p>
+          <h2 className="font-heading text-section font-semibold">What it is</h2>
 
-          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-4 text-xs">
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-4 text-sm">
             <Fact term="Publisher" detail={volume.publisher} />
             <Fact term="Edition line" detail={volume.editionLine ?? "— the standard printing"} />
             <Fact term="Binding" detail={volume.binding.name} />
-            <Fact term="Language" detail={volume.language} mono />
+            <Fact term="Language" detail={volume.language} />
             {/* **A fact and no longer a box.** It reads in the mono face where there is one
                 and as an absence where there is not — an em dash rather than an empty cell,
                 because a blank reads as a screen that failed to load something. Putting one
@@ -361,7 +355,7 @@ export default async function VolumePage({
                 // A link off this application entirely, so it says so and takes nothing with it.
                 target="_blank"
                 rel="noreferrer noopener"
-                className="underline decoration-border underline-offset-4 hover:decoration-foreground"
+                className="font-medium text-cloth underline-offset-4 hover:underline"
               >
                 The source&apos;s own page for it
               </a>
@@ -370,9 +364,7 @@ export default async function VolumePage({
         </section>
 
         <section>
-          <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-            In the house
-          </h2>
+          <h2 className="font-heading text-section font-semibold">In the house</h2>
           {/* The sentence comes off `findVolume` and the rows off `listAcquisitions`, and the
               two agree by construction: both order the acquisitions the same way, so *the
               latest* is the same row in each, and whether the house holds the object stays the
@@ -394,9 +386,8 @@ export default async function VolumePage({
           <CardHeader>
             <CardTitle>Stories it holds</CardTitle>
             <CardDescription className="text-pretty">
-              One object can hold several narratives, and each one is read and judged on its own.
-              The number beside a Story is that Story&apos;s — this object has none, and cannot have
-              one.
+              Each Story inside is read and judged on its own; a score beside one is that
+              Story&apos;s.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -446,8 +437,7 @@ export default async function VolumePage({
             />
 
             <p className="mt-5 max-w-prose text-pretty text-xs text-muted-foreground">
-              A Story spanning twenty objects is recorded twenty times, once on each. Being read and
-              being owned are separate facts, and so are the two records.
+              A Story spanning twenty Volumes is named on each of them.
             </p>
           </CardContent>
         </Card>
@@ -465,8 +455,8 @@ export default async function VolumePage({
           refused={refused}
           description={
             volume.releasedOn
-              ? "A second acquisition of this same object, not a second object — the one above stays where it is, as a record of having had it before."
-              : "The Collection starts claiming it, and it appears on the wall. Cataloguing it never said this; saying it is a separate act (ADR-0007)."
+              ? "Bought again: a second acquisition of the same object. The first stays on the record."
+              : "It joins the Collection and appears on the wall."
           }
           closesTo={closesTo}
         >
@@ -478,9 +468,8 @@ export default async function VolumePage({
               It is in the house
             </Button>
             <p className="max-w-prose text-xs text-muted-foreground">
-              Leave both empty where the receipt is gone — the fact does not depend on the day, and
-              a gift has no price in it. A comma is a decimal point: the numeric keyboard on an
-              Italian phone offers no dot.
+              Both are optional: leave them empty for a gift or a lost receipt. A comma works as a
+              decimal point.
             </p>
           </form>
         </Drawer>
@@ -496,7 +485,7 @@ export default async function VolumePage({
         <Drawer
           title={acting.label}
           refused={refused}
-          description="What was paid for this one, and the day it came home. The acquisition itself stays: the object did arrive, and the Passes made through it are still true — this rewrites a fact on the record rather than unmaking it."
+          description="The price and the day it came home. The acquisition itself stays."
           closesTo={closesTo}
         >
           <form action={correct} className="grid gap-4">
@@ -523,10 +512,9 @@ export default async function VolumePage({
               Correct it
             </Button>
             <p className="max-w-prose text-xs text-muted-foreground">
-              <strong className="font-medium text-foreground">Emptying a box clears it.</strong> A
-              price you never paid comes off the record and the acquisition stops counting towards
-              what the library has cost; an empty day is an object that was simply always here. A
-              comma is a decimal point.
+              <strong className="font-medium text-foreground">Emptying a box clears it:</strong> no
+              price means it stops counting towards what the library has cost, and no day means it
+              was always here. A comma works as a decimal point.
             </p>
           </form>
         </Drawer>
@@ -538,18 +526,17 @@ export default async function VolumePage({
         <Drawer
           title={acting.label}
           refused={refused}
-          description="Sold, given away or lost. The Collection stops claiming it and it leaves the wall; the library keeps knowing this object."
+          description="Sold, given away or lost. It leaves the Collection; the library still knows it."
           closesTo={closesTo}
         >
           <form action={release} className="grid gap-4">
             <input type="hidden" name="volumeId" value={volume.id} />
-            <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
+            <Button type="submit" variant="outline" className="h-11 w-full sm:h-10">
               Release it
             </Button>
             <p className="max-w-prose text-xs text-muted-foreground">
-              Nothing is erased: this page stays, the acquisition becomes a record of having had it,
-              and so do the Edition note and the Passes made through it. Buying it again is a second
-              acquisition of the same object, not a second object.
+              Nothing is erased: this page, the Edition note and the Passes through it all stay. If
+              it comes back, that is a second acquisition of the same object.
             </p>
           </form>
         </Drawer>
@@ -582,7 +569,7 @@ export default async function VolumePage({
         <Drawer
           title={acting.label}
           refused={refused}
-          description="What you think of this as an object — print quality, translation, value for money, whether the Must Have was the right way to try the saga. It decides what to buy, and it is not a score."
+          description="What you think of this printing: paper, translation, value for money. Not a score."
           closesTo={closesTo}
         >
           <form action={writeNote} className="grid gap-4">
@@ -606,8 +593,8 @@ export default async function VolumePage({
             </Button>
             <p className="max-w-prose text-xs text-muted-foreground">
               {note
-                ? "One note per object, so this replaces what is written there — an opinion of an object is a verdict, not an event. Empty the box to take it back."
-                : "One note per object. Rewriting it later replaces this one, and emptying the box takes it back."}
+                ? "This replaces the note. Empty the box to take it back."
+                : "One note per object. Empty the box later to take it back."}
             </p>
           </form>
         </Drawer>
@@ -693,9 +680,7 @@ function CoveredRange({
         <input type="hidden" name="volumeId" value={volumeId} />
         <input type="hidden" name="storyId" value={story.id} />
 
-        <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-          Instalments
-        </span>
+        <span className="text-label font-medium text-muted-foreground">Instalments</span>
         <label className="sr-only" htmlFor={`covers-from-${story.id}`}>
           First Instalment of {story.title} in this object
         </label>
@@ -769,24 +754,20 @@ function TheEditionNote({
       <CardHeader>
         <CardTitle>Edition note</CardTitle>
         <CardDescription className="text-pretty">
-          What you think of this as an object — print quality, translation, value for money, whether
-          the Must Have was the right way to try the saga.{" "}
-          <strong className="font-medium text-foreground">It is not a score</strong>, it stands
-          beside no Rating, and nothing recommending you a Story will ever read it.
+          What you think of this printing. Not a score, and never read by a recommender.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
         {note ? (
           <>
-            <p className="max-w-prose text-pretty font-serif text-prose">{note.note}</p>
-            <p className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+            <p className="max-w-prose text-pretty font-serif text-prose italic">{note.note}</p>
+            <p className="text-label font-medium text-muted-foreground tabular-nums">
               Written {note.writtenAt}
             </p>
           </>
         ) : (
           <p className="max-w-prose text-pretty text-sm text-muted-foreground">
-            Nothing written about this printing yet. It is the judgement that decides what to buy
-            next time, and the only one this application will not read back to you as a number.
+            Nothing written about this printing yet.
           </p>
         )}
 
@@ -856,14 +837,17 @@ function TheIsbn({
     <Drawer
       title={act.label}
       refused={refused}
-      description="Ten or thirteen characters. Writing it asks SBN, Italy's legal-deposit catalogue, what is published under it — and what it says is yours to accept or leave."
+      description="Ten or thirteen digits. Saving it also asks SBN, Italy's national catalogue, what it is."
       closesTo={closesTo}
     >
       <div className="grid gap-5">
         <form action={recordIsbn} className="grid gap-4">
           <input type="hidden" name="volumeId" value={volume.id} />
           <div className="grid gap-1.5">
-            <Label htmlFor={THE_ISBN_FIELD.id} className="text-xs text-muted-foreground">
+            <Label
+              htmlFor={THE_ISBN_FIELD.id}
+              className="text-label font-medium text-muted-foreground"
+            >
               ISBN
             </Label>
             <Input
@@ -911,7 +895,7 @@ function TheIsbn({
                   <div key={field.field} className="grid gap-1.5">
                     <Label
                       htmlFor={`from-sbn-${field.field}`}
-                      className="text-xs text-muted-foreground"
+                      className="text-label font-medium text-muted-foreground"
                     >
                       {field.label}
                     </Label>
@@ -941,8 +925,7 @@ function TheIsbn({
                   {differs
                     ? "Only these two fields. The Binding, the language, the edition line and the line it stands in are not in the catalogue's answer and are left exactly as they are."
                     : "Nothing here differs from the record: the catalogue and this library already say the same thing about this object, word for word."}{" "}
-                  Clear a box to keep what the record says — both cleared changes no field, and is
-                  refused.
+                  Clear a box to keep what the record says.
                 </p>
               </form>
             ) : null}
@@ -1010,25 +993,21 @@ function TheCover({
             </div>
 
             <p className="max-w-prose text-xs text-muted-foreground">
-              Google Books first, then Open Library. The image is <em>pointed at</em> where it lives
-              and never copied here, so it is 128 pixels wide — which is all there is — and whoever
-              owns it can withdraw it. <strong>Asking again always reaches the source</strong>,
-              whatever is recorded here: a jacket fetched against an ISBN that has since been
-              corrected still loads perfectly, and is still the wrong book.
+              Google Books first, then Open Library. The cover is linked, not copied, so it is small
+              and its owner can withdraw it. Asking again always reaches the source.
             </p>
           </div>
         ) : (
           <p className="max-w-prose text-pretty text-sm text-muted-foreground">
-            Every source is keyed by ISBN, and this object has none — so there is nothing to ask.
-            Record its ISBN first, or give it an image of your own below. A Bonelli monthly never
-            gets one: those carry a periodical EAN and no ISBN at all.
+            Covers are looked up by ISBN, and this Volume has none. Record its ISBN first, or use an
+            image of your own below.
           </p>
         )}
 
         <form action={useOwnImage} className="grid gap-3 border-t border-border pt-5">
           <input type="hidden" name="volumeId" value={volume.id} />
           <div className="grid gap-1.5">
-            <Label htmlFor="volume-image" className="text-xs text-muted-foreground">
+            <Label htmlFor="volume-image" className="text-label font-medium text-muted-foreground">
               An image of your own
             </Label>
             <Input
@@ -1043,13 +1022,11 @@ function TheCover({
             />
           </div>
           <Button type="submit" variant="outline" className="h-11 w-full sm:h-10">
-            {own ? "Use this one" : "Use my own"}
+            {own ? "Use this image" : "Use my own image"}
           </Button>
           <p className="max-w-prose text-xs text-muted-foreground">
-            A photograph or a scan you host yourself. It overrides whatever the lookup found, at
-            whatever size you took it — and it is the only image this library keeps, because it is
-            yours and no third party can withdraw it. An address on a source&apos;s own domain is
-            refused: that would be their bytes under your name.
+            A photograph or scan you host yourself. It replaces the looked-up cover. An address on a
+            cover source&apos;s own domain is refused.
           </p>
         </form>
 
@@ -1062,7 +1039,7 @@ function TheCover({
               size="sm"
               className="-ml-2.5 h-8 text-xs text-muted-foreground"
             >
-              Take my image off
+              Remove my image
             </Button>
           </form>
         ) : null}
@@ -1126,11 +1103,11 @@ function History({
             className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border py-3 text-sm"
           >
             <span className="flex flex-wrap items-baseline gap-x-2">
-              <span className="font-mono tabular-nums">{acquisition.acquiredOn ?? "—"}</span>
+              <span className="tabular-nums">{acquisition.acquiredOn ?? "—"}</span>
               <span className="text-muted-foreground">
                 {acquisition.releasedOn ? (
                   <>
-                    to <span className="font-mono tabular-nums">{acquisition.releasedOn}</span>
+                    to <span className="tabular-nums">{acquisition.releasedOn}</span>
                   </>
                 ) : (
                   "and still here"
@@ -1138,11 +1115,11 @@ function History({
               </span>
             </span>
             <span className="flex items-baseline gap-3">
-              <span className="font-mono tabular-nums">
+              <span className="tabular-nums">
                 {acquisition.pricePaid ? (
                   `€ ${acquisition.pricePaid}`
                 ) : (
-                  <span className="font-sans text-muted-foreground">— no price recorded</span>
+                  <span className="text-muted-foreground">— no price recorded</span>
                 )}
               </span>
 
@@ -1179,7 +1156,7 @@ function Fact({
 }) {
   return (
     <div className={wide ? "col-span-2" : undefined}>
-      <dt className="text-muted-foreground">{term}</dt>
+      <dt className="text-label font-medium text-muted-foreground">{term}</dt>
       <dd className={mono ? "font-mono" : undefined}>{detail}</dd>
     </div>
   );
@@ -1205,7 +1182,7 @@ function Field({
 } & React.ComponentProps<typeof Input>) {
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={`${form}-${name}`} className="text-xs text-muted-foreground">
+      <Label htmlFor={`${form}-${name}`} className="text-label font-medium text-muted-foreground">
         {label}
       </Label>
       <Input id={`${form}-${name}`} name={name} className="h-11 sm:h-10" {...props} />

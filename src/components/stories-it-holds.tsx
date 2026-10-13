@@ -279,8 +279,7 @@ export function TheStoriesItHolds({
     <div>
       {held.length === 0 ? (
         <p className="max-w-prose text-pretty text-sm text-muted-foreground">
-          Nothing recorded yet. Name what is inside this object below, and it appears on each
-          narrative too — it is one fact, read from both ends.
+          No Story named yet. Name what is inside below.
         </p>
       ) : (
         <ul className="-my-1">
@@ -308,8 +307,8 @@ export function TheStoriesItHolds({
           owner opened; saying what is inside an object is a correction made while reading the
           list above it. */}
       <div className="mt-6 border-t border-border pt-5">
-        <label htmlFor={field} className="text-xs text-muted-foreground">
-          A narrative inside this object
+        <label htmlFor={field} className="text-label font-medium text-muted-foreground">
+          A Story inside this object
         </label>
 
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -358,8 +357,7 @@ export function TheStoriesItHolds({
           id={`${field}-hint`}
           className="mt-2 max-w-prose text-pretty text-xs text-muted-foreground"
         >
-          Typing searches the library. Press enter to record a narrative it has never held — it is
-          created and put inside this object in one act.
+          Typing searches the library. Press enter to add a Story it does not know yet.
         </p>
 
         {refused || said ? (
@@ -386,8 +384,7 @@ export function TheStoriesItHolds({
               into would be arguing with the owner mid-word. */}
           {typed !== "" && bands.length === 0 && !asking ? (
             <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-              The library holds nothing called {typed}. Enter records it as a narrative of its own,
-              inside this object.
+              Nothing called {typed} yet. Press enter to add it as a Story inside this object.
             </p>
           ) : null}
         </div>
@@ -424,9 +421,7 @@ function Row({
   onRename?: (title: string) => void;
 }) {
   const type = story.type ? (
-    <span className="whitespace-nowrap font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-      {story.type}
-    </span>
+    <span className="whitespace-nowrap text-label text-muted-foreground">{story.type}</span>
   ) : null;
 
   // **The shown default, and it is shown as a word rather than as a box** (#48, ADR-0019).
@@ -443,13 +438,13 @@ function Row({
         disabled={working}
         onChange={(event) => onRename(event.target.value)}
         aria-label="What this narrative is called"
-        className="min-w-0 flex-1 border-b border-dashed border-muted-foreground/60 bg-transparent py-1.5 font-heading text-base outline-none focus-visible:border-solid focus-visible:border-ring disabled:opacity-50 sm:py-1 sm:text-sm"
+        className="min-w-0 flex-1 border-b border-dashed border-muted-foreground/60 bg-transparent py-1.5 font-heading text-lg font-semibold outline-none focus-visible:border-solid focus-visible:border-ring disabled:opacity-50 sm:py-1 sm:text-sm"
       />
       {type}
     </span>
   ) : (
     <>
-      <span className="font-heading">{story.title}</span> {type}
+      <span className="font-heading text-lg font-semibold leading-snug">{story.title}</span> {type}
     </>
   );
 
@@ -461,7 +456,7 @@ function Row({
         ) : story.href ? (
           <a
             href={story.href}
-            className="min-w-0 flex-1 basis-full underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring sm:basis-auto"
+            className="min-w-0 flex-1 basis-full rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:basis-auto"
           >
             {title}
           </a>
@@ -470,7 +465,7 @@ function Row({
         )}
 
         <span className="flex items-baseline gap-2">
-          <span className="w-10 text-right font-mono text-xs tabular-nums text-muted-foreground">
+          <span className="w-10 text-right text-sm tabular-nums text-muted-foreground">
             {story.score === null ? "—" : story.score.toFixed(1)}
           </span>
 
@@ -497,8 +492,7 @@ function Row({
       {armed && onStrike ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-accent/50 px-3 py-2">
           <p className="max-w-prose text-pretty text-xs text-muted-foreground">
-            The library stops knowing {story.title}. The Credits on it go too, and the people they
-            name stay.
+            Strike {story.title} from the library? Its Credits go too; the people stay.
           </p>
           {/* Two presses at a thumb's width and a thumb's gap: what is being confirmed
               is a strike, and *Keep it* sitting flush against it at thirty-two pixels was
@@ -589,7 +583,7 @@ function Line({
           style={worn(tint(band.seriesId))}
           className={cn("h-4 w-1 shrink-0 rounded-full", band.seriesId ? WORN : UNWORN)}
         />
-        <h3 className="min-w-0 flex-1 truncate font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+        <h3 className="min-w-0 flex-1 truncate text-label font-semibold text-foreground">
           {band.name}
         </h3>
         {band.stories.length > 1 ? (
@@ -617,13 +611,13 @@ function Line({
             >
               {/* The position, where the object carrying it stands in a line: 1, 2, 10 down
                   the gutter is what makes a run readable as a run. */}
-              <span className="w-6 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+              <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">
                 {story.standsAt ?? ""}
               </span>
-              <span className="min-w-0 flex-1 truncate font-heading text-sm">{story.title}</span>
-              <span className="shrink-0 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-                {story.type.name}
+              <span className="min-w-0 flex-1 truncate font-heading text-base font-semibold">
+                {story.title}
               </span>
+              <span className="shrink-0 text-label text-muted-foreground">{story.type.name}</span>
             </button>
           </li>
         ))}

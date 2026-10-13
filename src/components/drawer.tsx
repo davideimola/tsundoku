@@ -68,7 +68,7 @@ export function Drawer({
         href={closesTo}
         aria-hidden
         tabIndex={-1}
-        className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px] dark:bg-background/70"
       />
 
       {/* From the bottom on a phone, from the right at the desk — the two edges a thumb and
@@ -93,7 +93,7 @@ export function Drawer({
 
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-background/95 px-5 py-4 backdrop-blur">
           <div className="min-w-0">
-            <h2 className="font-heading text-lg">{title}</h2>
+            <h2 className="font-heading text-section font-semibold">{title}</h2>
             {description ? (
               <p className="mt-1 text-pretty text-sm text-muted-foreground">{description}</p>
             ) : null}
@@ -103,7 +103,7 @@ export function Drawer({
               exactly one way of closing rather than two that could disagree. */}
           <Link
             href={closesTo}
-            className="-mr-3 -mt-2 flex h-11 shrink-0 items-center rounded-lg px-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:-mr-1.5 sm:-mt-1 sm:h-auto sm:px-2 sm:py-1"
+            className="-mr-3 -mt-2 flex h-11 shrink-0 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:-mr-1.5 sm:-mt-1 sm:h-auto sm:px-2 sm:py-1"
           >
             Close
           </Link>
@@ -147,10 +147,10 @@ export function OpensDrawer({
     <Link
       href={href}
       className={cn(
-        "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring sm:h-10",
+        "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-10",
         emphasis === "loud"
           ? "bg-primary text-primary-foreground hover:bg-primary/90"
-          : "ring-1 ring-foreground/15 hover:bg-muted"
+          : "border border-border text-foreground hover:bg-muted"
       )}
     >
       {children}
