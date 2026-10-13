@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -230,10 +229,9 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
                 <ComesTo band={band} />
               </h2>
 
-              {/* Two and three abreast at a desk, one under the other on a phone: a dozen
-                  Wishes are one screen either way, and the card is the same object at both
-                  widths rather than a second layout to keep in step. */}
-              <ul className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {/* Rows under hairlines rather than boxed cards: a dozen Wishes are a list to run
+                  an eye down in a shop, and the row is the same object at both widths. */}
+              <ul className="mt-3 max-w-3xl">
                 {band.wishes.map((wish) => (
                   <WishCard key={wish.id} wish={wish} />
                 ))}
@@ -490,68 +488,83 @@ function Period({ today, chosen }: { today: Date; chosen?: string | null }) {
  * nothing and is a plain form, which is where the line between the two is drawn.
  */
 function WishCard({ wish }: { wish: OpenWish }) {
-  const under = [wish.volume.publisher, wish.volume.editionLine].filter(Boolean).join(" · ");
+  const said = [
+    wish.volume.publisher,
+    wish.volume.editionLine,
+    wish.volume.binding.name,
+    `wanted since ${wish.openedOn}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <li className="flex gap-4 rounded-xl p-4 ring-1 ring-foreground/10">
-      {/* The object, faced outwards — the same tile as on the walls, in the same colour and
-          the same shape, so a Wish is recognised by sight rather than read. It leads to the
-          object's own page, which is where the ISBN and the edition live. */}
-      <div className="w-16 shrink-0 sm:w-20">
-        <Cover
-          href={`/collection/${wish.volume.id}`}
-          title={wish.volume.title}
-          tint={tint(wish.volume.seriesId)}
-          label={wishDetail(wish)}
-          image={wish.volume.cover}
-        />
-      </div>
+    <li className="flex items-start gap-3.5 border-t border-border py-3.5 first:border-t-0">
+      {/* The object's jacket, small: a Wish is recognised by sight rather than read. The name
+          beside it is the link to the object's own page, where the ISBN and the edition live,
+          so the picture is not a second link to the same place. */}
+      <Cover
+        title={wish.volume.title}
+        tint={tint(wish.volume.seriesId ?? wish.volume.id)}
+        label={wishDetail(wish)}
+        image={wish.volume.cover}
+        size="thumb"
+        className="w-11 shrink-0 sm:w-12"
+      />
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <h3 className="min-w-0 font-heading text-lg font-semibold leading-snug text-balance">
-            {wish.volume.title}
+      <div className="min-w-0 flex-1 sm:flex sm:items-start sm:gap-6">
+        <div className="min-w-0 sm:flex-1">
+          <h3 className="font-heading text-lg font-semibold leading-snug text-balance">
+            <Link href={`/collection/${wish.volume.id}`} className={NAME_LINK}>
+              {wish.volume.title}
+            </Link>
           </h3>
-          <Badge variant="outline" className="shrink-0">
-            {wish.volume.binding.name}
-          </Badge>
-        </div>
-        {under ? <p className="mt-0.5 truncate text-label text-muted-foreground">{under}</p> : null}
-
-        <Money wish={wish} />
-
-        <p className="mt-1.5 text-label text-muted-foreground tabular-nums">
-          Wanted since {wish.openedOn}
-        </p>
-
-        {/* A fact about the shelf, not a state of the Wish. Owning the object does not end
-            the intention to buy it — only the owner does — so the overlap is shown rather
-            than resolved by the app. */}
-        {wish.inCollection ? (
-          <p className="mt-3 text-pretty text-label text-muted-foreground">
-            Already in the Collection. <em>Bought it</em> would be a second acquisition of one
-            object.
+          <p className="mt-0.5 text-pretty text-label text-muted-foreground first-letter:uppercase tabular-nums">
+            {said}
           </p>
-        ) : null}
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <OpensDrawer href={panelledAt(BUYING_WHAT_WAS_WISHED, wish.id)}>Bought it</OpensDrawer>
-          <OpensDrawer href={panelledAt(REPLANNING_A_WISH, wish.id)}>Replan</OpensDrawer>
+          <Money wish={wish} />
 
-          {/* **A press that asks for nothing is a plain form and not a panel**, and this one
-              asks for nothing: closing a Wish takes no field. */}
+          {/* A fact about the shelf, not a state of the Wish. Owning the object does not end
+              the intention to buy it — only the owner does — so the overlap is shown rather
+              than resolved by the app. */}
+          {wish.inCollection ? (
+            <p className="mt-1.5 text-pretty text-label text-muted-foreground">
+              Already in the Collection. <em>Bought it</em> would be a second acquisition of one
+              object.
+            </p>
+          ) : null}
+        </div>
+
+        {/* The acts, as text at the right of the row, in the order they happen: the object
+            comes home, or the plan changes, or the owner stops wanting it. The first two ask
+            for a field and open a panel; the last asks for nothing and is a plain form. */}
+        <div className="-ml-2 mt-1 flex flex-wrap items-center sm:ml-0 sm:mt-0 sm:shrink-0 sm:justify-end">
+          <Link href={panelledAt(BUYING_WHAT_WAS_WISHED, wish.id)} className={`${ACT} text-cloth`}>
+            Bought it
+          </Link>
+          <Link href={panelledAt(REPLANNING_A_WISH, wish.id)} className={`${ACT} text-foreground`}>
+            Replan
+          </Link>
           <form action={close}>
             <input type="hidden" name="wishId" value={wish.id} />
             <input type="hidden" name="title" value={wish.volume.title} />
-            <Button type="submit" variant="secondary" size="sm" className="h-11 sm:h-10">
+            <button type="submit" className={`${ACT} text-muted-foreground`}>
               Close it
-            </Button>
+            </button>
           </form>
         </div>
       </div>
     </li>
   );
 }
+
+/** A row's act, said as text: a thumb's height of target around a word. */
+const ACT =
+  "inline-flex h-11 items-center rounded-md px-2 text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:h-9";
+
+/** A row's name, which is the way to the object's own page. */
+const NAME_LINK =
+  "rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * **The whole of the money, in one line**: what it costs, where, what it should cost, and
@@ -569,7 +582,7 @@ function WishCard({ wish }: { wish: OpenWish }) {
  */
 function Money({ wish }: { wish: OpenWish }) {
   return (
-    <p className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+    <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
       {wish.priceFound ? (
         <span className="font-semibold tabular-nums">€ {wish.priceFound}</span>
       ) : (
