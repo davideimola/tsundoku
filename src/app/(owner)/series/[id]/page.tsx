@@ -117,6 +117,20 @@ export default async function SeriesDetailPage({
   const makers = work ? [...new Set(work.credits.map((credit) => credit.person.name))] : [];
 
   const collecting = Boolean(series.collectingSince);
+
+  // Collecting, or not: the one act that changes what this screen means.
+  const decision = (
+    <form action={collecting ? stopCollecting : collect}>
+      <input type="hidden" name="seriesId" value={series.id} />
+      <Button
+        type="submit"
+        variant={collecting ? "outline" : "default"}
+        className="h-11 sm:h-10 sm:px-6"
+      >
+        {collecting ? "Stop collecting it" : "Collect this Series"}
+      </Button>
+    </form>
+  );
   const refused = asked(asks, "refused");
   const news = newsFrom(asks);
   const closesTo = `/series/${series.id}`;
@@ -190,28 +204,29 @@ export default async function SeriesDetailPage({
           missing={series.missing?.length ?? null}
         />
 
-        {/* **The decision leads, because it is the one act that changes what this screen
-            means**: the same hollow position is *missing* under a collecting project and
-            merely empty without one. It is the one cloth act until it is taken; then it is
-            outlined, and the two maintenance acts follow it. */}
+        {/* **The decision is the one act that changes what this screen means**: the same
+            hollow position is *missing* under a collecting project and merely empty without
+            one. It is the one cloth act until it is taken; then placing a Volume is. */}
         <div className="flex w-full flex-wrap items-center gap-2.5">
-          <form action={collecting ? stopCollecting : collect}>
-            <input type="hidden" name="seriesId" value={series.id} />
-            <Button
-              type="submit"
-              variant={collecting ? "outline" : "default"}
-              className="h-11 sm:h-10 sm:px-6"
-            >
-              {collecting ? "Stop collecting it" : "Collect this Series"}
-            </Button>
-          </form>
+          {/* The cloth act leads the row: the decision until it is taken, then placing the
+              next Volume — and *Stop collecting it* goes to the end, outlined, because it is
+              the act nobody opens this page for. */}
+          {collecting ? (
+            <OpensDrawer href={panelled(series.id, PLACE)} emphasis="loud">
+              Place a Volume
+            </OpensDrawer>
+          ) : null}
 
-          <OpensDrawer href={panelled(series.id, PLACE)} emphasis={collecting ? "loud" : "quiet"}>
-            Place a Volume
-          </OpensDrawer>
+          {collecting ? null : decision}
+
+          {collecting ? null : (
+            <OpensDrawer href={panelled(series.id, PLACE)}>Place a Volume</OpensDrawer>
+          )}
           <OpensDrawer href={panelled(series.id, PUBLISHED)}>
             What the publisher has done
           </OpensDrawer>
+
+          {collecting ? decision : null}
         </div>
       </header>
 

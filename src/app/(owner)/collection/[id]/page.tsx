@@ -306,15 +306,16 @@ export default async function VolumePage({
             </p>
           </div>
 
-          {/* **One loud act, the rest outlined.** The first is the one the owner opened this
-              page to perform — whether the house holds the thing — and `./standing.ts` is what
-              puts it first. */}
+          {/* **At most one loud act, the rest outlined.** The first is the one the owner opened
+              this page to perform — whether the house holds the thing — and `./standing.ts` is
+              what puts it first. It is cloth when it brings the object in; *It left the house*
+              stays outlined, because a release is never the act a page should shout. */}
           <div className="flex flex-wrap items-center gap-2.5">
             {acts.map((act, place) => (
               <OpensDrawer
                 key={act.panel}
                 href={panelled(volume.id, act.panel)}
-                emphasis={place === 0 ? "loud" : "quiet"}
+                emphasis={place === 0 && act.panel !== "release" ? "loud" : "quiet"}
               >
                 {act.label}
               </OpensDrawer>
