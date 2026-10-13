@@ -1,4 +1,5 @@
 import type { FacedWith } from "@/core/queries/cover";
+import type { LendingVolume } from "@/core/queries/story";
 
 // **STORIES BOUND IN ONE VOLUME**, and why a wall stops drawing the same jacket four times.
 //
@@ -9,14 +10,11 @@ import type { FacedWith } from "@/core/queries/cover";
 // from the next. So a wall of Stories lays those out as **one tile**: the jacket, faced out of
 // a small stack of paper, with *N stories inside* under it, opening onto the list.
 //
-// **Which Volume lends a jacket is not something the Story wall is told.** Its query answers
-// the picture (`cover`) and how many narratives wear it (`wornBy`), and not the lending
-// Volume's id. So the grouping is by **the jacket itself — the image's address** — which is
-// the same thing in every case the wall can produce: one Volume lends one URL. The
-// approximation fails only where two different Volumes are faced with byte-for-byte the same
-// URL, and then they would also look identical on the wall, which is the problem this solves.
-// A Story wearing an image of its own (`from: "own"`) is never grouped: that picture is its
-// own by the owner's word.
+// **The grouping is by the Volume that lends the jacket**, which the wall's query names
+// (`lentBy`, off the same pick the picture comes from). It was by the image's address until
+// the core said which Volume — an approximation that also lost the way onto the Volume
+// wherever the house did not hold it. A Story wearing an image of its own lends from nobody
+// (`lentBy` is `null`), so it is never grouped: that picture is its own by the owner's word.
 //
 // Pure, and tested beside itself (`./bound-together.test.ts`), because which tiles a wall
 // draws is a derivation and not markup.
@@ -27,6 +25,8 @@ export type Faced = {
   cover: FacedWith | null;
   /** How many narratives wear this Story's jacket, off the query (`wornBy`). */
   wornBy: number;
+  /** The Volume that jacket is lent by, off the query, or `null` where nothing is lent. */
+  lentBy: LendingVolume | null;
 };
 
 /** One tile of a wall of Stories: a Story on its own, or several bound in one Volume. */
@@ -46,19 +46,21 @@ export type Shelved<Story extends Faced> =
       /** The first Story's id: stable, and short enough to stand in a URL. */
       key: string;
       cover: FacedWith;
+      /** The Volume they are bound in, which lends the jacket — in the house or not. */
+      volume: LendingVolume;
       stories: Story[];
     };
 
 /** Whether this Story may wear its jacket as its own anywhere it is drawn alone. */
-export function ownsItsCover(story: Faced): boolean {
+export function ownsItsCover(story: Pick<Faced, "cover" | "wornBy">): boolean {
   if (!story.cover) return false;
   return story.cover.from === "own" || story.wornBy <= 1;
 }
 
-/** The jacket a Story borrows from a Volume it shares with others, or `null`. */
-function sharedJacket(story: Faced): string | null {
-  if (!story.cover || story.cover.from === "own" || story.wornBy <= 1) return null;
-  return story.cover.url;
+/** The Volume a Story borrows a jacket from that it shares with others, or `null`. */
+function sharedJacket(story: Faced): LendingVolume | null {
+  if (!story.cover || !story.lentBy || story.wornBy <= 1) return null;
+  return story.lentBy;
 }
 
 /**
@@ -70,7 +72,7 @@ export function boundTogether<Story extends Faced>(stories: Story[]): Shelved<St
   for (const story of stories) {
     const jacket = sharedJacket(story);
     if (jacket === null) continue;
-    byJacket.set(jacket, [...(byJacket.get(jacket) ?? []), story]);
+    byJacket.set(jacket.id, [...(byJacket.get(jacket.id) ?? []), story]);
   }
 
   const shelved: Shelved<Story>[] = [];
@@ -78,12 +80,18 @@ export function boundTogether<Story extends Faced>(stories: Story[]): Shelved<St
 
   for (const story of stories) {
     const jacket = sharedJacket(story);
-    const together = jacket === null ? [] : (byJacket.get(jacket) ?? []);
+    const together = jacket === null ? [] : (byJacket.get(jacket.id) ?? []);
 
-    if (together.length > 1 && story.cover) {
-      if (placed.has(jacket as string)) continue;
-      placed.add(jacket as string);
-      shelved.push({ kind: "bound", key: story.id, cover: story.cover, stories: together });
+    if (jacket !== null && together.length > 1 && story.cover) {
+      if (placed.has(jacket.id)) continue;
+      placed.add(jacket.id);
+      shelved.push({
+        kind: "bound",
+        key: story.id,
+        cover: story.cover,
+        volume: jacket,
+        stories: together,
+      });
       continue;
     }
 

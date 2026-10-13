@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { FacedWith } from "@/core/queries/cover";
-import type { WallSeries } from "@/core/queries/story";
+import type { LendingVolume, WallSeries } from "@/core/queries/story";
 import { tint } from "@/lib/tint";
 import { boundTogether, type Faced, type Shelved } from "./bound-together";
 import { Cover } from "./cover";
@@ -27,9 +27,6 @@ export type ShelvedStory = Faced & {
   title: string;
   series: WallSeries | null;
 };
-
-/** The Volume a stack's jacket is taken from, where the screen could find it. */
-export type LendingVolume = { id: string; title: string };
 
 /**
  * The shelf itself: a grid of covers, one per Story or per stack.
@@ -71,7 +68,7 @@ export function StoryShelf<Story extends ShelvedStory>({
               href={opens(tile.key)}
               title={tile.stories[0].title}
               tint={tint(tile.stories[0].series?.id ?? tile.key)}
-              label={`${tile.stories.length} stories inside one Volume: ${tile.stories
+              label={`${tile.stories.length} stories inside ${tile.volume.title}: ${tile.stories
                 .map((story) => story.title)
                 .join(", ")}`}
               image={tile.cover}
@@ -106,56 +103,41 @@ export function theOpenStack<Story extends ShelvedStory>(
 }
 
 /**
- * The Volume a jacket is lent by, found by the jacket's own address among the Volumes the
- * screen has read — the Story wall's query does not name it (`./bound-together`). `null`
- * where it is not among them, and then the sheet simply has no way onto the Volume.
- */
-export function theLendingVolume(
-  cover: FacedWith,
-  volumes: { id: string; title: string; cover: FacedWith | null }[]
-): LendingVolume | null {
-  const lending = volumes.filter((volume) => volume.cover?.url === cover.url);
-  return lending.length === 1 ? { id: lending[0].id, title: lending[0].title } : null;
-}
-
-/**
  * The sheet a stack opens onto: the jacket, the Stories inside it — each a way onto its own
- * page, by name in the serif — and the Volume they are bound in.
+ * page, by name in the serif — and the Volume they are bound in, which the wall's query names
+ * whether the house holds it or not.
  */
 export function StackSheet({
   stack,
-  volume,
   closesTo,
 }: {
-  stack: { cover: FacedWith; stories: ShelvedStory[] };
-  volume: LendingVolume | null;
+  stack: { cover: FacedWith; volume: LendingVolume; stories: ShelvedStory[] };
   closesTo: string;
 }) {
   const first = stack.stories[0];
+  const { volume } = stack;
 
   return (
     <Drawer
-      title={volume?.title ?? "Bound in one Volume"}
+      title={volume.title}
       description={`${stack.stories.length} stories in this Volume`}
       closesTo={closesTo}
     >
       <div className="flex items-end gap-4">
         <div className="w-16 shrink-0">
           <Cover
-            title={volume?.title ?? first.title}
+            title={volume.title}
             tint={tint(first.series?.id ?? first.id)}
             image={stack.cover}
             size="thumb"
           />
         </div>
-        {volume ? (
-          <Link
-            href={`/collection/${volume.id}`}
-            className="inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Open the Volume
-          </Link>
-        ) : null}
+        <Link
+          href={`/collection/${volume.id}`}
+          className="inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Open the Volume
+        </Link>
       </div>
 
       <ul className="mt-5">

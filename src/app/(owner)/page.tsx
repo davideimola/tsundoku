@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
-import { StackSheet, StoryShelf, theLendingVolume, theOpenStack } from "@/components/story-shelf";
+import { StackSheet, StoryShelf, theOpenStack } from "@/components/story-shelf";
 import { whatThisMonthHasCost } from "@/core/queries/acquisition";
-import { listCollectionWall } from "@/core/queries/collection";
 import { countWaitingInboxEntries } from "@/core/queries/inbox";
 import { type Covered, libraryInFigures, thePile, unrecorded, whole } from "@/core/queries/library";
 import { composePile, type PileEntry, theKeyOf } from "@/core/queries/pile";
@@ -12,7 +11,7 @@ import { tint } from "@/lib/tint";
 import { monthNamed } from "./acquisitions/months";
 import { DoorInTheHeader } from "./door";
 import { entryLeadsTo, entryLine, entrySaid, entryTitle } from "./pile/entry";
-import { entryWears, sharedJackets } from "./pile/jacket";
+import { entryWears } from "./pile/jacket";
 import { storyDetail } from "./stories/story-state";
 
 // THE DASHBOARD. For eleven slices this page listed the five Types, which is what a walking
@@ -80,7 +79,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Ask
   const said = await searchParams;
   const bound = typeof said.bound === "string" ? said.bound : undefined;
 
-  const [underWay, entries, waiting, figures, thisMonth, pile, runs, volumes] = await Promise.all([
+  const [underWay, entries, waiting, figures, thisMonth, pile, runs] = await Promise.all([
     // Narrowed in the core rather than here, like every wall in this app: the band shows
     // what is open, so it reads what is open.
     listStoryWall({ state: "reading" }),
@@ -92,9 +91,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Ask
     // How far each run in hand has got, for the gilt line under its cover: the wall's tile
     // does not carry it, and this is the core's own answer to *seven of twenty*.
     listRunsInProgress(),
-    // Only for the sheet a stack opens onto: the Volume lending a shared jacket is found
-    // among the house's by the jacket's address (`@/components/story-shelf`).
-    bound ? listCollectionWall() : Promise.resolve([]),
   ]);
 
   const howFar = new Map(runs.map((run) => [run.story.id, run.howFarItGot]));
@@ -112,7 +108,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Ask
   // not the place to draw it.
   const composed = [...entries.head, ...entries.reserve];
   const next = composed.slice(0, NEXT_UP);
-  const shared = sharedJackets(composed);
 
   return (
     <main className="px-5 pb-16 sm:px-8">
@@ -185,7 +180,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Ask
             ) : (
               <ol>
                 {next.map((entry) => (
-                  <NextEntry key={theKeyOf(entry.subject)} entry={entry} shared={shared} />
+                  <NextEntry key={theKeyOf(entry.subject)} entry={entry} />
                 ))}
               </ol>
             )}
@@ -442,9 +437,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Ask
         </section>
       </section>
 
-      {stack ? (
-        <StackSheet stack={stack} volume={theLendingVolume(stack.cover, volumes)} closesTo="/" />
-      ) : null}
+      {stack ? <StackSheet stack={stack} closesTo="/" /> : null}
     </main>
   );
 }
@@ -506,8 +499,8 @@ function Invitation({ children }: { children: React.ReactNode }) {
  * one quiet line of what it is. The order is the list's own, so no ordinal is printed — the
  * row at the top is the one that comes next.
  */
-function NextEntry({ entry, shared }: { entry: PileEntry; shared: Set<string> }) {
-  const wears = entryWears(entry, shared);
+function NextEntry({ entry }: { entry: PileEntry }) {
+  const wears = entryWears(entry);
   const href = entryLeadsTo(entry);
   const title = entryTitle(entry);
 

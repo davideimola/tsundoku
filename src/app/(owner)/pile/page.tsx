@@ -35,7 +35,7 @@ import {
   reasonSaid,
   theWantOn,
 } from "./entry";
-import { entryWears, sharedJackets } from "./jacket";
+import { entryWears } from "./jacket";
 
 // THE PILE. The screen the owner opens most, and the one the whole application is
 // for: the spreadsheet's `Prossimo` column, recomputed by hand for every route, plus three
@@ -121,9 +121,6 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
   // **The narrowing is an argument to the query and never a filter over its answer**, which is
   // every wall's rule here: what the screen shows is what it asked for.
   const { head, reserve, types } = await composePile({ typeId: narrowedTo?.id });
-  // The jackets two rows on this list both borrow, so neither claims to be that book
-  // (`./jacket`).
-  const shared = sharedJackets([...head, ...reserve]);
 
   const refused = asked(params, "refused");
   const wished = asked(params, "wished");
@@ -273,7 +270,6 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
                     entry={entry}
                     place={place + 1}
                     pinned
-                    shared={shared}
                     at={at}
                   />
                 ))}
@@ -302,7 +298,6 @@ export default async function PilePage({ searchParams }: { searchParams: Promise
                     entry={row.entry}
                     behind={row.behind}
                     pinned={false}
-                    shared={shared}
                     at={at}
                   />
                 ))}
@@ -357,12 +352,9 @@ function Entry({
   entry,
   place,
   pinned,
-  shared,
   at,
   behind = [],
 }: {
-  /** The borrowed jackets another row on this list also wears (`./jacket`). */
-  shared: Set<string>;
   entry: PileEntry;
   place?: number;
   pinned: boolean;
@@ -374,7 +366,7 @@ function Entry({
   behind?: WhatStandsBehind[];
 }) {
   const want = theWantOn(entry);
-  const wears = entryWears(entry, shared);
+  const wears = entryWears(entry);
   // The month the row is being read in, which is what the picker beside *Want it* offers. It
   // is read here rather than handed down because it is the only thing on this screen that
   // needs it, and a value read once when the module loaded would be last month's answer in a

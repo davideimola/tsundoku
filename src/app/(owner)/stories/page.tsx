@@ -3,10 +3,9 @@ import { Drawer, OpensDrawer } from "@/components/drawer";
 // The chips are a control two walls share now, so there is one of them (#64,
 // `@/components/narrowing`): this wall narrows by Type and state, and the Pile narrows by Type.
 import { Axis, Chip } from "@/components/narrowing";
-import { StackSheet, StoryShelf, theLendingVolume, theOpenStack } from "@/components/story-shelf";
+import { StackSheet, StoryShelf, theOpenStack } from "@/components/story-shelf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { listCollectionWall } from "@/core/queries/collection";
 import {
   listStoriesNothingHasHappenedTo,
   listStoryWall,
@@ -110,14 +109,9 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
   // narrowed; the clean-up list is the residue of approvals that went through in a hurry, and
   // it is read whole — a dozen rows beside seventy-seven — because a filter over a destructive
   // list would be a way to have half of it in front of you and not know.
-  //
-  // The third is only for the sheet a stack opens onto: which Volume lends a jacket is not
-  // something the wall's query says, so the Volume is found among the house's by the jacket's
-  // own address (`@/components/story-shelf`).
-  const [stories, nothingOnThem, volumes] = await Promise.all([
+  const [stories, nothingOnThem] = await Promise.all([
     listStoryWall(narrowing),
     listStoriesNothingHasHappenedTo(),
-    listCollectionWall(),
   ]);
   const narrowed = typeId !== undefined || state !== undefined;
 
@@ -271,13 +265,7 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           — so a destructive act says how many it is about to take while the owner is still
           ticking. The bar does not exist until something is ticked, and it sticks to the foot
           of the drawer, because a dozen rows are longer than a phone. */}
-      {stack ? (
-        <StackSheet
-          stack={stack}
-          volume={theLendingVolume(stack.cover, volumes)}
-          closesTo={wallAt(narrowing)}
-        />
-      ) : null}
+      {stack ? <StackSheet stack={stack} closesTo={wallAt(narrowing)} /> : null}
 
       {striking ? (
         <Drawer
