@@ -683,6 +683,17 @@ describe("the Story, faced as its own page draws it", () => {
       wornBy: 0,
     });
   });
+
+  // **What going through it is called**, which is the Type's and not the page's: a game the
+  // owner finished twice was *played* twice, and the page says so in the Type's own word
+  // rather than in a printed library's.
+  it("carries the past verb of its Type", async () => {
+    const novel = await createStory({ title: "Ulysses", typeId: "novel" });
+    const game = await createStory({ title: "Hades", typeId: "videogame" });
+
+    expect((await findStory(novel))?.verbPast).toBe("read");
+    expect((await findStory(game))?.verbPast).toBe("played");
+  });
 });
 
 // **A run with somewhere left to go**, which is the fourth source of the Pile (#43,

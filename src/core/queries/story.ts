@@ -556,6 +556,11 @@ export type FoundStory = Story & {
    */
   wornBy: number;
   /**
+   * **What going through it is called** — the Type's own past (`verb_past`: *read*,
+   * *played*), so the page says *Played twice* of a game and not a printed library's word.
+   */
+  verbPast: string;
+  /**
    * The score at the tile's foot, which is the third thing the wall's tile carries — and the
    * same one, off the same fragment, so the tile does not change what it says on the way in.
    * The stack below it is the whole story of the judgements; this is what the tile can fit.
@@ -584,6 +589,7 @@ export async function findStory(storyId: string): Promise<FoundStory | null> {
             s.own_image_url as "ownImage",
             ${THE_VOLUME_LENDING_ITS_JACKET} as "lentBy",
             ${HOW_MANY_NARRATIVES_WEAR_THAT_JACKET} as "wornBy",
+            t.verb_past as "verbPast",
             ${LATEST_SCORE} as "latestScore"
      ${A_STORY}
      where s.id = $1`,
