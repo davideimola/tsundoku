@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ownsItsCover } from "@/components/bound-together";
+import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { PathCandidate, PathStop } from "@/core/queries/path";
 import { findPath, listStoriesNotOnPath } from "@/core/queries/path";
+import { listStoryWall, type WallStory } from "@/core/queries/story";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint, UNWORN, WORN, worn } from "@/lib/tint";
 import { cn } from "@/lib/utils";
@@ -123,13 +126,20 @@ export default async function PathPage({
   // go on this route*, which is a fact about the Path and is therefore the Path's query. The
   // screen used to ask for every Story and subtract the route in memory, and could not order
   // what was left, because the order that matters here belongs to the objects.
-  const [path, candidates] = await Promise.all([
+  //
+  // And a third, for the faces: a stop is a Story, and what a Story is faced with and which
+  // line it stands in are the wall's answer (`listStoryWall`), not the route's — the route's
+  // query names the stop and its state and nothing a jacket needs. Read whole and looked up
+  // by id here rather than widening the route's shape for a picture.
+  const [path, candidates, faces] = await Promise.all([
     findPath(id),
     listStoriesNotOnPath(id, { title: pick }),
+    listStoryWall(),
   ]);
   if (!path) notFound();
 
   const back = `/paths/${path.id}`;
+  const faceOf = new Map(faces.map((story) => [story.id, story]));
   const runs = theRunsOnOffer(candidates);
   const refused = asked(said, "refused");
   const panel = THE_PANELS_ON_A_ROUTE.find((one) => one === asked(said, "panel"));
@@ -201,6 +211,7 @@ export default async function PathPage({
                     <Stop
                       key={stop.storyId}
                       stop={stop}
+                      face={faceOf.get(stop.storyId)}
                       place={place + 1}
                       next={stop.storyId === path.next?.storyId}
                       pathId={path.id}
@@ -525,6 +536,7 @@ export default async function PathPage({
  */
 function Stop({
   stop,
+  face,
   place,
   next,
   pathId,
@@ -533,6 +545,8 @@ function Stop({
   last,
 }: {
   stop: PathStop;
+  /** What the stop's Story is faced with and the line it stands in, off the Story wall. */
+  face: WallStory | undefined;
   place: number;
   next: boolean;
   pathId: string;
@@ -543,7 +557,7 @@ function Stop({
   return (
     <li
       data-story-id={stop.storyId}
-      className="flex items-baseline gap-3 border-t border-border py-3 first:border-t-0 data-[carried=true]:opacity-40 data-[drop=after]:shadow-[inset_0_-2px_0_0_currentColor] data-[drop=before]:shadow-[inset_0_2px_0_0_currentColor]"
+      className="flex flex-wrap items-center gap-x-3 border-t border-border py-3 first:border-t-0 sm:flex-nowrap data-[carried=true]:opacity-40 data-[drop=after]:shadow-[inset_0_-2px_0_0_currentColor] data-[drop=before]:shadow-[inset_0_2px_0_0_currentColor]"
     >
       {/* The one hand the drag adds, and the only thing on this row that needs a script. It
           is hidden until the rail says the gesture is on, so a phone and a browser with
@@ -563,32 +577,50 @@ function Stop({
           always printed — it is the judgement, and hiding it behind the marker would
           replace the one thing on the page that could not have been derived. */}
       <span
-        className={`w-8 shrink-0 text-right text-sm tabular-nums ${
+        className={`w-5 shrink-0 text-right text-sm tabular-nums sm:w-8 ${
           next ? "font-semibold text-cloth" : "text-muted-foreground"
         }`}
       >
         {place}
       </span>
 
-      <span className="min-w-0 flex-1">
+      {/* The stop's jacket, small, so a route is recognised by sight down its rail. A jacket
+          several Stories share — an omnibus' — is not this stop's to wear, so it is drawn as
+          its own cloth instead (`@/components/bound-together`). */}
+      <Cover
+        title={stop.title}
+        tint={tint(face?.series?.id ?? stop.storyId)}
+        image={face && ownsItsCover(face) ? face.cover : null}
+        label={stop.title}
+        size="thumb"
+        className="w-10 shrink-0 self-start sm:w-11"
+      />
+
+      <span className="min-w-0 flex-1 self-center">
         <Link
           href={`/stories/${stop.storyId}`}
           className="font-heading text-lg font-semibold leading-snug underline-offset-4 outline-none hover:underline focus-visible:underline"
         >
           {stop.title}
-        </Link>{" "}
-        <span className="whitespace-nowrap text-label text-muted-foreground">{stop.type.name}</span>
-        <span className="mt-0.5 flex items-baseline gap-3">
+        </Link>
+        <span className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-label text-muted-foreground">
+          <span>{stop.type.name}</span>
+          <span aria-hidden="true">·</span>
           <StoryStateLabel state={stop.state} />
           {/* The answer the spreadsheet's `Prossimo` column was maintained by hand for,
               printed where it belongs: on the stop it points at. */}
           {next ? (
-            <span className="text-label font-semibold text-cloth">Next on this route</span>
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="font-semibold text-cloth">Next on this route</span>
+            </>
           ) : null}
         </span>
       </span>
 
-      <span className="flex shrink-0 items-center gap-1">
+      {/* On a phone the presses take a line of their own under the stop, at the right, so the
+          name keeps the width it is read at; at a desk they stand at the end of the row. */}
+      <span className="-mb-2 flex w-full shrink-0 items-center justify-end gap-1 sm:mb-0 sm:w-auto">
         {/* One tap for the move the arrows are the wrong tool for: a Story forty stops
             down that the owner has decided to read next. */}
         <form action={makeFirst}>
