@@ -214,14 +214,16 @@ function Uncredit({ storyId, held }: { storyId: string; held: StoryCredit }) {
 function Judgement({ rating, storyId }: { rating: StoryRating; storyId: string }) {
   return (
     <div className="mt-2">
-      <p className="font-mono text-sm tabular-nums">
-        {rating.score.toFixed(1)}
-        <span className="text-muted-foreground"> / 10</span>
+      <p className="flex items-baseline gap-1">
+        <span className="font-heading text-2xl font-semibold tabular-nums">
+          {rating.score.toFixed(1)}
+        </span>
+        <span className="text-sm text-muted-foreground">/ 10</span>
       </p>
-      {/* The serif, which on this surface means one thing and only one thing: these are the
-          owner's own words, and the application's are not. */}
+      {/* The serif's italic, which on this surface means one thing and only one thing: these
+          are the owner's own words, and the application's are not. */}
       {rating.prose ? (
-        <p className="mt-1 max-w-prose text-pretty font-serif text-prose">{rating.prose}</p>
+        <p className="mt-1 max-w-prose text-pretty font-serif text-prose italic">{rating.prose}</p>
       ) : null}
       {/* **Unmaking it, from wherever it is drawn** (ADR-0018). It is here rather than beside
           the Pass because a score is struck by its own id: the same control serves a
@@ -229,11 +231,11 @@ function Judgement({ rating, storyId }: { rating: StoryRating; storyId: string }
           no pass, and neither place has to know about the other. Quiet, and beside the
           Provenance rather than under the prose — it is a correction, and a destructive
           control set louder than the words it would destroy reads as the point of the tile. */}
-      <p className="mt-1 flex flex-wrap items-baseline gap-x-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+      <p className="mt-1.5 flex flex-wrap items-baseline gap-x-3 text-label text-muted-foreground">
         <span>{rating.provenance.name}</span>
         <Link
           href={panelled(storyId, STRIKE_RATING, { rating: rating.id })}
-          className="underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-sm text-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
         >
           Strike this score
         </Link>
@@ -349,11 +351,11 @@ export default async function StoryPage({
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="text-pretty font-heading text-2xl leading-tight sm:text-3xl">
+            <h1 className="text-balance font-heading text-name font-semibold lg:text-name-lg">
               {story.title}
             </h1>
             <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+              <span className="text-label font-medium text-muted-foreground">
                 {story.type.name}
               </span>
               <StoryStateLabel state={story.state} />
@@ -361,7 +363,7 @@ export default async function StoryPage({
                 read as places in one book rather than as two different numbers. It is drawn
                 only where the work says it has parts, which is the minority of Stories. */}
               {story.howFarItGot ? (
-                <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                <span className="text-label font-medium tabular-nums text-gilt">
                   {howFarItGot(story.howFarItGot)}
                 </span>
               ) : null}
@@ -370,7 +372,7 @@ export default async function StoryPage({
               <p className="mt-2 text-sm text-muted-foreground">
                 <Link
                   href={`/series/${story.series.id}`}
-                  className="underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  className="rounded-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {[story.series.name, story.series.editionLine].filter(Boolean).join(" ")}
                 </Link>
@@ -401,7 +403,7 @@ export default async function StoryPage({
                   </OpensDrawer>
                   {story.passes.length > 0 ? (
                     <span className="text-sm text-muted-foreground">
-                      Again — nothing below is replaced.
+                      Again. Earlier Passes stay.
                     </span>
                   ) : null}
                 </>
@@ -410,7 +412,7 @@ export default async function StoryPage({
 
             {/* **The lesser half of the same sentence**, and it is deliberately quiet: *not
               tonight, but soon* is a smaller act than starting, so it sits under the loud one
-              in the eyebrow's register rather than beside it as a second button competing for
+              in a label's register rather than beside it as a second button competing for
               the press. A press that asks for nothing is a plain form and not a panel.
 
               What it says back is the whole of what a Want is. There is no *unwant*: a Want
@@ -420,7 +422,7 @@ export default async function StoryPage({
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
               {want ? (
                 <>
-                  <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                  <span className="text-label font-medium text-muted-foreground">
                     {want.quiet ? "Wanted, and taken on since" : "On the Pile"}
                   </span>
                   <form action={unwant}>
@@ -432,7 +434,7 @@ export default async function StoryPage({
                       size="sm"
                       className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
                     >
-                      I did not mean that
+                      Undo
                     </Button>
                   </form>
                 </>
@@ -443,7 +445,7 @@ export default async function StoryPage({
                     type="submit"
                     variant="link"
                     size="sm"
-                    className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
+                    className="h-auto p-0 text-sm text-cloth"
                   >
                     I want to take it on
                   </Button>
@@ -465,7 +467,7 @@ export default async function StoryPage({
               that appeared only for one Type would be the library making a rule the model
               does not have. */}
           <OpensDrawer href={panelled(id, IMAGE)}>
-            {story.ownImage ? "Change the image" : "Face it with an image"}
+            {story.ownImage ? "Change the cover" : "Add a cover"}
           </OpensDrawer>
         </div>
       </header>
@@ -485,7 +487,7 @@ export default async function StoryPage({
       ) : null}
       {uncredited ? (
         <p role="status" className="mt-6 rounded-lg bg-muted px-3 py-2 text-sm">
-          {uncredited} is no longer credited here. They keep every other Credit they hold.
+          {uncredited} is no longer credited here. Their other Credits stay.
         </p>
       ) : null}
 
@@ -499,10 +501,9 @@ export default async function StoryPage({
           {story.standaloneRatings.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Ratings with no Pass</CardTitle>
+                <CardTitle className="text-xl font-semibold">Ratings with no Pass</CardTitle>
                 <CardDescription className="text-pretty">
-                  A judgement of this Story that points at no particular Pass — a score that arrived
-                  from a sheet, most often. The Provenance says how far it can be trusted.
+                  Scores that belong to no Pass, most often from an imported sheet.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -535,18 +536,15 @@ export default async function StoryPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Credits</CardTitle>
+              <CardTitle className="text-xl font-semibold">Credits</CardTitle>
               <CardDescription className="text-pretty">
-                Who wrote it and who drew it. One person can hold both roles, and the two are
-                routinely different people — <em>One-Punch Man</em> is written by ONE and drawn by
-                Yusuke Murata.
+                Who wrote it and who drew it.
               </CardDescription>
             </CardHeader>
             <CardContent>
               {story.credits.length === 0 ? (
                 <p className="text-pretty text-sm text-muted-foreground">
-                  Nobody is credited on this Story yet. Neither sheet had a column for it, so every
-                  Credit here was typed on purpose.
+                  Nobody is credited on this Story yet.
                 </p>
               ) : (
                 /* Laid out as a comic's indicia is: the role on the left, the name against it.
@@ -558,7 +556,7 @@ export default async function StoryPage({
                       key={held.id}
                       className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 border-t border-border py-2.5 first:border-t-0"
                     >
-                      <dt className="basis-full font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground sm:basis-24">
+                      <dt className="basis-full text-label font-medium text-muted-foreground sm:basis-24">
                         {held.role.name}
                       </dt>
                       <dd className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
@@ -588,7 +586,10 @@ export default async function StoryPage({
                 <input type="hidden" name="storyId" value={story.id} />
                 <PersonPicker />
                 <div className="grid gap-1.5">
-                  <Label htmlFor="credit-role" className="text-xs text-muted-foreground">
+                  <Label
+                    htmlFor="credit-role"
+                    className="text-label font-medium text-muted-foreground"
+                  >
                     Role
                   </Label>
                   <RoleSelect id="credit-role" roles={roles} />
@@ -599,11 +600,6 @@ export default async function StoryPage({
               </form>
             </CardContent>
           </Card>
-
-          <p className="text-pretty text-xs leading-relaxed text-muted-foreground">
-            The judgement is of the Story and never of an object: a Volume carries an Edition note
-            instead, and this page has no place to put one.
-          </p>
         </div>
       </div>
 
@@ -622,12 +618,10 @@ export default async function StoryPage({
           Stories nothing has happened to, so no refusal is reachable from it. */}
       <div className="mt-10 border-t border-border pt-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <p className="max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
-            If this narrative was never real — the same title twice, a proposal approved in a hurry
-            — the library can stop knowing it. Nothing you have read, judged or planned can be
-            struck this way.
+          <p className="max-w-prose text-pretty text-sm text-muted-foreground">
+            Never real, such as the same title twice? Strike it.
           </p>
-          <OpensDrawer href={panelled(id, STRIKE)}>Strike it from the library</OpensDrawer>
+          <OpensDrawer href={panelled(id, STRIKE)}>Strike from the library</OpensDrawer>
         </div>
       </div>
 
@@ -637,14 +631,14 @@ export default async function StoryPage({
       {panel === START ? (
         <Drawer
           title="Start it"
-          description="No outcome, so this Story is under way from now — read or played. Close it when it is over, or do not, and it stays open, which is also the truth."
+          description="It stays under way until you close it."
           closesTo={closesTo}
         >
           <form action={startPass} className="grid gap-4">
             <input type="hidden" name="storyId" value={story.id} />
 
             <div className="grid gap-1.5">
-              <Label htmlFor="pass-medium" className="text-xs text-muted-foreground">
+              <Label htmlFor="pass-medium" className="text-label font-medium text-muted-foreground">
                 How you went through it
               </Label>
               {/* **Read off the vocabulary, and narrowed to what this Story's Type offers**
@@ -685,7 +679,10 @@ export default async function StoryPage({
                 use is a no-op is a question the owner has to read and dismiss. */}
             {standsOnObjects ? (
               <div className="grid gap-1.5">
-                <Label htmlFor="pass-volume" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="pass-volume"
+                  className="text-label font-medium text-muted-foreground"
+                >
                   Through which object
                 </Label>
                 <select id="pass-volume" name="volumeId" defaultValue="" className={PICKER}>
@@ -696,21 +693,23 @@ export default async function StoryPage({
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-muted-foreground">
-                  Only the objects carrying this Story are offered, and none is the ordinary answer.
-                  A digital Pass went through no object at all: an owned ebook is not a thing this
-                  library has.
+                <p className="text-label text-muted-foreground">
+                  Only objects carrying this Story. None is the usual answer, and always the answer
+                  for digital.
                 </p>
               </div>
             ) : null}
 
             <div className="grid gap-1.5">
-              <Label htmlFor="pass-started" className="text-xs text-muted-foreground">
+              <Label
+                htmlFor="pass-started"
+                className="text-label font-medium text-muted-foreground"
+              >
                 Started on
               </Label>
               <input id="pass-started" name="startedOn" type="date" className={PICKER} />
-              <p className="text-xs text-muted-foreground">
-                Leave it empty where the day does not matter — that it is open is the fact.
+              <p className="text-label text-muted-foreground">
+                Leave it empty if the day does not matter.
               </p>
             </div>
 
@@ -753,8 +752,8 @@ export default async function StoryPage({
           title={onePass.rating ? "Say it again" : "What I thought of it"}
           description={
             onePass.rating
-              ? "One Rating per Pass, so this replaces what is written under that Pass. A second opinion belongs to a second Pass."
-              : "Of the Story and never of the object — it was the story that was good or bad. The prose is the point: a score alone cannot tell liked it from liked it for the art."
+              ? "This replaces the Rating on this Pass. A second opinion belongs to a second Pass."
+              : "Of the Story, not of the object. The words matter more than the number."
           }
           closesTo={closesTo}
         >
@@ -767,7 +766,10 @@ export default async function StoryPage({
             </p>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="rating-score" className="text-xs text-muted-foreground">
+              <Label
+                htmlFor="rating-score"
+                className="text-label font-medium text-muted-foreground"
+              >
                 Out of 10
               </Label>
               {/* The scale as a picker rather than a number field: it moves in half points,
@@ -792,7 +794,10 @@ export default async function StoryPage({
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="rating-prose" className="text-xs text-muted-foreground">
+              <Label
+                htmlFor="rating-prose"
+                className="text-label font-medium text-muted-foreground"
+              >
                 What I thought
               </Label>
               {/* Set in the serif in the box it is typed into as much as where it is read
@@ -803,11 +808,10 @@ export default async function StoryPage({
                 rows={6}
                 defaultValue={onePass.rating?.prose ?? ""}
                 placeholder="The art carries it. I would not have finished it for the story alone."
-                className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 font-serif text-base leading-relaxed outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
+                className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 font-serif text-base italic leading-relaxed outline-none placeholder:font-sans placeholder:not-italic placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-prose dark:bg-input/30"
               />
-              <p className="text-xs text-muted-foreground">
-                This is what feeds a recommendation. A score alone is a rank; the words are the
-                evidence.
+              <p className="text-label text-muted-foreground">
+                This is what a recommendation is made from.
               </p>
             </div>
 
@@ -829,7 +833,7 @@ export default async function StoryPage({
       {panel === RENAME ? (
         <Drawer
           title="Correct the title"
-          description="The name of the work, which belongs to the narrative and not to any printing. One Volume records one Story, so a work a line was pointed at may still be carrying the name it had as a single object."
+          description="The name of the work, not of any printing of it."
           refused={refused}
           closesTo={closesTo}
         >
@@ -837,7 +841,7 @@ export default async function StoryPage({
             <input type="hidden" name="storyId" value={story.id} />
 
             <div className="grid gap-1.5">
-              <Label htmlFor="story-title" className="text-xs text-muted-foreground">
+              <Label htmlFor="story-title" className="text-label font-medium text-muted-foreground">
                 Title
               </Label>
               <input
@@ -849,10 +853,7 @@ export default async function StoryPage({
                 autoComplete="off"
                 className={PICKER}
               />
-              <p className="text-xs text-muted-foreground">
-                Nothing else moves: the objects carrying it, what you read and what you thought of
-                it are all about this same record.
-              </p>
+              <p className="text-label text-muted-foreground">Nothing else changes.</p>
             </div>
 
             <Button type="submit" className="h-11 w-full sm:h-10">
@@ -875,8 +876,8 @@ export default async function StoryPage({
           with no ISBN. */}
       {panel === IMAGE ? (
         <Drawer
-          title={story.ownImage ? "Change the image" : "Face it with an image"}
-          description="A photograph, a screenshot or a scan you host yourself, standing for the work rather than for any printing of it."
+          title={story.ownImage ? "Change the cover" : "Add a cover"}
+          description="A photograph, screenshot or scan you host yourself."
           refused={refused}
           closesTo={closesTo}
         >
@@ -885,7 +886,10 @@ export default async function StoryPage({
               <input type="hidden" name="storyId" value={story.id} />
 
               <div className="grid gap-1.5">
-                <Label htmlFor="story-image" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="story-image"
+                  className="text-label font-medium text-muted-foreground"
+                >
                   Address of the image
                 </Label>
                 <input
@@ -900,16 +904,14 @@ export default async function StoryPage({
                   className={PICKER}
                 />
                 <p className="max-w-prose text-pretty text-xs text-muted-foreground">
-                  Nothing is looked up here: every cover source is keyed by an ISBN, and a work has
-                  none — a videogame owns no object to carry one at all. So this is the only image
-                  this Story can wear, and it stands over whatever the objects carrying it lend. An
-                  address on Google&apos;s or Open Library&apos;s domain is refused, because that
-                  would be their bytes under your name.
+                  It wins over any cover lent by the objects carrying it. Addresses on Google&apos;s
+                  or Open Library&apos;s domain are refused: that would be their image under your
+                  name.
                 </p>
               </div>
 
               <Button type="submit" className="h-11 w-full sm:h-10">
-                {story.ownImage ? "Use this one" : "Face it"}
+                {story.ownImage ? "Use this one" : "Add it"}
               </Button>
             </form>
 
@@ -922,7 +924,7 @@ export default async function StoryPage({
                   size="sm"
                   className="-ml-2.5 h-8 text-xs text-muted-foreground"
                 >
-                  Take my image off
+                  Take the cover off
                 </Button>
               </form>
             ) : null}
@@ -938,8 +940,8 @@ export default async function StoryPage({
           // that is a consequence of the act rather than a fact about the work.
           description={
             story.instalmentsSaidBy === "line"
-              ? "This count comes from the line that publishes the work and grows with it. Correcting it here makes the number yours: it stops following the line, for good. Leave it empty for a Story nobody numbers."
-              : "One numbered part of a serialized work — Slam Dunk's twenty. It belongs to the narrative and never to a printing, so it stays true however you read them. Leave it empty for a Story nobody numbers, which is most of them."
+              ? "This count follows the line that publishes it. Correcting it here makes it yours, and it stops following the line."
+              : "How many numbered parts the work has, such as Slam Dunk's twenty. Leave it empty if nobody numbers it."
           }
           refused={refused}
           closesTo={closesTo}
@@ -948,7 +950,10 @@ export default async function StoryPage({
             <input type="hidden" name="storyId" value={story.id} />
 
             <div className="grid gap-1.5">
-              <Label htmlFor="story-instalments" className="text-xs text-muted-foreground">
+              <Label
+                htmlFor="story-instalments"
+                className="text-label font-medium text-muted-foreground"
+              >
                 How many Instalments
               </Label>
               <input
@@ -962,9 +967,8 @@ export default async function StoryPage({
                 placeholder="20"
                 className={PICKER}
               />
-              <p className="text-xs text-muted-foreground">
-                Empty takes the numbering off again. It is refused while a pass has read further
-                than the number you give.
+              <p className="text-label text-muted-foreground">
+                Empty takes the numbering off. Refused if a Pass already got further.
               </p>
             </div>
 
@@ -981,7 +985,7 @@ export default async function StoryPage({
       {panel === REACHED && onePass && story.instalments !== null ? (
         <Drawer
           title="Where I got to"
-          description="The last Instalment this pass finished. Going through it again later starts again at nothing, and this pass keeps the number it ended on."
+          description="The last Instalment this Pass finished."
           refused={refused}
           closesTo={closesTo}
         >
@@ -994,7 +998,7 @@ export default async function StoryPage({
             </p>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="pass-at" className="text-xs text-muted-foreground">
+              <Label htmlFor="pass-at" className="text-label font-medium text-muted-foreground">
                 Last Instalment finished, out of {story.instalments}
               </Label>
               <input
@@ -1009,9 +1013,8 @@ export default async function StoryPage({
                 placeholder="7"
                 className={PICKER}
               />
-              <p className="text-xs text-muted-foreground">
-                Empty stops counting. Nothing else follows from it — a pass at the last Instalment
-                is still open until you close it.
+              <p className="text-label text-muted-foreground">
+                Empty stops counting. A Pass at the last Instalment stays open until you close it.
               </p>
             </div>
 
@@ -1030,22 +1033,24 @@ export default async function StoryPage({
       {panel === PUBLISHES ? (
         <Drawer
           title="Say which Series publishes it"
-          description="A line prints one Story. Saying so is what makes a Volume joining that line attach to this work instead of minting a new narrative — so it is said once per Series and never again."
+          description="Volumes of that line will carry this Story."
           refused={refused}
           closesTo={closesTo}
         >
           {linesToChooseFrom.length === 0 ? (
             <p className="max-w-prose text-pretty text-sm text-muted-foreground">
-              No Series is waiting to be told what it prints. Every line the library knows either
-              publishes a Story already or has no object in it carrying a narrative yet. Declare the
-              Series and place its Volumes in it first.
+              No Series is free to choose. Every line already publishes a Story or has no Volume
+              carrying one yet.
             </p>
           ) : (
             <form action={sayWhichSeriesPublishesIt} className="grid gap-5">
               <input type="hidden" name="storyId" value={story.id} />
 
               <div className="grid gap-1.5">
-                <Label htmlFor="publishes-series" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="publishes-series"
+                  className="text-label font-medium text-muted-foreground"
+                >
                   Which Series
                 </Label>
                 {/* The two numbers travel in the option itself, because they are the whole of
@@ -1075,18 +1080,20 @@ export default async function StoryPage({
 
               <div className="grid gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
                 <p className="max-w-prose text-pretty">
-                  Every object of that line carries <em>{story.title}</em> afterwards, and the
-                  narratives they stood for collapse onto it — any Rating, every Pass and every
-                  Credit come with them, and a route or a Want naming one of them comes to name this
-                  Story instead.
+                  Every Volume of that line carries <em>{story.title}</em> afterwards. The Stories
+                  they carried merge into it, with their Ratings, Passes, Credits, Paths and Wants.
                 </p>
-                <p className="max-w-prose text-pretty">
-                  Nothing you own moves: the Volumes, the acquisitions and the count published are
-                  exactly as they are now. Nothing happens at all if the collapse would lose
-                  something — two scores that cannot both be this Story&apos;s one, a narrative an
-                  object outside the line carries too, or a pass counted in a narrative&apos;s own
-                  parts.
-                </p>
+                <details className="max-w-prose">
+                  <summary className="cursor-pointer text-sm font-medium text-cloth">
+                    How this works
+                  </summary>
+                  <p className="mt-2 text-pretty">
+                    Nothing you own moves: the Volumes, the acquisitions and the count published
+                    stay as they are. Nothing happens at all if the merge would lose something: two
+                    scores that cannot both be this Story&apos;s one, a Story a Volume outside the
+                    line carries too, or a Pass counted in a Story&apos;s own parts.
+                  </p>
+                </details>
               </div>
             </form>
           )}
@@ -1101,8 +1108,8 @@ export default async function StoryPage({
           which of the owner's own records stands in the way. */}
       {panel === STRIKE ? (
         <Drawer
-          title="Strike it from the library"
-          description="For a record that was a mistake — the same narrative twice, a proposal approved in a hurry. Not for something you have finished with: what a Story is and what you did with it are different facts."
+          title="Strike from the library"
+          description="For a record that was a mistake, such as the same Story twice. Not for one you are done with."
           refused={refused}
           closesTo={closesTo}
         >
@@ -1110,9 +1117,8 @@ export default async function StoryPage({
             <input type="hidden" name="storyId" value={story.id} />
 
             <p className="text-pretty text-sm text-muted-foreground">
-              The library stops knowing <em>{story.title}</em>. The Credits on it go too, and the
-              people they name stay, credited wherever else they are; so does the record of which
-              objects carried it.
+              The library stops knowing <em>{story.title}</em>. Its Credits go too; the people stay,
+              with their other Credits.
             </p>
 
             {/* The four, said in full and before the press. They are the verb's own rule and
@@ -1120,9 +1126,8 @@ export default async function StoryPage({
                 whatever stands on the Story, and the sentence the verb answers with names
                 which one it was. */}
             <p className="text-pretty text-sm text-muted-foreground">
-              It is refused, and nothing happens, if an object in the house carries it, if a Pass
-              went through it, if you scored it, or if a Path names it as a stop. Those are your own
-              records, and a mistaken row has none of them.
+              Refused if an object in the house carries it, a Pass went through it, you scored it,
+              or a Path names it as a stop.
             </p>
 
             <div>
@@ -1130,7 +1135,7 @@ export default async function StoryPage({
                 Strike it
               </Button>
               <p className="mt-2 text-pretty text-xs text-muted-foreground">
-                There is no undo. You land back on the wall.
+                This cannot be undone.
               </p>
             </div>
           </form>
@@ -1150,7 +1155,7 @@ export default async function StoryPage({
       {panel === STRIKE_PASS && onePass ? (
         <Drawer
           title="Strike this Pass"
-          description="For a pass that never happened — the wrong tile pressed in a shop. Not for one that went badly: giving up is a fact worth keeping, and it is the other button."
+          description="For a Pass that never happened. If you gave up, say so instead."
           refused={refused}
           closesTo={closesTo}
         >
@@ -1165,19 +1170,15 @@ export default async function StoryPage({
             </p>
 
             <p className="text-pretty text-sm text-muted-foreground">
-              The library stops knowing you ever opened <em>{story.title}</em> on this pass. Where
-              this Story stands follows from whatever Passes are left, because that is derived on
-              every request and stored nowhere — so a Story whose only pass was this one goes back
-              to {stateWord("to-read")}.
+              This Pass goes. If it was the only one, <em>{story.title}</em> goes back to{" "}
+              {stateWord("to-read")}.
             </p>
 
             {/* The one refusal, said before the press. It is the verb's rule and this is a copy
                 of it in prose: the page draws the press whatever hangs off the pass, and the
                 sentence the verb answers with is the one that names it. */}
             <p className="text-pretty text-sm text-muted-foreground">
-              It is refused, and nothing happens, if you judged this pass. Strike the score first —
-              a judgement of a pass is not a judgement of the narrative, and this is the one act
-              that could quietly make it one.
+              Refused if this Pass carries a score. Strike the score first.
             </p>
 
             <div>
@@ -1185,7 +1186,7 @@ export default async function StoryPage({
                 Strike this Pass
               </Button>
               <p className="mt-2 text-pretty text-xs text-muted-foreground">
-                There is no undo. You land back on the Story.
+                This cannot be undone.
               </p>
             </div>
           </form>
@@ -1203,7 +1204,7 @@ export default async function StoryPage({
       {panel === STRIKE_OUTCOME && onePass ? (
         <Drawer
           title="It never ended"
-          description="For a pass that was closed before it was over — read it, said so, and the ending was never true. The pass itself stays, and so does your score."
+          description="For a Pass closed before it was over. The Pass and your score stay."
           refused={refused}
           closesTo={closesTo}
         >
@@ -1218,16 +1219,12 @@ export default async function StoryPage({
             </p>
 
             <p className="text-pretty text-sm text-muted-foreground">
-              How this pass ended goes, with the day it ended. Everything else stays where it is:
-              the pass, the Volume it went through, where it got to, and the score you gave it.{" "}
-              <em>{story.title}</em> reads {stateWord("reading")} again, because where a Story
-              stands is derived from its Passes on every request and stored nowhere.
+              The ending and its day go; everything else stays. <em>{story.title}</em> reads{" "}
+              {stateWord("reading")} again.
             </p>
 
             <p className="text-pretty text-sm text-muted-foreground">
-              It is refused, and nothing happens, if this pass never ended in the first place. To
-              say it went differently, go through it again — that is a second Pass, and last
-              time&rsquo;s judgement stays beside the new one.
+              Refused if this Pass never ended. To say it went differently, start a second Pass.
             </p>
 
             <div>
@@ -1235,9 +1232,7 @@ export default async function StoryPage({
                 It never ended
               </Button>
               <p className="mt-2 text-pretty text-xs text-muted-foreground">
-                There is no undo, and nothing but the ending goes: your score and where you got to
-                stay. Finishing it is a press again once the run reaches its last Instalment &mdash;
-                or giving it up, if it never does.
+                This cannot be undone. You can finish it again once it reaches its last Instalment.
               </p>
             </div>
           </form>
@@ -1252,7 +1247,7 @@ export default async function StoryPage({
       {panel === STRIKE_RATING && oneJudgement ? (
         <Drawer
           title="Strike this score"
-          description="For a judgement you did not mean to write. Saying it again is the other act: that replaces the number and still says you judged this."
+          description="For a score you did not mean to give. To change it, say it again instead."
           refused={refused}
           closesTo={closesTo}
         >
@@ -1262,24 +1257,21 @@ export default async function StoryPage({
 
             <p className="text-pretty text-sm text-muted-foreground">
               The library stops knowing you judged <em>{story.title}</em> at{" "}
-              <span className="font-mono tabular-nums">{oneJudgement.score.toFixed(1)}</span>
-              {oneJudgement.prose ? ", and the words you wrote about it go with it" : ""}.
+              <span className="tabular-nums">{oneJudgement.score.toFixed(1)}</span>
+              {oneJudgement.prose ? ", and your words go with it" : ""}.
             </p>
 
             {/* Nothing refuses it, and the panel says so rather than leaving the owner to
                 find out: no record in this schema points at a Rating, so there is nothing to
                 clear first and nothing that changes quietly by its going. */}
-            <p className="text-pretty text-sm text-muted-foreground">
-              Nothing refuses this. A score is your own sentence about a narrative, and one you did
-              not mean to write is one you may unwrite.
-            </p>
+            <p className="text-pretty text-sm text-muted-foreground">Nothing refuses this.</p>
 
             <div>
               <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
                 Strike this score
               </Button>
               <p className="mt-2 text-pretty text-xs text-muted-foreground">
-                There is no undo. You land back on the Story.
+                This cannot be undone.
               </p>
             </div>
           </form>
@@ -1300,39 +1292,33 @@ function Passes({ story }: { story: FoundStory }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Passes</CardTitle>
+        <CardTitle className="text-xl font-semibold">Passes</CardTitle>
         <CardDescription className="text-pretty">
-          One Pass each, newest first, with the Rating it carried. Nothing here is ever overwritten:
-          going through it again adds a Pass, and the opinion from last time stays beside the new
-          one.
+          Newest first. Going through it again adds a Pass.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {story.passes.length === 0 ? (
           <p className="text-pretty text-sm text-muted-foreground">
-            No Pass yet, which is the whole of why this Story reads{" "}
-            <span className="font-mono text-xs uppercase tracking-eyebrow">
-              {stateWord("to-read")}
-            </span>
-            . Starting one is the button at the top, and it needs no ending.
+            No Pass yet. Start one from the top of the page.
           </p>
         ) : (
           <ol className="-my-1">
             {story.passes.map((record) => (
               <li key={record.id} className="border-t border-border py-3.5 first:border-t-0">
                 <p className="flex flex-wrap items-baseline justify-between gap-x-4">
-                  <span className="font-mono text-xs tabular-nums">{whenItHappened(record)}</span>
-                  <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                  <span className="font-medium tabular-nums">{whenItHappened(record)}</span>
+                  <span className="text-label font-medium text-muted-foreground">
                     {howItWent(record)}
                   </span>
                 </p>
-                <p className="mt-1 flex flex-wrap items-baseline gap-x-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                <p className="mt-1 flex flex-wrap items-baseline gap-x-3 text-label text-muted-foreground">
                   <span>{record.provenance.name}</span>
                   {/* Where *this* pass got, which is not where the owner is now: a run given
                       up at nine in 2019 says so under itself, and the hero says where the
                       pass in hand is. */}
                   {record.atInstalment === null || story.instalments === null ? null : (
-                    <span className="tabular-nums normal-case tracking-normal">
+                    <span className="tabular-nums text-gilt">
                       {howFarItGot({
                         atInstalment: record.atInstalment,
                         instalments: story.instalments,
@@ -1350,10 +1336,10 @@ function Passes({ story }: { story: FoundStory }) {
                 {/* The judgement is opened from the Pass it will belong to, because that
                     attachment is what a second pass's opinion is made of. An open Pass
                     can be rated too: the owner is two hundred pages in and knows. */}
-                <p className="mt-2">
+                <p className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
                   <Link
                     href={panelled(story.id, RATE, { pass: record.id })}
-                    className="font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    className="rounded-sm text-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {record.rating ? "Say it again" : "Rate it"}
                   </Link>
@@ -1363,7 +1349,7 @@ function Passes({ story }: { story: FoundStory }) {
                   {story.instalments === null ? null : (
                     <Link
                       href={panelled(story.id, REACHED, { pass: record.id })}
-                      className="ml-3 font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      className="rounded-sm text-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {record.atInstalment === null ? "Say where I got to" : "Move it on"}
                     </Link>
@@ -1374,7 +1360,7 @@ function Passes({ story }: { story: FoundStory }) {
                       to — and, if it never happened, take it off. */}
                   <Link
                     href={panelled(story.id, STRIKE_PASS, { pass: record.id })}
-                    className="ml-3 font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    className="rounded-sm text-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Strike this Pass
                   </Link>
@@ -1384,11 +1370,11 @@ function Passes({ story }: { story: FoundStory }) {
                       ended. It is drawn only where there is an ending to unsay, so an open
                       pass carries the three acts it has and no fourth that would refuse. */}
                   {stillOpen(record) ? (
-                    <span className="ml-3 text-xs text-muted-foreground">Still open.</span>
+                    <span className="text-sm text-muted-foreground">Still open</span>
                   ) : (
                     <Link
                       href={panelled(story.id, STRIKE_OUTCOME, { pass: record.id })}
-                      className="ml-3 font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      className="rounded-sm text-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       It never ended
                     </Link>
@@ -1423,18 +1409,13 @@ function PublishedBy({ storyId, ledgers }: { storyId: string; ledgers: SeriesLed
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Series publishing it</CardTitle>
-        <CardDescription className="text-pretty">
-          A Series says which Story it prints, and that lone arrow is the only thing a line and a
-          narrative say to each other. It is what makes a Volume joining the line attach to this
-          work instead of minting a new one.
-        </CardDescription>
+        <CardTitle className="text-xl font-semibold">Series publishing it</CardTitle>
+        <CardDescription className="text-pretty">The lines that print this Story.</CardDescription>
       </CardHeader>
       <CardContent>
         {ledgers.length === 0 ? (
           <p className="text-pretty text-sm text-muted-foreground">
-            No Series publishes this Story, which is the ordinary answer: most of what is on these
-            shelves is not a publisher's numbered line.
+            No Series publishes this Story. That is the usual answer.
           </p>
         ) : (
           <ul className="-my-1">
@@ -1444,7 +1425,7 @@ function PublishedBy({ storyId, ledgers }: { storyId: string; ledgers: SeriesLed
                   href={`/series/${ledger.id}`}
                   className="grid gap-1 py-3 outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <span className="text-pretty">
+                  <span className="text-pretty font-heading text-lg font-semibold leading-snug">
                     <SeriesName ledger={ledger} />
                   </span>
                   <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -1453,9 +1434,9 @@ function PublishedBy({ storyId, ledgers }: { storyId: string; ledgers: SeriesLed
                         a hollow position of a Series nobody decided to complete is empty and
                         never a shopping list (`series/positions.ts` decides that once). */}
                     {ledger.missing === null ? null : ledger.missing.length === 0 ? (
-                      <span className="text-xs text-muted-foreground">Complete</span>
+                      <span className="text-label font-medium text-gilt">Complete</span>
                     ) : (
-                      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                      <span className="text-label tabular-nums text-muted-foreground">
                         Missing {ledger.missing.length} · next is {ledger.nextMissing}
                       </span>
                     )}
@@ -1475,7 +1456,7 @@ function PublishedBy({ storyId, ledgers }: { storyId: string; ledgers: SeriesLed
             beside the picker where the line is chosen, so that it is read once and about a
             line the owner has actually picked. */}
         <p className="mt-3 text-pretty text-xs leading-relaxed text-muted-foreground">
-          Its objects come to carry this work, and nothing you own moves.
+          Its Volumes come to carry this Story. Nothing you own moves.
         </p>
       </CardContent>
     </Card>
@@ -1544,31 +1525,27 @@ function Instalments({ story }: { story: FoundStory }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Instalments</CardTitle>
+        <CardTitle className="text-xl font-semibold">Instalments</CardTitle>
         <CardDescription className="text-pretty">
-          One numbered part of a serialized work. It belongs to the narrative rather than to any
-          printing, so <em>seven of twenty</em> stays true whether you read them as tankōbon, in an
-          omnibus, or half in each.
+          The numbered parts of the work, however they are printed.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {story.instalments === null ? (
           <p className="text-pretty text-sm text-muted-foreground">
-            Nobody has numbered this one, which is the ordinary answer: most Stories are read whole
-            and asked nothing.
+            Not numbered. Most Stories are not.
           </p>
         ) : (
           <p className="flex flex-wrap items-baseline gap-x-3">
             {/* **Where the count comes from the line, the number wears its provenance in the
-                eyebrow** the hero already sets a Type and a state in (#34) — three words, and
+                label** the hero already sets a Type and a state in (#34) — three words, and
                 no card explaining the relation between a printing's count and a narrative's.
-                The owner's own count is a number and says so in the plain mono; there is no
-                label for *from you*. */}
+                The owner's own count is a plain number; there is no label for *from you*. */}
             <span
               className={
                 story.instalmentsSaidBy === "line"
-                  ? "font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground"
-                  : "font-mono text-sm tabular-nums"
+                  ? "text-label font-medium text-muted-foreground"
+                  : "text-sm font-medium tabular-nums"
               }
             >
               {theCountItDeclares(story.instalments, story.instalmentsSaidBy)}
@@ -1612,18 +1589,16 @@ function Carriers({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Volumes carrying it</CardTitle>
+        <CardTitle className="text-xl font-semibold">Volumes carrying it</CardTitle>
         <CardDescription className="text-pretty">
-          The objects this narrative arrived on. One Story spans as many as it spans, and the
-          judgement beside it is not multiplied by them: it was the story that was good or bad.
+          The objects this Story is printed in.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {carriedBy.length === 0 ? (
           <p className="text-pretty text-sm text-muted-foreground">
-            No Volume carries this Story, and that is an ordinary answer rather than a gap: read
-            digitally, borrowed, or known only from Goodreads history. Being read and being owned
-            are unrelated facts.
+            No Volume carries this Story. That is fine: read digitally, borrowed, or only
+            remembered.
           </p>
         ) : (
           <>
@@ -1654,10 +1629,8 @@ function Carriers({
               ))}
             </ol>
             <p className="mt-3 text-pretty text-xs leading-relaxed text-muted-foreground">
-              {carriedBy.length} {carriedBy.length === 1 ? "Volume" : "Volumes"}, standing in the
-              publisher&apos;s order. A hollow spine is one the house does not hold — catalogued, or
-              let go — and what it carried is still true. What the owner thinks of any of them as an
-              object is an Edition note, on its own page, and it is not a score.
+              {carriedBy.length} {carriedBy.length === 1 ? "Volume" : "Volumes"}, in the
+              publisher&apos;s order. A hollow spine is one not in the house.
             </p>
           </>
         )}
@@ -1668,7 +1641,7 @@ function Carriers({
         <form action={carryFromStory} className="mt-6 grid gap-3 border-t border-border pt-5">
           <input type="hidden" name="storyId" value={storyId} />
           <div className="grid gap-1.5">
-            <Label htmlFor="carry-volume" className="text-xs text-muted-foreground">
+            <Label htmlFor="carry-volume" className="text-label font-medium text-muted-foreground">
               Another Volume carrying it
             </Label>
             <select
@@ -1694,10 +1667,7 @@ function Carriers({
           <Button type="submit" disabled={offerable.length === 0} className="h-11 w-full sm:h-10">
             Record it
           </Button>
-          <p className="text-xs text-muted-foreground">
-            Only Volumes in the house are offered. Record the object in the Collection first if it
-            is not there — buying and going through it are separate facts.
-          </p>
+          <p className="text-label text-muted-foreground">Only Volumes in the house are offered.</p>
         </form>
       </CardContent>
     </Card>
@@ -1730,7 +1700,7 @@ function ClosePass({
   return (
     <Drawer
       title={title}
-      description="Going through it again later is a new Pass, never an edit of this one — which is what keeps this time's judgement beside the next one's."
+      description="Going through it again later starts a new Pass."
       closesTo={closesTo}
     >
       <form action={act} className="grid gap-4">
@@ -1742,13 +1712,12 @@ function ClosePass({
         </p>
 
         <div className="grid gap-1.5">
-          <Label htmlFor="pass-ended" className="text-xs text-muted-foreground">
+          <Label htmlFor="pass-ended" className="text-label font-medium text-muted-foreground">
             Ended on
           </Label>
           <input id="pass-ended" name="endedOn" type="date" className={PICKER} />
-          <p className="text-xs text-muted-foreground">
-            Leave it empty where the day is gone. A Pass that started on a recorded day and ended on
-            none keeps the half it has.
+          <p className="text-label text-muted-foreground">
+            Leave it empty if you do not know the day.
           </p>
         </div>
 

@@ -122,7 +122,7 @@ export function StoryScore({ of }: { of: number | null }) {
 }
 
 /**
- * A Story's state, in the same mono-caps idiom the rest of the app labels things with.
+ * A Story's state, in the small sans the rest of the app labels things with.
  *
  * Printed plainly rather than as a pill, because it is a derived fact and not a thing
  * the owner set: nothing here is clickable and nothing pretends to be.
@@ -132,11 +132,11 @@ export function StoryStateLabel({ state }: { state: StoryState }) {
 
   return (
     <span
-      className={`font-mono text-eyebrow uppercase tracking-eyebrow ${shown.emphasis}`}
+      className={`text-label font-medium ${shown.emphasis}`}
       // The derivation is the product, so the screen says so where there is room to.
       title="Derived from this Story's Passes, and stored nowhere"
     >
-      {shown.word}
+      {shown.band}
     </span>
   );
 }

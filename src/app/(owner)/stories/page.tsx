@@ -20,7 +20,7 @@ import { tint } from "@/lib/tint";
 import { strike } from "./actions";
 import { whatGoesWithIt } from "./nothing-on-it";
 import { carriedAs, NOTHING_ON_IT, THE_WALLS_FILTERS } from "./panels";
-import { bandName, StoryScore, stateWord, storyDetail, WALL_STATES } from "./story-state";
+import { bandName, StoryScore, storyDetail, WALL_STATES } from "./story-state";
 
 // THE STORY WALL, and the screen where **the state stopped being a label at the end of a
 // row and became the axis of the application** (#22).
@@ -132,10 +132,9 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           filter through because it is not this wall's act. */}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-heading text-2xl sm:text-3xl">Stories</h1>
-          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-            The narrative unit, at whatever granularity was the right one — and where the owner is
-            with each one, derived from its Passes on this request and stored nowhere.
+          <h1 className="font-heading text-title font-semibold lg:text-title-lg">Stories</h1>
+          <p className="mt-2 text-pretty text-base text-muted-foreground">
+            Everything you have read, played, or mean to.
           </p>
         </div>
 
@@ -154,10 +153,10 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
             <p className="mt-2 text-pretty text-xs text-muted-foreground sm:text-right">
               <Link
                 href={wallAt(narrowing, NOTHING_ON_IT)}
-                className="inline-block rounded py-1.5 underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-block rounded-sm py-1.5 text-sm font-medium underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span className="font-mono tabular-nums">{nothingOnThem.length}</span> with nothing
-                on {nothingOnThem.length === 1 ? "it" : "them"}
+                <span className="tabular-nums">{nothingOnThem.length}</span> with nothing on{" "}
+                {nothingOnThem.length === 1 ? "it" : "them"}
               </Link>
             </p>
           ) : null}
@@ -182,7 +181,7 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           </Chip>
           {WALL_STATES.map((one) => (
             <Chip key={one} href={wallAt({ typeId, state: one })} on={state === one}>
-              {stateWord(one)}
+              {bandName(one)}
             </Chip>
           ))}
         </Axis>
@@ -197,8 +196,8 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
       {struck ? (
         <p role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm">
           {struck === "1"
-            ? "1 Story struck from the library. It does not know that narrative any more."
-            : `${struck} Stories struck from the library. It does not know those narratives any more.`}
+            ? "1 Story struck from the library."
+            : `${struck} Stories struck from the library.`}
         </p>
       ) : null}
 
@@ -213,7 +212,7 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
         {narrowed ? (
           <Link
             href="/stories"
-            className="font-mono text-eyebrow uppercase tracking-eyebrow underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="rounded-sm text-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             Clear
           </Link>
@@ -251,7 +250,7 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
       {striking ? (
         <Drawer
           title="Nothing has happened to these"
-          description="The Stories the library knows and your life does not touch — the residue of proposals approved in a hurry."
+          description="Stories nobody has read, judged, planned or holds on a shelf."
           refused={refused}
           closesTo={wallAt(narrowing)}
         >
@@ -271,12 +270,8 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
             })}
 
             <p className="text-pretty text-sm text-muted-foreground">
-              {nothingOnThem.length} {nothingOnThem.length === 1 ? "Story" : "Stories"} nobody has
-              read, judged, planned or holds on a shelf. Most of them are the pile and belong here.
-              Tick any that were never real — a narrative proposed and approved in a hurry, the same
-              title twice — and strike them: the library stops knowing them, and the Credits on each
-              go too. Striking is refused on anything you have lived with, and that is said one
-              Story at a time on its own page.
+              Most of these are the pile and belong here. Tick any that were never real, such as the
+              same title twice, and strike them. Their Credits go with them.
             </p>
 
             {/* Rows rather than tiles, and the difference is the point: a tile is the shelf,
@@ -293,8 +288,8 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
                   is in the paragraph above the list, where it is read *before* anything is
                   ticked. */}
               <Button type="submit" variant="destructive" className="h-11 w-full sm:h-10">
-                Strike <span className="font-mono tabular-nums after:[content:counter(ticked)]" />{" "}
-                from the library
+                Strike <span className="tabular-nums after:[content:counter(ticked)]" /> from the
+                library
               </Button>
             </div>
           </form>
@@ -333,11 +328,11 @@ function NothingOnItRow({ story }: { story: StoryNothingHasHappenedTo }) {
       <span className="min-w-0 flex-1 py-3">
         <Link
           href={`/stories/${story.id}`}
-          className="block truncate font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          className="block truncate font-heading text-lg font-semibold leading-snug underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
         >
           {story.title}
         </Link>
-        <span className="mt-0.5 block text-pretty text-xs text-muted-foreground">
+        <span className="mt-0.5 block text-pretty text-label text-muted-foreground">
           {whatGoesWithIt(story)}
         </span>
       </span>
@@ -369,17 +364,18 @@ function Band({ state, stories }: { state: StoryState; stories: WallStory[] }) {
     <section aria-labelledby={`band-${state}`}>
       <h2
         id={`band-${state}`}
-        className="flex items-baseline gap-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground"
+        className="flex items-baseline gap-2.5 font-heading text-section font-semibold"
       >
         {bandName(state)}
-        <span className="tabular-nums">{stories.length}</span>
-        <span className="h-px flex-1 bg-border" aria-hidden="true" />
+        <span className="font-sans text-sm font-normal text-muted-foreground tabular-nums">
+          {stories.length}
+        </span>
       </h2>
 
       {/* As many covers as the window holds, at the width a title is legible across. The
           wall is the same object on a phone and at the desk — fewer per row, never a
           second layout to maintain — and two of them fit a phone held one-handed. */}
-      <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 sm:gap-4">
+      <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 sm:gap-4">
         {stories.map((story) => (
           <li key={story.id}>
             <Cover
