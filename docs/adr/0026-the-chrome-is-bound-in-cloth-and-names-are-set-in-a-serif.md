@@ -130,3 +130,15 @@ owner's verdict on it was short: **the covers are the heart of the app, so show 
   absent score is said in words, *Not rated yet*, with the act that fills it.
 - **A drawer takes the keyboard where a script runs**: the panel is focused as it opens and
   `Escape` goes where its close link goes. Without one it is the page it always was.
+- **Detail pages open with the cover.** A Story, a Volume and a Series open with a large clean
+  cover beside the Type and state, the name at the name scale, the creators in the serif, the
+  bookmark where there is a rating, one cloth act and outlined secondaries; below, sections
+  separated by rules replace the stack of cards. A Series' slots are a shelf of spines — the
+  owned ones in the Series' cloth with the title up the spine, the missing ones dashed — under
+  *N of M in the house* and a gilt bar.
+- **On a phone the door is the centre of the bar.** The bottom bar is Home, the Pile, a raised
+  round cloth *+* that is *Add to the library*, the Collection and More; the Inbox leaves the
+  bar for a tray in the phone's header with its count on a small cloth badge, and stays behind
+  More. The door is still not a destination in the map.
+- **The Collection narrows with chips**: a row of Types and three small `<details>` menus for
+  Series, publisher and Binding, all plain links that keep the filters in the URL.
