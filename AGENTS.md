@@ -216,11 +216,14 @@ derivation.
 
 ### Where a colour and a face go
 
-**`src/app/globals.css`, and nowhere else.** Paper, ink, two rules and **one hue**,
-declared on both grounds, with every shadcn token an alias over them — and three faces
-wired to three roles, the serif reserved for the owner's own prose. A screen names no
-colour and picks no family: it spends the tokens. `src/app/palette.test.ts` is the wall,
-and it fails when a screen names a colour of its own or when a ground stops being legible.
+**`src/app/globals.css`, and nowhere else.** Paper, ink and two rules that keep a temperature
+rather than a colour, **cloth** as the action colour, **gilt** as a rare second accent and a
+refusal red held apart from cloth (ADR-0026), declared on both grounds, with every shadcn token
+an alias over them — and three faces wired to their roles: Archivo for the interface,
+Newsreader upright for the names of things and in italic for the owner's own prose, mono for
+an ISBN and nothing else. A screen names no colour and picks no family: it spends the tokens.
+`src/app/palette.test.ts` is the wall, and it fails when a screen names a colour of its own,
+when a ground stops being legible or when cloth and a refusal stop being told apart.
 
 The mark is `src/components/mark.tsx`, drawn from one geometry that `src/app/icon.svg`
 draws again as the favicon, `src/app/icon1.tsx` renders again as that favicon's raster twin and
@@ -247,8 +250,8 @@ they answer `307 /signin`.
 
 ### Where the shelf's colour comes from
 
-**`src/lib/tint.ts`, and it is the one file in `src/` allowed to name a colour.** The chrome
-has no accent, so the only colour on screen is the library's: a tint derived from a Series'
+**`src/lib/tint.ts`, and it is the one file in `src/` allowed to name a colour.** The chrome's
+colours are tokens; the one colour a screen *computes* is the library's: a tint derived from a Series'
 identity, the same on every deploy, worn by the spines the walls are laid out as. A screen
 spends `tint()` the way it spends a token and names nothing itself — `src/lib/tint.test.ts`
 walks every colour the function can produce and holds each one to the palette's own reading

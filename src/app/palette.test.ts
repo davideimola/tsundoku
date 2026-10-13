@@ -16,19 +16,24 @@ import { OUTSIDE_THE_CASCADE } from "./outside-the-cascade";
 // The second wall in this app, and it is a wall for the same reason the first one is
 // (`src/app/gated.test.ts`): the failure it catches is silent. A screen that reaches for
 // `text-red-600` because a refusal ought to look urgent still compiles, still renders and
-// still reads correctly — it has simply put a colour on screen that nobody chose, and the
-// redesign this belongs to (#18) has already spent the whole colour budget elsewhere.
+// still reads correctly — it has simply put a colour on screen that nobody chose.
 //
-// So the rule is stated here rather than in a paragraph nobody reads before adding a page:
+// The rule it holds changed with ADR-0026, which retired *the chrome carries no accent hue*
+// (#18): the chrome now has an action colour and a second accent, so this wall no longer
+// proves that no colour exists — it proves that the ones that do are **named, bounded and
+// legible**. Stated here rather than in a paragraph nobody reads before adding a page:
 //
-//   1. **A colour is named once.** Eight primitives, declared on both grounds, and every
-//      other token in the sheet is `var()` pointing at one of them. A token that carries a
-//      literal of its own is a ninth colour with no name.
-//   2. **The chrome carries no hue.** Every primitive but one is achromatic — chroma
-//      exactly zero — which is what "paper and ink" means arithmetically. The exception is
-//      `--refusal`, and it is bounded: it marks a refusal and it is never spent on chrome.
+//   1. **A colour is named once.** A fixed set of primitives, declared on both grounds, and
+//      every other token in the sheet is `var()` pointing at one of them. A token that
+//      carries a literal of its own is a colour with no name.
+//   2. **Each colour has one job, and the neutrals stay neutral.** Paper, ink and the rules
+//      carry a temperature and not a colour — a stated chroma ceiling. Cloth is the action
+//      colour and is held to be one: indigo, and saturated enough to read as a colour. Gilt
+//      is the second accent. Refusal is red, and is held *apart from cloth*, because an
+//      action and a refusal are the two things on a screen the owner most needs to tell apart.
 //   3. **Both grounds are legible.** The contrasts are computed here rather than eyeballed,
-//      against WCAG's own thresholds, on paper and in a dark room alike.
+//      against WCAG's own thresholds, on paper and in a dark room alike — including cloth as
+//      text, paper-coloured words on a cloth button, and gilt as a mark.
 //   4. **No screen names a colour.** Not a hex, not an `oklch()`, not a Tailwind palette
 //      class. The tokens are the vocabulary and there is no second one — with **one stated
 //      exception**, `src/lib/tint.ts`, which is the library's own colour and is held by a wall
@@ -39,10 +44,7 @@ import { OUTSIDE_THE_CASCADE } from "./outside-the-cascade";
 // and the rate limit's are. The conversion itself is `src/test/palette.ts`, shared with the
 // tint's wall so that the two measure against the same declared grounds.
 
-/**
- * The palette, as roles rather than as values. `--refusal` is the one that carries a hue;
- * the rest are paper, ink and the rules printed between them.
- */
+/** The palette, as roles rather than as values. */
 const PRIMITIVES = [
   "--paper",
   "--paper-raised",
@@ -51,14 +53,40 @@ const PRIMITIVES = [
   "--ink-quiet",
   "--rule",
   "--rule-field",
+  "--cloth",
+  "--cloth-fill",
+  "--on-cloth",
+  "--cloth-soft",
+  "--gilt",
   "--refusal",
 ] as const;
 
 type Primitive = (typeof PRIMITIVES)[number];
 
-/** The one primitive allowed a hue, and the chroma it may not exceed. */
-const HUED: Primitive = "--refusal";
-const CHROMA_CEILING = 0.1;
+/**
+ * The neutrals: paper, ink and the rules printed between them. They may lean — newsprint is a
+ * little warm, printer's ink a little blue — and they may not become a colour.
+ */
+const NEUTRALS = [
+  "--paper",
+  "--paper-raised",
+  "--paper-quiet",
+  "--ink",
+  "--ink-quiet",
+  "--rule",
+  "--rule-field",
+  "--on-cloth",
+] as const;
+const NEUTRAL_CEILING = 0.03;
+
+/** What it takes for a hue to read as a colour rather than as a tinted grey. */
+const A_COLOUR = 0.07;
+
+/** Indigo, as a range of hue angles: blue leaning towards violet, not sky and not purple. */
+const INDIGO = { from: 255, to: 290 } as const;
+
+/** How far apart, in degrees of hue, an action and a refusal have to stand. */
+const APART = 90;
 
 /**
  * Anything that would be a colour literal in a CSS *value*, whether or not this sheet uses
@@ -72,6 +100,12 @@ const CSS_LITERAL =
 const ANY_DECLARATION = /^\s*(--[a-z0-9-]+)\s*:\s*([^;]+);/gim;
 
 const PAPERS = ["--paper", "--paper-raised", "--paper-quiet"] as const;
+
+/** The shortest way round the hue circle between two angles. */
+const hueDistance = (a: number, b: number) => {
+  const apart = Math.abs(a - b) % 360;
+  return apart > 180 ? 360 - apart : apart;
+};
 
 describe("a colour is named once", () => {
   it.each(Object.entries(GROUNDS))("declares every primitive on %s", (_, selector) => {
@@ -89,39 +123,62 @@ describe("a colour is named once", () => {
 
     expect(inventing).toEqual([]);
   });
-});
 
-describe("the chrome carries no accent hue", () => {
-  it.each(Object.entries(GROUNDS))("is achromatic on %s", (_, selector) => {
-    const declared = ground(selector);
-
-    const hued = PRIMITIVES.filter((name) => name !== HUED).filter(
-      (name) => declared.get(name)?.c !== 0
+  // The action colour is what a button and a ring are drawn in, so the shadcn names those
+  // components read have to point at it rather than at ink, which is what they did under #18.
+  it("spends cloth on what shadcn calls primary and on the focus ring", () => {
+    const aliases = new Map(
+      [...STYLESHEET.matchAll(ANY_DECLARATION)].map(([, name, value]) => [name, value.trim()])
     );
 
-    expect(hued).toEqual([]);
+    expect(aliases.get("--primary")).toBe("var(--cloth-fill)");
+    expect(aliases.get("--primary-foreground")).toBe("var(--on-cloth)");
+    expect(aliases.get("--ring")).toBe("var(--cloth)");
+    expect(aliases.get("--destructive")).toBe("var(--refusal)");
   });
+});
 
-  // The one hue in the application, and it is bounded rather than merely permitted: it is
-  // ink that has been bled into, spent on a refusal and on nothing else.
-  //
-  // Naming it a *deviation* rather than hiding it: #19 asked for no accent hue in the
-  // chrome, and this is a hue. The argument for keeping it is that a refusal is not chrome —
-  // an alert and a status message sit side by side on six screens and are otherwise the
-  // same grey box, and the owner has to read one of them. The ceiling is what stops the
-  // argument being used twice: at this chroma it cannot decorate anything.
-  it.each(Object.entries(GROUNDS))("keeps its one hue restrained on %s", (_, selector) => {
-    const refusal = ground(selector).get(HUED);
+describe("each colour has one job", () => {
+  describe.each(Object.entries(GROUNDS))("on %s", (_, selector) => {
+    const declared = ground(selector);
+    const colour = (name: Primitive) => declared.get(name) as Colour;
 
-    expect(refusal?.c).toBeLessThanOrEqual(CHROMA_CEILING);
-    expect(refusal?.c).toBeGreaterThan(0);
+    // A temperature and not a colour: the ground is newsprint and the ink is printer's ink,
+    // and either one crossing this line would be a second accent nobody decided on.
+    it("keeps paper, ink and the rules neutral", () => {
+      const coloured = NEUTRALS.filter((name) => colour(name).c > NEUTRAL_CEILING);
+
+      expect(coloured).toEqual([]);
+    });
+
+    // The action colour exists, and it is the indigo ADR-0026 chose — both as text and as a
+    // surface. Holding the hue is what stops it drifting into a second, different blue.
+    it.each(["--cloth", "--cloth-fill"] as const)("draws %s in indigo, as a colour", (name) => {
+      expect(colour(name).c).toBeGreaterThanOrEqual(A_COLOUR);
+      expect(colour(name).h).toBeGreaterThanOrEqual(INDIGO.from);
+      expect(colour(name).h).toBeLessThanOrEqual(INDIGO.to);
+    });
+
+    it("has a second accent, and it is a colour", () => {
+      expect(colour("--gilt").c).toBeGreaterThanOrEqual(A_COLOUR);
+    });
+
+    // A refusal must never be read as an action. The two are the colours a screen puts side
+    // by side most often — a refused press beside the button that was pressed.
+    it("keeps a refusal apart from the action colour", () => {
+      expect(colour("--refusal").c).toBeGreaterThan(0);
+      expect(hueDistance(colour("--refusal").h, colour("--cloth").h)).toBeGreaterThanOrEqual(APART);
+      expect(hueDistance(colour("--refusal").h, colour("--cloth-fill").h)).toBeGreaterThanOrEqual(
+        APART
+      );
+    });
   });
 });
 
 describe("both grounds are legible", () => {
   describe.each(Object.entries(GROUNDS))("on %s", (_, selector) => {
     const declared = ground(selector);
-    const on = (name: Primitive, paper: string) =>
+    const on = (name: Primitive, paper: Primitive) =>
       contrast(declared.get(name) as Colour, declared.get(paper) as Colour);
 
     // Body text, at AAA. This is what the owner reads a Rating in at midnight.
@@ -138,6 +195,28 @@ describe("both grounds are legible", () => {
     // A refusal is prose the owner has to read to know what went wrong.
     it.each(PAPERS)("keeps a refusal readable on %s", (paper) => {
       expect(on("--refusal", paper)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    // Cloth as text is a link or a text button: it is read, so it is held to reading.
+    it.each(PAPERS)("keeps cloth readable as text on %s", (paper) => {
+      expect(on("--cloth", paper)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    // The waiting block is cloth-soft with ink and a cloth action on it.
+    it("keeps ink and cloth readable on the soft cloth a block sits on", () => {
+      expect(on("--ink", "--cloth-soft")).toBeGreaterThanOrEqual(7);
+      expect(on("--cloth", "--cloth-soft")).toBeGreaterThanOrEqual(4.5);
+    });
+
+    // The words on a filled button.
+    it("prints the words on a cloth button where they can be read", () => {
+      expect(on("--on-cloth", "--cloth-fill")).toBeGreaterThanOrEqual(4.5);
+    });
+
+    // Gilt is a mark rather than text — a progress bar, a sign of being finished — so it is
+    // held to WCAG's 3:1 for a graphic, on every paper it can stand on.
+    it.each(PAPERS)("draws gilt where it can be seen on %s", (paper) => {
+      expect(on("--gilt", paper)).toBeGreaterThanOrEqual(3);
     });
 
     // Not text, but a boundary: the edge of a box the owner is meant to type in has to be
@@ -163,25 +242,27 @@ describe("both grounds are legible", () => {
 // colours in the project that are not one — and therefore the only ones free to drift.
 //
 // `src/components/mark.test.ts` pins the favicon's *geometry* to the mark and the home-screen
-// icon imports it outright; the two blocks below pin the *ink* of both to the palette. Between
-// them the tab and the phone cannot become a different logo in a different colour without
-// something going red.
-describe("the favicon's ink", () => {
+// icon imports it outright; the two blocks below pin the *colours* of both to the palette.
+// Between them the tab and the phone cannot become a different logo in a different colour
+// without something going red.
+describe("the favicon's colours", () => {
   const ICON = readFileSync(new URL("./icon.svg", import.meta.url), "utf8");
 
-  const fills = [...ICON.matchAll(/fill:\s*(#[0-9a-fA-F]{6})/g)].map(([, value]) =>
-    value.toLowerCase()
-  );
+  /** The light rules, then the ones inside the dark media query. */
+  const [light, dark] = ICON.split("@media");
+  const fills = (css: string) =>
+    [...css.matchAll(/fill:\s*(#[0-9a-fA-F]{6})/g)].map(([, value]) => value.toLowerCase());
 
-  it.each(Object.entries(GROUNDS))("is --ink converted to sRGB, on %s", (_, selector) => {
-    const ink = ground(selector).get("--ink") as Colour;
+  // The mark is three bindings — cloth, gilt and ink — so a ground states exactly those
+  // three, converted from the primitives it is drawn with in the chrome.
+  it.each([
+    ["paper", light],
+    ["a dark room", dark],
+  ] as const)("is cloth, gilt and ink converted to sRGB, on %s", (name, css) => {
+    const declared = ground(GROUNDS[name]);
+    const as = (token: string) => hex(declared.get(token) as Colour);
 
-    expect(fills).toContain(hex(ink));
-  });
-
-  // Two, and only two: light and dark. A third would be a colour nothing above accounts for.
-  it("states both grounds and nothing else", () => {
-    expect(fills).toHaveLength(2);
+    expect(fills(css)).toEqual([as("--cloth-fill"), as("--gilt"), as("--ink")]);
   });
 });
 
@@ -189,21 +270,26 @@ describe("the favicon's ink", () => {
 // and a status bar, and each is painted by an operating system out of a value it was given
 // once — so a drift here is a logo that stops matching the application it opens, discovered
 // by nobody, because nothing on screen changes.
-describe("the ink and paper an operating system is handed", () => {
+describe("the colours an operating system is handed", () => {
   it.each(Object.entries(GROUNDS))("are the palette's own primitives, on %s", (name, selector) => {
     const declared = ground(selector);
     const said = name === "paper" ? "light" : "dark";
+    const as = (token: string) => hex(declared.get(token) as Colour);
 
-    expect(OUTSIDE_THE_CASCADE.paper[said]).toBe(hex(declared.get("--paper") as Colour));
-    expect(OUTSIDE_THE_CASCADE.ink[said]).toBe(hex(declared.get("--ink") as Colour));
+    expect(OUTSIDE_THE_CASCADE.paper[said]).toBe(as("--paper"));
+    expect(OUTSIDE_THE_CASCADE.ink[said]).toBe(as("--ink"));
+    expect(OUTSIDE_THE_CASCADE.cloth[said]).toBe(as("--cloth-fill"));
+    expect(OUTSIDE_THE_CASCADE.gilt[said]).toBe(as("--gilt"));
   });
 
-  // Both grounds and nothing else, for the reason the favicon states both: a third would be
-  // a colour the palette does not account for, arriving on the one surface nobody reviews.
+  // Both grounds and nothing else, for the reason the favicon states both: anything more
+  // would be a colour the palette does not account for, arriving on the one surface nobody
+  // reviews. Four roles — the ground, and the three bindings the mark is drawn in.
   it("state both grounds and nothing else", () => {
-    expect(Object.keys(OUTSIDE_THE_CASCADE)).toEqual(["paper", "ink"]);
-    expect(Object.keys(OUTSIDE_THE_CASCADE.paper)).toEqual(["light", "dark"]);
-    expect(Object.keys(OUTSIDE_THE_CASCADE.ink)).toEqual(["light", "dark"]);
+    expect(Object.keys(OUTSIDE_THE_CASCADE)).toEqual(["paper", "ink", "cloth", "gilt"]);
+    for (const role of Object.values(OUTSIDE_THE_CASCADE)) {
+      expect(Object.keys(role)).toEqual(["light", "dark"]);
+    }
   });
 });
 
@@ -233,7 +319,7 @@ describe("no screen names a colour", () => {
    *
    * The other is `app/outside-the-cascade.ts`, and it earns its place the same way: a tab, a
    * home screen and a status bar are outside this document, so they cannot be handed a
-   * `var()` — and the block above reads the stylesheet and asserts those four literals *are*
+   * `var()` — and the block above reads the stylesheet and asserts those literals *are*
    * the primitives, on both grounds. Naming them once in one module is what makes that one
    * assertion enough to cover the manifest, the app icon and the `<meta>` together.
    *

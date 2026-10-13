@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
+import { Archivo, JetBrains_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 import { OUTSIDE_THE_CASCADE } from "./outside-the-cascade";
 
@@ -49,10 +49,10 @@ export const viewport: Viewport = {
 // (user story 24), and a page that withholds its text until a font arrives is a page that
 // is blank exactly when it is most needed.
 
-// The application's own voice. **Archivo for its width axis**, which is the whole reason
-// this family and not another: the same grotesque has to set a heading wide and a spine
-// narrow, and doing that with two families would be two voices. `latin-ext` because the
-// library is Italian and its bindings are Japanese — *tankōbon* has a macron in it.
+// The interface's voice: every label, button and sentence the application says about itself.
+// **Archivo for its width axis**, which is spent sparingly — a spine's title set narrow — rather
+// than everywhere. `latin-ext` because the library is Italian and its bindings are Japanese —
+// *tankōbon* has a macron in it.
 const grotesque = Archivo({
   subsets: ["latin", "latin-ext"],
   axes: ["wdth"],
@@ -60,23 +60,29 @@ const grotesque = Archivo({
   variable: "--face-grotesque",
 });
 
-// The owner's own prose, and nothing else. Its italic is loaded rather than synthesised
-// because the screens quote them as quotations, and a slanted roman is what a browser
-// invents when it has not been given the real thing.
+// **The names of things, and the owner's own prose** (ADR-0026). Newsreader upright is the
+// display face — a page's title, a Story's or a Series' name, a section heading, a big figure
+// — and its italic is what the owner wrote: a Rating's words, an Edition note. One serif and
+// not two: Source Serif 4 stood here for the prose alone, and loading a second serif for the
+// headings would be two voices where the point is one voice at two registers.
 //
-// **Not preloaded**, deliberately: it appears only where the owner has written something,
-// so it is the one face that is not on the critical path of every screen. It arrives a
-// beat after the words it will set, which is the right trade on a shop's signal.
-const serif = Source_Serif_4({
+// Its optical-size axis is the reason it is this family: the same face is drawn sturdier at a
+// caption's size and finer at a title's, which is what lets a 58px name and a 16px quotation
+// both look like they were set on purpose. The italic is loaded rather than synthesised,
+// because a slanted roman is what a browser invents when it has not been given the real thing.
+//
+// **Preloaded now**, where Source Serif was not: every screen opens with a title in it, so it is
+// on the critical path of all of them.
+const serif = Newsreader({
   subsets: ["latin", "latin-ext"],
   style: ["normal", "italic"],
   axes: ["opsz"],
   display: "swap",
-  preload: false,
   variable: "--face-serif",
 });
 
-// Numbers, ISBNs, dates and prices. `latin` alone: nothing it sets is a word.
+// ISBNs, and tabular data inside a table — nothing else (ADR-0026). `latin` alone: nothing it
+// sets is a word.
 const mono = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",

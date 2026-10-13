@@ -5,59 +5,82 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * PAPER, INK AND A RULE.
+ * PAPER, INK, CLOTH AND GILT.
  *
- * Everything on screen is one of eight colours, and seven of them have no hue at all.
- * That is not minimalism for its own sake. The redesign this belongs to (#18) spends the
- * application's whole colour budget in one place — a tint derived from a Series' identity,
- * carried by the tiles the Collection and the Stories will be laid out as — and a chrome
- * with an accent of its own would be competing with the library for the one thing the
- * owner is meant to look at. Nothing here knows about that tint; it simply leaves room.
+ * This replaces the rule that stood here, *the chrome carries no accent hue* (#18), and it
+ * replaces it on purpose rather than around it: ADR-0026 is the decision. The all-grey chrome
+ * was meant to leave the library as the only colour on screen; what it produced in practice
+ * was shadcn's neutral default, and next to an application that had chosen its colours it read
+ * as a tool nobody had dressed. So the chrome now has colours of its own, and they are taken
+ * from the object the library is about — a book.
  *
- * The ground is a **greyish stock**, the one a tankōbon is printed on, rather than white
- * or a warm cream. White is a screen's default and cream is a different book: this is the
- * cheap, slightly grey paper the pile is actually made of.
+ * The ground is **newsprint**: a grey stock with a thread of warmth in it, the cheap paper a
+ * tankōbon is printed on, rather than white (a screen's default) or cream (a different book).
+ * The ink is printer's ink, black with a thread of blue. Neither is a colour; both are a
+ * temperature, and `src/app/palette.test.ts` holds them under a chroma ceiling so that they
+ * stay one.
  *
  * Three surfaces, because a page has three depths and no more: the stock itself, a plate
- * raised off it (a card), and a quiet recess sunk into it (a muted block, a filled row).
- * In a dark room "raised" and "quiet" both read lighter than the ground, which is how
- * depth works when the light is behind the paper rather than on it — the names are roles,
- * not lightnesses.
+ * raised off it (a card), and a quiet recess sunk into it (a muted block, a filled row). In a
+ * dark room "raised" and "quiet" both read lighter than the ground, which is how depth works
+ * when the light is behind the paper rather than on it — the names are roles, not lightnesses.
  *
  * Two inks, because a page says things at two volumes, and two rules, because a hairline
  * between rows and the edge of a box you type into are not the same object: the second one
  * has to be findable, and it is drawn to clear 3:1 for exactly that reason.
  *
- * And **one hue in the whole application**: `--refusal`, ink that has been bled into. It
- * marks a refusal and it is spent on nothing else. It is not an accent, it is not
- * available to a screen that wants to look lively, and `src/app/palette.test.ts` holds it
- * under a stated chroma ceiling so that it can never quietly become one.
+ * And **two colours, each with one job**:
  *
- * Every number below is checked by that file rather than eyeballed: it computes each
- * contrast from these values, on both grounds, against WCAG's own thresholds. A palette
- * that is wrong is wrong there and not in a dark room at midnight.
+ *   - `--cloth`, bookcloth indigo, is **the action colour**: the filled button, a link that
+ *     does something, the chip that is on, the destination the owner is at, the focus ring.
+ *     It has two spellings because a dark room needs two: `--cloth` is cloth as *text* and
+ *     `--cloth-fill` is cloth as a *surface* with `--on-cloth` printed on it. On paper they
+ *     are the same value; in the dark the text lightens to stay legible and the fill stays
+ *     deep enough to carry paper-coloured words. `--cloth-soft` is the tint a waiting block
+ *     sits on.
+ *   - `--gilt`, the gold of a gilded edge, is **a rare second accent**: how far a Pass has got,
+ *     and what is finished or judged. It is never spent on an action.
+ *
+ * `--refusal` stays its own red and is spent on a refusal and nothing else. It is not cloth
+ * and must never be mistaken for it — an action and a refusal side by side are the two things
+ * on a screen the owner most needs to tell apart — so the wall holds the two hues apart.
+ *
+ * Every number below is checked by that file rather than eyeballed: it computes each contrast
+ * from these values, on both grounds, against WCAG's own thresholds. A palette that is wrong
+ * is wrong there and not in a dark room at midnight.
  */
 :root {
   /* The stock, and its two depths. */
-  --paper: oklch(0.955 0 0);
-  --paper-raised: oklch(0.985 0 0);
-  --paper-quiet: oklch(0.915 0 0);
+  --paper: oklch(0.955 0.0083 91.48);
+  --paper-raised: oklch(0.9818 0.0054 95.1);
+  --paper-quiet: oklch(0.919 0.0112 89.73);
 
   /* What is printed on it, at two volumes. */
-  --ink: oklch(0.22 0 0);
-  --ink-quiet: oklch(0.5 0 0);
+  --ink: oklch(0.2783 0.0269 269.33);
+  --ink-quiet: oklch(0.4905 0.0263 271.69);
 
   /* A hairline between rows, and the edge of something you type in. */
-  --rule: oklch(0.865 0 0);
-  --rule-field: oklch(0.62 0 0);
+  --rule: oklch(0.8765 0.0142 88.69);
+  --rule-field: oklch(0.63 0.0155 268.42);
 
-  /* The one hue. */
-  --refusal: oklch(0.48 0.09 25);
+  /* Bookcloth: the action colour, as text and as a surface, and the tint a block sits on. */
+  --cloth: oklch(0.3866 0.1018 269.72);
+  --cloth-fill: oklch(0.3866 0.1018 269.72);
+  --on-cloth: oklch(0.955 0.0083 91.48);
+  --cloth-soft: oklch(0.923 0.0123 276.09);
+
+  /* The gilded edge: progress, and what is finished or judged. */
+  --gilt: oklch(0.6115 0.1144 80.33);
+
+  /* A refusal, and nothing else. */
+  --refusal: oklch(0.5 0.15 27);
 
   /*
-   * shadcn's vocabulary, mapped onto the eight above and carrying no value of its own.
-   * The components are bought rather than written, so they keep their names — and a
-   * colour still exists in exactly one place, which is the rule the wall enforces.
+   * shadcn's vocabulary, mapped onto the primitives above and carrying no value of its own.
+   * The components are bought rather than written, so they keep their names — and a colour
+   * still exists in exactly one place, which is the rule the wall enforces. `primary` is the
+   * cloth surface, so a default button is the action colour; the ring is cloth as well,
+   * because where the keyboard is is an action about to happen.
    */
   --background: var(--paper);
   --foreground: var(--ink);
@@ -65,8 +88,8 @@
   --card-foreground: var(--ink);
   --popover: var(--paper-raised);
   --popover-foreground: var(--ink);
-  --primary: var(--ink);
-  --primary-foreground: var(--paper);
+  --primary: var(--cloth-fill);
+  --primary-foreground: var(--on-cloth);
   --secondary: var(--paper-quiet);
   --secondary-foreground: var(--ink);
   --muted: var(--paper-quiet);
@@ -76,21 +99,21 @@
   --destructive: var(--refusal);
   --border: var(--rule);
   --input: var(--rule-field);
-  --ring: var(--ink-quiet);
+  --ring: var(--cloth);
   --sidebar: var(--paper-raised);
   --sidebar-foreground: var(--ink);
-  --sidebar-primary: var(--ink);
-  --sidebar-primary-foreground: var(--paper);
+  --sidebar-primary: var(--cloth-fill);
+  --sidebar-primary-foreground: var(--on-cloth);
   --sidebar-accent: var(--paper-quiet);
-  --sidebar-accent-foreground: var(--ink);
+  --sidebar-accent-foreground: var(--cloth);
   --sidebar-border: var(--rule);
-  --sidebar-ring: var(--ink-quiet);
+  --sidebar-ring: var(--cloth);
 
   /*
    * Tighter than the theme shipped with. A tankōbon's corners are cut, not moulded, and a
    * generous radius is the single loudest tell of an interface nobody chose the shape of.
    */
-  --radius: 0.375rem;
+  --radius: 0.5rem;
 
   /*
    * THREE FACES, THREE JOBS.
@@ -100,79 +123,133 @@
    * fallback behind it, because `next/font` warns and falls back rather than failing when
    * it cannot reach the foundry, and a clone with no network should still look composed.
    *
-   * `--font-sans` — a **variable-width grotesque**, and the application's own voice: every
-   * word the interface says about itself. Its width axis is the reason it is this family
-   * and not another one: the same face has to set a heading wide and a spine narrow, and
-   * two families doing that would be two voices.
+   * `--font-sans` — **Archivo**, the interface's voice: every label, button and sentence the
+   * application says about itself. Its width axis is loaded and spent sparingly — a spine's
+   * title set narrow — rather than everywhere.
    *
-   * `--font-serif` — **the owner's own prose, and nothing else.** A Rating's words, an
-   * Edition note, a declared constraint, a Path's intent. What they wrote must be visibly
-   * not what the application says, because the whole point of this library is that the
-   * judgement in it is theirs. Never used for chrome.
+   * `--font-serif` — **Newsreader**, a display serif with an optical-size axis, and it has
+   * two jobs that never share a style. Upright, it is the **name of things**: a page's title,
+   * a Story's, a Volume's and a Series' name, a section heading, a big figure. In italic it is
+   * **the owner's own prose** — a Rating's words, an Edition note, a Path's intent — which is
+   * how what they wrote stays visibly theirs now that the application's headings are set in
+   * the same family.
    *
-   * `--font-mono` — numbers, ISBNs, dates and prices. Functional rather than decorative:
-   * these are identifiers and quantities, they line up in columns, and a Type's id is what
-   * an external assistant reads over MCP.
+   * `--font-mono` — an ISBN, and tabular data inside a table. Nothing else: a count or a date
+   * elsewhere is `tabular-nums` in whichever face it stands in.
    */
   --font-sans:
     var(--face-grotesque), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
-  --font-serif: var(--face-serif), ui-serif, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-serif: var(--face-serif), "Iowan Old Style", Georgia, "Times New Roman", serif;
   --font-mono:
     var(--face-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
     monospace;
 }
 
 /*
- * The same eight roles in a dark room, and only those eight: every token above is a
- * `var()` on the same element, so redeclaring the palette here is the whole of the theme.
- * A token added above with a value of its own would be a colour this block cannot reach,
- * which is the second reason the wall forbids one.
+ * The same roles in a dark room, and only those: every token above is a `var()` on the same
+ * element, so redeclaring the palette here is the whole of the theme. The ground is
+ * **blue-black** rather than neutral black — night ink, not a switched-off screen — and the
+ * ink is the paper's own warm grey. A token added above with a value of its own would be a
+ * colour this block cannot reach, which is the second reason the wall forbids one.
  */
 .dark {
-  --paper: oklch(0.175 0 0);
-  --paper-raised: oklch(0.225 0 0);
-  --paper-quiet: oklch(0.265 0 0);
+  --paper: oklch(0.2179 0.0188 266.12);
+  --paper-raised: oklch(0.252 0.0222 265.72);
+  --paper-quiet: oklch(0.2926 0.0236 264.11);
 
-  --ink: oklch(0.93 0 0);
-  --ink-quiet: oklch(0.65 0 0);
+  --ink: oklch(0.9251 0.0112 89.73);
+  --ink-quiet: oklch(0.7382 0.0164 269.93);
 
-  --rule: oklch(0.33 0 0);
-  --rule-field: oklch(0.5 0 0);
+  --rule: oklch(0.3248 0.0246 265.57);
+  --rule-field: oklch(0.5488 0.0244 268.24);
 
-  --refusal: oklch(0.72 0.085 25);
+  --cloth: oklch(0.7958 0.0763 275.42);
+  --cloth-fill: oklch(0.4516 0.1206 270.52);
+  --on-cloth: oklch(0.955 0.0083 91.48);
+  --cloth-soft: oklch(0.2903 0.0451 270.97);
+
+  --gilt: oklch(0.7779 0.1078 82.12);
+
+  --refusal: oklch(0.74 0.11 25);
+
+  color-scheme: dark;
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
+  /* A heading is a name, and names are set in the serif (see `--font-serif` above). */
+  --font-heading: var(--font-serif);
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
 
   /*
-   * The size the owner's prose is set at, and the only one the serif is ever given.
+   * THE DISPLAY SCALE: the serif's sizes, and the only ones it is given upright.
+   *
+   * Four steps, named for what they set rather than for how big they are, so a screen says
+   * *this is a page's title* and not *this is 36 pixels*. Each has a phone size and a desk
+   * size, spent as `text-title lg:text-title-lg`.
+   *
+   *   - `title` — a page's own name, *Tonight*, *The Pile*.
+   *   - `name` — the record a detail page is about: a Story's, a Volume's, a Series' name.
+   *   - `section` — a section's heading inside a page.
+   *   - `figure` — a big number the library is summed up in.
+   *
+   * Tight leading and a hair of negative tracking, because a display serif set at the line
+   * height of body text falls apart into separate words.
+   */
+  --text-title: 2.25rem;
+  --text-title--line-height: 1.05;
+  --text-title--letter-spacing: -0.015em;
+  --text-title-lg: 2.875rem;
+  --text-title-lg--line-height: 1;
+  --text-title-lg--letter-spacing: -0.015em;
+  --text-name: 2.75rem;
+  --text-name--line-height: 1.02;
+  --text-name--letter-spacing: -0.02em;
+  --text-name-lg: 3.625rem;
+  --text-name-lg--line-height: 1;
+  --text-name-lg--letter-spacing: -0.02em;
+  --text-section: 1.5rem;
+  --text-section--line-height: 1.15;
+  --text-section--letter-spacing: -0.005em;
+  --text-figure: 2.5rem;
+  --text-figure--line-height: 1;
+
+  /*
+   * The size the owner's prose is set at, in the serif's italic.
    *
    * It is a notch above the grotesque's because a serif's x-height runs smaller: set at the
    * same nominal size the two do not look the same size, and the owner's words would read
    * as a footnote to the application's. Declared here rather than as an arbitrary value on
    * six screens, for the same reason the colours are.
    */
-  --text-prose: 0.95rem;
-  --text-prose--line-height: 1.625;
+  --text-prose: 1rem;
+  --text-prose--line-height: 1.6;
 
   /*
-   * The smallest type in the application, and the one the shell is built out of: a
-   * section's name over a list of destinations, a destination's name under its rule in the
+   * A label: the name over a field, a section of the sidebar, the facts in a row. Small
+   * sans in sentence case — the monospaced, letterspaced capitals that stood here made the
+   * library read as a terminal (ADR-0026) — set at a size that is still read rather than
+   * deciphered.
+   */
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.35;
+
+  /*
+   * The smallest type in the application: a destination's name under its glyph in the
    * phone's bottom bar. It wraps — *Collection* barely fits a fifth of a phone on one
    * line — so it carries a line height tight enough for two lines to read as one label.
-   *
-   * The tracking is beside it rather than in it: an eyebrow is letterspaced because it is
-   * read as a label, and a name in a bottom bar is not, so the two are spent separately.
-   * Both are here for the same reason `--text-prose` is, and the reason the colours are.
    */
-  --text-eyebrow: 0.6875rem;
-  --text-eyebrow--line-height: 1.25;
-  --tracking-eyebrow: 0.18em;
+  --text-tab: 0.6875rem;
+  --text-tab--line-height: 1.25;
+
+  /* The two colours, as utilities: `text-cloth`, `bg-cloth-fill`, `bg-gilt` and the rest. */
+  --color-cloth: var(--cloth);
+  --color-cloth-fill: var(--cloth-fill);
+  --color-on-cloth: var(--on-cloth);
+  --color-cloth-soft: var(--cloth-soft);
+  --color-gilt: var(--gilt);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
