@@ -221,9 +221,12 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
               opens is not this screen's act: it records a narrative and a Want as readily as an
               object, and a drawer on the Collection saying *I read it* would be a door in the
               wrong wall. */}
-          <OpensDrawer href="/add" emphasis="loud">
-            Add to the library
-          </OpensDrawer>
+          {/* At the desk only: on a phone the raised `+` in the bar is the same door. */}
+          <span className="hidden lg:inline">
+            <OpensDrawer href="/add" emphasis="loud">
+              Add to the library
+            </OpensDrawer>
+          </span>
 
           {/* The facts, as a sentence. Each is a link with a thumb's worth of padding around
               it rather than a chip, because what is being offered is *a figure to read* and

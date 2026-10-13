@@ -74,14 +74,16 @@ export function DoorOnThePhone({ className }: { className?: string }) {
  * The door as the act a screen is for: the filled cloth button in the header of Home, which is
  * where the evening starts and where saying something new about the library is most often the
  * next thing to do. The same words and the same plus as the other two, so it reads as the same
- * door rather than as a fourth way in.
+ * door rather than as a fourth way in. **At the desk only**: on a phone the raised `+` in the
+ * bar is already under the thumb on every screen, and a second door at the head of Home would
+ * be the same act offered twice in one glance.
  */
 export function DoorInTheHeader({ className }: { className?: string }) {
   return (
     <Link
       href={THE_DOOR.href}
       className={cn(
-        "inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-5 text-[0.9375rem] font-semibold text-primary-foreground transition-opacity",
+        "hidden h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-5 lg:inline-flex text-[0.9375rem] font-semibold text-primary-foreground transition-opacity",
         "outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         className
       )}
