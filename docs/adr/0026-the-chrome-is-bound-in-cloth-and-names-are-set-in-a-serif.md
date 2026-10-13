@@ -92,3 +92,41 @@ as marks. No screen names a colour, as before.
 - The door, *Add to the library*, is no longer the one filled block across the top of the
   sidebar: it is a quiet line in the desk's chrome beside the finder, and the cloth button in
   the header of Home. On a phone it stays where it was.
+
+## Addendum: the second tranche — the covers are the heart of it
+
+The first tranche dressed the chrome. The second turns to what the chrome is around, and the
+owner's verdict on it was short: **the covers are the heart of the app, so show them clean.**
+
+- **One cover, everywhere.** Every tile — the walls, Home, the Pile's rows, a Series, a Wish,
+  an acquisition, a stop on a Path, the hero of a detail page — is `src/components/cover.tsx`,
+  and it is one shape: two by three, `object-fit: cover`, a four-pixel corner, the shadow a
+  book throws on a shelf and a crease at the spine. No per-Type shape, and no tile taller than
+  its neighbours.
+- **Nothing is printed on a real jacket.** The Binding, the Type, the score, the dash for a
+  score nobody gave, the title band and the volume number all came off the image; the
+  Binding and the Type are said on the detail page. Under a tile there is at most one quiet
+  line, and only where it means something: how far a run has got (with a thin gilt line), how
+  many Stories a stacked Volume binds, which number of a Series this is. The run's stack of
+  edges behind a jacket (#34) is retired with the rest, because the paper stack below now
+  says something else and two stacked pictures meaning two things would be one too many.
+- **Where there is no jacket the cover is drawn** — the Series' cloth, a darker headband, the
+  title stamped in the serif — and it is always underneath the jacket, so one that fails to
+  load leaves the drawn cover rather than a hole, with no script.
+- **The tint is bookcloth.** `src/lib/tint.ts` moved from a pastel printed in ink to a deep,
+  dusty cloth (L 0.42, C 0.07 on paper, a step deeper in the dark) lettered in light; it is
+  still derived and stable, and its wall now walks every hue against the lettering at 7:1.
+  The marks a cover is bound with — the shadows, the crease, the headband — are colours, so
+  they live beside the tint as `BINDING`, the one file allowed to name one.
+- **Stories bound in one Volume are one tile.** Where several Stories on a wall borrow the same
+  jacket, the wall draws it once, faced out of two sheets of paper, with *N stories inside*
+  under it, and it opens a sheet listing them with a way onto the Volume. The sheet is a
+  drawer whose open state is the URL, so it works with nothing running. The Story wall's query
+  does not name the Volume that lends a jacket, so the grouping is by the jacket's address
+  (`src/components/bound-together.ts`) and the Volume is found among the house's by the same
+  address — an approximation stated where it is made.
+- **A rating is a bookmark** (`src/components/rating-mark.tsx`): a ribbon filled with cloth to
+  the score, the figure beside it in the serif — *9*, *7.5* — named *Rated 9 out of 10*. An
+  absent score is said in words, *Not rated yet*, with the act that fills it.
+- **A drawer takes the keyboard where a script runs**: the panel is focused as it opens and
+  `Escape` goes where its close link goes. Without one it is the page it always was.
