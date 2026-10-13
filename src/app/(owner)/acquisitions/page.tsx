@@ -46,8 +46,8 @@ import { acquisitionDetail, monthNamed, standingOf, whenItWas } from "./months";
 // themselves.
 export const dynamic = "force-dynamic";
 
-/** The idiom every label on this screen is set in, and the app's smallest type. */
-const EYEBROW = "font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground";
+/** The idiom every label on this screen is set in: small sans, sentence case. */
+const LABEL = "text-label font-medium text-muted-foreground tabular-nums";
 
 export default async function AcquisitionsPage() {
   await requireOwner();
@@ -64,15 +64,23 @@ export default async function AcquisitionsPage() {
   return (
     <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <h1 className="font-heading text-2xl sm:text-3xl">Acquisitions</h1>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          What came home, month by month, and what each month came to. An object that has since left
-          the house is still here, in the month it arrived in — the money was spent. A total says
-          what it was counted over, because most of these acquisitions carry no price.
+        <h1 className="font-heading text-title font-semibold lg:text-title-lg">Acquisitions</h1>
+        <p className="mt-2 text-pretty text-base text-muted-foreground">
+          What came home, month by month.
         </p>
+        <details className="mt-3 max-w-prose text-sm text-muted-foreground">
+          <summary className="cursor-pointer text-sm font-medium text-cloth">
+            How this works
+          </summary>
+          <p className="mt-2 text-pretty">
+            An object that has since left the house is still here, in the month it arrived in — the
+            money was spent. A total says what it was counted over, because most acquisitions carry
+            no price.
+          </p>
+        </details>
       </header>
 
-      <p className={`mt-8 ${EYEBROW}`}>
+      <p className={`mt-8 ${LABEL}`}>
         {acquisitions} {acquisitions === 1 ? "acquisition" : "acquisitions"}
         {months.length > 0 ? (
           <> across {months.length === 1 ? "one band" : `${months.length} bands`}</>
@@ -81,12 +89,11 @@ export default async function AcquisitionsPage() {
 
       {months.length === 0 ? (
         <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-          Nothing has come home yet. An acquisition is recorded deliberately — cataloguing an object
-          is not owning it — so this fills up from{" "}
-          <Link href="/add" className="underline underline-offset-4">
-            the one door
-          </Link>
-          , where <em>I bought it</em> writes the object, the day and the price in one press.
+          Nothing has come home yet. Say <em>I bought it</em> in{" "}
+          <Link href="/add" className="font-medium text-cloth underline-offset-4 hover:underline">
+            Add to the library
+          </Link>{" "}
+          and the object, the day and the price are written in one press.
         </p>
       ) : (
         <div className="mt-4 space-y-10">
@@ -108,19 +115,19 @@ function Month({ month, today }: { month: MonthThingsCameHome; today: Date }) {
     <section aria-labelledby={id}>
       <h2
         id={id}
-        className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border pb-1.5"
+        className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border pb-2"
       >
-        <span className="font-heading text-lg">{monthNamed(month.month)}</span>
-        {hint ? <span className="text-xs text-muted-foreground">— {hint}</span> : null}
+        <span className="font-heading text-section font-semibold">{monthNamed(month.month)}</span>
+        {hint ? <span className="text-sm text-muted-foreground">{hint}</span> : null}
         <CameTo month={month} />
       </h2>
 
       {/* The band with no month is the one the owner can act on, and it says what the act is
           rather than leaving them to work it out from a heading. */}
       {month.month === null ? (
-        <p className="mt-3 max-w-prose text-pretty text-xs text-muted-foreground">
-          Nobody wrote the day down, so these belong to no month and are in none of the totals
-          above. The day is on each object's own page, and filling one in moves it into its month.
+        <p className="mt-3 max-w-prose text-pretty text-sm text-muted-foreground">
+          Nobody wrote the day down, so these are in no month's total. Fill the day in on the
+          object's own page and it moves into its month.
         </p>
       ) : null}
 
@@ -146,22 +153,23 @@ function CameTo({ month }: { month: MonthThingsCameHome }) {
   return (
     <span className="ml-auto flex items-baseline gap-2">
       {unrecorded(month.comesTo) ? (
-        <span className="text-xs text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           <span aria-hidden="true">—</span>
           <span className="sr-only">No acquisition in this month carries a price</span>
         </span>
       ) : (
         <>
-          <span className="font-mono text-xs tabular-nums">€ {month.comesTo.figure}</span>
+          <span className="text-sm font-semibold tabular-nums">€ {month.comesTo.figure}</span>
           {whole(month.comesTo) ? null : (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               from {month.comesTo.from} of {month.comesTo.of} priced
             </span>
           )}
         </>
       )}
-      <span className="font-mono text-xs tabular-nums text-muted-foreground">
-        {month.acquisitions.length}
+      <span className="text-sm text-muted-foreground tabular-nums">
+        {month.acquisitions.length}{" "}
+        {month.acquisitions.length === 1 ? "acquisition" : "acquisitions"}
       </span>
     </span>
   );
@@ -189,14 +197,16 @@ function Row({ made }: { made: AcquisitionMade }) {
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="min-w-0 font-heading text-balance">{made.volume.title}</h3>
+          <h3 className="min-w-0 font-heading text-lg font-semibold leading-snug text-balance">
+            {made.volume.title}
+          </h3>
           <Badge variant="outline" className="shrink-0">
             {made.volume.binding.name}
           </Badge>
         </div>
-        {under ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{under}</p> : null}
+        {under ? <p className="mt-0.5 truncate text-label text-muted-foreground">{under}</p> : null}
 
-        <p className="mt-2 font-mono text-lg tabular-nums">
+        <p className="mt-2 font-heading text-xl font-semibold tabular-nums">
           {made.pricePaid === null ? (
             <span className="text-muted-foreground">
               <span aria-hidden="true">—</span>
@@ -207,10 +217,10 @@ function Row({ made }: { made: AcquisitionMade }) {
           )}
         </p>
 
-        <p className={`mt-1.5 ${EYEBROW}`}>
-          {made.acquiredOn === null ? "no day recorded" : `came home ${made.acquiredOn}`}
+        <p className={`mt-1.5 ${LABEL}`}>
+          {made.acquiredOn === null ? "No day recorded" : `Came home ${made.acquiredOn}`}
         </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{standingOf(made)}</p>
+        <p className="mt-0.5 text-label text-muted-foreground">{standingOf(made)}</p>
       </div>
     </li>
   );

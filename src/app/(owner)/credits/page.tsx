@@ -30,25 +30,26 @@ export default async function CreditsPage() {
   return (
     <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <h1 className="font-heading text-2xl sm:text-3xl">Credits</h1>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          Who wrote it and who drew it. A Credit is a contribution to a Story in a named role, so
-          one person can hold both — and two people usually do.
+        <h1 className="font-heading text-title font-semibold lg:text-title-lg">Credits</h1>
+        <p className="mt-2 text-pretty text-base text-muted-foreground">
+          The people behind the stories, and how much of them you have read.
         </p>
       </header>
 
       {people.length === 0 ? (
         <p className="mt-8 max-w-prose text-pretty text-sm text-muted-foreground">
-          Nobody is credited yet. Neither sheet had a column for it, so this starts empty on
-          purpose: credit a writer or an artist on a{" "}
-          <Link href="/stories" className="underline underline-offset-4 hover:text-foreground">
+          Nobody is credited yet. Credit a writer or an artist on a{" "}
+          <Link
+            href="/stories"
+            className="font-medium text-cloth underline-offset-4 hover:underline"
+          >
             Story
-          </Link>
-          , and everything they are credited on becomes a question you can ask.
+          </Link>{" "}
+          and everything they are credited on shows up here.
         </p>
       ) : (
         <>
-          <p className="mt-8 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+          <p className="mt-8 text-label font-medium text-muted-foreground tabular-nums">
             {people.length} {people.length === 1 ? "person" : "people"}
           </p>
 
@@ -62,9 +63,9 @@ export default async function CreditsPage() {
         </>
       )}
 
-      <p className="mt-10 max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
-        Read means it went through a Pass, abandoned included — not that the Story is in the
-        library. Open a name for the whole body of work, split by the role they held on each thing.
+      <p className="mt-10 max-w-prose text-pretty text-label text-muted-foreground">
+        Read means a Pass went through it, abandoned included. Open a name for everything they are
+        credited on, by role.
       </p>
     </main>
   );
@@ -78,16 +79,18 @@ function Person({ person }: { person: CreditedPerson }) {
       className="flex h-full items-baseline justify-between gap-4 rounded-xl p-4 outline-none ring-1 ring-foreground/10 transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="min-w-0">
-        <span className="block truncate font-heading">{person.name}</span>
+        <span className="block truncate font-heading text-lg font-semibold leading-snug">
+          {person.name}
+        </span>
         {/* The roles they hold anywhere, in the order a comic is credited in — which is what
-            their page is banded by. Mono caps, because it is a vocabulary and not prose. */}
-        <span className="mt-0.5 block truncate font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+            their page is banded by. */}
+        <span className="mt-0.5 block truncate text-label text-muted-foreground">
           {rolesSaid(person.roles)}
         </span>
       </span>
       {/* The only number on the row, and the one the shelf question turns on: read out of
           credited. Tabular so the column lines up under itself. */}
-      <span className="shrink-0 whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
+      <span className="shrink-0 whitespace-nowrap text-label tabular-nums text-muted-foreground">
         {person.readCount} / {person.storyCount} read
       </span>
     </Link>

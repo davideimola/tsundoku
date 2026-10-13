@@ -186,10 +186,9 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   return (
     <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <h1 className="font-heading text-2xl sm:text-3xl">Inbox</h1>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          What an assistant asked for and you have not decided. Nothing here has touched the
-          library: approving is the act that writes, and rejecting leaves no trace of it anywhere.
+        <h1 className="font-heading text-title font-semibold lg:text-title-lg">Inbox</h1>
+        <p className="mt-2 text-pretty text-base text-muted-foreground">
+          What an assistant proposed. Nothing changes until you say yes.
         </p>
       </header>
 
@@ -207,16 +206,15 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
         </p>
       ) : null}
 
-      <p className="mt-8 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+      <p className="mt-8 text-label font-medium text-muted-foreground tabular-nums">
         {waiting.length} waiting
         {groups.length < waiting.length ? ` in ${groups.length} decisions` : null}
       </p>
 
       {waiting.length === 0 ? (
         <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-          Nothing to decide. An assistant that meets a Story, a Volume or a Series this library does
-          not have cannot add it, and one that finds a record standing incomplete cannot fill it in
-          — both leave a proposal here, and it waits for you.
+          Nothing to decide. When an assistant meets a Story, a Volume or a Series the library does
+          not have, or a record standing incomplete, it leaves a proposal here for you.
         </p>
       ) : (
         <ul className="mt-4 space-y-6">
@@ -253,7 +251,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
  * One decision: the entries that are about the same thing, and the two acts they can meet.
  *
  * One `<form>` per group, because approving a selection is one submission — and therefore
- * the *Reject it* on each row is a second submit button in that same form rather than a form
+ * the *Reject* on each row is a second submit button in that same form rather than a form
  * of its own, which HTML would not allow inside this one (`./actions`).
  */
 function Decision({ group, vocabularies }: { group: InboxGroup; vocabularies: Vocabularies }) {
@@ -275,8 +273,10 @@ function Decision({ group, vocabularies }: { group: InboxGroup; vocabularies: Vo
           word about this screen, and every act here is a word about the library. */}
       <div className="px-4 py-4">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="font-heading text-lg leading-snug text-pretty">{whatItIsAbout(group)}</h2>
-          <span className="ml-auto font-mono text-eyebrow text-muted-foreground">
+          <h2 className="font-heading text-lg font-semibold leading-snug text-pretty">
+            {whatItIsAbout(group)}
+          </h2>
+          <span className="ml-auto text-label text-muted-foreground tabular-nums">
             {group.entries[0].proposedAt}
           </span>
         </div>
@@ -329,11 +329,11 @@ function Decision({ group, vocabularies }: { group: InboxGroup; vocabularies: Vo
         className="group border-t border-border"
         open={howMany <= FOLDED_PAST || alreadyThere !== null}
       >
-        <summary className="cursor-pointer list-none px-4 py-3 text-xs text-muted-foreground marker:hidden">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-cloth marker:hidden">
           <span className="group-open:hidden">
             Read the {howMany} {howMany === 1 ? "entry" : "entries"} one by one
           </span>
-          <span className="hidden group-open:inline">Fold them away</span>
+          <span className="hidden group-open:inline">Show fewer</span>
         </summary>
 
         <ul className="border-t border-border">
@@ -369,7 +369,7 @@ function Entry({ entry, vocabularies }: { entry: InboxEntry; vocabularies: Vocab
         name="entryId"
         value={entry.id}
         defaultChecked
-        className="mt-1 size-4 shrink-0 accent-foreground"
+        className="mt-1 size-4 shrink-0 accent-cloth-fill"
       />
 
       <div className="min-w-0 flex-1">
@@ -377,7 +377,7 @@ function Entry({ entry, vocabularies }: { entry: InboxEntry; vocabularies: Vocab
           <Label htmlFor={tick} className="text-sm">
             {entry.reference}
           </Label>
-          <span className="font-mono text-eyebrow text-muted-foreground">{entry.proposedAt}</span>
+          <span className="text-label text-muted-foreground tabular-nums">{entry.proposedAt}</span>
         </div>
 
         {/* What was said, quoted: the evidence the decision is actually made on, where the
@@ -407,9 +407,9 @@ function Entry({ entry, vocabularies }: { entry: InboxEntry; vocabularies: Vocab
           type="submit"
           name="reject"
           value={entry.id}
-          className="mt-3 rounded-lg text-xs text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-3 rounded-sm text-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
         >
-          Reject it
+          Reject
         </button>
       </div>
     </div>
@@ -482,18 +482,18 @@ function Carries({ entry }: { entry: InboxEntry }) {
 
   return (
     <div className="mt-4 border-t border-border pt-3">
-      <p className="text-xs text-muted-foreground">What it says is inside the object</p>
+      <p className="text-label font-semibold text-foreground">What it says is inside the object</p>
 
       <ul className="-mx-2 mt-1">
         {entry.carries.map((story) =>
           story.title === null ? (
             // No link, because there is nothing to open. The id is in the monospace the
-            // typography contract reserves for figures — it is a reference and not a name —
+            // typography contract keeps for identifiers — it is a reference and not a name —
             // and it is on the right where a qualifier would be, so that a row naming
             // nothing cannot be misread as a Story of some unfamiliar Type.
             <li key={story.id} className={cn(ROW, "text-destructive")}>
               <span className="shrink-0">No Story has this id</span>
-              <span className="min-w-0 truncate font-mono text-eyebrow">{story.id}</span>
+              <span className="min-w-0 truncate font-mono text-xs">{story.id}</span>
             </li>
           ) : (
             <li key={story.id}>
@@ -542,7 +542,7 @@ function Diff({ entry, fields }: { entry: InboxEntry; fields: ProposalField[] })
     <dl className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-[max-content_1fr]">
       {fields.map((field) => (
         <Fragment key={field}>
-          <dt className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground sm:pt-1">
+          <dt className="text-label font-medium text-muted-foreground sm:pt-0.5">
             {fieldLabel(field)}
           </dt>
           <dd className="flex flex-wrap items-baseline gap-x-2 text-sm">
@@ -572,7 +572,8 @@ function Value({ field, value, quiet }: { field: ProposalField; value: unknown; 
   return (
     <span
       className={cn(
-        FIGURES.includes(field) && "font-mono",
+        // An ISBN is an identifier and keeps the monospace; a count is a number in the sans.
+        field === "isbn" ? "font-mono" : FIGURES.includes(field) && "tabular-nums",
         quiet ? "text-muted-foreground" : "font-medium"
       )}
     >
@@ -736,7 +737,7 @@ function BoxLabel({ field, id, needed }: { field: ProposalField; id: string; nee
   return (
     // Two children of one flex row, and the gap between them is the `Label`'s own: the mark
     // is a word beside the field's name rather than part of it.
-    <Label htmlFor={id} className="text-xs text-muted-foreground">
+    <Label htmlFor={id} className="text-label font-medium text-muted-foreground">
       {fieldLabel(field)}
       {needed ? <span className="text-destructive">needed</span> : null}
     </Label>
@@ -756,7 +757,7 @@ function Decided({ entry }: { entry: InboxEntry }) {
         </span>
       </span>
       <span className="flex shrink-0 items-baseline gap-2">
-        <span className="font-mono text-eyebrow text-muted-foreground">{entry.decidedAt}</span>
+        <span className="text-label text-muted-foreground tabular-nums">{entry.decidedAt}</span>
         <Badge
           variant={entry.state === "approved" ? "secondary" : "outline"}
           className="capitalize"

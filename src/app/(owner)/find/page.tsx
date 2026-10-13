@@ -55,11 +55,9 @@ export default async function Find({ searchParams }: { searchParams: Promise<Ask
   return (
     <main className="px-5 py-8 sm:px-8 sm:py-12">
       <header>
-        <h1 className="font-heading text-2xl sm:text-3xl">Find</h1>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          One field over the whole library: titles, objects, publishers&rsquo; lines, the people
-          credited and your own routes. A fragment is enough, and an accent is optional in either
-          direction.
+        <h1 className="font-heading text-title font-semibold lg:text-title-lg">Find</h1>
+        <p className="mt-2 text-pretty text-base text-muted-foreground">
+          Anything in the library, by a fragment of its name. Accents are optional.
         </p>
       </header>
 
@@ -81,11 +79,11 @@ export default async function Find({ searchParams }: { searchParams: Promise<Ask
             // The one place autofocus is right: the owner arrived on a screen whose whole
             // purpose is this field, having usually pressed enter to get here.
             autoFocus
-            className="h-9"
+            className="h-10"
           />
           <button
             type="submit"
-            className="h-9 shrink-0 rounded-lg border border-border px-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 shrink-0 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             Find
           </button>
@@ -100,11 +98,12 @@ export default async function Find({ searchParams }: { searchParams: Promise<Ask
             <section key={group.kind} aria-labelledby={`found-${group.kind}`}>
               <h2
                 id={`found-${group.kind}`}
-                className="flex items-baseline gap-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground"
+                className="flex items-baseline gap-3 font-heading text-section font-semibold"
               >
                 {group.heading}
-                <span className="tabular-nums">{group.findings.length}</span>
-                <span className="h-px flex-1 bg-border" aria-hidden="true" />
+                <span className="font-sans text-sm font-normal text-muted-foreground tabular-nums">
+                  {group.findings.length}
+                </span>
               </h2>
 
               <ul className="mt-2">

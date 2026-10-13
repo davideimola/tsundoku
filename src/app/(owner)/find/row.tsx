@@ -18,11 +18,7 @@ export function FoundRow({ name, qualifier }: { name: string; qualifier: string 
   return (
     <>
       <span className="min-w-0 truncate text-foreground">{name}</span>
-      {qualifier === null ? null : (
-        <span className="shrink-0 font-mono text-eyebrow uppercase tracking-eyebrow">
-          {qualifier}
-        </span>
-      )}
+      {qualifier === null ? null : <span className="shrink-0 text-label">{qualifier}</span>}
     </>
   );
 }

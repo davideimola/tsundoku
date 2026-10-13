@@ -149,12 +149,21 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
     <main className="px-5 pb-16 sm:px-8">
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pt-8 sm:pt-12">
         <div className="min-w-0">
-          <h1 className="font-heading text-2xl sm:text-3xl">Wishes</h1>
-          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-            What to buy, which month you mean to buy it in, and what it should cost. A Wish names
-            one Volume and ends only when you end it — nothing here disappears on its own, and a
-            month that has gone by keeps its place.
+          <h1 className="font-heading text-title font-semibold lg:text-title-lg">Wishes</h1>
+          <p className="mt-2 text-pretty text-base text-muted-foreground">
+            What you mean to buy, and when.
           </p>
+          <details className="mt-3 max-w-prose text-sm text-muted-foreground">
+            <summary className="cursor-pointer text-sm font-medium text-cloth">
+              How this works
+            </summary>
+            <p className="mt-2 text-pretty">
+              A Wish names one Volume and ends only when you end it: nothing here disappears on its
+              own, and a month that has gone by keeps its place. <em>Bought it</em> puts the object
+              in the Collection and ends the Wish; <em>Close it</em> only ends the Wish — you
+              stopped wanting it, or bought it somewhere this library will not hear about.
+            </p>
+          </details>
         </div>
 
         <OpensDrawer href={panelledAt(OPENING_A_WISH)} emphasis="loud">
@@ -194,15 +203,14 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
         </p>
       ) : null}
 
-      <p className="mt-8 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+      <p className="mt-8 text-label font-medium text-muted-foreground tabular-nums">
         {wishes.length} open {wishes.length === 1 ? "Wish" : "Wishes"}
       </p>
 
       {wishes.length === 0 ? (
         <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-          Nothing wanted right now. <em>Open a Wish</em> is at the top of the screen: name a Volume
-          the library knows, say which month you mean to buy it in, and it will be waiting here the
-          next time you are in a shop.
+          Nothing wanted right now. <em>Open a Wish</em> names a Volume and the month you mean to
+          buy it in, and it waits here for the next time you are in a shop.
         </p>
       ) : (
         <div className="mt-4 space-y-10">
@@ -213,11 +221,11 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
             >
               <h2
                 id={`band-${band.period ?? "someday"}`}
-                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border pb-1.5"
+                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border pb-2"
               >
-                <span className="font-heading text-lg">{band.name}</span>
+                <span className="font-heading text-section font-semibold">{band.name}</span>
                 {band.hint ? (
-                  <span className="text-xs text-muted-foreground">— {band.hint}</span>
+                  <span className="text-sm text-muted-foreground">{band.hint}</span>
                 ) : null}
                 <ComesTo band={band} />
               </h2>
@@ -245,7 +253,10 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
           {volumes.length === 0 ? (
             <p className="text-pretty text-sm text-muted-foreground">
               A Wish names a Volume the library already knows.{" "}
-              <Link href="/collection" className="underline underline-offset-4">
+              <Link
+                href="/collection"
+                className="font-medium text-cloth underline-offset-4 hover:underline"
+              >
                 Catalogue the Volume
               </Link>{" "}
               first, then come back and want it.
@@ -253,7 +264,10 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
           ) : (
             <form action={open} className="grid gap-4">
               <div className="grid gap-1.5">
-                <Label htmlFor="wish-volume" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="wish-volume"
+                  className="text-label font-medium text-muted-foreground"
+                >
                   Volume
                 </Label>
                 {/* Only Volumes the library already knows are offered, because creating one
@@ -296,8 +310,8 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
               <Button type="submit" className="h-11 w-full sm:h-10">
                 Open it
               </Button>
-              <p className="max-w-prose text-xs text-muted-foreground">
-                A price takes a dot or a comma — <code className="font-mono">12,90</code>. Leave
+              <p className="max-w-prose text-label text-muted-foreground">
+                A price takes a dot or a comma — <span className="tabular-nums">12,90</span>. Leave
                 both empty while you are only watching for it.
               </p>
             </form>
@@ -377,10 +391,8 @@ export default async function WishesPage({ searchParams }: { searchParams: Promi
             <Button type="submit" className="h-11 w-full sm:h-10">
               Bought it
             </Button>
-            <p className="max-w-prose text-xs text-muted-foreground">
+            <p className="max-w-prose text-label text-muted-foreground">
               Leave the price empty if the receipt is gone — the object is in the house either way.
-              What ended the Wish is this press, and nothing records <em>why</em> it ended: the
-              acquisition beside it is what says it was bought.
             </p>
           </form>
         </Drawer>
@@ -423,19 +435,19 @@ function ComesTo({ band }: { band: ShoppingBand }) {
   return (
     <span className="ml-auto flex items-baseline gap-2">
       {unrecorded(band.comesTo) ? (
-        <span className="text-xs text-muted-foreground">no prices yet</span>
+        <span className="text-sm text-muted-foreground">No prices yet</span>
       ) : (
         <>
-          <span className="font-mono text-xs tabular-nums">€ {band.comesTo.figure}</span>
+          <span className="text-sm font-semibold tabular-nums">€ {band.comesTo.figure}</span>
           {whole(band.comesTo) ? null : (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               from {band.comesTo.from} of {band.comesTo.of} priced
             </span>
           )}
         </>
       )}
-      <span className="font-mono text-xs tabular-nums text-muted-foreground">
-        {band.wishes.length}
+      <span className="text-sm text-muted-foreground tabular-nums">
+        {band.wishes.length} {band.wishes.length === 1 ? "Wish" : "Wishes"}
       </span>
     </span>
   );
@@ -452,7 +464,7 @@ function ComesTo({ band }: { band: ShoppingBand }) {
 function Period({ today, chosen }: { today: Date; chosen?: string | null }) {
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor="wish-period" className="text-xs text-muted-foreground">
+      <Label htmlFor="wish-period" className="text-label font-medium text-muted-foreground">
         Period
       </Label>
       <select id="wish-period" name="period" defaultValue={chosen ?? ""} className={PICKER}>
@@ -498,26 +510,28 @@ function WishCard({ wish }: { wish: OpenWish }) {
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="min-w-0 font-heading text-balance">{wish.volume.title}</h3>
+          <h3 className="min-w-0 font-heading text-lg font-semibold leading-snug text-balance">
+            {wish.volume.title}
+          </h3>
           <Badge variant="outline" className="shrink-0">
             {wish.volume.binding.name}
           </Badge>
         </div>
-        {under ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{under}</p> : null}
+        {under ? <p className="mt-0.5 truncate text-label text-muted-foreground">{under}</p> : null}
 
         <Money wish={wish} />
 
-        <p className="mt-1.5 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-          wanted since {wish.openedOn}
+        <p className="mt-1.5 text-label text-muted-foreground tabular-nums">
+          Wanted since {wish.openedOn}
         </p>
 
         {/* A fact about the shelf, not a state of the Wish. Owning the object does not end
             the intention to buy it — only the owner does — so the overlap is shown rather
             than resolved by the app. */}
         {wish.inCollection ? (
-          <p className="mt-3 text-pretty text-xs text-muted-foreground">
-            The Collection already claims this Volume. The Wish stays open until you close it, and{" "}
-            <em>Bought it</em> would be a second acquisition of one object.
+          <p className="mt-3 text-pretty text-label text-muted-foreground">
+            Already in the Collection. <em>Bought it</em> would be a second acquisition of one
+            object.
           </p>
         ) : null}
 
@@ -535,11 +549,6 @@ function WishCard({ wish }: { wish: OpenWish }) {
             </Button>
           </form>
         </div>
-        <p className="mt-2 text-pretty text-xs text-muted-foreground">
-          <em>Bought it</em> puts the object in the Collection and ends the Wish. <em>Close it</em>{" "}
-          only ends the Wish — stopped wanting it, or bought it somewhere this library will not hear
-          about.
-        </p>
       </div>
     </li>
   );
@@ -582,9 +591,9 @@ function Position({ of }: { of: number | null }) {
  */
 function Money({ wish }: { wish: OpenWish }) {
   return (
-    <p className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
+    <p className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
       {wish.priceFound ? (
-        <span className="font-mono">€ {wish.priceFound}</span>
+        <span className="font-semibold tabular-nums">€ {wish.priceFound}</span>
       ) : (
         <span className="text-muted-foreground">
           {wish.targetPrice ? "no price found yet" : "no price yet"}
@@ -594,12 +603,14 @@ function Money({ wish }: { wish: OpenWish }) {
           down before a number. */}
       {wish.shop ? <span className="text-muted-foreground">at {wish.shop}</span> : null}
       {wish.targetPrice ? (
-        <span className="font-mono text-muted-foreground">target € {wish.targetPrice}</span>
+        <span className="text-muted-foreground tabular-nums">target € {wish.targetPrice}</span>
       ) : null}
       {wish.withinTarget === false ? (
         <span className="text-muted-foreground">— over target</span>
       ) : null}
-      {wish.withinTarget === true ? <span className="font-medium">— at your price</span> : null}
+      {wish.withinTarget === true ? (
+        <span className="font-medium text-cloth">— at your price</span>
+      ) : null}
     </p>
   );
 }
@@ -614,7 +625,7 @@ function Field({
 } & React.ComponentProps<typeof Input>) {
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={`wish-${name}`} className="text-xs text-muted-foreground">
+      <Label htmlFor={`wish-${name}`} className="text-label font-medium text-muted-foreground">
         {label}
       </Label>
       <Input id={`wish-${name}`} name={name} className="h-11 sm:h-10" {...props} />

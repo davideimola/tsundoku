@@ -136,7 +136,7 @@ export function PersonPicker() {
 
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={fieldId} className="text-xs text-muted-foreground">
+      <Label htmlFor={fieldId} className="text-label font-medium text-muted-foreground">
         Person
       </Label>
 
@@ -226,11 +226,8 @@ export function PersonPicker() {
                 )}
               >
                 <span className="min-w-0 truncate text-foreground">{who.name}</span>
-                {/* The roles they already hold, which is what tells two similar names apart.
-                    A vocabulary, so mono caps rather than prose. */}
-                <span className="shrink-0 font-mono text-eyebrow uppercase tracking-eyebrow">
-                  {who.qualifier}
-                </span>
+                {/* The roles they already hold, which is what tells two similar names apart. */}
+                <span className="shrink-0 text-label">{who.qualifier}</span>
               </button>
             ))}
           </div>

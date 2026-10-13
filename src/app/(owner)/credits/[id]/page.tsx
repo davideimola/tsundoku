@@ -49,10 +49,10 @@ export default async function CreditPage({ params }: { params: Promise<{ id: str
     <main className="px-5 pb-16 sm:px-8">
       {/* No breadcrumb: the shell marks *Credits* while the owner is standing here. */}
       <header className="pt-8 sm:pt-12">
-        <h1 className="text-pretty font-heading text-2xl leading-tight sm:text-3xl">
+        <h1 className="text-balance font-heading text-name font-semibold lg:text-name-lg">
           {person.name}
         </h1>
-        <p className="mt-2 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+        <p className="mt-3 text-base text-muted-foreground tabular-nums">
           {rolesSaid(person.roles)}
           {person.roles.length > 0 ? " · " : null}
           {works} {works === 1 ? "Story" : "Stories"} · {person.read.length} read
@@ -61,8 +61,8 @@ export default async function CreditPage({ params }: { params: Promise<{ id: str
 
       {bands.length === 0 ? (
         <p className="mt-8 max-w-prose text-pretty text-sm text-muted-foreground">
-          The library credits {person.name} with nothing. Which is a record of a name and not of a
-          body of work — credit them on a Story and it appears here.
+          The library credits {person.name} with nothing yet. Credit them on a Story and it appears
+          here.
         </p>
       ) : (
         <div className="mt-8 space-y-10">
@@ -72,11 +72,9 @@ export default async function CreditPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      <p className="mt-12 max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
-        Read means it went through a Pass, abandoned included — not that the Story is in the
-        library. The score is the most recent judgement of the Story, which is where every judgement
-        here hangs: what the owner thinks of an <em>object</em> is an Edition note, and it is on the
-        Volume.
+      <p className="mt-12 max-w-prose text-pretty text-label text-muted-foreground">
+        Read means a Pass went through it, abandoned included. The score is the Story's most recent
+        Rating.
       </p>
     </main>
   );
@@ -94,13 +92,12 @@ function Band({ band }: { band: BandOfWork }) {
     <section aria-labelledby={`band-${band.role.id}`}>
       <h2
         id={`band-${band.role.id}`}
-        className="flex items-baseline gap-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground"
+        className="flex flex-wrap items-baseline gap-x-3 font-heading text-section font-semibold"
       >
         {band.title}
-        <span className="tabular-nums">
+        <span className="font-sans text-sm font-normal text-muted-foreground tabular-nums">
           {band.stories.length} · {band.read} read
         </span>
-        <span className="h-px flex-1 bg-border" aria-hidden="true" />
       </h2>
 
       {/* The Story wall's own grid: as many tiles as the window holds, at the width a title
