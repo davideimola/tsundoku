@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
+import { Chip } from "@/components/narrowing";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ import {
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
+import { cn } from "@/lib/utils";
 import { acquire, findCovers, findCoversAgain, strike } from "./actions";
 import {
   howFarTheCoversHaveGot,
@@ -259,87 +261,102 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         </div>
       </header>
 
-      {/* One form, in two registers.
-          The title and the button stay under the thumb while the wall scrolls, because the
-          answer is read while scrolling and the question is the thing the owner keeps
-          changing. `top-12` clears the phone's own chrome strip, which is `sticky top-0
-          z-20` in the shell and would otherwise slide over this; at the desk that strip is
-          gone and the offset with it.
-          The four pickers scroll away with the wall rather than sitting in that strip: a
-          sticky block holding six controls is a quarter of a phone permanently spent on the
-          question, and the one control that *submits* them is the button above, which is
-          always on screen. */}
+      {/* **The question, in two registers.** The title is the one thing still typed, and it
+          stays under the thumb while the wall scrolls — `top-12` clears the phone's own strip,
+          which is `sticky top-0 z-20` in the shell; at the desk that strip is gone and the
+          offset with it. The vocabularies are not typed and are not asked with a form: they
+          are **links**, a row of chips for the Type and three small menus for the rest, each
+          one an address with every other filter still on it. That is what four native
+          pickers across the width of a phone were trying to be — a question nobody has to
+          submit — and it still works with nothing running (ADR-0010): a chip is a `GET`, and a
+          menu is a `<details>` the browser opens on its own. */}
       <search>
-        <form action="/collection">
-          <div className="sticky top-12 z-10 -mx-5 flex items-end gap-2 border-b border-border bg-background/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8 lg:top-0">
-            <div className="min-w-0 flex-1">
-              <Label htmlFor="search-title" className="sr-only">
-                Title
-              </Label>
-              <Input
-                id="search-title"
-                name="title"
-                defaultValue={title ?? ""}
-                placeholder="Slam Dunk"
-                autoComplete="off"
-                className="h-11 sm:h-10"
-              />
-            </div>
-            <Button type="submit" className="h-11 shrink-0 sm:h-10 sm:px-6">
-              Search
-            </Button>
+        <form
+          action="/collection"
+          className="sticky top-12 z-10 -mx-5 flex items-end gap-2 border-b border-border bg-background/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8 lg:top-0"
+        >
+          {/* The rest of the question rides along, so searching a title inside *Slam Dunk*
+              searches inside it rather than across the whole shelf. */}
+          {THE_WALLS_FILTERS.filter((name) => name !== "title").map((name) => {
+            const value = narrowing[name];
+            return value ? <input key={name} type="hidden" name={name} value={value} /> : null;
+          })}
+          <div className="min-w-0 flex-1">
+            <Label htmlFor="search-title" className="sr-only">
+              Title
+            </Label>
+            <Input
+              id="search-title"
+              name="title"
+              defaultValue={title ?? ""}
+              placeholder="Slam Dunk"
+              autoComplete="off"
+              className="h-11 sm:h-10"
+            />
           </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Picker id="search-series" name="series" label="Series" chosen={series?.id} any="Any">
-              {everySeries.map((one) => (
-                <option key={one.id} value={one.id}>
-                  {seriesName(one)}
-                </option>
-              ))}
-            </Picker>
-
-            <Picker
-              id="search-publisher"
-              name="publisher"
-              label="Publisher"
-              chosen={publisher}
-              any="Any"
-            >
-              {publishers.map((one) => (
-                <option key={one} value={one}>
-                  {one}
-                </option>
-              ))}
-            </Picker>
-
-            {/* Type is a Story's attribute, so this narrows by what the Volumes carry
-                rather than by anything on the object itself — a Volume holding three
-                Stories of two Types is found under either of them, and once (ADR-0006). */}
-            <Picker id="search-type" name="type" label="Type" chosen={type?.id} any="Any">
-              {types.map((one: Type) => (
-                <option key={one.id} value={one.id}>
-                  {one.name}
-                </option>
-              ))}
-            </Picker>
-
-            <Picker
-              id="search-binding"
-              name="binding"
-              label="Binding"
-              chosen={binding?.id}
-              any="Any"
-            >
-              {bindings.map((one: Binding) => (
-                <option key={one.id} value={one.id}>
-                  {one.name}
-                </option>
-              ))}
-            </Picker>
-          </div>
+          <Button type="submit" className="h-11 shrink-0 sm:h-10 sm:px-6">
+            Search
+          </Button>
         </form>
       </search>
+
+      <nav aria-label="Narrow the Collection" className="mt-3 space-y-2">
+        {/* The Type is the axis worth a row of its own: it is the first thing the shelf is
+            told apart by, and there are few enough of them to lay out. A Type is a Story's
+            attribute, so this narrows by what the Volumes carry — a Volume holding Stories of
+            two Types is found under either, and once (ADR-0006). Scrolled sideways on a phone
+            rather than wrapped into a block of pills. */}
+        <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+          <li className="shrink-0">
+            <Chip href={wallWith(narrowing, "type", undefined)} on={type === undefined}>
+              Everything
+            </Chip>
+          </li>
+          {types.map((one: Type) => (
+            <li key={one.id} className="shrink-0">
+              <Chip href={wallWith(narrowing, "type", one.id)} on={type?.id === one.id}>
+                {one.name}
+              </Chip>
+            </li>
+          ))}
+        </ul>
+
+        <div className="flex flex-wrap gap-2">
+          <Menu
+            label="Series"
+            chosen={seriesName(series) ?? undefined}
+            clear={wallWith(narrowing, "series", undefined)}
+            options={everySeries.map((one) => ({
+              key: one.id,
+              said: seriesName(one) ?? one.name,
+              href: wallWith(narrowing, "series", one.id),
+              on: series?.id === one.id,
+            }))}
+          />
+          <Menu
+            label="Publisher"
+            chosen={publisher}
+            clear={wallWith(narrowing, "publisher", undefined)}
+            options={publishers.map((one) => ({
+              key: one,
+              said: one,
+              href: wallWith(narrowing, "publisher", one),
+              on: publisher === one,
+            }))}
+          />
+          <Menu
+            label="Binding"
+            chosen={binding?.name}
+            clear={wallWith(narrowing, "binding", undefined)}
+            options={bindings.map((one: Binding) => ({
+              key: one.id,
+              said: one.name,
+              href: wallWith(narrowing, "binding", one.id),
+              on: binding?.id === one.id,
+            }))}
+          />
+        </div>
+      </nav>
 
       {refused ? (
         <p
@@ -392,24 +409,42 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
       ) : null}
 
       {volumes.length === 0 ? (
-        <p className="mt-6 max-w-prose text-pretty text-sm text-muted-foreground">
-          {narrowed
-            ? "Nothing you own matches that. Widen the search to be sure, then buy it."
-            : "Nothing in the Collection yet. Add to the library to record the object in your hand."}
-        </p>
+        <EmptyShelf>
+          {narrowed ? (
+            <>
+              Nothing you own matches that.{" "}
+              <Link href="/collection" className={IN_PROSE}>
+                Clear the filters
+              </Link>{" "}
+              to be sure, then buy it.
+            </>
+          ) : (
+            <>
+              Nothing on the shelves yet.{" "}
+              <Link href="/add" className={IN_PROSE}>
+                Add the Volume in your hand
+              </Link>
+              .
+            </>
+          )}
+        </EmptyShelf>
       ) : (
         /* As many covers as the window holds, at the width a title is legible across —
            the Story wall's grid, unchanged, so the two walls are one object at two
            addresses. Two of them fit a phone held one-handed. */
-        <ul className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 sm:gap-4">
+        <ul className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-x-4 gap-y-6 sm:gap-x-5">
           {volumes.map((volume) => (
             <li key={volume.id}>
+              {/* The jacket clean, and under it the one fact that is read off a run of them:
+                  which number this is. An object in no Series has nothing under it — the
+                  Binding that used to stand there is the object's own page's to say. */}
               <Cover
                 href={`/collection/${volume.id}`}
                 title={volume.title}
-                tint={tint(volume.series?.id)}
+                tint={tint(volume.series?.id ?? volume.id)}
                 label={detailOf(volume)}
                 image={volume.cover}
+                caption={volume.seriesNumber === null ? undefined : `Vol. ${volume.seriesNumber}`}
               />
             </li>
           ))}
@@ -708,48 +743,126 @@ function Standing({ of }: { of: WhereItStands }) {
   return <>{of.seriesNumber ?? of.binding.name}</>;
 }
 
+/** A link in prose: cloth, because it does something. */
+const IN_PROSE =
+  "rounded-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring";
+
 /**
- * A picker over a vocabulary — Series, publisher, Type, Binding.
- *
- * A native select rather than a scripted one: on a phone it opens the platform picker, and
- * it submits with the form whether JavaScript ran or not. Every vocabulary here is read
- * rather than written down — the Bindings and the Types are rows (ADR-0006), and the Series
- * and the publishers are what the shelf happens to hold — so a seventh Binding and a new
- * publisher appear on this screen without this file being touched.
+ * The wall's address with one filter set — or, given nothing, taken off — and **every other
+ * filter still on**. One function for both, so a chip that turns a filter on and the
+ * *Everything* that turns it off cannot disagree about what else the owner had asked.
  */
-function Picker({
-  id,
-  name,
+function wallWith(
+  narrowing: CollectionWallFilter,
+  name: keyof CollectionWallFilter,
+  value: string | undefined
+): string {
+  const asking = new URLSearchParams();
+
+  for (const one of THE_WALLS_FILTERS) {
+    const kept = one === name ? value : narrowing[one];
+    if (kept) asking.set(one, kept);
+  }
+
+  const said = asking.toString();
+  return said === "" ? "/collection" : `/collection?${said}`;
+}
+
+/**
+ * **A small menu over a vocabulary** — Series, publisher, Binding — drawn as a chip that
+ * opens.
+ *
+ * A `<details>` rather than a scripted popover: the browser opens and shuts it with nothing
+ * running, and every choice inside is a link, so choosing is navigating (ADR-0010). The chip
+ * says what is chosen when something is, in cloth like a chip that is on, so the question
+ * standing over the wall is readable without opening anything. Every vocabulary here is read
+ * rather than written down — the Bindings are rows (ADR-0006), and the Series and the
+ * publishers are what the shelf happens to hold — so a seventh Binding appears here without
+ * this file being touched.
+ */
+function Menu({
   label,
   chosen,
-  any,
-  required,
-  children,
+  clear,
+  options,
 }: {
-  id: string;
-  name: string;
   label: string;
   chosen?: string;
-  /** The wording for "none in particular", where not choosing is allowed. */
-  any?: string;
-  required?: boolean;
-  children: React.ReactNode;
+  /** The address with this filter taken off. */
+  clear: string;
+  options: { key: string; said: string; href: string; on: boolean }[];
 }) {
+  if (options.length === 0) return null;
+
   return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={id} className="text-label font-medium text-muted-foreground">
-        {label}
-      </Label>
-      <select
-        id={id}
-        name={name}
-        defaultValue={chosen ?? ""}
-        required={required}
-        className="h-11 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 md:text-sm dark:bg-input/30"
+    <details className="group/menu relative">
+      <summary
+        className={cn(
+          "inline-flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors [&::-webkit-details-marker]:hidden",
+          "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          chosen
+            ? "border-cloth-fill bg-cloth-fill text-on-cloth"
+            : "border-border text-foreground hover:bg-accent/60"
+        )}
       >
-        {any ? <option value="">{any}</option> : null}
-        {children}
-      </select>
+        <span className="max-w-[14rem] truncate">{chosen ? `${label}: ${chosen}` : label}</span>
+        <svg
+          viewBox="0 0 12 12"
+          aria-hidden="true"
+          className="size-3 shrink-0 transition-transform group-open/menu:rotate-180"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 4.5 6 7.5l3-3" />
+        </svg>
+      </summary>
+
+      <ul className="absolute left-0 z-30 mt-1.5 max-h-72 w-64 max-w-[calc(100vw-2.5rem)] overflow-y-auto rounded-xl bg-popover p-1.5 text-popover-foreground shadow-lg ring-1 ring-foreground/10">
+        <li>
+          <Link
+            href={clear}
+            aria-current={chosen ? undefined : "true"}
+            className={cn(MENU_ROW, !chosen && "font-semibold text-cloth")}
+          >
+            Any {label.toLowerCase()}
+          </Link>
+        </li>
+        {options.map((one) => (
+          <li key={one.key}>
+            <Link
+              href={one.href}
+              aria-current={one.on ? "true" : undefined}
+              className={cn(MENU_ROW, one.on && "font-semibold text-cloth")}
+            >
+              {one.said}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+const MENU_ROW =
+  "flex min-h-10 items-center rounded-lg px-3 text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring";
+
+/**
+ * What an empty wall says: one sentence and the act that fills it, over a drawn empty shelf —
+ * a board and two bookends, in the rule's own ink, so the absence is a picture of the place
+ * rather than a box with nothing in it.
+ */
+function EmptyShelf({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-10 flex flex-col items-start gap-4">
+      <svg viewBox="0 0 160 48" aria-hidden="true" className="h-12 w-40 text-border">
+        <rect x="18" y="14" width="6" height="28" rx="1" fill="currentColor" />
+        <rect x="136" y="14" width="6" height="28" rx="1" fill="currentColor" />
+        <rect x="4" y="42" width="152" height="4" rx="1" fill="currentColor" />
+      </svg>
+      <p className="max-w-prose text-pretty text-sm text-muted-foreground">{children}</p>
     </div>
   );
 }
