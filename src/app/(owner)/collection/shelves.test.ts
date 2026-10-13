@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { inTheHouse, shelvesOf, theBindingItShares, viewAsked } from "./shelves";
+import { atAGlance, inTheHouse, shelvesOf, theBindingItShares, viewAsked } from "./shelves";
 
 const opm = { id: "opm", name: "One-Punch Man" };
 const berserk = { id: "berserk", name: "Berserk" };
@@ -74,5 +74,21 @@ describe("the view the address asks for", () => {
     expect(viewAsked(undefined)).toBe("covers");
     expect(viewAsked("banana")).toBe("covers");
     expect(viewAsked("spines")).toBe("spines");
+  });
+});
+
+describe("a Series' shelf at a glance", () => {
+  const run = Array.from({ length: 22 }, (_, n) => n + 1);
+
+  it("stands the first covers and hands the rest to the Series page", () => {
+    expect(atAGlance(run, false)).toEqual({ shown: [1, 2, 3, 4, 5, 6, 7], more: 15 });
+  });
+
+  it("stands a short run whole", () => {
+    expect(atAGlance(run.slice(0, 8), false)).toEqual({ shown: run.slice(0, 8), more: 0 });
+  });
+
+  it("stands the run whole when the owner narrowed to it or searched", () => {
+    expect(atAGlance(run, true)).toEqual({ shown: run, more: 0 });
   });
 });

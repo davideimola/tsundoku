@@ -85,3 +85,20 @@ export function inTheHouse(ledger: { ownedCount: number; publishedCount: number 
     share: Math.min(1, ledger.ownedCount / ledger.publishedCount),
   };
 }
+
+/** How many of a Series' covers its shelf stands before handing over to the Series page. */
+export const AT_A_GLANCE = 8;
+
+/**
+ * The covers a Series' shelf stands, and how many it leaves to the Series page. A run of
+ * twenty-two jackets is a wall of its own and buries every shelf under it; the first few say
+ * which line it is, and the Series page is where the whole run is read. Narrowed to the one
+ * Series, or searched, the shelf is what the owner asked for and stands whole.
+ */
+export function atAGlance<Volume>(
+  volumes: readonly Volume[],
+  whole: boolean
+): { shown: readonly Volume[]; more: number } {
+  if (whole || volumes.length <= AT_A_GLANCE) return { shown: volumes, more: 0 };
+  return { shown: volumes.slice(0, AT_A_GLANCE - 1), more: volumes.length - (AT_A_GLANCE - 1) };
+}

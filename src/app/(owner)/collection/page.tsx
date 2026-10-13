@@ -37,6 +37,7 @@ import {
 } from "./covers-found";
 import { CARRYING_NOTHING, COVERS, ELSEWHERE, PANELS, THE_WALLS_FILTERS } from "./panels";
 import {
+  atAGlance,
   inTheHouse,
   type SeriesShelf,
   shelvesOf,
@@ -500,6 +501,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
               run={run}
               ledger={ledgerOf.get(run.series.id)}
               view={view}
+              whole={Boolean(looking.series || looking.title)}
             />
           ))}
 
@@ -808,12 +810,16 @@ function RunOnTheShelf({
   run,
   ledger,
   view,
+  whole,
 }: {
   run: SeriesShelf<WallVolume>;
   ledger: SeriesLedger | undefined;
   view: View;
+  /** Narrowed to this Series or searched: every cover stands, not the first few. */
+  whole: boolean;
 }) {
   const { series, volumes } = run;
+  const glance = atAGlance(volumes, whole);
   const shared = theBindingItShares(volumes);
   const about = [ledger?.publisher ?? volumes[0]?.publisher, shared].filter(Boolean).join(" · ");
   const held = ledger ? inTheHouse(ledger) : null;
@@ -881,7 +887,7 @@ function RunOnTheShelf({
           </ShelfOfSpines>
         ) : (
           <ShelfOfCovers>
-            {volumes.map((volume) => (
+            {glance.shown.map((volume) => (
               <li key={volume.id}>
                 {/* The jacket clean, and under it the one fact read off a run: which number
                     this is — and the Binding beside it only where the shelf mixes them. */}
@@ -900,6 +906,17 @@ function RunOnTheShelf({
                 />
               </li>
             ))}
+            {glance.more > 0 ? (
+              <li>
+                {/* Where the run goes on: the Series page reads it whole, gaps and all. */}
+                <Link
+                  href={`/series/${series.id}`}
+                  className="grid aspect-[2/3] place-items-center rounded-[4px] border border-dashed border-input p-2 text-center text-label font-medium text-cloth outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {glance.more} more in the Series
+                </Link>
+              </li>
+            ) : null}
           </ShelfOfCovers>
         )}
       </div>
