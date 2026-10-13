@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { PILE, VIEWBOX } from "@/components/mark";
+import { CUT, PILE, VIEWBOX } from "@/components/mark";
 import { OUTSIDE_THE_CASCADE } from "./outside-the-cascade";
 
 // THE MARK, AS A HOME SCREEN PUTS IT — the icon the owner taps on a phone.
@@ -16,10 +16,8 @@ import { OUTSIDE_THE_CASCADE } from "./outside-the-cascade";
 //     nothing left to drift.
 //
 // Drawn with three boxes rather than an `<svg>`: this renders through Satori, whose SVG
-// support is partial and whose box model is not. A rotated, rounded `<div>` is exactly a
-// spine, and `PILE`'s tilt is a turn about the spine's own centre — which is what a CSS
-// `rotate` does by default, so the numbers transfer without a transform origin to keep in
-// step.
+// support is partial and whose box model is not. A rounded `<div>` in its binding's colour is
+// exactly a spine, and the numbers transfer one for one.
 //
 // **On paper, not transparent.** A tab composites the favicon onto its own ground, which is
 // why `icon.svg` states both grounds and no background; an operating system does not — it
@@ -35,7 +33,7 @@ export const contentType = "image/png";
  * Generous margin on purpose, and it does two jobs. It is what an app icon wants anyway —
  * a mark pushed to the edges reads as a screenshot rather than as a logo — and it is what
  * lets the manifest declare this icon `maskable`: Android crops an adaptive icon to a
- * circle 80% across, and the widest spine here lands at 57% of the tile.
+ * circle 80% across, and the widest spine here lands at 54% of the tile.
  */
 const ACROSS = 0.72;
 
@@ -62,9 +60,8 @@ export default function AppleIcon() {
             top: margin + spine.y * scale,
             width: spine.width * scale,
             height: spine.height * scale,
-            borderRadius: 0.6 * scale,
-            background: OUTSIDE_THE_CASCADE.ink.light,
-            transform: `rotate(${spine.tilt}deg)`,
+            borderRadius: CUT * scale,
+            background: OUTSIDE_THE_CASCADE[spine.binding].light,
           }}
         />
       ))}

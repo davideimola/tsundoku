@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <!--
     THE MARK, AS A TAB PUTS IT.
 
@@ -6,25 +6,28 @@
     keeps the two from drifting: it reads this file, parses these rectangles and compares
     them to the geometry the chrome renders. Edit one and the other fails.
 
-    Two things this file has that the component does not, both for the same reason — a tab
-    is outside this application's cascade:
+    Two things this file has that the component does not, both for the same reason: a tab
+    is outside this application's cascade.
 
-      1. It states ink itself. `currentColor` here would resolve to whatever the browser
-         chrome happens to be, which on some of them is nothing at all.
-      2. It states both grounds. These two greys are `--ink` from `src/app/globals.css`,
-         light and dark, converted to sRGB because a favicon is the one surface where the
-         tokens cannot be reached.
+      1. It states its colours itself. The three bindings are cloth, gilt and ink from
+         `src/app/globals.css`, converted to sRGB because a favicon is the one surface where
+         the tokens cannot be reached, and `src/app/palette.test.ts` pins them there.
+      2. It states both grounds, in the order cloth, gilt, ink on each.
 
     Transparent behind, so the mark sits on the tab's own ground rather than on a card of
     its own.
   -->
   <style>
-    rect { fill: #1b1b1b; }
+    .cloth { fill: #2f3f7a; }
+    .gilt { fill: #a77b22; }
+    .ink { fill: #232836; }
     @media (prefers-color-scheme: dark) {
-      rect { fill: #e8e8e8; }
+      .cloth { fill: #3d4f98; }
+      .gilt { fill: #d9b062; }
+      .ink { fill: #e9e6de; }
     }
   </style>
-  <rect x="4.4" y="3.9" width="14.6" height="3.8" rx="0.6" transform="rotate(-4.5 11.7 5.8)"/>
-  <rect x="2.5" y="10.3" width="19" height="3.8" rx="0.6" transform="rotate(2 12 12.2)"/>
-  <rect x="3.9" y="16.7" width="16.2" height="3.8" rx="0.6" transform="rotate(-1.5 12 18.6)"/>
+  <rect class="cloth" x="5" y="6" width="20" height="5.5" rx="1.2"/>
+  <rect class="gilt" x="3" y="13.5" width="24" height="5.5" rx="1.2"/>
+  <rect class="ink" x="6" y="21" width="22" height="5.5" rx="1.2"/>
 </svg>

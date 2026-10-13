@@ -7,9 +7,9 @@
 
 <p align="center">
   <a href="https://github.com/davideimola/tsundoku/actions/workflows/check.yml"><img src="https://github.com/davideimola/tsundoku/actions/workflows/check.yml/badge.svg" alt="Check"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-1b1b1b" alt="MIT"></a>
-  <img src="https://img.shields.io/badge/Next.js%2016-Postgres%2018-1b1b1b" alt="Next.js 16, Postgres 18">
-  <img src="https://img.shields.io/badge/LLM%20inside-none-1b1b1b" alt="No LLM inside">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2f3f7a" alt="MIT"></a>
+  <img src="https://img.shields.io/badge/Next.js%2016-Postgres%2018-2f3f7a" alt="Next.js 16, Postgres 18">
+  <img src="https://img.shields.io/badge/LLM%20inside-none-2f3f7a" alt="No LLM inside">
 </p>
 
 A single-owner library, named for the pile of unread books that keeps growing: what

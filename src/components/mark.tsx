@@ -1,72 +1,77 @@
+import { cn } from "@/lib/utils";
+
 /**
- * THE MARK: a pile of three spines, slightly askew.
+ * THE MARK: a pile of three spines, bound in cloth, gilt and ink.
  *
  * The application's name made into a picture. *Tsundoku* is the pile of unread books that
  * keeps growing, so the logo is not a metaphor reaching for something — it is the thing,
  * drawn. Three of them, which is the smallest number that still reads as a stack rather
- * than as a pair — the dashboard's hero will later draw the same pile at the height of the
- * library's actual unread count, and this is that shape at its smallest.
+ * than as a pair.
+ *
+ * **Each spine is bound in one of the palette's three inks** (ADR-0026): bookcloth indigo on
+ * top, the gilded edge in the middle, printer's ink at the bottom. The mark used to carry no
+ * colour at all, set in whatever ink surrounded it; now that the chrome has an action colour
+ * and a second accent, the mark is where both are first seen together. The spines lie flat
+ * and are staggered rather than tilted — a stack put down on a shelf, its edges not quite
+ * squared — because three different widths offset from one another read as books at twenty
+ * pixels, where a tilt of two degrees reads as a rendering fault.
  *
  * Inline SVG and no icon library. One mark does not earn a dependency, a build step and a
  * tree-shaking argument — and the same numbers are what `src/app/icon.svg` draws, so the
  * favicon and the chrome cannot come apart. `src/components/mark.test.ts` is what says so,
  * along with the claim this shape has to earn: that it survives being 20px tall.
- *
- * It carries no colour. `currentColor` means the mark is set in whatever ink surrounds it,
- * on either ground, which is what keeps it out of the palette entirely.
  */
 
 /** The square the pile is drawn in. Everything below is in its units. */
-export const VIEWBOX = 24;
+export const VIEWBOX = 32;
 
-/** How much the corners are cut. Barely: a spine is a printed edge, not a pill. */
-export const CUT = 0.6;
+/** How much the corners are cut. A little: a spine is a bound edge, not a pill. */
+export const CUT = 1.2;
+
+/**
+ * What a spine is bound in: one of the palette's three inks, by the name
+ * `src/app/outside-the-cascade.ts` gives it for the surfaces that cannot read a token.
+ */
+export type Binding = "cloth" | "gilt" | "ink";
 
 export type Spine = {
   readonly x: number;
   readonly y: number;
   readonly width: number;
   readonly height: number;
-  /** Degrees, turned about the spine's own centre. Never zero: a pile is not a stack. */
-  readonly tilt: number;
+  readonly binding: Binding;
 };
 
 /**
- * The three spines, each a different width and each lying at its own angle — the widest in
- * the middle, which is what a real stack does and what a drawn one never does. The tilts
- * are small on purpose: books put down without care, not a pile about to fall over. They
- * are all different because three spines at one angle is a pattern rather than a pile.
+ * The three spines, each a different width and each starting at a different place — the
+ * widest in the middle, which is what a real stack does and what a drawn one never does.
  */
 export const PILE: readonly Spine[] = [
-  { x: 4.4, y: 3.9, width: 14.6, height: 3.8, tilt: -4.5 },
-  { x: 2.5, y: 10.3, width: 19.0, height: 3.8, tilt: 2 },
-  { x: 3.9, y: 16.7, width: 16.2, height: 3.8, tilt: -1.5 },
+  { x: 5, y: 6, width: 20, height: 5.5, binding: "cloth" },
+  { x: 3, y: 13.5, width: 24, height: 5.5, binding: "gilt" },
+  { x: 6, y: 21, width: 22, height: 5.5, binding: "ink" },
 ];
 
 /**
- * How a spine lies, as the attribute that says it: a turn about the spine's own centre, so
- * that tilting one moves nothing else in the pile.
- *
- * It is a function rather than three literals because the favicon has to write the same
- * string, character for character, and `4.4 + 14.6 / 2` is not `11.7` in binary floating
- * point. Rounding here is what makes one geometry produce one attribute in both files.
+ * Which token each binding is printed in inside the document. Cloth is its *fill* spelling,
+ * because a spine is a surface: in a dark room the text spelling lightens and the mark should
+ * not.
  */
-export function turn(spine: Spine): string {
-  const round = (measure: number) => Math.round(measure * 1000) / 1000;
-
-  return `rotate(${spine.tilt} ${round(spine.x + spine.width / 2)} ${round(spine.y + spine.height / 2)})`;
-}
+const PRINTED_IN: Record<Binding, string> = {
+  cloth: "fill-cloth-fill",
+  gilt: "fill-gilt",
+  ink: "fill-foreground",
+};
 
 /**
- * The mark, at whatever size the surrounding text is unless a size is given. `aria-hidden`
- * because it is never alone: it stands beside the word *tsundoku*, and a screen reader
- * announcing the name twice is worse than not announcing the picture.
+ * The mark, at whatever size it is given. `aria-hidden` because it is never alone: it stands
+ * beside the word *tsundoku*, and a screen reader announcing the name twice is worse than
+ * not announcing the picture.
  */
 export function Mark({ className }: { className?: string }) {
   return (
     <svg
       viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
-      fill="currentColor"
       aria-hidden="true"
       focusable="false"
       className={className}
@@ -79,9 +84,31 @@ export function Mark({ className }: { className?: string }) {
           width={spine.width}
           height={spine.height}
           rx={CUT}
-          transform={turn(spine)}
+          className={PRINTED_IN[spine.binding]}
         />
       ))}
     </svg>
+  );
+}
+
+/**
+ * The mark and the name together, which is how the application signs itself: the pile, and
+ * *tsundoku* in the serif — lowercase and set tight, a word rather than a logotype spelled out
+ * in capitals.
+ */
+export function Wordmark({
+  className,
+  markClassName,
+}: {
+  className?: string;
+  markClassName?: string;
+}) {
+  return (
+    <span className={cn("flex items-center gap-2.5", className)}>
+      <Mark className={cn("shrink-0", markClassName ?? "size-7")} />
+      <span className="font-heading text-2xl font-semibold leading-none tracking-[-0.01em] text-foreground">
+        tsundoku
+      </span>
+    </span>
   );
 }

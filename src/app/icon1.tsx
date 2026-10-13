@@ -18,7 +18,7 @@ import { OUTSIDE_THE_CASCADE } from "./outside-the-cascade";
 //
 // **On paper, not transparent**, and here that costs something worth naming. `icon.svg` states
 // both grounds and no background, so it sits on the tab's own ground either way; a PNG has no
-// media query, so this is one ground and it has to be the legible one. Paper with ink on it
+// media query, so this is one ground and it has to be the legible one. Paper with the mark on it
 // reads on a light tab and on a dark one; transparent-with-ink would vanish into dark chrome,
 // which is the failure this file exists to fix rather than a variation on it.
 
@@ -57,10 +57,9 @@ export default function Icon() {
             top: margin + spine.y * scale,
             width: spine.width * scale,
             height: spine.height * scale,
-            // No rounding at this size: 0.6 of a 24-unit viewbox is under a pixel here, and a
+            // No rounding at this size: 1.2 of a 32-unit viewbox is about a pixel here, and a
             // sub-pixel radius is a blurred edge rather than a rounded one.
-            background: OUTSIDE_THE_CASCADE.ink.light,
-            transform: `rotate(${spine.tilt}deg)`,
+            background: OUTSIDE_THE_CASCADE[spine.binding].light,
           }}
         />
       ))}

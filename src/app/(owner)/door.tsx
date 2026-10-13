@@ -100,8 +100,8 @@ function ThePlus({ className }: { className?: string }) {
       focusable="false"
       className={className}
     >
-      <rect x={10.9} y={4.5} width={2.2} height={15} rx={CUT} />
-      <rect x={4.5} y={10.9} width={15} height={2.2} rx={CUT} />
+      <rect x={14.5} y={6} width={3} height={20} rx={CUT} />
+      <rect x={6} y={14.5} width={20} height={3} rx={CUT} />
     </svg>
   );
 }

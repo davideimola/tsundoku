@@ -115,8 +115,6 @@ const THE_RUN_BEHIND_IT = (() => {
     right: `-${(NEAREST_EDGE - TUCKED_UNDER) * (behind + 1)}px`,
     /** Shorter than the jacket, and each one shorter than the last: a pile is not a diagram. */
     inset: `${(behind + 1) * 4}%`,
-    /** The pile's own degrees, about the edge's own centre. */
-    rotate: `${spine.tilt}deg`,
   }));
 })();
 
@@ -315,7 +313,6 @@ export function Cover({
             right: edge.right,
             top: edge.inset,
             bottom: edge.inset,
-            rotate: edge.rotate,
           }}
           className={cn(
             "pointer-events-none absolute rounded-sm border border-border",
