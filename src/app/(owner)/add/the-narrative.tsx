@@ -175,7 +175,9 @@ function TheMedium({
           ways is two questions to whoever has to answer both — and *on paper or digital*, which
           is what both used to say, stopped being the question the day a console could answer
           it. */}
-      <legend className="mb-1.5 text-xs text-muted-foreground">How you went through it</legend>
+      <legend className="mb-1.5 text-label font-medium text-muted-foreground">
+        How you went through it
+      </legend>
 
       <div className="flex flex-wrap gap-2">
         {offered.map((medium) => {
@@ -200,7 +202,7 @@ function TheMedium({
                   takes two lines instead of being clipped. */}
               <Label
                 htmlFor={id}
-                className="flex min-h-11 cursor-pointer items-center justify-center text-balance rounded-lg border border-input px-3 py-2 text-center text-base font-normal leading-snug peer-checked:border-foreground peer-checked:bg-foreground peer-checked:text-background peer-focus-visible:border-ring peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 sm:min-h-10 md:text-sm"
+                className="flex min-h-11 cursor-pointer items-center justify-center text-balance rounded-lg border border-input px-3 py-2 text-center text-base font-normal leading-snug peer-checked:border-cloth-fill peer-checked:bg-cloth-fill peer-checked:text-on-cloth peer-focus-visible:border-ring peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 sm:min-h-10 md:text-sm"
               >
                 {medium.name}
               </Label>

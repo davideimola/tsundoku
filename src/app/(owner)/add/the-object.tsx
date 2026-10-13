@@ -381,7 +381,7 @@ function TheNarrativesInside({
 
   return (
     <section aria-labelledby={heading} className="border-t border-border pt-4">
-      <h3 id={heading} className="font-heading text-base">
+      <h3 id={heading} className="font-heading text-lg font-semibold">
         What is inside it
       </h3>
       <p className="mt-1 max-w-prose text-pretty text-xs text-muted-foreground">

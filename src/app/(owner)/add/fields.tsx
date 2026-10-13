@@ -47,7 +47,7 @@ export function Picker({
 }) {
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
+      <Label htmlFor={id} className="text-label font-medium text-muted-foreground">
         {label}
       </Label>
       <select
@@ -75,7 +75,7 @@ export function Field({
 
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={fieldId} className="text-xs text-muted-foreground">
+      <Label htmlFor={fieldId} className="text-label font-medium text-muted-foreground">
         {label}
       </Label>
       {/* 44px under a thumb, and the desk's own 40px from `sm` up. Every control the owner

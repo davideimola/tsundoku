@@ -109,10 +109,10 @@ export default async function SeriesDetailPage({
       {/* No breadcrumb: the shell marks *Series* while the owner is standing here, so a
           trail one step long was a second answer to a question the chrome answers. */}
       <header className="pt-8 sm:pt-12">
-        <h1 className="text-pretty font-heading text-2xl leading-tight sm:text-3xl">
+        <h1 className="text-balance font-heading text-name font-semibold lg:text-name-lg">
           {series.name}
         </h1>
-        <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <span>{series.publisher}</span>
           {series.editionLine ? <Badge variant="outline">{series.editionLine}</Badge> : null}
           <span>·</span>
@@ -133,12 +133,10 @@ export default async function SeriesDetailPage({
             Story a line publishes is said on that Story's own page. */}
         {series.publishes ? (
           <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-              Publishes
-            </span>
+            <span className="text-label font-medium text-muted-foreground">Publishes</span>
             <Link
               href={`/stories/${series.publishes.id}`}
-              className="rounded font-heading text-base underline decoration-border underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-sm font-heading text-lg font-semibold text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
             >
               {series.publishes.title}
             </Link>
@@ -184,7 +182,7 @@ export default async function SeriesDetailPage({
       ) : null}
 
       <section className="mt-10">
-        <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+        <h2 className="font-heading text-section font-semibold">
           {collecting ? "What I am missing" : "What is here, position by position"}
         </h2>
 
@@ -202,17 +200,14 @@ export default async function SeriesDetailPage({
           </p>
         ) : (
           <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-            {series.ownedCount} of {series.publishedCount} published Volumes are in the house, and
-            that is all it means. Nothing is missing from a Series you have not decided to complete
-            — holding 42 of Naruto's 72 volumes opens no project.
+            {series.ownedCount} of {series.publishedCount} published Volumes are in the house.
+            Nothing counts as missing until you decide to collect it.
           </p>
         )}
       </section>
 
       <section className="mt-12">
-        <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-          On the shelf
-        </h2>
+        <h2 className="font-heading text-section font-semibold">On the shelf</h2>
 
         {series.volumes.length === 0 ? (
           <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
@@ -231,10 +226,12 @@ export default async function SeriesDetailPage({
                   href={`/collection/${volume.id}`}
                   className="flex items-baseline gap-3 py-3 outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <span className="w-8 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                  <span className="w-8 shrink-0 text-sm tabular-nums text-muted-foreground">
                     {volume.number}
                   </span>
-                  <span className="min-w-0 flex-1 truncate">{volume.title}</span>
+                  <span className="min-w-0 flex-1 truncate font-heading text-lg font-semibold leading-snug">
+                    {volume.title}
+                  </span>
                   <Badge variant="outline" className="shrink-0">
                     {volume.binding.name}
                   </Badge>
@@ -251,7 +248,7 @@ export default async function SeriesDetailPage({
       {panel === PLACE ? (
         <Drawer
           title="Place a Volume in this Series"
-          description="Which position of the publisher's line the object is. It is the fact the spines are drawn from, and the one nothing else can infer."
+          description="Which position of the publisher's line this object is."
           refused={refused}
           closesTo={closesTo}
         >
@@ -265,7 +262,10 @@ export default async function SeriesDetailPage({
               <input type="hidden" name="seriesId" value={series.id} />
 
               <div className="grid gap-1.5">
-                <Label htmlFor="place-volume" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="place-volume"
+                  className="text-label font-medium text-muted-foreground"
+                >
                   Volume
                 </Label>
                 <select id="place-volume" name="volumeId" required className={PICKER}>
@@ -279,7 +279,10 @@ export default async function SeriesDetailPage({
               </div>
 
               <div className="grid gap-1.5">
-                <Label htmlFor="place-number" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="place-number"
+                  className="text-label font-medium text-muted-foreground"
+                >
                   Position
                 </Label>
                 <Input
@@ -312,7 +315,7 @@ export default async function SeriesDetailPage({
       {panel === PUBLISHED ? (
         <Drawer
           title="What the publisher has done"
-          description="The count is yours to keep true: nothing here reads a catalogue. An ongoing Series grows, and a concluded one is a finite thing you can finish."
+          description="How many are out, and whether the line is over. Nothing here reads a catalogue, so the count is yours to keep true."
           refused={refused}
           closesTo={closesTo}
         >
@@ -320,7 +323,10 @@ export default async function SeriesDetailPage({
             <form action={recordPublished} className="grid gap-3">
               <input type="hidden" name="seriesId" value={series.id} />
               <div className="grid gap-1.5">
-                <Label htmlFor="published-count" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="published-count"
+                  className="text-label font-medium text-muted-foreground"
+                >
                   Volumes published
                 </Label>
                 <Input

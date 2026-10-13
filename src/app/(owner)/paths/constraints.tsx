@@ -36,14 +36,9 @@ export function DeclaredConstraints({
 }) {
   return (
     <section className="mt-10">
-      <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-        What I have said about {scope}
-      </h2>
+      <h2 className="font-heading text-section font-semibold">What I have said about {scope}</h2>
       <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-        Instructions to whoever is asked what to read next, in my own words.{" "}
-        <strong className="font-medium">This application enforces none of them</strong> — nothing
-        here is counted, checked or warned about, and no Story is refused for breaking one. They are
-        repeated to the advisor and that is all they do.
+        Your own words, passed to whoever is asked what to read next. Nothing here enforces them.
       </p>
 
       {constraints.length === 0 ? null : (

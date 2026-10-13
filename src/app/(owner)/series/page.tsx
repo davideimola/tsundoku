@@ -67,11 +67,9 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
     <main className="px-5 pb-16 sm:px-8">
       <header className="flex flex-wrap items-start justify-between gap-4 pt-8 sm:pt-12">
         <div className="min-w-0">
-          <h1 className="font-heading text-2xl sm:text-3xl">Series</h1>
-          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-            A publisher's ordered sequence of Volumes, held as a ledger: how many are out, whether
-            it is over, and therefore what is missing. What was any good is a Rating on a Story, and
-            it is not asked here.
+          <h1 className="font-heading text-title font-semibold lg:text-title-lg">Series</h1>
+          <p className="mt-2 text-pretty text-base text-muted-foreground">
+            The lines you follow, and what is missing from them.
           </p>
         </div>
 
@@ -95,14 +93,12 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
       ) : null}
 
       <section className="mt-8">
-        <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-          What I am missing
-        </h2>
+        <h2 className="font-heading text-section font-semibold">What I am missing</h2>
 
         {missing.length === 0 ? (
           <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-            Nothing. Either every Series you are collecting is complete, or you have not decided to
-            collect one yet — owning Volumes of a Series does not open the project.
+            Nothing. Every Series you are collecting is complete, or you have not decided to collect
+            one yet: owning some of its Volumes is not that decision.
           </p>
         ) : (
           /* Two abreast from `xl` up and no sooner: thirty spines want the width, and two
@@ -114,7 +110,7 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <Link
                     href={`/series/${series.id}`}
-                    className="min-w-0 underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                    className="min-w-0 rounded-sm font-heading text-lg font-semibold leading-snug underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <SeriesName ledger={series} />
                   </Link>
@@ -135,9 +131,7 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
       </section>
 
       <section className="mt-12">
-        <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-          Every Series declared
-        </h2>
+        <h2 className="font-heading text-section font-semibold">Every Series declared</h2>
 
         {all.length === 0 ? (
           <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
@@ -153,8 +147,12 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
                   className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span className="min-w-0 flex-1 basis-full sm:basis-auto">
-                    <SeriesName ledger={series} />
-                    <span className="ml-2 text-xs text-muted-foreground">{series.publisher}</span>
+                    <span className="font-heading text-lg font-semibold leading-snug">
+                      <SeriesName ledger={series} />
+                    </span>
+                    <span className="ml-2 text-label text-muted-foreground">
+                      {series.publisher}
+                    </span>
                   </span>
                   <span className="flex items-baseline gap-3">
                     <Collecting ledger={series} />
@@ -174,7 +172,7 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
       {panel === DECLARE ? (
         <Drawer
           title="Declare a Series"
-          description="It records what the publisher has done, and nothing about what you intend. Deciding to complete a Series is a separate act, on the Series' own page."
+          description="What the publisher has printed. Deciding to complete it is a separate step, on the Series' own page."
           refused={refused}
           closesTo={CLOSES_TO}
         >
@@ -191,7 +189,10 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
             />
 
             <div className="grid gap-1.5">
-              <Label htmlFor="declare-status" className="text-xs text-muted-foreground">
+              <Label
+                htmlFor="declare-status"
+                className="text-label font-medium text-muted-foreground"
+              >
                 The Series is
               </Label>
               {/* A native select: on a phone it opens the platform picker, and it submits
@@ -224,13 +225,13 @@ export default async function SeriesPage({ searchParams }: { searchParams: Promi
 /** Whether the owner decided to complete this Series. The Naruto case, said on screen. */
 function Collecting({ ledger }: { ledger: SeriesLedger }) {
   if (!ledger.collectingSince) {
-    return <span className="text-xs text-muted-foreground">not collecting</span>;
+    return <span className="text-label text-muted-foreground">Not collecting</span>;
   }
   return (
-    <span className="text-xs">
+    <span className="text-label tabular-nums">
       {ledger.missing && ledger.missing.length > 0
         ? `${ledger.missing.length} missing`
-        : "complete"}
+        : "Complete"}
     </span>
   );
 }
@@ -245,7 +246,7 @@ function Field({
 } & React.ComponentProps<typeof Input>) {
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={`declare-${name}`} className="text-xs text-muted-foreground">
+      <Label htmlFor={`declare-${name}`} className="text-label font-medium text-muted-foreground">
         {label}
       </Label>
       <Input id={`declare-${name}`} name={name} className="h-11 sm:h-10" {...props} />

@@ -76,12 +76,19 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
     <main className="px-5 pb-16 sm:px-8">
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pt-8 sm:pt-12">
         <div className="min-w-0">
-          <h1 className="font-heading text-2xl sm:text-3xl">Paths</h1>
-          <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-            A route through Stories, in the order I chose — crossing manga, comics and non-fiction
-            wherever the route goes. The order is my judgement, so nothing here computes it, and
-            what comes next follows from what I have read rather than from a cell I keep up to date.
+          <h1 className="font-heading text-title font-semibold lg:text-title-lg">Paths</h1>
+          <p className="mt-2 text-pretty text-base text-muted-foreground">
+            Routes through the library, in the order you chose.
           </p>
+          <details className="mt-3 max-w-prose text-sm text-muted-foreground">
+            <summary className="cursor-pointer text-sm font-medium text-cloth">
+              How this works
+            </summary>
+            <p className="mt-2 text-pretty">
+              A route crosses manga, comics and non-fiction wherever it goes. The order is yours, so
+              nothing here computes it, and what comes next follows from what you have read.
+            </p>
+          </details>
         </div>
 
         <OpensDrawer href={OPENS_AT} emphasis="loud">
@@ -119,9 +126,7 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
         </p>
       ) : (
         <section className="mt-8">
-          <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-            The routes I am walking
-          </h2>
+          <h2 className="font-heading text-section font-semibold">The routes I am walking</h2>
           {active.length === 0 ? (
             <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
               Every route is put aside. The Pile composes itself from the active ones, so it has
@@ -139,9 +144,7 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
 
       {aside.length === 0 ? null : (
         <section className="mt-10">
-          <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-            Put aside
-          </h2>
+          <h2 className="font-heading text-section font-semibold">Put aside</h2>
           <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
             Not composed into the Pile. The order in them is kept.
           </p>
@@ -170,7 +173,7 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
           <form action={define} className="grid gap-4">
             <input type="hidden" name="back" value="/paths" />
             <div className="grid gap-1.5">
-              <Label htmlFor="define-name" className="text-xs text-muted-foreground">
+              <Label htmlFor="define-name" className="text-label font-medium text-muted-foreground">
                 Name
               </Label>
               <Input
@@ -184,7 +187,10 @@ export default async function PathsPage({ searchParams }: { searchParams: Promis
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="define-intent" className="text-xs text-muted-foreground">
+              <Label
+                htmlFor="define-intent"
+                className="text-label font-medium text-muted-foreground"
+              >
                 What it is for
               </Label>
               {/* The intent is read by the assistant that recommends, so the field is the
@@ -218,10 +224,10 @@ function PathCard({ path }: { path: PathSummary }) {
     <li>
       <Link
         href={`/paths/${path.id}`}
-        className="flex h-full flex-col rounded-xl p-4 outline-none ring-1 ring-foreground/10 transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-full flex-col rounded-xl bg-card p-4 outline-none ring-1 ring-foreground/10 transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <span className="font-heading text-lg">{path.name}</span>
+          <span className="font-heading text-lg font-semibold leading-snug">{path.name}</span>
           {path.active ? null : (
             <Badge variant="outline" className="shrink-0 text-muted-foreground">
               Put aside
@@ -233,9 +239,7 @@ function PathCard({ path }: { path: PathSummary }) {
         <span className="mt-2 block text-sm text-balance">
           {path.next ? (
             <>
-              <span className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-                next{" "}
-              </span>
+              <span className="text-label font-medium text-muted-foreground">Next </span>
               {path.next.title}
             </>
           ) : (
@@ -253,7 +257,7 @@ function PathCard({ path }: { path: PathSummary }) {
 
         {/* At the foot of the card whatever else is on it, so a row of routes reads
             along one line rather than stepping with the length of each intent. */}
-        <span className="mt-auto block pt-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+        <span className="mt-auto block pt-3 text-label tabular-nums text-muted-foreground">
           {path.stops} {path.stops === 1 ? "Story" : "Stories"} · {path.unread} unread
         </span>
       </Link>

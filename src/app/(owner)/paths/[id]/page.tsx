@@ -140,7 +140,9 @@ export default async function PathPage({
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pt-8 sm:pt-12">
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-            <h1 className="font-heading text-2xl sm:text-3xl">{path.name}</h1>
+            <h1 className="text-balance font-heading text-name font-semibold lg:text-name-lg">
+              {path.name}
+            </h1>
             {path.active ? null : (
               <Badge variant="outline" className="text-muted-foreground">
                 Put aside
@@ -151,13 +153,13 @@ export default async function PathPage({
           {/* The intent, in the owner's words and in the owner's face. It is read here and
               written in a panel: what was said is the record, and the box is the act. */}
           {path.intent ? (
-            <p className="mt-2 max-w-prose text-pretty font-serif text-prose italic">
+            <p className="mt-3 max-w-prose text-pretty font-serif text-lg italic leading-snug">
               {path.intent}
             </p>
           ) : (
-            <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-              Nothing said about what this route is for. The recommender reads those words to extend
-              it rather than guess at a genre.
+            <p className="mt-3 max-w-prose text-pretty text-base text-muted-foreground">
+              Nothing said yet about what this route is for. The recommender reads it to extend the
+              route.
             </p>
           )}
         </div>
@@ -185,9 +187,7 @@ export default async function PathPage({
       <div className="mt-8 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-12">
         <div className="min-w-0">
           <section>
-            <h2 className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-              The route, in my order
-            </h2>
+            <h2 className="font-heading text-section font-semibold">The route, in my order</h2>
 
             {path.stops.length === 0 ? (
               <p className="mt-3 max-w-prose text-pretty text-sm text-muted-foreground">
@@ -248,14 +248,14 @@ export default async function PathPage({
               browser (ADR-0010, and the Collection's strike is the same device). */}
           <section className="group/place mt-8 rounded-xl ring-1 ring-foreground/10">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pt-3">
-              <h2 className="text-sm font-medium">
+              <h2 className="text-sm font-semibold">
                 Put Stories on this route
-                <span className="ml-2 text-muted-foreground">
-                  — they land at the end, in this order
+                <span className="ml-2 font-normal text-muted-foreground">
+                  They land at the end, in this order.
                 </span>
               </h2>
               {pick ? (
-                <p className="font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+                <p className="text-label tabular-nums text-muted-foreground">
                   {candidates.length} {candidates.length === 1 ? "match" : "matches"}
                 </p>
               ) : null}
@@ -290,7 +290,7 @@ export default async function PathPage({
                   {pick ? (
                     <Link
                       href={back}
-                      className="shrink-0 rounded px-1 py-3 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      className="shrink-0 rounded-sm px-1 py-3 text-sm font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       Clear
                     </Link>
@@ -330,8 +330,8 @@ export default async function PathPage({
                   <input type="hidden" name="pathId" value={path.id} />
                   <input type="hidden" name="back" value={back} />
                   <Button type="submit" className="h-11 w-full sm:h-10">
-                    Put <span className="font-mono tabular-nums after:[content:counter(ticked)]" />{" "}
-                    on the route
+                    Put <span className="tabular-nums after:[content:counter(ticked)]" /> on the
+                    route
                   </Button>
                 </form>
               </>
@@ -363,8 +363,7 @@ export default async function PathPage({
               </Button>
             </form>
             <p className="mt-1 text-pretty text-xs text-muted-foreground">
-              The Pile composes itself from the active routes only. A route put aside keeps its
-              order, so taking it up again costs nothing.
+              Only active routes feed the Pile. A route put aside keeps its order.
             </p>
 
             {/* **The two acts stand together because the difference between them is the thing
@@ -378,9 +377,8 @@ export default async function PathPage({
                 in this column for the reason the Story's is the last thing on its page. */}
             <div className="mt-6 border-t border-border pt-4">
               <p className="max-w-prose text-pretty text-xs leading-relaxed text-muted-foreground">
-                If this was never a route — a name minted to get something read, and not an order
-                you decided — the library can stop knowing it. Every Story on it stays, with
-                everything you read, judged and catalogued about them.
+                If this was never really a route, strike it. Every Story on it stays, with
+                everything you read, judged and catalogued.
               </p>
               <div className="mt-3">
                 <OpensDrawer href={`${back}?panel=${STRIKING_A_ROUTE}`}>
@@ -405,7 +403,7 @@ export default async function PathPage({
             <input type="hidden" name="pathId" value={path.id} />
             <input type="hidden" name="back" value={back} />
             <label className="grid gap-1.5">
-              <span className="text-xs text-muted-foreground">Name</span>
+              <span className="text-label font-medium text-muted-foreground">Name</span>
               <input
                 name="name"
                 defaultValue={path.name}
@@ -432,7 +430,9 @@ export default async function PathPage({
             <input type="hidden" name="pathId" value={path.id} />
             <input type="hidden" name="back" value={back} />
             <label className="grid gap-1.5">
-              <span className="text-xs text-muted-foreground">What this route is for</span>
+              <span className="text-label font-medium text-muted-foreground">
+                What this route is for
+              </span>
               <textarea
                 name="intent"
                 rows={4}
@@ -462,7 +462,7 @@ export default async function PathPage({
       {panel === STRIKING_A_ROUTE ? (
         <Drawer
           title="Strike this route"
-          description="For a route that was never one — a name minted to get a title onto the Pile. Not for a route you have walked or paused: putting it aside keeps the order for when you come back."
+          description="For a route that was never really one. To pause a route, put it aside instead: that keeps its order."
           refused={refused}
           closesTo={back}
         >
@@ -554,7 +554,7 @@ function Stop({
         aria-hidden="true"
         draggable="true"
         title="Drag it into place"
-        className="-ml-1 shrink-0 cursor-grab select-none self-center font-mono text-xs leading-none text-muted-foreground/60 active:cursor-grabbing [[data-drag=off]_&]:hidden"
+        className="-ml-1 shrink-0 cursor-grab select-none self-center text-xs leading-none text-muted-foreground/60 active:cursor-grabbing [[data-drag=off]_&]:hidden"
       >
         ⠿
       </span>
@@ -563,8 +563,8 @@ function Stop({
           always printed — it is the judgement, and hiding it behind the marker would
           replace the one thing on the page that could not have been derived. */}
       <span
-        className={`w-8 shrink-0 text-right font-mono text-xs tabular-nums ${
-          next ? "text-foreground" : "text-muted-foreground"
+        className={`w-8 shrink-0 text-right text-sm tabular-nums ${
+          next ? "font-semibold text-cloth" : "text-muted-foreground"
         }`}
       >
         {place}
@@ -573,23 +573,17 @@ function Stop({
       <span className="min-w-0 flex-1">
         <Link
           href={`/stories/${stop.storyId}`}
-          className={`underline-offset-4 outline-none hover:underline focus-visible:underline ${
-            next ? "font-heading" : ""
-          }`}
+          className="font-heading text-lg font-semibold leading-snug underline-offset-4 outline-none hover:underline focus-visible:underline"
         >
           {stop.title}
         </Link>{" "}
-        <span className="whitespace-nowrap font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
-          {stop.type.name}
-        </span>
+        <span className="whitespace-nowrap text-label text-muted-foreground">{stop.type.name}</span>
         <span className="mt-0.5 flex items-baseline gap-3">
           <StoryStateLabel state={stop.state} />
           {/* The answer the spreadsheet's `Prossimo` column was maintained by hand for,
               printed where it belongs: on the stop it points at. */}
           {next ? (
-            <span className="font-mono text-eyebrow uppercase tracking-eyebrow">
-              ← next on this route
-            </span>
+            <span className="text-label font-semibold text-cloth">Next on this route</span>
           ) : null}
         </span>
       </span>
@@ -605,9 +599,9 @@ function Stop({
             size="sm"
             disabled={first}
             aria-label={`Move ${stop.title} to the front of this route`}
-            className="h-11 px-2 font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground sm:h-9"
+            className="h-11 px-2 text-label font-medium text-muted-foreground sm:h-9"
           >
-            first
+            First
           </Button>
         </form>
         <Nudge
@@ -729,7 +723,7 @@ function RunBand({ run, pathId, back }: { run: Run; pathId: string; back: string
           style={worn(tint(run.seriesId))}
           className={cn("h-4 w-1 shrink-0 rounded-full", run.seriesId ? WORN : UNWORN)}
         />
-        <h3 className="min-w-0 flex-1 truncate font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground">
+        <h3 className="min-w-0 flex-1 truncate text-label font-semibold text-foreground">
           {run.name}
         </h3>
 
@@ -777,13 +771,13 @@ function Candidate({ story, numbered }: { story: PathCandidate; numbered: boolea
           name="storyId"
           value={story.id}
           aria-label={`Put ${story.title} on this route`}
-          className="size-4 accent-foreground"
+          className="size-4 accent-cloth-fill"
         />
       </label>
 
       <span className="flex min-w-0 flex-1 items-baseline gap-2 py-2.5 pr-4">
         {numbered ? (
-          <span className="w-5 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
+          <span className="w-5 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
             {story.standsAt ?? "—"}
           </span>
         ) : null}

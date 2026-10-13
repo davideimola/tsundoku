@@ -171,12 +171,12 @@ const THE_ACT: Record<WhatWasSaid, (form: FormData) => Promise<void>> = {
 };
 
 /**
- * The eyebrow a block of this screen stands under, as every wall here spells it.
+ * The label a block of this screen stands under: small sans in sentence case.
  *
  * Quiet on purpose: the four statements are the signature of this screen, and a heading that
  * competed with them would be a second thing to read before the one press.
  */
-const EYEBROW = "font-mono text-eyebrow uppercase tracking-eyebrow text-muted-foreground";
+const LABEL = "text-label font-semibold text-foreground";
 
 export default async function AddPage({ searchParams }: { searchParams: Promise<Asked> }) {
   await requireOwner();
@@ -239,11 +239,11 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
   return (
     <main className="px-5 pb-16 sm:px-8">
       <header className="pt-8 sm:pt-12">
-        <h1 className="font-heading text-2xl sm:text-3xl">Add to the library</h1>
-        <p className="mt-2 max-w-prose text-pretty text-sm text-muted-foreground">
-          Say what happened to a title. You are never asked whether you are recording an object or a
-          narrative — the library works that out, and what an object holds it shows you rather than
-          deciding behind your back.
+        <h1 className="font-heading text-title font-semibold lg:text-title-lg">
+          Add to the library
+        </h1>
+        <p className="mt-2 text-pretty text-base text-muted-foreground">
+          Say what happened, and the library records it.
         </p>
       </header>
 
@@ -287,7 +287,7 @@ export default async function AddPage({ searchParams }: { searchParams: Promise<
               <input type="hidden" name="isbn" value={isbn} />
             ) : null}
 
-            <p className="font-serif text-xl text-balance">{title}</p>
+            <p className="font-heading text-2xl font-semibold text-balance">{title}</p>
 
             {/* **What the owner had typed, where this is a press coming back refused.** A
                 refusal is a sentence about one field and every other field was right; a panel
@@ -386,7 +386,7 @@ function TheField({
         {isbn && from ? <input type="hidden" name="from" value={from} /> : null}
 
         <div className="grid gap-1.5">
-          <Label htmlFor={THE_FIELD.id} className="font-serif text-xl">
+          <Label htmlFor={THE_FIELD.id} className="font-heading text-section font-semibold">
             {isbn ? "What is it called?" : "What is it?"}
           </Label>
           <Input
@@ -410,9 +410,8 @@ function TheField({
             Say what happened
           </Button>
           <p className="mt-2 text-pretty text-xs text-muted-foreground">
-            A title goes straight through. Digits are looked up: your own catalogue first — so an
-            object already on the shelf goes to its own page rather than being recorded twice — and
-            then SBN, Italy&apos;s legal-deposit catalogue, for the title and the publisher.
+            A title goes straight through. A barcode is looked up in your own catalogue first, then
+            in SBN, Italy&apos;s legal-deposit catalogue.
           </p>
         </div>
       </form>
@@ -420,9 +419,8 @@ function TheField({
       <div className="mt-6 border-t border-border pt-5">
         <ScanAnIsbn into={THE_FIELD.id} />
         <p className="mt-2 text-pretty text-xs text-muted-foreground">
-          The camera reads the barcode and looks it up on its own. A Bonelli monthly has no ISBN to
-          read — its barcode is a periodical&apos;s — and neither has anything sold without one, so
-          those are named by hand.
+          The camera reads the barcode and looks it up. A Bonelli monthly has no ISBN, so name those
+          by hand.
         </p>
       </div>
     </div>
@@ -466,14 +464,14 @@ function TheSentences({
 }) {
   return (
     <div className="mt-8">
-      <p className="font-serif text-3xl text-balance sm:text-4xl">{title}</p>
-      <p className="mt-2 flex flex-wrap items-baseline gap-x-3 text-xs text-muted-foreground">
+      <p className="text-balance font-heading text-name font-semibold lg:text-name-lg">{title}</p>
+      <p className="mt-3 flex flex-wrap items-baseline gap-x-3 text-sm text-muted-foreground">
         {isbn ? <span className="font-mono">{isbn}</span> : null}
         <Link
           href={`/add?${asking(heard, { title: null, [ASKED]: title })}`}
-          className="rounded underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
         >
-          Not what it is called
+          Change the title
         </Link>
       </p>
 
@@ -495,7 +493,7 @@ function TheSentences({
               <li key={story.id}>
                 <Link
                   href={`/stories/${story.id}`}
-                  className="rounded text-sm underline decoration-foreground/25 underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  className="rounded-sm font-heading text-base font-semibold text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {story.name}
                 </Link>{" "}
@@ -563,7 +561,7 @@ function TheKindOfThing({
 }) {
   return (
     <section aria-labelledby="the-kind-of-thing" className="mt-7">
-      <h2 id="the-kind-of-thing" className="text-sm text-muted-foreground">
+      <h2 id="the-kind-of-thing" className="text-label font-semibold text-foreground">
         What kind of thing is it?
       </h2>
 
@@ -579,10 +577,10 @@ function TheKindOfThing({
               <Link
                 href={`/add?${asking(heard, { title, type: isChosen ? null : one.id, panel: null })}`}
                 aria-current={isChosen ? "true" : undefined}
-                className={`flex min-h-9 items-center rounded-lg border px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                className={`flex h-9 items-center rounded-full border px-3.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                   isChosen
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-input hover:border-foreground/40"
+                    ? "border-cloth-fill bg-cloth-fill text-on-cloth"
+                    : "border-border text-foreground hover:bg-accent/60"
                 }`}
               >
                 {one.name}
@@ -607,9 +605,8 @@ function TheHalf({ half, heard }: { half: Half; heard: URLSearchParams }) {
 
   return (
     <section aria-labelledby={id}>
-      <h2 id={id} className={`flex items-baseline gap-3 ${EYEBROW}`}>
+      <h2 id={id} className={LABEL}>
         {half.heading}
-        <span className="h-px flex-1 bg-border" aria-hidden="true" />
       </h2>
       <p className="mt-1.5 max-w-prose text-pretty text-sm text-muted-foreground">{half.says}</p>
 
@@ -621,7 +618,7 @@ function TheHalf({ half, heard }: { half: Half; heard: URLSearchParams }) {
               className="group flex items-center justify-between gap-4 border-b border-border py-5 outline-none focus-visible:bg-muted sm:py-6"
             >
               <span className="min-w-0">
-                <span className="block font-serif text-2xl group-hover:underline group-hover:decoration-foreground/25 group-hover:underline-offset-4 sm:text-3xl">
+                <span className="block font-heading text-2xl font-semibold group-hover:text-cloth sm:text-3xl">
                   {one.sentence}
                 </span>
                 <span className="mt-1 block max-w-prose text-pretty text-sm text-muted-foreground">
@@ -630,7 +627,7 @@ function TheHalf({ half, heard }: { half: Half; heard: URLSearchParams }) {
               </span>
               <span
                 aria-hidden
-                className="shrink-0 font-mono text-muted-foreground transition-colors group-hover:text-foreground"
+                className="shrink-0 text-lg text-muted-foreground transition-colors group-hover:text-cloth"
               >
                 →
               </span>
