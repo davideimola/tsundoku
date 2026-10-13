@@ -4,9 +4,7 @@ import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
 import { ScanAnIsbn } from "@/components/scan";
 import { type HeldStory, TheStoriesItHolds } from "@/components/stories-it-holds";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,6 +18,7 @@ import { type CarriedStory, listStoriesInVolume } from "@/core/queries/story-to-
 import { listTypes, theTypeToOffer } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
+import { cn } from "@/lib/utils";
 // The words a covered range is said in, spent from the Story's own derivation rather than
 // written again here: the object says the same thing whichever end the owner is standing at,
 // and the Pile's picker borrows the Wishes' three words for the same reason.
@@ -237,67 +236,100 @@ export default async function VolumePage({
   );
 
   return (
-    <main className="px-5 py-8 sm:px-8 sm:py-12">
-      <header>
-        {/* **No breadcrumb.** `tsundoku / collection` was the way back to the wall on a screen
-            that had no navigation; the shell has one now, at both widths, and it marks
-            *Collection* while the owner is standing here. A trail of one step is a second
-            answer to a question the chrome is already answering.
+    <main className="px-5 pb-16 pt-6 sm:px-8 sm:pt-10">
+      {/* **The hero, and it opens on the object** (ADR-0026, second tranche). The jacket stands
+          large and clean on a quiet panel — nothing printed over it, the cover is the heart of
+          the screen — and beside it is what a tile no longer says: the Binding and the Type in
+          one line, the name in the display serif, where it stands in its line, and the acts.
 
-            The tile the wall laid this object out as opens the page instead, in the same
-            colour — so arriving here from the Collection is arriving at the thing that was
-            tapped. **It carries no href**, because this is the page it would lead to: a link
-            to where the owner already is would be a focusable no-op that lifts under the
-            pointer as though it went somewhere (`@/components/cover`). */}
-        <div className="flex items-start gap-4 sm:gap-6">
-          <div className="w-20 shrink-0 sm:w-28">
+          **No breadcrumb.** The shell marks *Collection* while the owner is standing here, and
+          a trail one step long is a second answer to a question the chrome already answers.
+          **The cover carries no href**, because this is the page it would lead to. */}
+      <header className="flex flex-wrap items-start gap-x-12 gap-y-6">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:max-w-[21rem] sm:flex-[1_1_17.5rem]">
+          <div className="flex items-center justify-center rounded-3xl bg-muted px-6 py-8 sm:h-[28.75rem] sm:py-0">
             <Cover
+              size="hero"
               title={volume.title}
-              tint={tint(volume.series?.id)}
+              tint={tint(volume.series?.id ?? volume.id)}
               label={objectSaid(volume)}
               image={volume.cover}
+              className="w-[8.25rem] sm:w-[14.75rem]"
             />
           </div>
 
-          <div className="min-w-0">
+          {/* Where the jacket comes from — a fact about the object, said under the picture it
+              is about rather than behind the press that changes it. The source's own page for
+              the book is the link ADR-0013 owes Google. */}
+          <p className="text-pretty text-label text-muted-foreground">
+            {facedWith(volume)}
+            {volume.lookedUp.at ? ` Last asked about on ${volume.lookedUp.at}.` : null}{" "}
+            {volume.lookedUp.infoUrl ? (
+              <a
+                href={volume.lookedUp.infoUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="font-medium text-cloth underline-offset-4 hover:underline"
+              >
+                The source&apos;s own page for it
+              </a>
+            ) : null}
+          </p>
+        </div>
+
+        <div className="flex min-w-0 flex-[999_1_26rem] flex-col gap-6">
+          <div className="flex flex-col gap-1.5">
+            {/* **What it is, in one line**: the Binding and the Types of what it holds, which
+                is everything a tile used to print over a jacket and no longer does. */}
+            <p className="text-sm text-muted-foreground">
+              {[volume.binding.name, ...typesHeld(carried)].join(" · ")}
+              {" · "}
+              {volume.inTheHouse ? "in the house" : "not in the house"}
+            </p>
             <h1 className="text-balance font-heading text-name font-semibold lg:text-name-lg">
               {volume.title}
             </h1>
-            <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span>{[volume.publisher, volume.editionLine].filter(Boolean).join(" · ")}</span>
-              <Badge variant="outline" className="shrink-0">
-                {volume.binding.name}
-              </Badge>
+            <p className="font-heading text-xl font-medium">
+              {volume.series ? (
+                <>
+                  <Link
+                    href={`/series/${volume.series.id}`}
+                    className="rounded-sm underline-offset-4 outline-none hover:text-cloth hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {[volume.series.name, volume.series.editionLine].filter(Boolean).join(", ")}
+                  </Link>{" "}
+                  <span className="tabular-nums">{volume.seriesNumber}</span>
+                </>
+              ) : (
+                [volume.publisher, volume.editionLine].filter(Boolean).join(", ")
+              )}
             </p>
-            {volume.series ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                <Link
-                  href={`/series/${volume.series.id}`}
-                  className="rounded-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {[volume.series.name, volume.series.editionLine].filter(Boolean).join(", ")}
-                </Link>{" "}
-                <span className="tabular-nums">{volume.seriesNumber}</span>
-              </p>
-            ) : null}
           </div>
-        </div>
 
-        {/* **The acts, in their own row under the tile rather than beside it.** The Story's
-            page puts its two in the column next to the cover, which works for two; three
-            beside a tile on a phone is a column two words wide. The first is drawn loud
-            because it is the one the owner opened this page to perform — whether the house
-            holds the thing — and `./standing.ts` is what puts it first. */}
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          {acts.map((act, place) => (
-            <OpensDrawer
-              key={act.panel}
-              href={panelled(volume.id, act.panel)}
-              emphasis={place === 0 ? "loud" : "quiet"}
-            >
-              {act.label}
-            </OpensDrawer>
-          ))}
+          {/* **One loud act, the rest outlined.** The first is the one the owner opened this
+              page to perform — whether the house holds the thing — and `./standing.ts` is what
+              puts it first. */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {acts.map((act, place) => (
+              <OpensDrawer
+                key={act.panel}
+                href={panelled(volume.id, act.panel)}
+                emphasis={place === 0 ? "loud" : "quiet"}
+              >
+                {act.label}
+              </OpensDrawer>
+            ))}
+          </div>
+
+          {/* **What it is**, as facts between two rules (ADR-0007's first half). The ISBN is
+              the one mono figure on the screen; an absence is said rather than left blank. */}
+          <dl className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-6 gap-y-3 border-y border-border py-5 text-[0.9375rem] leading-snug">
+            <Fact term="Publisher" detail={volume.publisher} />
+            <Fact term="Edition line" detail={volume.editionLine ?? "The standard printing"} />
+            <Fact term="Binding" detail={volume.binding.name} />
+            <Fact term="Language" detail={volume.language} />
+            <Fact term="ISBN" detail={volume.isbn ?? "None recorded"} mono={Boolean(volume.isbn)} />
+          </dl>
         </div>
       </header>
 
@@ -317,91 +349,21 @@ export default async function VolumePage({
         </p>
       ) : null}
 
-      {/* **The two halves of ADR-0007, side by side.** What the object is, and whether the
-          house holds it. They are two facts about one thing, so they are two headings and
-          never one paragraph mixing a publisher with a price. */}
-      <div className="mt-10 grid gap-10 lg:grid-cols-2 lg:gap-8">
-        <section>
-          <h2 className="font-heading text-section font-semibold">What it is</h2>
-
-          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-4 text-sm">
-            <Fact term="Publisher" detail={volume.publisher} />
-            <Fact term="Edition line" detail={volume.editionLine ?? "— the standard printing"} />
-            <Fact term="Binding" detail={volume.binding.name} />
-            <Fact term="Language" detail={volume.language} />
-            {/* **A fact and no longer a box.** It reads in the mono face where there is one
-                and as an absence where there is not — an em dash rather than an empty cell,
-                because a blank reads as a screen that failed to load something. Putting one
-                in is the act in the hero. */}
-            <Fact
-              term="ISBN"
-              detail={volume.isbn ?? "— none recorded"}
-              mono={Boolean(volume.isbn)}
-              wide
-            />
-          </dl>
-
-          {/* Where the tile's image comes from — a fact about the object, said on the page
-              rather than behind the press that changes it. The source's own page for the book
-              is the link ADR-0013 owes Google, and it belongs with the facts for the same
-              reason: it is true of this object whether or not anybody is repairing it. */}
-          <p className="mt-4 max-w-prose text-pretty text-sm text-muted-foreground">
-            {facedWith(volume)}
-            {volume.lookedUp.at ? ` Last asked about on ${volume.lookedUp.at}.` : null}{" "}
-            {volume.lookedUp.infoUrl ? (
-              <a
-                href={volume.lookedUp.infoUrl}
-                // A link off this application entirely, so it says so and takes nothing with it.
-                target="_blank"
-                rel="noreferrer noopener"
-                className="font-medium text-cloth underline-offset-4 hover:underline"
-              >
-                The source&apos;s own page for it
-              </a>
-            ) : null}
+      {/* **Sections between rules rather than a stack of cards.** Each opens with a serif
+          heading and one line, and its rows are hairlines — the screen reads as a page of a
+          catalogue rather than as a dashboard of boxes. */}
+      <div className="mt-12 grid items-start gap-x-10 gap-y-12 lg:grid-cols-2">
+        {/* **The section has an address, because something else leads here** (#51): the
+            Collection's list of objects carrying no Story links to `#stories-it-holds`. */}
+        <section id="stories-it-holds" className="scroll-mt-16">
+          <h2 className="font-heading text-section font-semibold">Stories it holds</h2>
+          <p className="mt-1.5 text-pretty text-sm text-muted-foreground">
+            Each Story inside is read and judged on its own.
           </p>
-        </section>
-
-        <section>
-          <h2 className="font-heading text-section font-semibold">In the house</h2>
-          {/* The sentence comes off `findVolume` and the rows off `listAcquisitions`, and the
-              two agree by construction: both order the acquisitions the same way, so *the
-              latest* is the same row in each, and whether the house holds the object stays the
-              core's answer rather than one this screen re-derives from the history. */}
-          <p className="mt-2 max-w-prose text-pretty text-sm">{whatTheHouseSays(volume)}</p>
-
-          <History acquisitions={history} volumeId={volume.id} />
-        </section>
-      </div>
-
-      <div className="mt-10 grid gap-6 lg:grid-cols-2">
-        {/* **The card has an address, because something else leads here** (#51). The
-            Collection's list of objects carrying no Story links to `#stories-it-holds` rather
-            than to the top of this page: what that list is about is on this card, and a phone
-            arriving at the hero would ask the owner to scroll past the cover, the ISBN and the
-            acquisitions to reach the one thing they came for. Renaming it breaks that link and
-            nothing else, which is why the two are one word apart. */}
-        <Card id="stories-it-holds" className="scroll-mt-16">
-          <CardHeader>
-            <CardTitle>Stories it holds</CardTitle>
-            <CardDescription className="text-pretty">
-              Each Story inside is read and judged on its own; a score beside one is that
-              Story&apos;s.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* **The component the whole of #47 is about** (`@/components/stories-it-holds`),
-                mounted here in the place the pain was reported. What this page hands it is the
-                rows it already drew and the four acts it already had: the list, the Types, the
-                Type the box arrives holding, and an adapter of Server Functions that write at
-                once. The same component is mounted at cataloguing time with an adapter that
-                holds each row until one submission (ADR-0019), and the difference between the
-                two moments is that object and nothing else.
-
-                The Instalment range keeps its own place: **nothing asks for one while
-                linking**, and it is drawn under the row it qualifies, by this screen, as a
-                plain form. It is the omnibus's field and the omnibus is the only object that
-                wants it. */}
+          {/* **The component the whole of #47 is about** (`@/components/stories-it-holds`).
+              The Instalment range keeps its own place under the row it qualifies: nothing asks
+              for one while linking, and only an omnibus wants it. */}
+          <div className="mt-4 border-t border-border pt-4">
             <TheStoriesItHolds
               held={carried.map(
                 (story): HeldStory => ({
@@ -438,8 +400,21 @@ export default async function VolumePage({
             <p className="mt-5 max-w-prose text-pretty text-xs text-muted-foreground">
               A Story spanning twenty Volumes is named on each of them.
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="font-heading text-section font-semibold">In the house</h2>
+          {/* The sentence comes off `findVolume` and the rows off `listAcquisitions`, and the
+              two agree by construction: both order the acquisitions the same way, so *the
+              latest* is the same row in each. Being catalogued is not being owned (ADR-0007),
+              which is why this is its own section. */}
+          <p className="mt-1.5 max-w-prose text-pretty text-sm text-muted-foreground">
+            {whatTheHouseSays(volume)}
+          </p>
+
+          <History acquisitions={history} volumeId={volume.id} />
+        </section>
 
         <TheEditionNote act={noting} volume={volume} note={note} />
       </div>
@@ -749,18 +724,19 @@ function TheEditionNote({
   note: EditionNote | null;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Edition note</CardTitle>
-        <CardDescription className="text-pretty">
-          What you think of this printing. Not a score, and never read by a recommender.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
+    <section>
+      <h2 className="font-heading text-section font-semibold">Edition note</h2>
+      <p className="mt-1.5 text-pretty text-sm text-muted-foreground">
+        What you think of this printing. Not a score, and never read by a recommender.
+      </p>
+
+      <div className="mt-4 grid gap-3 border-t border-border pt-4">
         {note ? (
           <>
-            <p className="max-w-prose text-pretty font-serif text-prose italic">{note.note}</p>
-            <p className="text-label font-medium text-muted-foreground tabular-nums">
+            <p className="max-w-prose text-pretty font-serif text-lg italic leading-relaxed">
+              {note.note}
+            </p>
+            <p className="text-label text-muted-foreground tabular-nums">
               Written {note.writtenAt}
             </p>
           </>
@@ -770,11 +746,14 @@ function TheEditionNote({
           </p>
         )}
 
-        <div>
-          <OpensDrawer href={panelled(volume.id, act.panel)}>{act.label}</OpensDrawer>
-        </div>
-      </CardContent>
-    </Card>
+        <Link
+          href={panelled(volume.id, act.panel)}
+          className="inline-flex min-h-11 items-center self-start rounded-sm text-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {act.label}
+        </Link>
+      </div>
+    </section>
   );
 }
 
@@ -1066,6 +1045,15 @@ function objectSaid(volume: RecordedVolume): string {
 }
 
 /**
+ * **The Types of what the object holds**, each once and in the order they are held: an
+ * object has no Type of its own (ADR-0006), so the hero's line says what is inside it — a
+ * manga, or *Comic* for an omnibus of three tales.
+ */
+function typesHeld(carried: readonly CarriedStory[]): string[] {
+  return [...new Set(carried.map((story) => story.type.name))];
+}
+
+/**
  * Every acquisition of the object, newest first — **which is how one object acquired twice
  * reads as one object** (ADR-0007, #30).
  *
@@ -1099,7 +1087,7 @@ function History({
         {acquisitions.map((acquisition) => (
           <li
             key={acquisition.id}
-            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border py-3 text-sm"
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border py-3 text-sm"
           >
             <span className="flex flex-wrap items-baseline gap-x-2">
               <span className="tabular-nums">{acquisition.acquiredOn ?? "—"}</span>
@@ -1125,9 +1113,12 @@ function History({
               {/* **Opened from the row rather than from the hero**, because which acquisition
                   a press means is only answerable from the row it was pressed on: an object
                   acquired twice has two of these and the hero has one of everything. */}
-              <OpensDrawer href={panelled(volumeId, "correction", acquisition.id)}>
+              <Link
+                href={panelled(volumeId, "correction", acquisition.id)}
+                className="inline-flex min-h-11 items-center rounded-sm text-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:min-h-0"
+              >
                 Correct it
-              </OpensDrawer>
+              </Link>
             </span>
           </li>
         ))}
@@ -1153,10 +1144,12 @@ function Fact({
   /** Across both columns, for a fact too long to stand in half of one — an ISBN. */
   wide?: boolean;
 }) {
+  // Two cells of the facts' grid rather than a box of its own: the terms stand in one column
+  // and the facts in the next, so the eye runs down either.
   return (
-    <div className={wide ? "col-span-2" : undefined}>
-      <dt className="text-label font-medium text-muted-foreground">{term}</dt>
-      <dd className={mono ? "font-mono" : undefined}>{detail}</dd>
+    <div className={cn("contents", wide && "col-span-2")}>
+      <dt className="text-muted-foreground">{term}</dt>
+      <dd className={cn("m-0 min-w-0 break-words", mono && "font-mono text-sm")}>{detail}</dd>
     </div>
   );
 }
