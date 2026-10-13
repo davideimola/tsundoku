@@ -607,6 +607,15 @@ function Stop({
           <span>{stop.type.name}</span>
           <span aria-hidden="true">·</span>
           <StoryStateLabel state={stop.state} />
+          {/* Where the jacket it is not wearing comes from: a tale out of an omnibus is drawn
+              as its own cloth, so the row says which Volume binds it — the wall's own answer
+              (`lentBy`), held or not. */}
+          {face?.cover && face.lentBy && !ownsItsCover(face) ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>In {face.lentBy.title}</span>
+            </>
+          ) : null}
           {/* The answer the spreadsheet's `Prossimo` column was maintained by hand for,
               printed where it belongs: on the stop it points at. */}
           {next ? (
