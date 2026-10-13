@@ -293,7 +293,7 @@ function Sheet({ here, shuts }: { here: string | undefined; shuts: string }) {
         href={shuts}
         aria-hidden
         tabIndex={-1}
-        className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px] dark:bg-background/70"
       />
 
       <nav
