@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
-import { Badge } from "@/components/ui/badge";
 import {
   type AcquisitionMade,
   type MonthThingsCameHome,
@@ -131,7 +130,7 @@ function Month({ month, today }: { month: MonthThingsCameHome; today: Date }) {
         </p>
       ) : null}
 
-      <ul className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="mt-3 max-w-3xl">
         {month.acquisitions.map((made) => (
           <Row key={made.id} made={made} />
         ))}
@@ -175,52 +174,59 @@ function CameTo({ month }: { month: MonthThingsCameHome }) {
   );
 }
 
-/** One acquisition: the object as the walls draw it, the day, the price and where it stands. */
+/**
+ * One acquisition, as a row: a small jacket, the name in the serif, one quiet line of facts,
+ * and the price at the right in the figure's own face.
+ *
+ * The Binding used to stand beside the name as a badge, competing with it; it is one of the
+ * facts in the quiet line now, which is where a reader looks for *which edition*. The name
+ * leads to the object's own page, which is where the day and the price are corrected; the
+ * jacket beside it is the same thing's picture rather than a second link to it.
+ */
 function Row({ made }: { made: AcquisitionMade }) {
-  const under = [made.volume.publisher, made.volume.editionLine].filter(Boolean).join(" · ");
+  const said = [
+    made.volume.publisher,
+    made.volume.editionLine,
+    made.volume.binding.name,
+    made.acquiredOn === null ? "no day recorded" : `came home ${made.acquiredOn}`,
+    standingOf(made).toLowerCase(),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <li className="flex gap-4 rounded-xl p-4 ring-1 ring-foreground/10">
-      {/* The same tile as on the walls, in the Series' own tint and wearing the jacket where a
-          lookup found one, so an object on the ledger is recognised by sight. It leads to the
-          object's own page, which is where the day and the price are corrected. */}
-      <div className="w-16 shrink-0 sm:w-20">
-        <Cover
-          href={`/collection/${made.volume.id}`}
-          title={made.volume.title}
-          tint={tint(made.volume.series?.id)}
-          label={acquisitionDetail(made)}
-          image={made.volume.cover}
-        />
-      </div>
+    <li className="flex items-start gap-3.5 border-t border-border py-3.5 first:border-t-0">
+      <Cover
+        title={made.volume.title}
+        tint={tint(made.volume.series?.id ?? made.volume.id)}
+        label={acquisitionDetail(made)}
+        image={made.volume.cover}
+        size="thumb"
+        className="w-11 shrink-0 sm:w-12"
+      />
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <h3 className="min-w-0 font-heading text-lg font-semibold leading-snug text-balance">
+        <h3 className="font-heading text-lg font-semibold leading-snug text-balance">
+          <Link
+            href={`/collection/${made.volume.id}`}
+            className="rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          >
             {made.volume.title}
-          </h3>
-          <Badge variant="outline" className="shrink-0">
-            {made.volume.binding.name}
-          </Badge>
-        </div>
-        {under ? <p className="mt-0.5 truncate text-label text-muted-foreground">{under}</p> : null}
-
-        <p className="mt-2 font-heading text-xl font-semibold tabular-nums">
-          {made.pricePaid === null ? (
-            <span className="text-muted-foreground">
-              <span aria-hidden="true">—</span>
-              <span className="sr-only">No price recorded for this acquisition</span>
-            </span>
-          ) : (
-            <>€ {made.pricePaid}</>
-          )}
-        </p>
-
-        <p className={`mt-1.5 ${LABEL}`}>
-          {made.acquiredOn === null ? "No day recorded" : `Came home ${made.acquiredOn}`}
-        </p>
-        <p className="mt-0.5 text-label text-muted-foreground">{standingOf(made)}</p>
+          </Link>
+        </h3>
+        <p className={`mt-0.5 text-pretty ${LABEL} first-letter:uppercase`}>{said}</p>
       </div>
+
+      <p className="shrink-0 pt-0.5 font-heading text-lg font-semibold tabular-nums">
+        {made.pricePaid === null ? (
+          <span className="text-muted-foreground">
+            <span aria-hidden="true">—</span>
+            <span className="sr-only">No price recorded for this acquisition</span>
+          </span>
+        ) : (
+          <>€ {made.pricePaid}</>
+        )}
+      </p>
     </li>
   );
 }
