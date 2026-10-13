@@ -8,6 +8,10 @@ import { cn } from "@/lib/utils";
 // thing a reader leaves in a book: **a ribbon bookmark**, filled with cloth from the top to
 // the score and left soft below it, with the figure beside it in the serif — *9*, *7.5*.
 //
+// The unfilled length is cloth worn thin — a fifth of the cloth over the quiet paper —
+// rather than `--cloth-soft`, which is a ground for a block and all but vanishes as a
+// ribbon on the page: a nine has to read as *almost the whole ribbon*, not as a square.
+//
 // It is an image with a sentence for a name (`role="img"`, *Rated 9 out of 10*), because the
 // ribbon is a picture of the figure and the figure is printed beside it: a screen reader is
 // given the sentence once, rather than *9* and a shape it cannot see.
@@ -51,7 +55,7 @@ export function RatingMark({
         aria-hidden="true"
         className={cn("block shrink-0", RIBBON, size === "large" ? "h-11 w-[1.875rem]" : "h-6 w-4")}
         style={{
-          background: `linear-gradient(to bottom, var(--cloth-fill) ${filled}%, var(--cloth-soft) ${filled}%)`,
+          background: `linear-gradient(to bottom, var(--cloth-fill) ${filled}%, color-mix(in oklab, var(--cloth-fill) 22%, var(--paper-quiet)) ${filled}%)`,
         }}
       />
       <span

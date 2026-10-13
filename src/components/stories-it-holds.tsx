@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { tint, UNWORN, WORN, worn } from "@/lib/tint";
 import { cn } from "@/lib/utils";
+import { RatingMark } from "./rating-mark";
 import { type Band, theWholeBandPress, whatEnterDoes } from "./stories-on-offer";
 
 // **THE STORIES AN OBJECT HOLDS, SAID WHERE THE OBJECT IS** (#47, ADR-0019).
@@ -396,9 +397,9 @@ export function TheStoriesItHolds({
 /**
  * One narrative the object holds.
  *
- * The score is tabular so that three judgements of three narratives in one object line up
- * under each other and read as the three different numbers they are, with an em dash where
- * the owner has judged nothing yet.
+ * The score is the bookmark (`./rating-mark`), so three judgements of three narratives in one
+ * object read as three different ribbons; where the owner has judged nothing yet the row
+ * says so in words rather than with a dash.
  */
 function Row({
   story,
@@ -464,10 +465,12 @@ function Row({
           <span className="min-w-0 flex-1 basis-full sm:basis-auto">{title}</span>
         )}
 
-        <span className="flex items-baseline gap-2">
-          <span className="w-10 text-right text-sm tabular-nums text-muted-foreground">
-            {story.score === null ? "—" : story.score.toFixed(1)}
-          </span>
+        <span className="flex items-center gap-2">
+          {story.score === null ? (
+            <span className="text-label text-muted-foreground">Not rated yet</span>
+          ) : (
+            <RatingMark score={story.score} />
+          )}
 
           <RowPress label={`${story.title} is not in here`} onPress={onDrop} disabled={working}>
             <Cross />
