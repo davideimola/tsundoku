@@ -9,6 +9,7 @@ import { createStory, declareInstalments } from "../verbs/story.ts";
 import { recordVolumeCarriesStory } from "../verbs/story-to-volume.ts";
 import {
   findStory,
+  listLastEndings,
   listReadStories,
   listRunsInProgress,
   listStories,
@@ -1014,5 +1015,59 @@ describe("a Story no object carries", () => {
     expect((await listStoryWall({ typeId: "videogame" })).map((story) => story.title)).toEqual([
       "Hades",
     ]);
+  });
+});
+
+// **THE DIARY'S ONE DATE**: when a Story was last gone through to an end. The wall's tile does
+// not carry it, so the Story wall asks for it beside the wall — and it is the most recent ending
+// that counts, because a book read in 2009 and again in 2023 was last read in 2023.
+describe("when each Story was last gone through", () => {
+  it("answers with the latest ending, and how it ended", async () => {
+    const storyId = await createStory({ title: "Il Signore degli Anelli", typeId: "novel" });
+    const first = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishPass(first, "2009-06-01");
+    const second = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    await finishPass(second, "2023-08-30");
+
+    expect(await listLastEndings()).toEqual([
+      { storyId, endedOn: "2023-08-30", outcome: "finished" },
+    ]);
+  });
+
+  it("says abandoned where the last one was given up on", async () => {
+    const storyId = await createStory({ title: "Ulysses", typeId: "novel" });
+    const passId = await recordPass({ storyId, medium: "paper", provenanceId: "remembered" });
+    await abandonPass(passId, "2024-07-01");
+
+    expect(await listLastEndings()).toEqual([
+      { storyId, endedOn: "2024-07-01", outcome: "abandoned" },
+    ]);
+  });
+
+  it("says nothing of a pass still open, or of one that ended on no recorded day", async () => {
+    const open = await createStory({ title: "Vagabond", typeId: "manga" });
+    await recordPass({ storyId: open, medium: "paper", provenanceId: "remembered" });
+    const undated = await createStory({ title: "Neuromancer", typeId: "novel" });
+    await finishPass(
+      await recordPass({ storyId: undated, medium: "paper", provenanceId: "remembered" })
+    );
+
+    expect(await listLastEndings()).toEqual([]);
+  });
+
+  it("is narrowed the way the wall is, by Type and by state", async () => {
+    const novel = await createStory({ title: "Dune", typeId: "novel" });
+    await finishPass(
+      await recordPass({ storyId: novel, medium: "paper", provenanceId: "remembered" }),
+      "2020-01-01"
+    );
+    const manga = await createStory({ title: "Akira", typeId: "manga" });
+    await abandonPass(
+      await recordPass({ storyId: manga, medium: "paper", provenanceId: "remembered" }),
+      "2021-01-01"
+    );
+
+    expect((await listLastEndings({ typeId: "manga" })).map((one) => one.storyId)).toEqual([manga]);
+    expect((await listLastEndings({ state: "read" })).map((one) => one.storyId)).toEqual([novel]);
   });
 });

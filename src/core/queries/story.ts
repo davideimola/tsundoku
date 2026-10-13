@@ -763,6 +763,44 @@ export async function listStoryWall(filter: StoryWallFilter = {}): Promise<WallS
   );
 }
 
+/** The last time a Story was gone through to an end: the day it ended, and how. */
+export type LastEnding = {
+  storyId: string;
+  /** `YYYY-MM-DD`. */
+  endedOn: string;
+  outcome: Outcome;
+};
+
+/**
+ * **When each Story was last gone through to an end** — the diary's one date, which the wall's
+ * tile does not carry (`WallStory`).
+ *
+ * One row per Story that has an ended Pass with a day on it, and it is the most recent of them:
+ * a book read in 2009 and again in 2023 was last read in 2023. A Pass that ended with no day
+ * written down says nothing here rather than a guess, and the Story is simply absent.
+ *
+ * Narrowed by the wall's own filter, so a wall showing four Stories asks about four, and read
+ * beside `listStoryWall` rather than folded into it: what the wall carries is also what the
+ * showcase publishes (ADR-0025), and the day a book was read is not that.
+ */
+export async function listLastEndings(filter: StoryWallFilter = {}): Promise<LastEnding[]> {
+  return query<LastEnding>(
+    `select distinct on (r.story_id)
+            r.story_id as "storyId",
+            r.ended_on::text as "endedOn",
+            r.outcome
+       from pass r
+       join story s on s.id = r.story_id
+       ${STATE_ONCE}
+      where r.outcome is not null
+        and r.ended_on is not null
+        and ($1::text is null or s.type_id = $1)
+        and ($2::text is null or derived.state = $2)
+      order by r.story_id, r.ended_on desc, r.created_at desc`,
+    [filter.typeId ?? null, filter.state ?? null]
+  );
+}
+
 /**
  * A Story nothing has happened to, and **what a strike would take with it** — which is the
  * whole of why this is not just an id and a title.
