@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
 // The chips are a control two walls share now, so there is one of them (#64,
 // `@/components/narrowing`): this wall narrows by Type and state, and the Pile narrows by Type.
 import { Axis, Chip } from "@/components/narrowing";
+import { StackSheet, StoryShelf, theLendingVolume, theOpenStack } from "@/components/story-shelf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { listCollectionWall } from "@/core/queries/collection";
 import {
   listStoriesNothingHasHappenedTo,
   listStoryWall,
@@ -16,7 +17,6 @@ import {
 } from "@/core/queries/story";
 import { listTypes, type Type } from "@/core/queries/type";
 import { requireOwner } from "@/lib/auth/owner";
-import { tint } from "@/lib/tint";
 import { strike } from "./actions";
 import { whatGoesWithIt } from "./nothing-on-it";
 import { carriedAs, NOTHING_ON_IT, THE_WALLS_FILTERS } from "./panels";
@@ -79,11 +79,14 @@ function asked(params: Asked, name: string): string | undefined {
  * exactly where they were, and closing it — `wallAt(narrowing)`, with nothing passed — must
  * put the owner back on the wall they had narrowed. One function, so the two cannot disagree.
  */
-function wallAt(narrowing: StoryWallFilter, panel?: string): string {
+function wallAt(narrowing: StoryWallFilter, panel?: string, bound?: string): string {
   const search = new URLSearchParams();
   if (narrowing.typeId) search.set("type", narrowing.typeId);
   if (narrowing.state) search.set("state", narrowing.state);
   if (panel) search.set("panel", panel);
+  // A stack of Stories bound in one Volume, open over the wall: the same one bit of
+  // navigation as a panel, under its own name because it carries which stack.
+  if (bound) search.set("bound", bound);
 
   const query = search.toString();
   return query === "" ? "/stories" : `/stories?${query}`;
@@ -107,9 +110,14 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
   // narrowed; the clean-up list is the residue of approvals that went through in a hurry, and
   // it is read whole — a dozen rows beside seventy-seven — because a filter over a destructive
   // list would be a way to have half of it in front of you and not know.
-  const [stories, nothingOnThem] = await Promise.all([
+  //
+  // The third is only for the sheet a stack opens onto: which Volume lends a jacket is not
+  // something the wall's query says, so the Volume is found among the house's by the jacket's
+  // own address (`@/components/story-shelf`).
+  const [stories, nothingOnThem, volumes] = await Promise.all([
     listStoryWall(narrowing),
     listStoriesNothingHasHappenedTo(),
+    listCollectionWall(),
   ]);
   const narrowed = typeId !== undefined || state !== undefined;
 
@@ -119,6 +127,17 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
   const striking = panel === NOTHING_ON_IT && nothingOnThem.length > 0;
   const refused = asked(said, "refused");
   const struck = asked(said, "struck");
+
+  // The stack the URL opens, looked for band by band — the bands are where tiles are bound,
+  // so a key is only ever a stack inside one of them.
+  const bound = asked(said, "bound");
+  const stack =
+    WALL_STATES.map((one) =>
+      theOpenStack(
+        stories.filter((story) => story.state === one),
+        bound
+      )
+    ).find((found) => found !== null) ?? null;
 
   return (
     <main className="px-5 py-8 sm:px-8 sm:py-12">
@@ -226,7 +245,12 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
       ) : (
         <div className="mt-8 space-y-10">
           {WALL_STATES.map((one) => (
-            <Band key={one} state={one} stories={stories.filter((story) => story.state === one)} />
+            <Band
+              key={one}
+              state={one}
+              stories={stories.filter((story) => story.state === one)}
+              opens={(key) => wallAt(narrowing, undefined, key)}
+            />
           ))}
         </div>
       )}
@@ -247,6 +271,14 @@ export default async function Stories({ searchParams }: { searchParams: Promise<
           — so a destructive act says how many it is about to take while the owner is still
           ticking. The bar does not exist until something is ticked, and it sticks to the foot
           of the drawer, because a dozen rows are longer than a phone. */}
+      {stack ? (
+        <StackSheet
+          stack={stack}
+          volume={theLendingVolume(stack.cover, volumes)}
+          closesTo={wallAt(narrowing)}
+        />
+      ) : null}
+
       {striking ? (
         <Drawer
           title="Nothing has happened to these"
@@ -357,7 +389,16 @@ function NothingOnItRow({ story }: { story: StoryNothingHasHappenedTo }) {
  * of the distinction: a band is where an answer is drawn, and a filter decides what is
  * asked for. A wall showing one state fetched one state.
  */
-function Band({ state, stories }: { state: StoryState; stories: WallStory[] }) {
+function Band({
+  state,
+  stories,
+  opens,
+}: {
+  state: StoryState;
+  stories: WallStory[];
+  /** This wall's own address with a stack open on it. */
+  opens: (key: string) => string;
+}) {
   if (stories.length === 0) return null;
 
   return (
@@ -372,24 +413,13 @@ function Band({ state, stories }: { state: StoryState; stories: WallStory[] }) {
         </span>
       </h2>
 
-      {/* As many covers as the window holds, at the width a title is legible across. The
-          wall is the same object on a phone and at the desk — fewer per row, never a
-          second layout to maintain — and two of them fit a phone held one-handed. */}
-      <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 sm:gap-4">
-        {stories.map((story) => (
-          <li key={story.id}>
-            <Cover
-              href={`/stories/${story.id}`}
-              title={story.title}
-              tint={tint(story.series?.id)}
-              label={storyDetail(story)}
-              // Borrowed off the first Volume that carries it: a Story is a narrative and has
-              // no ISBN of its own, so the jacket it wears is an object's (ADR-0001, #32).
-              image={story.cover}
-            />
-          </li>
-        ))}
-      </ul>
+      {/* Covers, and nothing printed on them: the jacket is the title, and the name is the
+          tile's accessible name. Stories bound in one Volume stand as one stack
+          (`@/components/story-shelf`). The same grid on a phone and at the desk — fewer per
+          row, never a second layout. */}
+      <div className="mt-4">
+        <StoryShelf stories={stories} opens={opens} label={storyDetail} />
+      </div>
     </section>
   );
 }
