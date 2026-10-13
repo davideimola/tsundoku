@@ -8,8 +8,8 @@ import { signInWithGoogle } from "@/lib/auth/actions";
 //
 // It carries no chrome either: navigation would name screens a visitor may not open.
 //
-// Visually it is the home page's own voice and nothing new: the same mark, the same mono
-// eyebrow, the same hairline rule, the same paper and ink. The decision here is restraint
+// Visually it is the application's own voice and nothing new: the same mark and the name in
+// the serif, the same hairline rule, the same paper, ink and cloth. The decision here is restraint
 // executed precisely — centred on the phone, centred on the desktop, one full-width touch
 // target — and the one thing it does say is the mark, because a stranger should be able to
 // tell that they have arrived somewhere rather than at a login form.
