@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
 import { Drawer, OpensDrawer } from "@/components/drawer";
-import { Chip } from "@/components/narrowing";
+import { Chip, Views } from "@/components/narrowing";
+import { Spine } from "@/components/spine";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import {
   type WallVolume,
 } from "@/core/queries/collection";
 import { coverStanding } from "@/core/queries/cover";
+import { listSeries, type SeriesLedger } from "@/core/queries/series";
 import {
   listVolumesCarryingNothing,
   type VolumeCarryingNothing,
@@ -34,6 +36,14 @@ import {
   whatTheLookupFound,
 } from "./covers-found";
 import { CARRYING_NOTHING, COVERS, ELSEWHERE, PANELS, THE_WALLS_FILTERS } from "./panels";
+import {
+  inTheHouse,
+  type SeriesShelf,
+  shelvesOf,
+  theBindingItShares,
+  type View,
+  viewAsked,
+} from "./shelves";
 
 // THE COLLECTION WALL, and the screen this whole redesign exists for: *do I already have
 // this?* asked standing in a shop, one-handed, on the shop's signal. So the phone is the
@@ -45,10 +55,13 @@ import { CARRYING_NOTHING, COVERS, ELSEWHERE, PANELS, THE_WALLS_FILTERS } from "
 //      Two editions of one story are two different things on a wall, and which one is on the
 //      shelf is exactly what the owner cannot remember. So each tile is an object, and the
 //      Must Have and the omnibus of *Il lungo Halloween* stand side by side as two.
-//   2. **It stands the way the shelf stands**: by the Series an object belongs to, and by
-//      its number inside it. A Volume in no Series takes its place under its own title,
-//      among the Series, the way a standalone omnibus does on a real shelf — the order is
-//      the core's (`listCollectionWall`) and the screen only lays it out.
+//   2. **It stands the way the shelf stands**: one shelf per Series, under its name, who
+//      prints it and how much of it is in the house over the gilt bar, with its objects in
+//      order and *Vol. N* under each; the Volumes in no Series after them, *on their own*
+//      (`./shelves.ts`). The order is the core's (`listCollectionWall`) and the screen only
+//      cuts it. **This is what tells it from the Stories wall at a glance**: that one is the
+//      diary — states, progress, the bookmark — and this one says only what an object is.
+//      The shelves can be drawn as spines too (`?view=spines`), the Series page's drawing.
 //   3. **The tile and the tint are the Story wall's, unchanged** (`@/components/cover`,
 //      `@/lib/tint`). A Series' colour is a function of its identity, so one is the same
 //      colour on both walls and on every deploy — which is what makes a run of one colour
@@ -132,6 +145,10 @@ function onlyTheFilters(params: Asked): URLSearchParams {
     if (value) asking.set(name, value);
   }
 
+  // How the shelves are drawn is not a filter, and it is still what the owner is looking at:
+  // a drawer opened over the spines closes back onto the spines.
+  if (viewAsked(asked(params, "view")) === "spines") asking.set("view", "spines");
+
   return asking;
 }
 
@@ -170,7 +187,10 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   // filters spelled out as five comparisons is five places to forget the sixth.
   const narrowed = Object.values(narrowing).some((one) => one !== undefined);
 
-  const [volumes, elsewhere, carryingNothing, covers] = await Promise.all([
+  const view = viewAsked(asked(params, "view"));
+  const looking: Looking = { ...narrowing, view };
+
+  const [volumes, elsewhere, carryingNothing, covers, ledgers] = await Promise.all([
     listCollectionWall(narrowing),
     // Unnarrowed, deliberately: it is a short list beside the Collection, and a search that
     // emptied it would hide the one answer it exists to give — *you catalogued this and you
@@ -182,7 +202,14 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
     // *what has nobody named the contents of* with *of the things on your shelf*.
     listVolumesCarryingNothing(),
     coverStanding(),
+    // The ledger of every Series, for the one figure a shelf carries beside its name — *22 of
+    // 30 in the house* — which is the Series page's own answer (`listSeries`), read whole: it
+    // is a handful of rows, and a shelf narrowed to three of its objects still has twenty-two
+    // of them at home.
+    listSeries(),
   ]);
+  const ledgerOf = new Map(ledgers.map((ledger) => [ledger.id, ledger]));
+  const { runs, onTheirOwn } = shelvesOf(volumes);
 
   const refused = asked(params, "refused");
   const acquired = asked(params, "acquired");
@@ -208,7 +235,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         <div className="min-w-0">
           <h1 className="font-heading text-title font-semibold lg:text-title-lg">Collection</h1>
           <p className="mt-2 text-pretty text-base text-muted-foreground">
-            What is on your shelves.{" "}
+            What is on your shelves at home.{" "}
             <span className="tabular-nums">
               {owned} {owned === 1 ? "Volume" : "Volumes"}
             </span>
@@ -284,6 +311,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             const value = narrowing[name];
             return value ? <input key={name} type="hidden" name={name} value={value} /> : null;
           })}
+          {view === "spines" ? <input type="hidden" name="view" value={view} /> : null}
           <div className="min-w-0 flex-1">
             <Label htmlFor="search-title" className="sr-only">
               Title
@@ -311,53 +339,73 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             rather than wrapped into a block of pills. */}
         <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
           <li className="shrink-0">
-            <Chip href={wallWith(narrowing, "type", undefined)} on={type === undefined}>
+            <Chip href={wallWith(looking, "type", undefined)} on={type === undefined}>
               Everything
             </Chip>
           </li>
           {types.map((one: Type) => (
             <li key={one.id} className="shrink-0">
-              <Chip href={wallWith(narrowing, "type", one.id)} on={type?.id === one.id}>
+              <Chip href={wallWith(looking, "type", one.id)} on={type?.id === one.id}>
                 {one.name}
               </Chip>
             </li>
           ))}
         </ul>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Menu
             label="Series"
             chosen={seriesName(series) ?? undefined}
-            clear={wallWith(narrowing, "series", undefined)}
+            clear={wallWith(looking, "series", undefined)}
             options={everySeries.map((one) => ({
               key: one.id,
               said: seriesName(one) ?? one.name,
-              href: wallWith(narrowing, "series", one.id),
+              href: wallWith(looking, "series", one.id),
               on: series?.id === one.id,
             }))}
           />
           <Menu
             label="Publisher"
             chosen={publisher}
-            clear={wallWith(narrowing, "publisher", undefined)}
+            clear={wallWith(looking, "publisher", undefined)}
             options={publishers.map((one) => ({
               key: one,
               said: one,
-              href: wallWith(narrowing, "publisher", one),
+              href: wallWith(looking, "publisher", one),
               on: publisher === one,
             }))}
           />
           <Menu
             label="Binding"
             chosen={binding?.name}
-            clear={wallWith(narrowing, "binding", undefined)}
+            clear={wallWith(looking, "binding", undefined)}
             options={bindings.map((one: Binding) => ({
               key: one.id,
               said: one.name,
-              href: wallWith(narrowing, "binding", one.id),
+              href: wallWith(looking, "binding", one.id),
               on: binding?.id === one.id,
             }))}
           />
+
+          {/* How the shelves are drawn, at the far end of the row and apart from the filters,
+              because it changes nothing about what is there (`@/components/narrowing`). */}
+          <span className="ml-auto">
+            <Views
+              label="How the shelves are drawn"
+              options={[
+                {
+                  said: "Covers",
+                  href: wallWith({ ...looking, view: "covers" }, "title", title),
+                  on: view === "covers",
+                },
+                {
+                  said: "Spines",
+                  href: wallWith({ ...looking, view: "spines" }, "title", title),
+                  on: view === "spines",
+                },
+              ]}
+            />
+          </span>
         </div>
       </nav>
 
@@ -403,7 +451,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             {volumes.length} of {owned} {owned === 1 ? "Volume" : "Volumes"}
           </span>
           <Link
-            href="/collection"
+            href={view === "spines" ? "/collection?view=spines" : "/collection"}
             className="rounded-sm text-sm font-medium text-cloth underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             Clear
@@ -432,26 +480,80 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           )}
         </EmptyShelf>
       ) : (
-        /* As many covers as the window holds, at the width a title is legible across —
-           the Story wall's grid, unchanged, so the two walls are one object at two
-           addresses. Two of them fit a phone held one-handed. */
-        <ul className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-x-4 gap-y-6 sm:gap-x-5">
-          {volumes.map((volume) => (
-            <li key={volume.id}>
-              {/* The jacket clean, and under it the one fact that is read off a run of them:
-                  which number this is. An object in no Series has nothing under it — the
-                  Binding that used to stand there is the object's own page's to say. */}
-              <Cover
-                href={`/collection/${volume.id}`}
-                title={volume.title}
-                tint={tint(volume.series?.id ?? volume.id)}
-                label={detailOf(volume)}
-                image={volume.cover}
-                caption={volume.seriesNumber === null ? undefined : `Vol. ${volume.seriesNumber}`}
-              />
-            </li>
+        /* **The shelf at home, a Series to a shelf.** Each one is the line's name in the serif,
+           who prints it and how much of it is in the house over the gilt bar — the Series
+           page's own figure — and then its objects in order. What is in no Series stands
+           after them, on its own. Nothing here is about reading: that is the Stories wall's,
+           and a score or a state under a Volume would be the two walls saying one thing. */
+        /* As spines, the shelves stand side by side and wrap, the way runs stand along a real
+           bookcase — each one only as wide as what is on it. */
+        <div
+          className={
+            view === "spines"
+              ? "mt-8 flex flex-wrap items-start gap-x-8 gap-y-10"
+              : "mt-8 space-y-12"
+          }
+        >
+          {runs.map((run) => (
+            <RunOnTheShelf
+              key={run.series.id}
+              run={run}
+              ledger={ledgerOf.get(run.series.id)}
+              view={view}
+            />
           ))}
-        </ul>
+
+          {onTheirOwn.length > 0 ? (
+            <section
+              aria-labelledby="on-their-own"
+              className={view === "spines" ? "min-w-56 max-w-full" : undefined}
+            >
+              <header className="border-b border-border pb-3">
+                <h2 id="on-their-own" className="font-heading text-section font-semibold">
+                  On their own
+                </h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  In no Series: an omnibus, a novel, a book that stands alone.
+                </p>
+              </header>
+              <div className="mt-4">
+                {view === "spines" ? (
+                  <ShelfOfSpines>
+                    {onTheirOwn.map((volume) => (
+                      <li key={volume.id}>
+                        <Spine
+                          href={`/collection/${volume.id}`}
+                          title={volume.title}
+                          foot={<span className="sr-only">{volume.binding.name}</span>}
+                          tint={tint(volume.id)}
+                          held
+                          detail={detailOf(volume)}
+                        />
+                      </li>
+                    ))}
+                  </ShelfOfSpines>
+                ) : (
+                  <ShelfOfCovers>
+                    {onTheirOwn.map((volume) => (
+                      <li key={volume.id}>
+                        {/* The Binding under an object in no line, quietly: it is what tells
+                            the omnibus from the Must Have of one story. */}
+                        <Cover
+                          href={`/collection/${volume.id}`}
+                          title={volume.title}
+                          tint={tint(volume.id)}
+                          label={detailOf(volume)}
+                          image={volume.cover}
+                          caption={volume.binding.name}
+                        />
+                      </li>
+                    ))}
+                  </ShelfOfCovers>
+                )}
+              </div>
+            </section>
+          ) : null}
+        </div>
       )}
 
       {panel === ELSEWHERE && elsewhere.length > 0 ? (
@@ -691,6 +793,154 @@ function CarryingNothingRow({ volume }: { volume: VolumeCarryingNothing }) {
   );
 }
 
+/** What the owner is looking at: the filters, and how the shelves are drawn. */
+type Looking = CollectionWallFilter & { view?: View };
+
+/**
+ * One Series' shelf: its name in the serif (a way onto the Series), who prints it and the
+ * Binding its objects share, how much of it is in the house over the gilt bar, and then the
+ * objects — as covers with *Vol. N* under each, or as spines with the number at the foot.
+ *
+ * Only what the house holds stands here; the gaps are the Series page's to draw, and the figure
+ * beside the name is where this shelf says there are any.
+ */
+function RunOnTheShelf({
+  run,
+  ledger,
+  view,
+}: {
+  run: SeriesShelf<WallVolume>;
+  ledger: SeriesLedger | undefined;
+  view: View;
+}) {
+  const { series, volumes } = run;
+  const shared = theBindingItShares(volumes);
+  const about = [ledger?.publisher ?? volumes[0]?.publisher, shared].filter(Boolean).join(" · ");
+  const held = ledger ? inTheHouse(ledger) : null;
+  const headingId = `series-${series.id}`;
+
+  return (
+    <section
+      aria-labelledby={headingId}
+      className={view === "spines" ? "min-w-56 max-w-full" : undefined}
+    >
+      <header
+        className={cn(
+          "flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b border-border pb-3",
+          // Beside other shelves the figure goes under the name, as wide as the shelf.
+          view === "spines" && "flex-col items-stretch"
+        )}
+      >
+        <div className="min-w-0">
+          <h2 id={headingId} className="font-heading text-section font-semibold">
+            <Link
+              href={`/series/${series.id}`}
+              className="rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {series.name}
+            </Link>
+            {series.editionLine ? (
+              <span className="ml-2 whitespace-nowrap font-sans text-label font-medium text-muted-foreground">
+                {series.editionLine}
+              </span>
+            ) : null}
+          </h2>
+          {about ? <p className="mt-0.5 text-sm text-muted-foreground">{about}</p> : null}
+        </div>
+
+        {held ? (
+          <div className={cn("flex w-full flex-col gap-1.5", view === "covers" && "sm:w-56")}>
+            <p className="text-sm font-medium tabular-nums">{held.said}</p>
+            {held.share !== null ? (
+              <span aria-hidden="true" className="block h-1 overflow-hidden rounded-full bg-muted">
+                <span
+                  className="block h-full rounded-full bg-gilt"
+                  style={{ width: `${Math.round(held.share * 100)}%` }}
+                />
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </header>
+
+      <div className="mt-4">
+        {view === "spines" ? (
+          <ShelfOfSpines label={`${series.name}, as it stands`}>
+            {volumes.map((volume) => (
+              <li key={volume.id}>
+                <Spine
+                  href={`/collection/${volume.id}`}
+                  title={volume.title}
+                  foot={volume.seriesNumber ?? ""}
+                  tint={tint(series.id)}
+                  held
+                  detail={detailOf(volume)}
+                />
+              </li>
+            ))}
+          </ShelfOfSpines>
+        ) : (
+          <ShelfOfCovers>
+            {volumes.map((volume) => (
+              <li key={volume.id}>
+                {/* The jacket clean, and under it the one fact read off a run: which number
+                    this is — and the Binding beside it only where the shelf mixes them. */}
+                <Cover
+                  href={`/collection/${volume.id}`}
+                  title={volume.title}
+                  tint={tint(series.id)}
+                  label={detailOf(volume)}
+                  image={volume.cover}
+                  caption={[
+                    volume.seriesNumber === null ? null : `Vol. ${volume.seriesNumber}`,
+                    shared ? null : volume.binding.name,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                />
+              </li>
+            ))}
+          </ShelfOfCovers>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Covers on a shelf: smaller than the Stories wall's, because a run of numbered objects is
+ * read along the numbers rather than jacket by jacket — four to a phone, as many as fit at the
+ * desk.
+ */
+function ShelfOfCovers({ children }: { children: React.ReactNode }) {
+  return (
+    <ul className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-[repeat(auto-fill,minmax(6.5rem,7.5rem))] sm:gap-x-4 sm:gap-y-5">
+      {children}
+    </ul>
+  );
+}
+
+/**
+ * Spines standing on a shelf, the way the Series page stands them (`../series/spines.tsx`): a
+ * quiet panel with a ledge under it, wrapping into as many rows as the window holds.
+ */
+function ShelfOfSpines({
+  label = "On their own, as they stand",
+  children,
+}: {
+  label?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <ol
+      aria-label={label}
+      className="flex w-fit max-w-full flex-wrap items-end gap-x-1 gap-y-3 rounded-t-2xl border-b-[6px] border-input bg-muted px-3 pb-2 pt-4 sm:px-5 sm:pt-5"
+    >
+      {children}
+    </ol>
+  );
+}
+
 /**
  * A Series, as it is named on a control: *Death Note, Black Edition*.
  *
@@ -756,7 +1006,7 @@ const IN_PROSE =
  * *Everything* that turns it off cannot disagree about what else the owner had asked.
  */
 function wallWith(
-  narrowing: CollectionWallFilter,
+  narrowing: Looking,
   name: keyof CollectionWallFilter,
   value: string | undefined
 ): string {
@@ -766,6 +1016,8 @@ function wallWith(
     const kept = one === name ? value : narrowing[one];
     if (kept) asking.set(one, kept);
   }
+  // How the shelves are drawn rides along with every filter, and is absent at the default.
+  if (narrowing.view === "spines") asking.set("view", "spines");
 
   const said = asking.toString();
   return said === "" ? "/collection" : `/collection?${said}`;
