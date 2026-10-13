@@ -19,6 +19,24 @@ const lent = (url: string) => ({ url, from: "open-library" as const });
 const tale = (id: string) => story(id, lent(OMNIBUS), 3, LOEB_SALE);
 
 describe("stories bound in one volume", () => {
+  it("groups the tales of a Volume faced with the owner's own image, which reports from: own", () => {
+    const MILLER = { id: "devil", title: "Devil – L'Uomo Senza Paura" };
+    const photo = { url: "https://covers.example/devil.jpg", from: "own" as const };
+    const wall = ["rinascita", "badlands", "amore"].map((id) => story(id, photo, 5, MILLER));
+
+    const tiles = boundTogether(wall);
+
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].kind === "bound" && tiles[0].volume).toEqual(MILLER);
+    expect(ownsItsCover(wall[0])).toBe(false);
+  });
+
+  it("lets a Story wear its own image as its own", () => {
+    expect(
+      ownsItsCover(story("own", { url: "https://covers.example/mine.jpg", from: "own" }, 1))
+    ).toBe(true);
+  });
+
   it("draws the tales of one omnibus as one tile, where the first of them stood", () => {
     const wall = [
       story("a", null, 0),

@@ -13,8 +13,7 @@ import { Drawer } from "./drawer";
 // draw them the same way: a Story with a jacket of its own wears it; a Story borrowing a
 // jacket it shares with the other tales in an omnibus is drawn **with the others**, as one
 // cover faced out of a stack with *N stories inside* under it; and a borrowed jacket whose
-// other wearers are not on this wall is not worn at all — the Story is its own drawn cloth
-// with its title, because the jacket would claim *this Story is that book*.
+// other wearers are not on this wall is worn by the Story alone, since nothing repeats.
 //
 // **The stack opens onto the Stories inside it, and its open state is the URL** like every
 // panel here (`./drawer`, ADR-0010): the tile is a link to the same screen with `?bound=` on
@@ -59,7 +58,7 @@ export function StoryShelf<Story extends ShelvedStory>({
               title={tile.story.title}
               tint={tint(tile.story.series?.id ?? tile.story.id)}
               label={label(tile.story)}
-              image={tile.ownsItsCover ? tile.story.cover : null}
+              image={tile.story.cover}
               progress={progress?.(tile.story)}
               caption={caption?.(tile.story)}
             />

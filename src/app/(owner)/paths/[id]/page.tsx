@@ -585,12 +585,12 @@ function Stop({
       </span>
 
       {/* The stop's jacket, small, so a route is recognised by sight down its rail. A jacket
-          several Stories share — an omnibus' — is not this stop's to wear, so it is drawn as
-          its own cloth instead (`@/components/bound-together`). */}
+          several Stories share — an omnibus' — is worn too, and the line under the name says
+          which Volume it is (`@/components/bound-together`). */}
       <Cover
         title={stop.title}
         tint={tint(face?.series?.id ?? stop.storyId)}
-        image={face && ownsItsCover(face) ? face.cover : null}
+        image={face?.cover ?? null}
         label={stop.title}
         size="thumb"
         className="w-10 shrink-0 self-start sm:w-11"
@@ -607,8 +607,8 @@ function Stop({
           <span>{stop.type.name}</span>
           <span aria-hidden="true">·</span>
           <StoryStateLabel state={stop.state} />
-          {/* Where the jacket it is not wearing comes from: a tale out of an omnibus is drawn
-              as its own cloth, so the row says which Volume binds it — the wall's own answer
+          {/* Whose jacket it is wearing: a tale out of an omnibus wears the omnibus', so the
+              row says which Volume binds it — the wall's own answer
               (`lentBy`), held or not. */}
           {face?.cover && face.lentBy && !ownsItsCover(face) ? (
             <>

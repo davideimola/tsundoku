@@ -412,10 +412,10 @@ export default async function StoryPage({
   ]);
   if (!story) notFound();
 
-  // **Whether the jacket it borrows is its own to wear.** An omnibus lends one picture to every
-  // tale inside it, and a hero faced with it would say *this Story is that book* — so where
-  // more than one narrative wears it the hero is the Story's own drawn cloth, and the line
-  // under it names the Volume that lends the jacket, held or not (`findStory`).
+  // **The jacket it borrows, and whose it is.** An omnibus lends one picture to every tale
+  // inside it. The hero wears it — drawing the tale as cloth instead read as a cover that had
+  // gone missing — and the line under it says it is that Volume's cover, which is the honest
+  // part, naming the Volume held or not (`findStory`).
   const sharesItsJacket = Boolean(story.cover) && story.wornBy > 1;
   const boundIn = sharesItsJacket ? story.lentBy : null;
   const others = story.wornBy - 1;
@@ -508,7 +508,7 @@ export default async function StoryPage({
                 title={story.title}
                 tint={tint(story.series?.id ?? story.id)}
                 label={storyDetail(story)}
-                image={sharesItsJacket ? null : story.cover}
+                image={story.cover}
               />
             </div>
             <div className="min-w-0 pb-1 lg:hidden">
@@ -527,15 +527,15 @@ export default async function StoryPage({
               "Your own image of it."
             ) : sharesItsJacket ? (
               <>
-                Bound with {others} other {others === 1 ? "story" : "stories"} in{" "}
+                The cover of{" "}
                 {boundIn ? (
                   <Link href={`/collection/${boundIn.id}`} className={IN_PROSE}>
                     {boundIn.title}
                   </Link>
                 ) : (
-                  "one Volume"
+                  "the Volume binding it"
                 )}
-                , so it is drawn.
+                , where it is bound with {others} other {others === 1 ? "story" : "stories"}.
               </>
             ) : story.cover ? (
               "The jacket of the first Volume carrying it."

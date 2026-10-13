@@ -35,9 +35,9 @@ export type Shelved<Story extends Faced> =
       kind: "one";
       story: Story;
       /**
-       * Whether the jacket it would wear is its own to wear. A Story that borrows a jacket
-       * several narratives share, standing on this wall without the others, is drawn as its
-       * own cloth with its title — the jacket would claim *this is that book*.
+       * Whether the jacket it wears is its own to wear. A Story borrowing a jacket several
+       * narratives share, standing on this wall without the others, still wears it: alone,
+       * it repeats nothing, and a cover that vanished on the tale read as a missing cover.
        */
       ownsItsCover: boolean;
     }
@@ -51,10 +51,15 @@ export type Shelved<Story extends Faced> =
       stories: Story[];
     };
 
-/** Whether this Story may wear its jacket as its own anywhere it is drawn alone. */
-export function ownsItsCover(story: Pick<Faced, "cover" | "wornBy">): boolean {
+/**
+ * Whether this Story's jacket is its own to wear: its own image, or a Volume's that no other
+ * narrative wears. **Not `cover.from === "own"`** — a Volume faced with the owner's chosen image
+ * reports `from: "own"` too, so that test read an omnibus' photograph as the tale's and left
+ * those tales ungrouped. Whether a Volume lends the jacket (`lentBy`) is the core's answer.
+ */
+export function ownsItsCover(story: Pick<Faced, "cover" | "wornBy" | "lentBy">): boolean {
   if (!story.cover) return false;
-  return story.cover.from === "own" || story.wornBy <= 1;
+  return story.lentBy === null || story.wornBy <= 1;
 }
 
 /** The Volume a Story borrows a jacket from that it shares with others, or `null`. */
