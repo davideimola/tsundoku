@@ -128,7 +128,7 @@ function Work({ story }: { story: CreditedStory }) {
       <Cover
         href={`/stories/${story.id}`}
         title={story.title}
-        tint={tint(story.series?.id)}
+        tint={tint(story.series?.id ?? story.id)}
         label={storyDetail(story)}
         image={story.cover}
       />
