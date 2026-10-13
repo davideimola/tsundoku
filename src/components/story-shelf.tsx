@@ -44,11 +44,13 @@ export function StoryShelf<Story extends ShelvedStory>({
   opens,
   label,
   progress,
+  caption,
 }: {
   stories: Story[];
   opens: (key: string) => string;
   label: (story: Story) => string;
   progress?: (story: Story) => number | null;
+  caption?: (story: Story) => React.ReactNode;
 }) {
   return (
     <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] sm:gap-x-5 sm:gap-y-6">
@@ -62,6 +64,7 @@ export function StoryShelf<Story extends ShelvedStory>({
               label={label(tile.story)}
               image={tile.ownsItsCover ? tile.story.cover : null}
               progress={progress?.(tile.story)}
+              caption={caption?.(tile.story)}
             />
           ) : (
             <Cover

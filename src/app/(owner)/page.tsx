@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { Cover } from "@/components/cover";
-import { Pile } from "@/components/pile";
+import { StackSheet, StoryShelf, theLendingVolume, theOpenStack } from "@/components/story-shelf";
 import { whatThisMonthHasCost } from "@/core/queries/acquisition";
+import { listCollectionWall } from "@/core/queries/collection";
 import { countWaitingInboxEntries } from "@/core/queries/inbox";
 import { type Covered, libraryInFigures, thePile, unrecorded, whole } from "@/core/queries/library";
 import { composePile, type PileEntry, theKeyOf } from "@/core/queries/pile";
-import { listStoryWall } from "@/core/queries/story";
+import { listRunsInProgress, listStoryWall } from "@/core/queries/story";
 import { requireOwner } from "@/lib/auth/owner";
 import { tint } from "@/lib/tint";
 import { monthNamed } from "./acquisitions/months";
 import { DoorInTheHeader } from "./door";
-import { entrySaid, entryTitle } from "./pile/entry";
+import { entryLeadsTo, entryLine, entrySaid, entryTitle } from "./pile/entry";
+import { entryWears, sharedJackets } from "./pile/jacket";
 import { storyDetail } from "./stories/story-state";
 
 // THE DASHBOARD. For eleven slices this page listed the five Types, which is what a walking
@@ -24,10 +26,11 @@ import { storyDetail } from "./stories/story-state";
 //      evening wants the first band, and the second one is a thing to look at.
 //   2. **The hero is the pile, and it is at the foot of the page.** *Tsundoku* is named for
 //      the pile of unread books that keeps growing, so the signature of this application is
-//      that pile drawn at its real size, every spine a Story the owner can open
-//      (`@/components/pile`). It goes last because it is the biggest thing on the screen —
-//      one stack of 67 on a phone, folded into as many piles as the width holds at the desk —
-//      and the band above it is the one you act on. A hero that pushed the actionable band
+//      every one of them, faced out as covers — the covers are the heart of the app (ADR-0026,
+//      second tranche), and a pile of narrow spines hid the one thing the owner recognises a
+//      book by. Stories bound in one Volume stand as one stack (`@/components/story-shelf`).
+//      It goes last because it is the biggest thing on the screen, and the band above it is
+//      the one you act on. A hero that pushed the actionable band
 //      off the screen would have got the first decision backwards.
 //   3. **No figure is printed without what it was computed over.** Eighteen of seventy-seven
 //      acquisitions carry a price. `libraryInFigures` answers with the coverage beside every
@@ -69,10 +72,15 @@ const COUNT = "text-sm font-normal text-muted-foreground tabular-nums";
 const IN_PROSE =
   "font-medium text-cloth underline-offset-4 hover:underline outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm";
 
-export default async function Home() {
+type Asked = Record<string, string | string[] | undefined>;
+
+export default async function Home({ searchParams }: { searchParams: Promise<Asked> }) {
   await requireOwner();
 
-  const [underWay, entries, waiting, figures, thisMonth, pile] = await Promise.all([
+  const said = await searchParams;
+  const bound = typeof said.bound === "string" ? said.bound : undefined;
+
+  const [underWay, entries, waiting, figures, thisMonth, pile, runs, volumes] = await Promise.all([
     // Narrowed in the core rather than here, like every wall in this app: the band shows
     // what is open, so it reads what is open.
     listStoryWall({ state: "reading" }),
@@ -81,7 +89,16 @@ export default async function Home() {
     libraryInFigures(),
     whatThisMonthHasCost(),
     thePile(),
+    // How far each run in hand has got, for the gilt line under its cover: the wall's tile
+    // does not carry it, and this is the core's own answer to *seven of twenty*.
+    listRunsInProgress(),
+    // Only for the sheet a stack opens onto: the Volume lending a shared jacket is found
+    // among the house's by the jacket's address (`@/components/story-shelf`).
+    bound ? listCollectionWall() : Promise.resolve([]),
   ]);
+
+  const howFar = new Map(runs.map((run) => [run.story.id, run.howFarItGot]));
+  const stack = theOpenStack(underWay, bound) ?? theOpenStack(pile.spines, bound);
 
   // **Sliced here, and this is not the narrowing the walls forbid.** The Pile has no
   // rows to read: it is composed, and its *order* is the answer it gives — the head the owner
@@ -95,6 +112,7 @@ export default async function Home() {
   // not the place to draw it.
   const composed = [...entries.head, ...entries.reserve];
   const next = composed.slice(0, NEXT_UP);
+  const shared = sharedJackets(composed);
 
   return (
     <main className="px-5 pb-16 sm:px-8">
@@ -119,22 +137,26 @@ export default async function Home() {
               .
             </Invitation>
           ) : (
-            /* The wall's own grid and the wall's own tile, at the width a title is legible
-               across, so a Story in hand looks here exactly as it looks on the Stories
-               screen. */
-            <ul className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 sm:gap-4">
-              {underWay.map((story) => (
-                <li key={story.id}>
-                  <Cover
-                    href={`/stories/${story.id}`}
-                    title={story.title}
-                    tint={tint(story.series?.id)}
-                    label={storyDetail(story)}
-                    image={story.cover}
-                  />
-                </li>
-              ))}
-            </ul>
+            /* The wall's own shelf and the wall's own tile, so a Story in hand looks here
+               exactly as it looks on the Stories screen — with a thin gilt line under each
+               cover where the work is counted in parts, and how far under that. */
+            <StoryShelf
+              stories={underWay}
+              opens={(key) => `/?bound=${key}`}
+              label={storyDetail}
+              progress={(story) => {
+                const far = howFar.get(story.id);
+                return far ? far.atInstalment / far.instalments : null;
+              }}
+              caption={(story) => {
+                const far = howFar.get(story.id);
+                return far ? (
+                  <span className="tabular-nums">
+                    {far.atInstalment} of {far.instalments}
+                  </span>
+                ) : null;
+              }}
+            />
           )}
         </Block>
 
@@ -162,8 +184,8 @@ export default async function Home() {
               </Invitation>
             ) : (
               <ol>
-                {next.map((entry, place) => (
-                  <NextEntry key={theKeyOf(entry.subject)} entry={entry} place={place + 1} />
+                {next.map((entry) => (
+                  <NextEntry key={theKeyOf(entry.subject)} entry={entry} shared={shared} />
                 ))}
               </ol>
             )}
@@ -405,24 +427,24 @@ export default async function Home() {
                 <span className="tabular-nums text-foreground">
                   {pile.spines.length} of {pile.stories}
                 </span>{" "}
-                Stories have never been opened. Each spine opens one.
+                Stories have never been opened.
               </p>
 
               <div className="mt-5">
-                <Pile
-                  stories={pile.spines.map((story) => ({
-                    id: story.id,
-                    href: `/stories/${story.id}`,
-                    title: story.title,
-                    tint: tint(story.series?.id),
-                    detail: storyDetail(story),
-                  }))}
+                <StoryShelf
+                  stories={pile.spines}
+                  opens={(key) => `/?bound=${key}`}
+                  label={storyDetail}
                 />
               </div>
             </>
           )}
         </section>
       </section>
+
+      {stack ? (
+        <StackSheet stack={stack} volume={theLendingVolume(stack.cover, volumes)} closesTo="/" />
+      ) : null}
     </main>
   );
 }
@@ -479,23 +501,49 @@ function Invitation({ children }: { children: React.ReactNode }) {
   return <p className="max-w-prose text-pretty text-sm text-muted-foreground">{children}</p>;
 }
 
-/** One row of the Pile, as the dashboard shows it: the order, the title, the standing. */
-function NextEntry({ entry, place }: { entry: PileEntry; place: number }) {
-  return (
-    <li className="flex items-baseline gap-3 border-t border-border py-3 first:border-t-0 first:pt-0">
-      {/* The ordinal, because the order *is* the answer the Pile gives. */}
-      <span aria-hidden="true" className="w-4 shrink-0 text-sm tabular-nums text-muted-foreground">
-        {place}
-      </span>
+/**
+ * One row of the Pile, as the dashboard shows it: a small cover, the name in the serif and
+ * one quiet line of what it is. The order is the list's own, so no ordinal is printed — the
+ * row at the top is the one that comes next.
+ */
+function NextEntry({ entry, shared }: { entry: PileEntry; shared: Set<string> }) {
+  const wears = entryWears(entry, shared);
+  const href = entryLeadsTo(entry);
+  const title = entryTitle(entry);
 
-      <div className="min-w-0">
-        <p className="truncate font-heading text-lg font-semibold leading-snug">
-          {entryTitle(entry)}
-        </p>
-        <p className="mt-0.5 text-label text-muted-foreground first-letter:uppercase">
-          {entrySaid(entry)}
-        </p>
-      </div>
+  const row = (
+    <>
+      <span className="w-10 shrink-0">
+        <Cover
+          title={title}
+          tint={tint(entryLine(entry) ?? entry.story?.id ?? title)}
+          image={wears.image}
+          size="thumb"
+        />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-heading text-lg font-semibold leading-snug">
+          {title}
+        </span>
+        <span className="mt-0.5 block text-label text-muted-foreground first-letter:uppercase">
+          {wears.boundIn ? `In ${wears.boundIn} · ${entrySaid(entry)}` : entrySaid(entry)}
+        </span>
+      </span>
+    </>
+  );
+
+  return (
+    <li className="border-t border-border first:border-t-0">
+      {href ? (
+        <Link
+          href={href}
+          className="flex items-center gap-3.5 py-2.5 outline-none hover:text-cloth focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {row}
+        </Link>
+      ) : (
+        <span className="flex items-center gap-3.5 py-2.5">{row}</span>
+      )}
     </li>
   );
 }
