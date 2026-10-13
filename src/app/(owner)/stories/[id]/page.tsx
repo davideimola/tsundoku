@@ -12,7 +12,7 @@ import { theMediaToOffer } from "@/core/queries/medium";
 import type { SeriesLedger, SeriesPublishingNothing } from "@/core/queries/series";
 import { listSeriesPublishingNothing, listSeriesPublishingStory } from "@/core/queries/series";
 import type { FoundStory, StoryCredit, StoryPass, StoryRating } from "@/core/queries/story";
-import { findStory, listStoryWall } from "@/core/queries/story";
+import { findStory } from "@/core/queries/story";
 import { type CarryingVolume, listVolumesCarryingStory } from "@/core/queries/story-to-volume";
 import { theWantOnTheStory } from "@/core/queries/want";
 import { requireOwner } from "@/lib/auth/owner";
@@ -228,22 +228,29 @@ function Section({
 function LastRating({
   score,
   finished,
+  verb,
   rate,
   large = false,
 }: {
   score: number | null;
   finished: number;
+  /** The Type's past verb — *read*, *played* — which is what finishing one is called. */
+  verb: string;
   rate?: string;
   large?: boolean;
 }) {
+  // Said in the Type's own verb (`verb_past`), as the door says *I played it* of a game: a
+  // finished Pass through a videogame was not *read*, and *finished* was the word a screen
+  // used while it could not ask.
+  const said = `${verb.charAt(0).toUpperCase()}${verb.slice(1)}`;
   const times =
     finished === 0
       ? null
       : finished === 1
-        ? "Finished once."
+        ? `${said} once.`
         : finished === 2
-          ? "Finished twice."
-          : `Finished ${finished} times.`;
+          ? `${said} twice.`
+          : `${said} ${finished} times.`;
 
   if (score === null) {
     return (
@@ -406,15 +413,12 @@ export default async function StoryPage({
   if (!story) notFound();
 
   // **Whether the jacket it borrows is its own to wear.** An omnibus lends one picture to every
-  // tale inside it, and a hero faced with it would say *this Story is that book*. `findStory`
-  // does not say how many narratives wear the jacket, so it is read off the Story wall's own
-  // tile for this Story — narrowed to its Type, so the wall reads a shelf rather than the
-  // library — and where it is shared the hero is the Story's own drawn cloth.
-  const onTheWall = story.ownImage
-    ? undefined
-    : (await listStoryWall({ typeId: story.type.id })).find((one) => one.id === id);
-  const sharesItsJacket = Boolean(story.cover) && (onTheWall?.wornBy ?? 1) > 1;
-  const boundIn = sharesItsJacket && carriedBy.length === 1 ? carriedBy[0] : null;
+  // tale inside it, and a hero faced with it would say *this Story is that book* — so where
+  // more than one narrative wears it the hero is the Story's own drawn cloth, and the line
+  // under it names the Volume that lends the jacket, held or not (`findStory`).
+  const sharesItsJacket = Boolean(story.cover) && story.wornBy > 1;
+  const boundIn = sharesItsJacket ? story.lentBy : null;
+  const others = story.wornBy - 1;
 
   const carrying = new Set(carriedBy.map((volume) => volume.id));
   const offerable = owned.filter((volume) => !carrying.has(volume.id));
@@ -511,6 +515,7 @@ export default async function StoryPage({
               <LastRating
                 score={story.latestScore}
                 finished={finishedTimes}
+                verb={story.verbPast}
                 rate={newest ? panelled(id, RATE, { pass: newest.id }) : undefined}
               />
             </div>
@@ -522,8 +527,7 @@ export default async function StoryPage({
               "Your own image of it."
             ) : sharesItsJacket ? (
               <>
-                Bound with {(onTheWall?.wornBy ?? 2) - 1} other{" "}
-                {(onTheWall?.wornBy ?? 2) - 1 === 1 ? "story" : "stories"} in{" "}
+                Bound with {others} other {others === 1 ? "story" : "stories"} in{" "}
                 {boundIn ? (
                   <Link href={`/collection/${boundIn.id}`} className={IN_PROSE}>
                     {boundIn.title}
@@ -577,6 +581,7 @@ export default async function StoryPage({
               <LastRating
                 score={story.latestScore}
                 finished={finishedTimes}
+                verb={story.verbPast}
                 rate={newest ? panelled(id, RATE, { pass: newest.id }) : undefined}
                 large
               />
