@@ -12,7 +12,7 @@ import { theMediaToOffer } from "@/core/queries/medium";
 import type { SeriesLedger, SeriesPublishingNothing } from "@/core/queries/series";
 import { listSeriesPublishingNothing, listSeriesPublishingStory } from "@/core/queries/series";
 import type { FoundStory, StoryCredit, StoryPass, StoryRating } from "@/core/queries/story";
-import { findStory } from "@/core/queries/story";
+import { findStory, listStoryWall } from "@/core/queries/story";
 import { type CarryingVolume, listVolumesCarryingStory } from "@/core/queries/story-to-volume";
 import { theWantOnTheStory } from "@/core/queries/want";
 import { requireOwner } from "@/lib/auth/owner";
@@ -405,6 +405,17 @@ export default async function StoryPage({
   ]);
   if (!story) notFound();
 
+  // **Whether the jacket it borrows is its own to wear.** An omnibus lends one picture to every
+  // tale inside it, and a hero faced with it would say *this Story is that book*. `findStory`
+  // does not say how many narratives wear the jacket, so it is read off the Story wall's own
+  // tile for this Story — narrowed to its Type, so the wall reads a shelf rather than the
+  // library — and where it is shared the hero is the Story's own drawn cloth.
+  const onTheWall = story.ownImage
+    ? undefined
+    : (await listStoryWall({ typeId: story.type.id })).find((one) => one.id === id);
+  const sharesItsJacket = Boolean(story.cover) && (onTheWall?.wornBy ?? 1) > 1;
+  const boundIn = sharesItsJacket && carriedBy.length === 1 ? carriedBy[0] : null;
+
   const carrying = new Set(carriedBy.map((volume) => volume.id));
   const offerable = owned.filter((volume) => !carrying.has(volume.id));
 
@@ -493,7 +504,7 @@ export default async function StoryPage({
                 title={story.title}
                 tint={tint(story.series?.id ?? story.id)}
                 label={storyDetail(story)}
-                image={story.cover}
+                image={sharesItsJacket ? null : story.cover}
               />
             </div>
             <div className="min-w-0 pb-1 lg:hidden">
@@ -507,11 +518,26 @@ export default async function StoryPage({
           {/* Whose picture it is, and the act that changes it — beside the picture, as a
               sentence, because it is a correction to the record rather than tonight's act. */}
           <p className="text-pretty text-label text-muted-foreground">
-            {story.ownImage
-              ? "Your own image of it."
-              : story.cover
-                ? "The jacket of the first Volume carrying it."
-                : "No cover yet, so it is drawn."}{" "}
+            {story.ownImage ? (
+              "Your own image of it."
+            ) : sharesItsJacket ? (
+              <>
+                Bound with {(onTheWall?.wornBy ?? 2) - 1} other{" "}
+                {(onTheWall?.wornBy ?? 2) - 1 === 1 ? "story" : "stories"} in{" "}
+                {boundIn ? (
+                  <Link href={`/collection/${boundIn.id}`} className={IN_PROSE}>
+                    {boundIn.title}
+                  </Link>
+                ) : (
+                  "one Volume"
+                )}
+                , so it is drawn.
+              </>
+            ) : story.cover ? (
+              "The jacket of the first Volume carrying it."
+            ) : (
+              "No cover yet, so it is drawn."
+            )}{" "}
             <Link href={panelled(id, IMAGE)} className={IN_PROSE}>
               {story.ownImage ? "Change it" : "Add a cover"}
             </Link>
