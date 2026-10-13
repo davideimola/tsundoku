@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { type Colour, contrast, inGamut, token } from "@/test/palette";
-import { TINTS, type Tint, tint } from "./tint";
+import { LETTERING, TINTS, type Tint, tint } from "./tint";
 
 // The shelf's own colour, and the fourth wall in this app — a wall for the same reason the
 // palette is one (`src/app/palette.test.ts`): the failure it catches is silent. A tint that
@@ -31,15 +31,18 @@ function parse(colour: string): Colour {
   return { l: Number(read[1]), c: Number(read[2]), h: Number(read[3]) };
 }
 
-/** The two grounds, and what a tile is printed in on each: the palette's own ink. */
+/**
+ * The two grounds, and what is stamped on a cloth on each: the same light lettering on both,
+ * because the cloth is deep on both (`LETTERING`).
+ */
 const ON = {
   paper: {
-    ink: token(":root", "--ink"),
+    ink: parse(LETTERING),
     paper: token(":root", "--paper"),
     of: (t: Tint) => t.paper,
   },
   "a dark room": {
-    ink: token(".dark", "--ink"),
+    ink: parse(LETTERING),
     paper: token(".dark", "--paper"),
     of: (t: Tint) => t.dark,
   },
@@ -52,14 +55,17 @@ describe("a Series keeps its tint", () => {
     expect(tint(series)).toEqual(tint(series));
   });
 
-  // The pin. Determinism inside one run is a property of any pure function; what the owner
+  // The pin, moved once on purpose: the second tranche of ADR-0026 retuned the range from a
+  // pastel printed in ink to a deep cloth lettered in light, which repainted every shelf.
+  //
+  // Determinism inside one run is a property of any pure function; what the owner
   // needs is that the shelf is the same colour *tomorrow*, on a build nobody thought about
   // this file in. A recorded pair is the only form of that assertion there is, and changing
   // it is the deliberate act of repainting somebody's shelf.
   it("answers what it answered when this test was written", () => {
     expect(tint("3f1a6b0e-2c4d-4a8f-9b7e-5d0c1a2b3c4d")).toEqual({
-      paper: "oklch(0.83 0.08 188)",
-      dark: "oklch(0.38 0.06 188)",
+      paper: "oklch(0.42 0.07 188)",
+      dark: "oklch(0.39 0.06 188)",
     });
   });
 
@@ -108,9 +114,10 @@ describe("every tint it can produce", () => {
       expect(outside).toEqual([]);
     });
 
-    // The same threshold the palette holds ink to on paper: a tile's title is read, and
-    // the tint is the ground it is read on. Full ink and nothing quieter is printed on a
-    // tile for exactly this reason — quiet ink on a tint clears nothing.
+    // The same threshold the palette holds ink to on paper: a drawn cover's title is read,
+    // and the cloth is the ground it is read on. The lettering is the one light value
+    // stamped on every cloth, and nothing quieter is — a translucent light on a deep
+    // colour clears nothing.
     it("keeps a title legible, at the reading threshold", () => {
       const unreadable = TINTS.map(on.of)
         .map((colour) => ({ colour, ratio: contrast(parse(colour), on.ink) }))

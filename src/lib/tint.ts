@@ -18,8 +18,9 @@ import type { CSSProperties } from "react";
 //      the answer.
 //   3. **It is constrained to a range that stays legible.** Lightness and chroma are fixed
 //      per ground and only the hue turns, so every colour this file can produce is inside
-//      sRGB and clears the reading threshold against the same ink the palette declares. The
-//      range is enumerated below precisely so a test can walk all of it.
+//      sRGB and is deep enough that the light lettering stamped on it (`LETTERING`) clears
+//      the reading threshold. The range is enumerated below precisely so a test can walk
+//      all of it.
 //
 // This is the one file in `src/` allowed to name a colour, and the palette's wall names it
 // as the exception. A screen still names none: it spends `tint()` the way it spends a token.
@@ -27,29 +28,31 @@ import type { CSSProperties } from "react";
 /**
  * A Series' colour, on each of the two grounds.
  *
- * Two values rather than one because the grounds are not a filter over each other: on paper
- * a tile is a light one carrying dark ink, and in a dark room it is a deep one carrying
- * light ink. The same hue, at the lightness its ground can hold.
+ * Two values rather than one because the grounds are not a filter over each other: a cloth
+ * that stands off newsprint by day would glow on the blue-black of a dark room. Both are
+ * **deep** — bookcloth, not a sticky note — and both carry the same light lettering
+ * (`LETTERING`), which is what a title stamped on a clothbound board looks like.
  */
 export type Tint = {
-  /** The tile on paper, printed in `--ink`. */
+  /** The cloth on paper, lettered in `LETTERING`. */
   readonly paper: string;
-  /** The tile in a dark room, printed in the dark ground's `--ink`. */
+  /** The cloth in a dark room, lettered in `LETTERING`. */
   readonly dark: string;
 };
 
 /**
  * The lightness and chroma each ground holds a tint at.
  *
- * Both were chosen by walking every hue against the declared ink and taking the pair that
- * stayed inside sRGB at the highest chroma — saturated enough to be a colour the owner
- * recognises, light (or deep) enough that the title on it clears 7:1, which is the same
- * threshold the palette holds body text to. The arithmetic is in the test; these are its
- * conclusion, and moving either number without re-reading it there is how a shelf becomes
- * unreadable in a dark room only.
+ * **Retuned to read as bookcloth** (ADR-0026, second tranche). The first range was a light
+ * pastel printed in ink — `oklch(0.83 0.08 h)` — and on a wall of drawn covers it read as a
+ * set of mint and lilac post-its rather than as the boards of a shelf. Cloth is deep and
+ * dusty: a low chroma, a lightness under the middle, and the title stamped on it in light.
+ * So the hue still turns with the Series and nothing else moves: every tint is a deep cloth
+ * whose lettering clears the reading threshold (`./tint.test.ts`), and in a dark room it is a
+ * step deeper again so that it sits in the night rather than glowing out of it.
  */
-const ON_PAPER = { l: 0.83, c: 0.08 } as const;
-const IN_THE_DARK = { l: 0.38, c: 0.06 } as const;
+const ON_PAPER = { l: 0.42, c: 0.07 } as const;
+const IN_THE_DARK = { l: 0.39, c: 0.06 } as const;
 
 /** How many hues the wheel is cut into. One per degree: the whole wheel, and no favourites. */
 const HUES = 360;
@@ -109,7 +112,16 @@ export function tint(identity: string | null | undefined): Tint | null {
  * and the sheet's own dark variant picks one. A second copy of these three lines is how an
  * untinted spine and an untinted cover come to sit on two different grounds.
  */
-export const WORN = "bg-[var(--tint)] dark:bg-[var(--tint-dark)]";
+export const WORN =
+  "bg-[var(--tint)] dark:bg-[var(--tint-dark)] text-[color:oklch(0.955_0.012_88)]";
+
+/**
+ * **What is stamped on a cloth**: the light of a title blocked onto a clothbound board, the
+ * same on both grounds because the cloth under it is deep on both. Written as the value
+ * `WORN` spends rather than as a token, because it exists only on a tint and a tint is this
+ * file's — the wall in `./tint.test.ts` holds it against every cloth there is.
+ */
+export const LETTERING = "oklch(0.955 0.012 88)";
 
 /**
  * The ground a tile falls back to where there is no Series to take a colour from, which is the
@@ -126,3 +138,30 @@ export function worn(tint: Tint | null): CSSProperties | undefined {
   // the repo that has to say so.
   return { "--tint": tint.paper, "--tint-dark": tint.dark } as CSSProperties;
 }
+
+/**
+ * **How a cover is bound**: the marks every cover tile carries, whatever is on its face.
+ *
+ * They are here rather than in `@/components/cover` because each of them is a colour — a
+ * shadow is a translucent ink, a crease is a light line beside a dark one — and this is the
+ * one file in `src/` allowed to name one. They are not tokens in the sheet because none of
+ * them is a role a screen spends: they are the physical facts of a book standing on a shelf,
+ * and they are the same over a jacket and over a drawn cloth.
+ *
+ *   - `shadow`: the soft one a book throws on the shelf behind it, and `lifted` the deeper one
+ *     it throws when the pointer takes it off the shelf.
+ *   - `hero`: the shadow of the one large cover a detail page opens with, which stands further
+ *     off the panel it is laid on.
+ *   - `crease`: where the board meets the spine — a light line and a dark one, inset from the
+ *     left edge, drawn over the face so a jacket and a drawn cloth fold in the same place.
+ *   - `headband`: the darker band across the head of a drawn cloth, which is what makes a
+ *     coloured rectangle read as a book seen from the front.
+ */
+export const BINDING = {
+  shadow: "shadow-[0_1px_2px_rgba(20,24,40,.12),0_6px_14px_rgba(20,24,40,.14)]",
+  lifted:
+    "motion-safe:group-hover/cover:shadow-[0_2px_4px_rgba(20,24,40,.14),0_12px_24px_rgba(20,24,40,.2)]",
+  hero: "shadow-[0_2px_4px_rgba(20,24,40,.14),0_18px_36px_rgba(20,24,40,.26)]",
+  crease: "shadow-[inset_3px_0_0_rgba(255,255,255,.14),inset_4px_0_0_rgba(0,0,0,.12)]",
+  headband: "bg-[rgba(0,0,0,.24)]",
+} as const;
