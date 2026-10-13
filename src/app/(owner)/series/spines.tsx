@@ -18,12 +18,10 @@ import { type Position, positionsOf, standingSaid, whatTheFillMeans } from "./po
 // (#32). A Series is a sequence of objects seen from the outside, the way a shelf is seen: a
 // seventy-two volume Series is one screen of spines and would be six screens of covers, and
 // one stretch of colour with two notches taken out of it is the picture the owner came for.
-// The pile draws its spines lying down (`@/components/pile`) because a pile is read from the
-// side; these stand up because a shelf does.
+// They stand up because a shelf does.
 //
 // It names no colour: the tint is the library's own, a function of the Series' identity, and
-// the wiring by which a tile wears one is `@/lib/tint`'s — shared with the cover and the
-// pile, so an untinted spine here cannot come to sit on a different ground than one there.
+// the wiring by which a tile wears one is `@/lib/tint`'s — shared with the cover, so an untinted spine here cannot come to sit on a different ground than one there.
 //
 // **The drawing left this file in #29** and is `@/components/spine`, because a Story's page
 // draws the objects carrying a narrative the same way and two spines drawn from two files
@@ -66,7 +64,12 @@ export function Spines({
       {/* Wrapping rather than scrolling sideways: seventy-two spines grow down the page in
           as many rows as the window holds, which is how it stays legible on a phone and how
           it spends the width at a desk. A shelf does the same thing. */}
-      <ol className="flex flex-wrap gap-1" aria-label="The positions of this Series">
+      {/* **On a shelf** (ADR-0026, second tranche): the spines stand on a quiet panel with a
+          ledge under them, so the row reads as books standing rather than as a bar chart. */}
+      <ol
+        className="flex flex-wrap items-end gap-x-1 gap-y-3 rounded-t-2xl border-b-[6px] border-input bg-muted px-3 pb-2 pt-4 sm:px-5 sm:pt-5"
+        aria-label="The positions of this Series"
+      >
         {positions.map((position) => (
           <li key={position.number}>
             <SeriesSpine position={position} tint={colour} />
