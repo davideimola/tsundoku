@@ -41,6 +41,8 @@ function entry(said: Partial<PileEntry> = {}): PileEntry {
     atHand: true,
     object: null,
     cover: null,
+    lentBy: null,
+    wornBy: 0,
     proposedWish: null,
     wishAlreadyOpen: false,
     ...said,

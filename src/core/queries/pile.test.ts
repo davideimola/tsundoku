@@ -217,6 +217,7 @@ describe("what a Want puts on the list", () => {
       [
         "atHand",
         "cover",
+        "lentBy",
         "medium",
         "object",
         "proposedWish",
@@ -224,6 +225,7 @@ describe("what a Want puts on the list", () => {
         "story",
         "subject",
         "wishAlreadyOpen",
+        "wornBy",
       ].sort()
     );
   });
@@ -1301,6 +1303,75 @@ describe("the image an entry is faced with", () => {
     expect(entry.cover).toBeNull();
   });
 
+  // **Which Volume lends a row its jacket, and how many rows' Stories share it** — the walls'
+  // own answers, so an omnibus' tales on this list name the omnibus whether or not the house
+  // still holds it, and a row wearing its own image names nobody.
+  it("names the Volume lending the jacket and counts who else wears it, as the wall does", async () => {
+    const { id: omnibus } = await catalogueVolume({
+      title: "Batman di Jeph Loeb e Tim Sale 1",
+      publisher: "Panini Comics",
+      binding: "omnibus",
+      language: "it",
+    });
+    await query(
+      `update volume set cover_source = 'google-books', cover_url = $2, cover_looked_up_at = now()
+        where id = $1`,
+      [omnibus, A_COVER]
+    );
+    const tales: string[] = [];
+    for (const title of ["Il lungo Halloween", "Vittoria oscura", "Catwoman: A Roma"]) {
+      const story = await createStory({ title, typeId: "comic" });
+      await recordVolumeCarriesStory(omnibus, story);
+      await openWant(story);
+      tales.push(story);
+    }
+    await setOwnStoryImage(tales[2], A_SCREENSHOT);
+
+    const rows = await reserve();
+    const of = (id: string) => rows.find((entry) => entry.story?.id === id);
+    const volume = { id: omnibus, title: "Batman di Jeph Loeb e Tim Sale 1" };
+
+    expect(of(tales[0])).toMatchObject({ lentBy: volume, wornBy: 3 });
+    expect(of(tales[1])).toMatchObject({ lentBy: volume, wornBy: 3 });
+    expect(of(tales[2])).toMatchObject({ lentBy: null, wornBy: 1 });
+  });
+
+  // The row is faced off the same Volume the wall faces the Story off — the first on the shelf
+  // with a face — and not off the object it goes through, which is picked for being at hand.
+  it("is faced off the Volume the wall faces the Story off", async () => {
+    const story = await createStory({ title: "Il lungo Halloween", typeId: "comic" });
+    const single = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      binding: "paperback",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(single, story);
+    const { id: omnibus } = await catalogueVolume({
+      title: "Batman di Jeph Loeb e Tim Sale 1",
+      publisher: "Panini Comics",
+      binding: "omnibus",
+      language: "it",
+    });
+    await query(
+      `update volume set cover_source = 'google-books', cover_url = $2, cover_looked_up_at = now()
+        where id = $1`,
+      [omnibus, A_COVER]
+    );
+    await recordVolumeCarriesStory(omnibus, story);
+    await openWant(story);
+
+    const [entry] = await reserve();
+
+    // It goes through the single on the shelf, and wears the omnibus' jacket.
+    expect(entry.object?.id).toBe(single);
+    expect(entry).toMatchObject({
+      cover: { url: A_COVER },
+      lentBy: { id: omnibus, title: "Batman di Jeph Loeb e Tim Sale 1" },
+      wornBy: 1,
+    });
+  });
+
   // A Series entry names an object and not a narrative, so there is no Story to take an image
   // off — it wears the jacket of the object at that position, or the drawn tile.
   it("is the object's alone on a Series entry, which names no narrative", async () => {
@@ -1322,6 +1393,6 @@ describe("the image an entry is faced with", () => {
     const rows = await reserve();
     const position = rows.find((entry) => entry.story === null);
 
-    expect(position?.cover).toBeNull();
+    expect(position).toMatchObject({ cover: null, lentBy: null, wornBy: 0 });
   });
 });

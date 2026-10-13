@@ -487,6 +487,8 @@ describe("the Story wall", () => {
         // And nothing faces it, so no jacket is shared and there is nothing to count the
         // works of. The sharing is asserted beside the borrowing, in `queries/cover.test.ts`.
         wornBy: 0,
+        // And no Volume lends it anything to name.
+        lentBy: null,
       },
     ]);
   });
@@ -674,7 +676,12 @@ describe("the Story, faced as its own page draws it", () => {
   it("stands in no line and is faced with nothing where no Volume carries it", async () => {
     const storyId = await createStory({ title: "Sapiens", typeId: "non-fiction" });
 
-    expect(await findStory(storyId)).toMatchObject({ series: null, cover: null });
+    expect(await findStory(storyId)).toMatchObject({
+      series: null,
+      cover: null,
+      lentBy: null,
+      wornBy: 0,
+    });
   });
 });
 
@@ -975,6 +982,7 @@ describe("a Story no object carries", () => {
         // and they stay two different facts, which is why this is a count.
         carriedBy: 0,
         wornBy: 0,
+        lentBy: null,
       },
     ]);
   });

@@ -48,6 +48,8 @@ function story(id: string, ...reasons: PileReason[]): PileEntry {
     atHand: true,
     object: null,
     cover: null,
+    lentBy: null,
+    wornBy: 0,
     proposedWish: null,
     wishAlreadyOpen: false,
   };
@@ -75,6 +77,8 @@ function position(id: string, at: number): PileEntry {
     atHand: false,
     object: null,
     cover: null,
+    lentBy: null,
+    wornBy: 0,
     proposedWish: null,
     wishAlreadyOpen: false,
   };

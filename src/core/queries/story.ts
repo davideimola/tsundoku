@@ -387,6 +387,30 @@ export const HOW_MANY_NARRATIVES_WEAR_THAT_JACKET = `
               where vs.volume_id = ${THE_VOLUME_THAT_LENDS_THE_JACKET})
   end`;
 
+// **Which Volume lends the jacket, named** — the same pick asked a third thing: not the
+// picture and not how many wear it, but the object itself, so a screen can say *bound in
+// L'uomo che ride* and lead there.
+//
+// The redesign had to find it backwards (ADR-0026): the wall said the picture and the count,
+// and a page grouped tiles by the jacket's address and looked the Volume up among the house's
+// by that same address — which lost the way onto any omnibus the owner had let go, and any
+// two objects faced with one image. **It is the pick and not a second one**, so the Volume
+// named is the one the face came off by construction.
+//
+// **A Story wearing an image of its own borrows nothing**, so it is `null` there exactly as
+// the count above is one: the Volume is named only where it is what the tile is wearing. And
+// it is `null` where no faced object carries the Story, which is the drawn tile. Whether the
+// house holds it does not enter: a jacket is lent by the object, held or not.
+export const THE_VOLUME_LENDING_ITS_JACKET = `
+  case when s.own_image_url is not null then null
+       else (select jsonb_build_object('id', v.id, 'title', v.title)
+               from volume v
+              where v.id = ${THE_VOLUME_THAT_LENDS_THE_JACKET})
+  end`;
+
+/** The Volume a Story's jacket is lent by: enough to name it and to lead to it. */
+export type LendingVolume = { id: string; title: string };
+
 // The Rating shape, as a subquery builds it. `score` leaves as a double rather than as
 // `numeric`, which the driver would hand over as a string.
 const RATING = `
@@ -520,6 +544,18 @@ export type FoundStory = Story & {
    */
   ownImage: string | null;
   /**
+   * **The Volume its jacket is lent by**, or `null` where it wears its own image or nothing
+   * at all (`THE_VOLUME_LENDING_ITS_JACKET`) — the object the page leads to when it says the
+   * Story is bound with others.
+   */
+  lentBy: LendingVolume | null;
+  /**
+   * How many narratives wear that jacket, the wall's own count
+   * (`HOW_MANY_NARRATIVES_WEAR_THAT_JACKET`): more than one is an omnibus' tale, and the
+   * page draws its own cloth rather than a picture several Stories share.
+   */
+  wornBy: number;
+  /**
    * The score at the tile's foot, which is the third thing the wall's tile carries — and the
    * same one, off the same fragment, so the tile does not change what it says on the way in.
    * The stack below it is the whole story of the judgements; this is what the tile can fit.
@@ -527,12 +563,16 @@ export type FoundStory = Story & {
   latestScore: number | null;
 };
 
-// **What this page deliberately does not read is the sharing of the jacket**
-// (`HOW_MANY_NARRATIVES_WEAR_THAT_JACKET`), and it is the one place a Story is drawn without
-// it. The band exists to answer *which of these is which* on a wall of tiles wearing one
-// picture; here there is one tile, and the title is set beside it at three times the size.
-// It is also 80 pixels wide at this end of the page, where a band clips a title mid-word to
-// repeat the heading. A marking that says nothing is not consistency.
+// **The sharing of the jacket is read here too now, and for a different reason than the
+// wall's** (`HOW_MANY_NARRATIVES_WEAR_THAT_JACKET`). Nothing prints a band on this page — there
+// is one tile, and the title is set beside it at three times the size. What the count decides
+// is whether the hero wears the picture at all: an omnibus' tale faced with the omnibus would
+// say *this Story is that book*, so the page draws its own cloth and says which Volume it is
+// bound in, by the Volume the pick named (`lentBy`). The page used to ask the whole wall for
+// this one Story's count; it is the same fragment, asked of one row.
+//
+// The two are selected here rather than added to `STORY_COLUMNS`, for the reason the jacket
+// is: the corpus an assistant recommends from has no use for which object lends a picture.
 
 export async function findStory(storyId: string): Promise<FoundStory | null> {
   if (!UUID.test(storyId)) return null;
@@ -542,6 +582,8 @@ export async function findStory(storyId: string): Promise<FoundStory | null> {
             ${THE_LINE_IT_STANDS_IN} as series,
             ${THE_COVER_IT_IS_FACED_OUT_WITH} as cover,
             s.own_image_url as "ownImage",
+            ${THE_VOLUME_LENDING_ITS_JACKET} as "lentBy",
+            ${HOW_MANY_NARRATIVES_WEAR_THAT_JACKET} as "wornBy",
             ${LATEST_SCORE} as "latestScore"
      ${A_STORY}
      where s.id = $1`,
@@ -649,6 +691,12 @@ export type WallStory = {
    * the one case where a faced tile has to print its title.
    */
   wornBy: number;
+  /**
+   * **The Volume that jacket is lent by**, off the same pick (`THE_VOLUME_LENDING_ITS_JACKET`)
+   * — `null` where the Story wears its own image or nothing. Stories bound in one Volume are
+   * the Stories naming the same one here, in the house or not.
+   */
+  lentBy: LendingVolume | null;
 };
 
 /**
@@ -697,7 +745,8 @@ export async function listStoryWall(filter: StoryWallFilter = {}): Promise<WallS
        ${THE_LINE_IT_STANDS_IN} as series,
        ${THE_COVER_IT_IS_FACED_OUT_WITH} as cover,
        ${HOW_MANY_OBJECTS_CARRY_IT} as "carriedBy",
-       ${HOW_MANY_NARRATIVES_WEAR_THAT_JACKET} as "wornBy"
+       ${HOW_MANY_NARRATIVES_WEAR_THAT_JACKET} as "wornBy",
+       ${THE_VOLUME_LENDING_ITS_JACKET} as "lentBy"
      from story s
      join type t on t.id = s.type_id
      ${STATE_ONCE}

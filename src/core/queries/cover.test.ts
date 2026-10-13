@@ -237,6 +237,105 @@ describe("how many narratives wear that jacket", () => {
   });
 });
 
+// **Which Volume lends the jacket**, named — the third thing asked of the one pick. The page
+// that binds an omnibus' tales into one tile used to find the Volume by the picture's address
+// among the house's, so an omnibus the owner had let go lost its way in; it is the pick's own
+// answer now, and the house does not enter into it.
+describe("which Volume lends the jacket", () => {
+  const ITS_OWN = "https://tsundoku.davideimola.dev/images/il-lungo-halloween.jpg";
+
+  /** One object, faced, carrying each of the titles named — catalogued, held or not. */
+  async function anOmnibus(titles: string[], { held = true } = {}) {
+    const volume = {
+      title: "Batman di Jeph Loeb e Tim Sale 1",
+      publisher: "Panini Comics",
+      binding: "omnibus",
+      language: "it",
+    };
+    const id = held ? await volumeInTheHouse(volume) : (await catalogueVolume(volume)).id;
+    await looked(id, A_COVER);
+
+    const stories: string[] = [];
+    for (const title of titles) {
+      const story = await createStory({ title, typeId: "comic" });
+      await recordVolumeCarriesStory(id, story);
+      stories.push(story);
+    }
+
+    return { volume: { id, title: volume.title }, stories };
+  }
+
+  it("names the one Volume several Stories share a jacket with, on the wall and on the page", async () => {
+    const { volume, stories } = await anOmnibus([
+      "Il lungo Halloween",
+      "Vittoria oscura",
+      "Catwoman: A Roma",
+    ]);
+
+    const wall = await listStoryWall();
+    expect(wall.map((story) => [story.lentBy, story.wornBy])).toEqual([
+      [volume, 3],
+      [volume, 3],
+      [volume, 3],
+    ]);
+    expect(await findStory(stories[0])).toMatchObject({ lentBy: volume, wornBy: 3 });
+  });
+
+  // The case the screen could not reach: an object the owner let go still lends its face —
+  // the jacket was never the house's — and the way onto it is still a Volume to name.
+  it("names a Volume the house does not hold", async () => {
+    const { volume, stories } = await anOmnibus(["Il lungo Halloween", "Vittoria oscura"], {
+      held: false,
+    });
+
+    expect((await listStoryWall()).map((story) => story.lentBy)).toEqual([volume, volume]);
+    expect((await findStory(stories[1]))?.lentBy).toEqual(volume);
+  });
+
+  // A Story wearing its own image borrows from nobody, so it names nobody — while the tale
+  // beside it in the same book goes on naming the book.
+  it("names nothing for a Story wearing an image of its own", async () => {
+    const { volume, stories } = await anOmnibus(["Il lungo Halloween", "Vittoria oscura"]);
+    await setOwnStoryImage(stories[0], ITS_OWN);
+
+    const wall = await listStoryWall();
+    expect(wall.find((one) => one.id === stories[0])).toMatchObject({ lentBy: null, wornBy: 1 });
+    expect(wall.find((one) => one.id === stories[1])).toMatchObject({ lentBy: volume });
+    expect((await findStory(stories[0]))?.lentBy).toBeNull();
+  });
+
+  it("names nothing where no Volume carrying it has a face, which is the drawn tile", async () => {
+    const story = await createStory({ title: "Il lungo Halloween", typeId: "comic" });
+    const bare = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      binding: "paperback",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(bare, story);
+
+    expect((await listStoryWall())[0]).toMatchObject({ cover: null, lentBy: null, wornBy: 0 });
+  });
+
+  // The Volume named is the one the picture came off, never merely the first carrier: a work
+  // in a faceless single and then in an omnibus wears — and names — the omnibus.
+  it("names the Volume the picture came off, not the first carrier", async () => {
+    const story = await createStory({ title: "Il lungo Halloween", typeId: "comic" });
+    const single = await volumeInTheHouse({
+      title: "Batman: Il lungo Halloween",
+      publisher: "Panini Comics",
+      binding: "paperback",
+      language: "it",
+    });
+    await recordVolumeCarriesStory(single, story);
+    const { volume } = await anOmnibus(["Vittoria oscura"]);
+    await recordVolumeCarriesStory(volume.id, story);
+
+    const halloween = (await listStoryWall()).find((one) => one.id === story);
+    expect(halloween).toMatchObject({ lentBy: volume, wornBy: 2 });
+  });
+});
+
 // **The precedence, which is this ticket's decision and is therefore the thing tested rather
 // than discovered** (#65). Three images can be true about one tile at once — the Story's own,
 // the lending Volume's own, and the looked-up cover behind it — and the order they are

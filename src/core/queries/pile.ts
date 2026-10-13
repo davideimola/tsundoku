@@ -8,7 +8,15 @@ import { type FacedWith, THE_COVER_IT_IS_FACED_WITH } from "./cover.ts";
 import { listMedia } from "./medium.ts";
 import { type PathStop, stillAheadOnActivePaths } from "./path.ts";
 import { listMissingVolumes, type SeriesLedger } from "./series.ts";
-import { type HowFarItGot, listRunsInProgress, type StoryType } from "./story.ts";
+import {
+  HOW_MANY_NARRATIVES_WEAR_THAT_JACKET,
+  type HowFarItGot,
+  type LendingVolume,
+  listRunsInProgress,
+  type StoryType,
+  THE_COVER_IT_IS_FACED_OUT_WITH,
+  THE_VOLUME_LENDING_ITS_JACKET,
+} from "./story.ts";
 import { listTypes } from "./type.ts";
 import { listOpenWants } from "./want.ts";
 
@@ -277,16 +285,33 @@ export type PileEntry = {
    *
    * The order is the core's and never the screen's, and it is the same one the walls read
    * (`THE_COVER_IT_IS_FACED_OUT_WITH` in `queries/story.ts`): **the image nearest the record**
-   * — the Story's own image, then whatever the object carrying it is faced with, then nothing
-   * (#65, ADR-0013). A list showing volume one's jacket over an image the owner gave the work
-   * would be the Pile disagreeing with `/stories` about the same Story.
+   * — the Story's own image, then whatever the Volume lending it a jacket is faced with, then
+   * nothing (#65, ADR-0013). A list showing volume one's jacket over an image the owner gave
+   * the work would be the Pile disagreeing with `/stories` about the same Story — and so would
+   * a row faced off the object it goes through where the wall faces the Story off another.
    *
    * It is beside `object.cover` rather than replacing it because the two are different facts:
    * that one is what the **object** wears, which an entry proposing a Wish is entitled to
-   * name, and this is what the **row** wears. A Series entry names no narrative, so the two
-   * are the same answer there.
+   * name, and this is what the **row** wears. They are usually the same picture and need not
+   * be: the object is picked for being in the house, the jacket for standing first on the
+   * shelf with a face. A Series entry names no narrative, so the two are the same answer there.
    */
   cover: FacedWith | null;
+  /**
+   * **The Volume that jacket is lent by** — the wall's own answer
+   * (`THE_VOLUME_LENDING_ITS_JACKET`), so a row bound in an omnibus names the omnibus. `null`
+   * where the Story wears its own image or nothing, and on a Series entry, whose jacket is
+   * the object's own rather than lent.
+   */
+  lentBy: LendingVolume | null;
+  /**
+   * How many narratives wear that jacket, the wall's own count
+   * (`HOW_MANY_NARRATIVES_WEAR_THAT_JACKET`). More than one is a tale out of an omnibus, and a
+   * row faced with a picture other Stories share would claim to be that book. On a Series
+   * entry the jacket is the object's own, so it is one where there is a jacket and nought
+   * where there is none.
+   */
+  wornBy: number;
   /**
    * **A Wish this entry proposes, and has not opened.** Present exactly where the entry
    * needs an object the owner does not have, the library knows that object, and no Wish on
@@ -459,14 +484,14 @@ export async function composePile(narrowing: PileFilter = {}): Promise<Pile> {
   // Asked for the rows that survived the narrowing, because a wall must not read what it does
   // not show.
   const narrativeRows = drafts.flatMap((draft) => (draft.story ? [draft.story.id] : []));
-  const [carriers, positions, ownImages] = await Promise.all([
+  const [carriers, positions, jackets] = await Promise.all([
     objectsCarrying(narrativeRows),
     objectsAtPositions(narrowing.typeId === undefined ? incomplete : []),
-    // The one thing a Story carries about its own face (#65). Asked here rather than added to
-    // the four sources' own answers, because it is a fact about the *tile* and not about the
-    // Want, the route or the run that put the row here — and asking it once for the rows that
-    // survived the narrowing is what the two questions above already do.
-    imagesOnStories(narrativeRows),
+    // What each narrative row is faced with, and by which Volume (#65). Asked here rather
+    // than added to the four sources' own answers, because it is a fact about the *tile* and
+    // not about the Want, the route or the run that put the row here — and asking it once for
+    // the rows that survived the narrowing is what the two questions above already do.
+    jacketsOf(narrativeRows),
   ]);
 
   // **Whether a medium goes through an object is the vocabulary's answer**, not this file's
@@ -519,7 +544,7 @@ export async function composePile(narrowing: PileFilter = {}): Promise<Pile> {
       subject: draft.subject,
       reasons: draft.reasons,
       story: draft.story,
-      cover: facedWith(draft.story && ownImages.get(draft.story.id), carrier),
+      ...wearing(draft.story ? jackets.get(draft.story.id) : undefined, carrier),
       ...through(carrier, medium, needsAnObject),
     });
   }
@@ -703,36 +728,45 @@ async function objectsCarrying(storyIds: string[]): Promise<Map<string, Carrier>
   return new Map(rows.map((row) => [row.storyId, row]));
 }
 
+/** What a narrative row wears: the picture, the Volume lending it, and how many share it. */
+type Jacket = Pick<PileEntry, "cover" | "lentBy" | "wornBy">;
+
 /**
- * **What the tile beside a row is faced with**, in the order the core resolves it.
+ * **What the tile beside a row is faced with**, and by whom.
  *
- * The Story's own image first, then whatever the object carrying the row is faced with, then
- * nothing — the drawn tile, which is the ordinary answer here and not a gap. It is the same
- * order `THE_COVER_IT_IS_FACED_OUT_WITH` writes as SQL for the walls, said in TypeScript
- * because this list is composed rather than selected; two places, one rule, and this comment
- * is the rope between them.
+ * A narrative row wears exactly what the wall faces its Story with — the three fragments the
+ * walls select, asked of these Stories (`jacketsOf`) — so there is one rule and no rope
+ * between two copies of it. It was a second copy here until the lending Volume had to be
+ * named: this file faced a row off the object it goes through, which is picked for being in
+ * the house, while the wall faced the Story off the first object on the shelf with a face.
  *
- * A Series entry has no Story, so it reaches the second rung directly: it names an object and
- * not a narrative, and there is nothing to take an image off.
+ * A Series entry has no Story, so it wears its object's own jacket: it names an object and not
+ * a narrative, there is nothing to take an image off, and nothing is lent.
  */
-function facedWith(ownImage: string | null | undefined, carrier: Carrier | undefined) {
-  if (ownImage) return { url: ownImage, from: "own" } as const;
-  return carrier?.object.cover ?? null;
+function wearing(jacket: Jacket | undefined, carrier: Carrier | undefined): Jacket {
+  if (jacket) return jacket;
+  const cover = carrier?.object.cover ?? null;
+  return { cover, lentBy: null, wornBy: cover ? 1 : 0 };
 }
 
-/** The owner's own image on each of the Stories asked about, where they set one. */
-async function imagesOnStories(storyIds: string[]): Promise<Map<string, string>> {
+/** What each of the Stories asked about is faced with, off the walls' own fragments. */
+async function jacketsOf(storyIds: string[]): Promise<Map<string, Jacket>> {
   const asked = [...new Set(storyIds)];
   if (asked.length === 0) return new Map();
 
-  const rows = await query<{ storyId: string; ownImage: string }>(
-    `select s.id::text as "storyId", s.own_image_url as "ownImage"
+  const rows = await query<Jacket & { storyId: string }>(
+    `select s.id::text as "storyId",
+            ${THE_COVER_IT_IS_FACED_OUT_WITH} as cover,
+            ${THE_VOLUME_LENDING_ITS_JACKET} as "lentBy",
+            ${HOW_MANY_NARRATIVES_WEAR_THAT_JACKET} as "wornBy"
        from story s
-      where s.id = any($1::uuid[]) and s.own_image_url is not null`,
+      where s.id = any($1::uuid[])`,
     [asked]
   );
 
-  return new Map(rows.map((row) => [row.storyId, row.ownImage]));
+  return new Map(
+    rows.map(({ storyId, cover, lentBy, wornBy }) => [storyId, { cover, lentBy, wornBy }])
+  );
 }
 
 /**
